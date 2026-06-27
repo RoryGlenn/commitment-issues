@@ -60,6 +60,10 @@ for (const file of stagedFiles) {
   }
 }
 
+if (stagedFiles.length === 0) {
+  process.exit(0);
+}
+
 if (missingTests.length > 0) {
   printBox(
     [

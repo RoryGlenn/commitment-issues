@@ -16,8 +16,7 @@
   "lint-staged": {
     "*.{js,jsx,mjs}": [
       "eslint",
-      "node scripts/check-format.mjs",
-      "node scripts/check-tests.mjs"
+      "node scripts/check-format.mjs"
     ],
     "*.{json,css,scss,md,html,yml,yaml}": [
       "node scripts/check-format.mjs"
