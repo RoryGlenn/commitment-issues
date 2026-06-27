@@ -1,5 +1,4 @@
-const unusedValue = 123; 
-
+const unusedValue = 123;
 function sayHello(name) {
   console.log("hello, " + name);
 }
