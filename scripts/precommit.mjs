@@ -2,20 +2,24 @@ import { spawnSync } from "node:child_process";
 import boxen from "boxen";
 import pc from "picocolors";
 
-function printBox(message, color = (value) => value) {
+function printBox(message, color = (value) => value, options = {}) {
   console.log(
     boxen(color(message), {
       padding: 1,
-      borderStyle: "single",
+      borderStyle: "round",
       margin: {
         top: 1,
         bottom: 1,
       },
+      ...options,
     }),
   );
 }
 
-printBox(pc.bold("Pre-commit suggestions"), pc.cyan);
+printBox(pc.bold("Pre-commit suggestions"), pc.cyan, {
+  title: "pre-commit",
+  titleAlignment: "center",
+});
 
 const result = spawnSync("npx", ["lint-staged", "--quiet"], {
   stdio: "inherit",
@@ -29,14 +33,23 @@ if (result.status !== 0) {
     [
       pc.bold("Suggestions found."),
       "",
-      "Commit will continue anyway.",
-      "Run npm run format or npm run lint:fix when ready.",
+      pc.dim("Commit will continue. Run the commands below when ready:"),
+      "",
+      pc.bold("  npm run lint:fix"),
+      pc.bold("  npm run format"),
     ].join("\n"),
     pc.yellow,
+    {
+      title: "warning",
+      titleAlignment: "center",
+    },
   );
 
   process.exit(0);
 }
 
-printBox("No pre-commit suggestions found.", pc.green);
+printBox(pc.green("No pre-commit suggestions found."), pc.green, {
+  title: "success",
+  titleAlignment: "center",
+});
 process.exit(0);

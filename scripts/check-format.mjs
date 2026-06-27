@@ -3,15 +3,16 @@ import { spawnSync } from "node:child_process";
 import boxen from "boxen";
 import pc from "picocolors";
 
-function printBox(message, color = (value) => value) {
+function printBox(message, color = (value) => value, options = {}) {
   console.log(
     boxen(color(message), {
       padding: 1,
-      borderStyle: "single",
+      borderStyle: "round",
       margin: {
         top: 1,
         bottom: 1,
       },
+      ...options,
     }),
   );
 }
@@ -48,19 +49,26 @@ if (stderr) {
 }
 
 if (result.status !== 0) {
-  console.log("");
   printBox(
     [
       pc.bold("Formatting suggestions found."),
       "",
-      "Run this command to fix formatting:",
+      pc.dim("Run this command to fix formatting:"),
       "",
       pc.bold("  npm run format"),
     ].join("\n"),
     pc.yellow,
+    {
+      title: "prettier",
+      titleAlignment: "center",
+    },
   );
 
   process.exit(result.status ?? 1);
 }
 
+printBox(pc.green("Formatting is clean."), pc.green, {
+  title: "prettier",
+  titleAlignment: "center",
+});
 process.exit(0);
