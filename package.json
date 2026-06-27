@@ -12,9 +12,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test:precommit": "node scripts/precommit.mjs",
-    "test:prepush": "node scripts/prepush.mjs",
-    "build": "vite build",
-    "test": "vitetest run"
+    "test:prepush": "node scripts/prepush.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,mjs}": [
@@ -32,5 +30,8 @@
     "lint-staged": "^15.0.0",
     "picocolors": "^1.1.1",
     "prettier": "^3.0.0"
+  },
+  "dependencies": {
+    "vite": "^8.1.0"
   }
 }
