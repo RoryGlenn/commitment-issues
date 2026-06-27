@@ -11,7 +11,12 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "test:precommit": "node scripts/precommit.mjs"
+    "test:precommit": "node scripts/precommit.mjs",
+    "test:prepush": "node scripts/prepush.mjs",
+    "build": "vite build",
+    "test": "vitetest run"
+
+
   },
   "lint-staged": {
     "*.{js,jsx,mjs}": [
