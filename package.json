@@ -15,18 +15,16 @@
     "test:prepush": "node scripts/prepush.mjs",
     "build": "vite build",
     "test": "vitetest run"
-
-
   },
-"lint-staged": {
-  "*.{js,jsx,mjs}": [
-    "eslint",
-    "node scripts/check-format.mjs"
-  ],
-  "*.{json,css,scss,md,html,yml,yaml}": [
-    "node scripts/check-format.mjs"
-  ]
-},
+  "lint-staged": {
+    "*.{js,jsx,mjs}": [
+      "eslint",
+      "node scripts/check-format.mjs"
+    ],
+    "*.{json,css,scss,md,html,yml,yaml}": [
+      "node scripts/check-format.mjs"
+    ]
+  },
   "devDependencies": {
     "boxen": "^8.0.1",
     "eslint": "^9.0.0",
