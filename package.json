@@ -22,9 +22,11 @@
     ]
   },
   "devDependencies": {
+    "boxen": "^8.0.1",
     "eslint": "^9.0.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
+    "picocolors": "^1.1.1",
     "prettier": "^3.0.0"
   }
 }

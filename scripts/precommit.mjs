@@ -1,8 +1,23 @@
 import { spawnSync } from "node:child_process";
+import boxen from "boxen";
+import pc from "picocolors";
 
-console.log("Running pre-commit checks as non-blocking suggestions...");
+function printBox(message, color = (value) => value) {
+  console.log(
+    boxen(color(message), {
+      padding: 1,
+      borderStyle: "single",
+      margin: {
+        top: 1,
+        bottom: 1,
+      },
+    }),
+  );
+}
 
-const result = spawnSync("npx", ["lint-staged"], {
+printBox("Pre-commit suggestions", pc.cyan);
+
+const result = spawnSync("npx", ["lint-staged", "--quiet"], {
   stdio: "inherit",
   shell: process.platform === "win32",
 });
@@ -10,9 +25,18 @@ const result = spawnSync("npx", ["lint-staged"], {
 console.log("");
 
 if (result.status !== 0) {
-  console.warn("Pre-commit suggestions found.");
-  console.warn("Commit will continue anyway. Review the warnings above when you have time.");
+  printBox(
+    [
+      "Suggestions found.",
+      "",
+      "Commit will continue anyway.",
+      "Run npm run format or npm run lint:fix when ready.",
+    ].join("\n"),
+    pc.yellow,
+  );
+
   process.exit(0);
 }
 
-console.log("Pre-commit checks passed. Commit will continue.");
+printBox("No pre-commit suggestions found.", pc.green);
+process.exit(0);
