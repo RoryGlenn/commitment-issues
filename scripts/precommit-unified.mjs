@@ -31,6 +31,27 @@ const stagedJsFiles = gitFiles.stdout
   .filter((file) => file && /\.(js|jsx|mjs)$/.test(file));
 
 let issues = [];
+let eslintIssueCount = 0;
+
+if (stagedJsFiles.length > 0) {
+  const eslintResult = spawnSync("npx", ["eslint", "--format", "json", ...stagedJsFiles], {
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+    shell: process.platform === "win32",
+  });
+
+  if (eslintResult.stdout) {
+    try {
+      const parsed = JSON.parse(eslintResult.stdout);
+      eslintIssueCount = parsed.reduce(
+        (sum, fileResult) => sum + (fileResult.errorCount || 0) + (fileResult.warningCount || 0),
+        0,
+      );
+    } catch {
+      eslintIssueCount = 0;
+    }
+  }
+}
 
 // Check for test file issues
 if (stagedJsFiles.length > 0) {
@@ -70,10 +91,10 @@ const output = result.stdout + result.stderr;
 
 // Parse output to detect what failed
 if (result.status !== 0) {
-  if (output.includes("eslint")) {
+  if (eslintIssueCount > 0 || output.includes("eslint")) {
     issues.push({
       type: "lint",
-      message: "ESLint issues found",
+      message: eslintIssueCount > 0 ? `${eslintIssueCount} ESLint issue${eslintIssueCount === 1 ? "" : "s"} found` : "ESLint issues found",
     });
   }
   if (output.includes("prettier") || output.includes("Checking formatting")) {
