@@ -98,7 +98,9 @@ const stagedFiles = gitFiles.stdout
   .map((file) => file.trim())
   .filter(Boolean);
 
-const stagedJsFiles = stagedFiles.filter((file) => /\.(js|jsx|mjs)$/.test(file));
+const stagedJsFiles = stagedFiles.filter((file) =>
+  /\.(js|jsx|mjs)$/.test(file),
+);
 const stagedFormatFiles = stagedFiles.filter((file) =>
   /\.(js|jsx|mjs|json|css|scss|md|html|yml|yaml)$/.test(file),
 );
@@ -122,7 +124,15 @@ if (stagedJsFiles.length > 0) {
 
   const eslintResult = spawnSync(
     "npx",
-    ["eslint", "--cache", "--cache-strategy", "content", "--format", "json", ...stagedJsFiles],
+    [
+      "eslint",
+      "--cache",
+      "--cache-strategy",
+      "content",
+      "--format",
+      "json",
+      ...stagedJsFiles,
+    ],
     {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -252,7 +262,9 @@ if (issues.length > 0) {
   }
 
   if (!eslintFixCommand && !prettierFixCommand) {
-    messageLines.push(`  ${pc.dim("No automatic fix command for these issues.")}`);
+    messageLines.push(
+      `  ${pc.dim("No automatic fix command for these issues.")}`,
+    );
   }
 } else {
   color = pc.green;
