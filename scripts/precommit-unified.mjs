@@ -166,7 +166,7 @@ if (stagedJsFiles.length > 0) {
 if (stagedFormatFiles.length > 0) {
   const prettierResult = spawnSync(
     "npx",
-    ["prettier", "--check", "--ignore-unknown", ...stagedFormatFiles],
+    ["prettier", "--list-different", "--ignore-unknown", ...stagedFormatFiles],
     {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -180,10 +180,12 @@ if (stagedFormatFiles.length > 0) {
       message: "Unable to run Prettier",
       detail: "Check Prettier install and project config",
     });
-  } else if ((prettierResult.status || 0) !== 0) {
-    const prettierOutput = `${prettierResult.stdout}\n${prettierResult.stderr}`;
-    const matches = prettierOutput.match(/^\[warn\]\s+/gm);
-    formatIssueCount = matches ? matches.length : 0;
+  } else if ((prettierResult.status || 0) === 1) {
+    const prettierFiles = `${prettierResult.stdout}\n${prettierResult.stderr}`
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    formatIssueCount = prettierFiles.length;
 
     issues.push({
       type: "format",
@@ -191,6 +193,12 @@ if (stagedFormatFiles.length > 0) {
         formatIssueCount > 0
           ? `${formatIssueCount} file${formatIssueCount === 1 ? "" : "s"} with formatting issues`
           : "Formatting issues found",
+    });
+  } else if ((prettierResult.status || 0) > 1) {
+    issues.push({
+      type: "format",
+      message: "Prettier failed to complete",
+      detail: "Check your Prettier configuration",
     });
   }
 }
