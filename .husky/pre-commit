@@ -1,1 +1,1 @@
-node scripts/precommit.mjs
+node scripts/precommit-unified.mjs
