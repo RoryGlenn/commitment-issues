@@ -11,6 +11,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "build": "vite build",
+    "commit:fix": "node scripts/commit-fix.mjs",
     "fix:staged": "node scripts/fix-staged.mjs",
     "test:precommit": "node scripts/precommit-unified.mjs"
   },

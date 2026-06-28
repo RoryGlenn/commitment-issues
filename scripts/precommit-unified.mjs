@@ -108,6 +108,7 @@ if (stagedJsFiles.length > 0) {
 
   if (missingTests.length > 0) {
     issues.push({
+      autoFixable: false,
       type: "tests",
       message: `${missingTests.length} staged source file${missingTests.length === 1 ? "" : "s"} missing unit tests`,
       detail: `${shortFileList(missingTests)}`,
@@ -134,6 +135,7 @@ if (stagedJsFiles.length > 0) {
 
   if (eslintResult.error) {
     issues.push({
+      autoFixable: false,
       type: "lint",
       message: "Unable to run ESLint",
       detail: "Check ESLint install and project config",
@@ -152,11 +154,13 @@ if (stagedJsFiles.length > 0) {
 
     if (eslintIssueCount > 0) {
       issues.push({
+        autoFixable: true,
         type: "lint",
         message: `${eslintIssueCount} ESLint issue${eslintIssueCount === 1 ? "" : "s"} found`,
       });
     } else if ((eslintResult.status || 0) > 1) {
       issues.push({
+        autoFixable: false,
         type: "lint",
         message: "ESLint failed to complete",
         detail: "Check your ESLint configuration",
@@ -178,6 +182,7 @@ if (stagedFormatFiles.length > 0) {
 
   if (prettierResult.error) {
     issues.push({
+      autoFixable: false,
       type: "format",
       message: "Unable to run Prettier",
       detail: "Check Prettier install and project config",
@@ -190,6 +195,7 @@ if (stagedFormatFiles.length > 0) {
     formatIssueCount = prettierFiles.length;
 
     issues.push({
+      autoFixable: true,
       type: "format",
       message:
         formatIssueCount > 0
@@ -199,6 +205,7 @@ if (stagedFormatFiles.length > 0) {
     });
   } else if ((prettierResult.status || 0) > 1) {
     issues.push({
+      autoFixable: false,
       type: "format",
       message: "Prettier failed to complete",
       detail: "Check your Prettier configuration",
@@ -233,14 +240,20 @@ if (issues.length > 0) {
     }
   });
 
-  const hasFixableIssue = issues.some(
-    (issue) => issue.type === "lint" || issue.type === "format",
-  );
+  const hasFixableIssue = issues.some((issue) => issue.autoFixable);
+  const canAmendLatestCommit =
+    hasFixableIssue && issues.every((issue) => issue.autoFixable);
 
   messageLines.push("");
   if (hasFixableIssue) {
-    messageLines.push(pc.dim("Fix staged files and refresh the index:"));
+    messageLines.push(pc.dim("Run now on the current staged set:"));
     messageLines.push(`  ${pc.bold("npm run fix:staged")}`);
+
+    if (canAmendLatestCommit) {
+      messageLines.push("");
+      messageLines.push(pc.dim("Or, after this commit completes, amend it with automatic fixes:"));
+      messageLines.push(`  ${pc.bold("npm run commit:fix")}`);
+    }
   } else {
     messageLines.push(
       `  ${pc.dim("No automatic fix command for these issues.")}`,

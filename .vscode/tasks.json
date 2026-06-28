@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "fix staged files",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "fix:staged"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Apply staged-only ESLint and Prettier fixes."
+    }
+  ]
+}

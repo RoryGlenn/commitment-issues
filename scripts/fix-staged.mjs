@@ -90,7 +90,18 @@ const stagedFormatFiles = stagedFiles.filter((file) =>
 const fixableFiles = Array.from(new Set([...stagedJsFiles, ...stagedFormatFiles]));
 
 if (fixableFiles.length === 0) {
-  console.log("No staged ESLint or Prettier targets to fix.");
+  printBox(
+    [
+      pc.bold("No staged files to fix."),
+      "",
+      pc.dim("Stage a JS, JSON, CSS, Markdown, HTML, or YAML file and run npm run fix:staged again."),
+    ].join("\n"),
+    pc.cyan,
+    {
+      title: "info",
+      titleAlignment: "center",
+    },
+  );
   process.exit(0);
 }
 
