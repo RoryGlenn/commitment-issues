@@ -3,13 +3,14 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { isWindows, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import { loadPrecommitConfig } from "./lib/config.mjs";
+import { parsePrettierList, summarizeEslintJson } from "./lib/checks.mjs";
+import { buildAdvisoryMessage } from "./lib/message.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
   findTestFile,
   isTestFile,
   isTestExemptFile,
-  shortFileList,
 } from "./lib/files.mjs";
 
 function collectStagedTests(files) {
@@ -114,8 +115,6 @@ if (stagedJsFiles.length === 0 && stagedFormatFiles.length === 0) {
 }
 
 let issues = [];
-let eslintIssueCount = 0;
-let formatIssueCount = 0;
 
 if (stagedJsFiles.length > 0) {
   const missingTests = stagedJsFiles.filter(
@@ -163,26 +162,8 @@ if (stagedJsFiles.length > 0) {
         : "Check ESLint install and project config",
     });
   } else {
-    let eslintFixableCount = 0;
-    try {
-      const parsed = JSON.parse(eslintResult.stdout || "[]");
-      eslintIssueCount = parsed.reduce(
-        (sum, fileResult) =>
-          sum + (fileResult.errorCount || 0) + (fileResult.warningCount || 0),
-        0,
-      );
-      eslintFixableCount = parsed.reduce(
-        (sum, fileResult) =>
-          sum +
-          (fileResult.fixableErrorCount || 0) +
-          (fileResult.fixableWarningCount || 0),
-        0,
-      );
-    } catch {
-      eslintIssueCount = 0;
-      eslintFixableCount = 0;
-    }
-
+    const { issueCount: eslintIssueCount, fixableCount: eslintFixableCount } =
+      summarizeEslintJson(eslintResult.stdout);
     const eslintManualCount = eslintIssueCount - eslintFixableCount;
 
     if (eslintFixableCount > 0) {
@@ -242,11 +223,10 @@ if (stagedFormatFiles.length > 0) {
         : "Check Prettier install and project config",
     });
   } else if ((prettierResult.status || 0) === 1) {
-    const prettierFiles = `${prettierResult.stdout}\n${prettierResult.stderr}`
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-    formatIssueCount = prettierFiles.length;
+    const prettierFiles = parsePrettierList(
+      `${prettierResult.stdout}\n${prettierResult.stderr}`,
+    );
+    const formatIssueCount = prettierFiles.length;
 
     issues.push({
       autoFixable: true,
@@ -321,87 +301,12 @@ if (stagedTestConfig.runStagedTests) {
 
 console.log("");
 
-// Build consolidated message
-let messageLines = [];
+// Build the consolidated message and print it.
+const { severity, lines } = buildAdvisoryMessage(issues, {
+  canInspectUnstagedFiles,
+  unstagedTrackedFiles,
+});
 
-if (issues.length > 0) {
-  messageLines = [
-    pc.bold("Pre-commit suggestions found"),
-    "",
-    pc.dim("Commit will continue. Issues detected:"),
-    "",
-  ];
-
-  // Add each issue
-  issues.forEach((issue) => {
-    messageLines.push(`${pc.yellow("→")} ${issue.message}`);
-    if (issue.detail) {
-      issue.detail.split("\n").forEach((line) => {
-        messageLines.push(`  ${pc.dim(line)}`);
-      });
-    }
-  });
-
-  const hasFixableIssue = issues.some((issue) => issue.autoFixable);
-  const hasNonFixableIssue = issues.some((issue) => !issue.autoFixable);
-  const canAmendLatestCommit =
-    hasFixableIssue &&
-    canInspectUnstagedFiles &&
-    unstagedTrackedFiles.length === 0;
-
-  messageLines.push("");
-  if (canAmendLatestCommit) {
-    messageLines.push(
-      pc.dim(
-        hasNonFixableIssue
-          ? "After this commit completes, you can still apply automatic fixes and amend it:"
-          : "After this commit completes, apply automatic fixes and amend it:",
-      ),
-    );
-    messageLines.push(`  ${pc.bold("npm run commit:fix")}`);
-
-    if (hasNonFixableIssue) {
-      messageLines.push("");
-      messageLines.push(
-        pc.dim("Manual warnings above will still need your attention."),
-      );
-    }
-  } else if (hasFixableIssue) {
-    if (hasNonFixableIssue) {
-      messageLines.push(
-        pc.dim("Manual warnings above will still need your attention."),
-      );
-
-      messageLines.push("");
-    }
-
-    if (!canInspectUnstagedFiles) {
-      messageLines.push(
-        pc.dim(
-          "The working tree could not be inspected for a safe post-commit amend.",
-        ),
-      );
-    } else if (unstagedTrackedFiles.length > 0) {
-      messageLines.push(
-        pc.dim(
-          "Other tracked changes will still be present after commit, so no automatic amend command is shown.",
-        ),
-      );
-      messageLines.push(`  ${pc.dim(shortFileList(unstagedTrackedFiles))}`);
-    }
-  } else {
-    messageLines.push(
-      `  ${pc.dim("No automatic fix command for these issues.")}`,
-    );
-  }
-} else {
-  messageLines = [
-    pc.bold("All pre-commit checks passed"),
-    "",
-    pc.dim("No suggestions found. Ready to commit!"),
-  ];
-}
-
-(issues.length > 0 ? warningBox : successBox)(messageLines);
+(severity === "warning" ? warningBox : successBox)(lines);
 
 process.exit(0);

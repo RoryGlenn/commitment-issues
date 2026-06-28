@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import pc from "picocolors";
-import { printBox } from "./lib/ui.mjs";
+import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { isWindows, run, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
   codeFilePattern,
@@ -31,20 +31,13 @@ const stagedResult = run("git", [
 ]);
 
 if (stagedResult.error || stagedResult.status !== 0) {
-  printBox(
-    [
-      pc.bold("Unable to inspect staged files."),
-      "",
-      pc.dim(
-        "Check that Git is available and the current directory is a repository.",
-      ),
-    ].join("\n"),
-    pc.red,
-    {
-      title: "error",
-      titleAlignment: "center",
-    },
-  );
+  errorBox([
+    pc.bold("Unable to inspect staged files."),
+    "",
+    pc.dim(
+      "Check that Git is available and the current directory is a repository.",
+    ),
+  ]);
   process.exit(1);
 }
 
@@ -62,40 +55,26 @@ const fixableFiles = Array.from(
 );
 
 if (fixableFiles.length === 0) {
-  printBox(
-    [
-      pc.bold("No staged files to fix."),
-      "",
-      pc.dim(
-        "Stage a JS, JSON, CSS, Markdown, HTML, or YAML file and run npm run fix:staged again.",
-      ),
-    ].join("\n"),
-    pc.cyan,
-    {
-      title: "info",
-      titleAlignment: "center",
-    },
-  );
+  infoBox([
+    pc.bold("No staged files to fix."),
+    "",
+    pc.dim(
+      "Stage a JS, JSON, CSS, Markdown, HTML, or YAML file and run npm run fix:staged again.",
+    ),
+  ]);
   process.exit(0);
 }
 
 const unstagedResult = run("git", ["diff", "--name-only"]);
 
 if (unstagedResult.error || unstagedResult.status !== 0) {
-  printBox(
-    [
-      pc.bold("Unable to inspect unstaged files."),
-      "",
-      pc.dim(
-        "Check that Git is available and the working tree can be inspected.",
-      ),
-    ].join("\n"),
-    pc.red,
-    {
-      title: "error",
-      titleAlignment: "center",
-    },
-  );
+  errorBox([
+    pc.bold("Unable to inspect unstaged files."),
+    "",
+    pc.dim(
+      "Check that Git is available and the working tree can be inspected.",
+    ),
+  ]);
   process.exit(1);
 }
 
@@ -114,40 +93,26 @@ const missingWorkingTreeFiles = fixableFiles.filter(
 );
 
 if (partiallyStagedFiles.length > 0) {
-  printBox(
-    [
-      pc.bold("Cannot safely fix partially staged files."),
-      "",
-      pc.dim("Resolve staged vs unstaged changes first:"),
-      "",
-      `  ${shortFileList(partiallyStagedFiles)}`,
-      "",
-      pc.dim("Then run npm run fix:staged again."),
-    ].join("\n"),
-    pc.red,
-    {
-      title: "error",
-      titleAlignment: "center",
-    },
-  );
+  errorBox([
+    pc.bold("Cannot safely fix partially staged files."),
+    "",
+    pc.dim("Resolve staged vs unstaged changes first:"),
+    "",
+    `  ${shortFileList(partiallyStagedFiles)}`,
+    "",
+    pc.dim("Then run npm run fix:staged again."),
+  ]);
   process.exit(1);
 }
 
 if (missingWorkingTreeFiles.length > 0) {
-  printBox(
-    [
-      pc.bold("Cannot safely fix staged files missing from the working tree."),
-      "",
-      pc.dim("Restore or unstage these files first:"),
-      "",
-      `  ${shortFileList(missingWorkingTreeFiles)}`,
-    ].join("\n"),
-    pc.red,
-    {
-      title: "error",
-      titleAlignment: "center",
-    },
-  );
+  errorBox([
+    pc.bold("Cannot safely fix staged files missing from the working tree."),
+    "",
+    pc.dim("Restore or unstage these files first:"),
+    "",
+    `  ${shortFileList(missingWorkingTreeFiles)}`,
+  ]);
   process.exit(1);
 }
 
@@ -164,18 +129,11 @@ const result = spawnSync(
 );
 
 if (result.error) {
-  printBox(
-    [
-      pc.bold("Unable to run staged fixes."),
-      "",
-      pc.dim("Check that lint-staged is installed and available."),
-    ].join("\n"),
-    pc.red,
-    {
-      title: "error",
-      titleAlignment: "center",
-    },
-  );
+  errorBox([
+    pc.bold("Unable to run staged fixes."),
+    "",
+    pc.dim("Check that lint-staged is installed and available."),
+  ]);
   process.exit(1);
 }
 
@@ -197,36 +155,22 @@ if ((result.status ?? 1) === 0) {
       ? `Refreshed the index for ${fixableFiles.length} staged file${fixableFiles.length === 1 ? "" : "s"}.`
       : `Checked ${fixableFiles.length} staged file${fixableFiles.length === 1 ? "" : "s"}. No automatic changes were needed.`;
 
-  printBox(
-    [
-      pc.bold(summaryTitle),
-      "",
-      pc.dim(summaryDetail),
-      pc.dim(`${shortFileList(fixableFiles)}`),
-    ].join("\n"),
-    pc.green,
-    {
-      title: "success",
-      titleAlignment: "center",
-    },
-  );
+  successBox([
+    pc.bold(summaryTitle),
+    "",
+    pc.dim(summaryDetail),
+    pc.dim(`${shortFileList(fixableFiles)}`),
+  ]);
   process.exit(0);
 }
 
-printBox(
-  [
-    pc.bold("Manual attention still needed."),
-    "",
-    pc.dim("Available fixes were applied and the index was refreshed."),
-    pc.dim(
-      "Review the ESLint or Prettier output above, then commit again when ready.",
-    ),
-  ].join("\n"),
-  pc.yellow,
-  {
-    title: "warning",
-    titleAlignment: "center",
-  },
-);
+warningBox([
+  pc.bold("Manual attention still needed."),
+  "",
+  pc.dim("Available fixes were applied and the index was refreshed."),
+  pc.dim(
+    "Review the ESLint or Prettier output above, then commit again when ready.",
+  ),
+]);
 
 process.exit(result.status ?? 1);
