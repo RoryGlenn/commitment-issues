@@ -213,7 +213,7 @@ if ((result.status ?? 1) === 0) {
       pc.bold(summaryTitle),
       "",
       pc.dim(summaryDetail),
-      pc.dim(`Examples: ${shortFileList(fixableFiles)}`),
+      pc.dim(`${shortFileList(fixableFiles)}`),
     ].join("\n"),
     pc.green,
     {

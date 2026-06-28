@@ -110,7 +110,7 @@ if (stagedJsFiles.length > 0) {
     issues.push({
       type: "tests",
       message: `${missingTests.length} staged source file${missingTests.length === 1 ? "" : "s"} missing unit tests`,
-      detail: `Examples: ${shortFileList(missingTests)}`,
+      detail: `${shortFileList(missingTests)}`,
     });
   }
 
