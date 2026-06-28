@@ -26,6 +26,10 @@ test("stays silent and allows the push when the gate is disabled (default)", (t)
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
+  // Explicitly disable the gate so this test is independent of how this repo's
+  // own package.json happens to be configured.
+  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+
   const result = runPrePush(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 

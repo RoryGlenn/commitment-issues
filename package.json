@@ -26,7 +26,8 @@
   "precommitChecks": {
     "testExempt": [
       "scripts/lib/**"
-    ]
+    ],
+    "blockPushOnTestFailure": true
   },
   "devDependencies": {
     "boxen": "^8.0.1",
