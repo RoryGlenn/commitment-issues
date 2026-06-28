@@ -43,10 +43,7 @@ if (prettierResult.error || (prettierResult.status || 0) !== 0) {
 }
 
 if (hasRemainingIssues) {
-  console.error(
-    "Applied available fixes and refreshed the index, but some issues still need manual attention.",
-  );
   process.exit(1);
 }
 
-console.log("Applied staged-file fixes and refreshed the index.");
+process.exit(0);
