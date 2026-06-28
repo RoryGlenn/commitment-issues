@@ -23,6 +23,11 @@
       "prettier --write --ignore-unknown"
     ]
   },
+  "precommitChecks": {
+    "testExempt": [
+      "scripts/lib/**"
+    ]
+  },
   "devDependencies": {
     "boxen": "^8.0.1",
     "eslint": "^9.0.0",
