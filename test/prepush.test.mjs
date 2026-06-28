@@ -69,6 +69,28 @@ test("allows the push when enabled and tests pass", (t) => {
   assert.match(output, /All tests passed/);
 });
 
+test("shows a parsed pass/fail summary in the box for node --test", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(
+    path.join(tempDir, "test", "sample.test.mjs"),
+    'import test from "node:test";\n' +
+      'test("a", () => {});\n' +
+      'test("b", () => {});\n',
+  );
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    pushTestCommand: ["node", "--test", "test/sample.test.mjs"],
+  });
+
+  const result = runPrePush(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /2 passed, 0 failed/);
+});
+
 test("blocks the push when the test command cannot run", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

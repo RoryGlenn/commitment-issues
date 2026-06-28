@@ -4,6 +4,7 @@ import {
   summarizeEslintJson,
   parsePrettierList,
   eslintManualIssues,
+  parseNodeTestSummary,
 } from "../scripts/lib/checks.mjs";
 
 test("summarizeEslintJson totals errors/warnings and fixables", () => {
@@ -73,4 +74,20 @@ test("eslintManualIssues handles empty or invalid input", () => {
   assert.deepEqual(eslintManualIssues(""), []);
   assert.deepEqual(eslintManualIssues("not json"), []);
   assert.deepEqual(eslintManualIssues("[]"), []);
+});
+
+test("parseNodeTestSummary reads TAP and spec reporter counts", () => {
+  assert.deepEqual(parseNodeTestSummary("# tests 47\n# pass 46\n# fail 1\n"), {
+    passed: 46,
+    failed: 1,
+  });
+  assert.deepEqual(parseNodeTestSummary("\u2139 pass 5\n\u2139 fail 0\n"), {
+    passed: 5,
+    failed: 0,
+  });
+});
+
+test("parseNodeTestSummary returns null for unrecognized output", () => {
+  assert.equal(parseNodeTestSummary(""), null);
+  assert.equal(parseNodeTestSummary("Tests: 1 failed, 2 passed"), null);
 });

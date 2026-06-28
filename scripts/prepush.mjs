@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import pc from "picocolors";
 import { errorBox, successBox } from "./lib/ui.mjs";
-import { isWindows, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
+import { isWindows, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import { loadPrecommitConfig } from "./lib/config.mjs";
+import { parseNodeTestSummary } from "./lib/checks.mjs";
 
 const config = loadPrecommitConfig();
 
@@ -26,14 +26,20 @@ console.log("");
 const env = { ...process.env };
 delete env.NODE_TEST_CONTEXT;
 
-const result = spawnSync(pushTestCommand[0], pushTestCommand.slice(1), {
-  stdio: "inherit",
+// Stream the suite output live (echo) while also capturing it, so we can render
+// a parsed pass/fail summary in the verdict box for a consistent, scannable end.
+const result = await spawnAsync(pushTestCommand[0], pushTestCommand.slice(1), {
   shell: isWindows,
   env,
-  timeout: TOOL_TIMEOUT_MS,
+  echo: true,
 });
 
 console.log("");
+
+const summary = parseNodeTestSummary(`${result.stdout}\n${result.stderr}`);
+const summaryLines = summary
+  ? ["", pc.dim(`${summary.passed} passed, ${summary.failed} failed`)]
+  : [];
 
 if (result.error || result.signal) {
   errorBox([
@@ -51,6 +57,7 @@ if (result.error || result.signal) {
 if ((result.status || 0) !== 0) {
   errorBox([
     pc.bold("Push blocked: tests failed"),
+    ...summaryLines,
     "",
     pc.dim("Fix the failing tests above, then push again."),
     pc.dim("To bypass this gate once: git push --no-verify"),
@@ -58,6 +65,11 @@ if ((result.status || 0) !== 0) {
   process.exit(1);
 }
 
-successBox([pc.bold("All tests passed"), "", pc.dim("Push allowed.")]);
+successBox([
+  pc.bold("All tests passed"),
+  ...summaryLines,
+  "",
+  pc.dim("Push allowed."),
+]);
 
 process.exit(0);

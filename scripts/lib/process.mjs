@@ -59,12 +59,18 @@ export function runTool(name, args, options = {}) {
 
 // Asynchronous spawn that captures stdout/stderr and resolves a result shaped
 // like spawnSync's ({ error, status, signal, stdout, stderr }). Used to run
-// independent checks concurrently.
+// independent checks concurrently. Pass `echo: true` to also stream the child's
+// output to this process live while still capturing it (a tee), so a summary
+// can be parsed from the captured text afterwards.
 export function spawnAsync(command, args, options = {}) {
+  const { echo = false, ...spawnOptions } = options;
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(command, args, { timeout: TOOL_TIMEOUT_MS, ...options });
+      child = spawn(command, args, {
+        timeout: TOOL_TIMEOUT_MS,
+        ...spawnOptions,
+      });
     } catch (error) {
       resolve({ error, status: null, signal: null, stdout: "", stderr: "" });
       return;
@@ -77,12 +83,18 @@ export function spawnAsync(command, args, options = {}) {
       child.stdout.setEncoding("utf8");
       child.stdout.on("data", (chunk) => {
         stdout += chunk;
+        if (echo) {
+          process.stdout.write(chunk);
+        }
       });
     }
     if (child.stderr) {
       child.stderr.setEncoding("utf8");
       child.stderr.on("data", (chunk) => {
         stderr += chunk;
+        if (echo) {
+          process.stderr.write(chunk);
+        }
       });
     }
 
