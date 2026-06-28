@@ -122,18 +122,20 @@ It is **off by default**. Enable it in `package.json`:
 {
   "precommitChecks": {
     "blockPushOnTestFailure": true,
-    "pushTestCommand": ["npm", "test"]
+    "testCommand": ["node", "--test"]
   }
 }
 ```
 
-When enabled, `git push` runs `pushTestCommand` and **blocks the push (exit 1) if it fails**. `pushTestCommand` is optional and defaults to `npm test`. To register the hook, add it once:
+When enabled, `git push` runs **only the tests associated with the files being pushed** — the changed test files themselves, plus any test discovered for a changed source file (same heuristic as the missing-test check) — and **blocks the push (exit 1) if any fail**. If the pushed files have no associated tests, the push is allowed. The runner is `testCommand` (shared with the staged-test feature), which defaults to `node --test` and must accept test file paths as arguments. The output streams live and ends with a boxed `N passed, N failed` summary.
+
+To register the hook, add it once:
 
 ```bash
 echo "node scripts/prepush.mjs" > .husky/pre-push
 ```
 
-> The gate runs the full command you configure (not just staged files) and is capped by a timeout. To bypass it for a single push, use `git push --no-verify`.
+> The gate is capped by a timeout. To bypass it for a single push, use `git push --no-verify`.
 
 ## Message states
 

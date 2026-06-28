@@ -19,24 +19,9 @@ import {
   codeFilePattern,
   formatFilePattern,
   findTestFile,
-  isTestFile,
   isTestExemptFile,
+  collectTestsForFiles,
 } from "./lib/files.mjs";
-
-function collectStagedTests(files) {
-  const tests = new Set();
-  for (const file of files) {
-    if (isTestFile(file)) {
-      tests.add(file);
-    } else if (codeFilePattern.test(file)) {
-      const match = findTestFile(file);
-      if (match) {
-        tests.add(match);
-      }
-    }
-  }
-  return [...tests];
-}
 
 function runEslint(files) {
   const { command, args, shell } = toolInvocation("eslint", [
@@ -185,7 +170,7 @@ if (stagedJsFiles.length > 0) {
 }
 
 const stagedTests = config.runStagedTests
-  ? collectStagedTests(stagedFiles)
+  ? collectTestsForFiles(stagedFiles)
   : [];
 const testCommand =
   Array.isArray(config.testCommand) && config.testCommand.length > 0
