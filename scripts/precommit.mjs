@@ -21,10 +21,14 @@ printBox(pc.bold("Pre-commit suggestions"), pc.cyan, {
   titleAlignment: "center",
 });
 
-const gitFiles = spawnSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"], {
-  encoding: "utf8",
-  shell: process.platform === "win32",
-});
+const gitFiles = spawnSync(
+  "git",
+  ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+  {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  },
+);
 
 const stagedJsFiles = gitFiles.stdout
   .split("\n")
@@ -32,17 +36,23 @@ const stagedJsFiles = gitFiles.stdout
   .filter((file) => file && /\.(js|jsx|mjs)$/.test(file));
 
 if (stagedJsFiles.length > 0) {
-  const checkTests = spawnSync("node", ["scripts/check-tests.mjs", ...stagedJsFiles], {
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+  const checkTests = spawnSync(
+    "node",
+    ["scripts/check-tests.mjs", ...stagedJsFiles],
+    {
+      stdio: "inherit",
+      shell: process.platform === "win32",
+    },
+  );
 
   if (checkTests.error) {
     printBox(
       [
         pc.bold("Unable to run staged test file checks."),
         "",
-        pc.dim("Check that scripts/check-tests.mjs exists and Node is available."),
+        pc.dim(
+          "Check that scripts/check-tests.mjs exists and Node is available.",
+        ),
       ].join("\n"),
       pc.red,
       {

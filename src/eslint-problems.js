@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 const unusedConstant = 42;
-let unusedLet = "unused"; 
+let unusedLet = "unused";
 var unusedVar = true;
 
 const data = {
@@ -101,7 +101,9 @@ function manyUnused() {
     return innerNested(branchUsed, 1, 2);
   }
 
-  return usedZ + first + second + third + fourth + fifth + sixth + seventh + eighth;
+  return (
+    usedZ + first + second + third + fourth + fifth + sixth + seventh + eighth
+  );
 }
 
 const moreProblems = {
@@ -110,7 +112,8 @@ const moreProblems = {
   anotherUnused: false,
 };
 
-const { usedProperty: keptProperty, unusedProperty: droppedProperty } = moreProblems;
+const { usedProperty: keptProperty, unusedProperty: droppedProperty } =
+  moreProblems;
 
 function buildSummary(keep, ignore1, ignore2, ignore3) {
   const keepValue = keep + 1;

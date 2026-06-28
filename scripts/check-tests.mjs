@@ -4,12 +4,7 @@ import path from "node:path";
 import boxen from "boxen";
 import pc from "picocolors";
 
-const testSuffixes = [
-  ".test.js",
-  ".spec.js",
-  ".test.mjs",
-  ".spec.mjs",
-];
+const testSuffixes = [".test.js", ".spec.js", ".test.mjs", ".spec.mjs"];
 
 function printBox(message, color = (value) => value, options = {}) {
   console.log(
@@ -31,7 +26,9 @@ function findTestFile(file) {
 
   const candidates = [
     ...testSuffixes.map((suffix) => path.join(dirname, `${basename}${suffix}`)),
-    ...testSuffixes.map((suffix) => path.join(dirname, "__tests__", `${basename}${suffix}`)),
+    ...testSuffixes.map((suffix) =>
+      path.join(dirname, "__tests__", `${basename}${suffix}`),
+    ),
   ];
 
   for (const candidate of candidates) {
@@ -48,7 +45,12 @@ const testFiles = new Set();
 const missingTests = [];
 
 for (const file of stagedFiles) {
-  if (file.endsWith(".test.js") || file.endsWith(".spec.js") || file.endsWith(".test.mjs") || file.endsWith(".spec.mjs")) {
+  if (
+    file.endsWith(".test.js") ||
+    file.endsWith(".spec.js") ||
+    file.endsWith(".test.mjs") ||
+    file.endsWith(".spec.mjs")
+  ) {
     continue;
   }
 
@@ -71,7 +73,9 @@ if (missingTests.length > 0) {
       "",
       ...missingTests.map((file) => `  ${file}`),
       "",
-      pc.dim("Create a corresponding .test.js or .spec.js file in the same directory or __tests__ folder."),
+      pc.dim(
+        "Create a corresponding .test.js or .spec.js file in the same directory or __tests__ folder.",
+      ),
     ].join("\n"),
     pc.yellow,
     {
@@ -109,7 +113,9 @@ if (result.status !== 0) {
     [
       pc.bold("One or more unit tests failed."),
       "",
-      pc.dim("Commit will continue anyway. Fix the failing tests before pushing."),
+      pc.dim(
+        "Commit will continue anyway. Fix the failing tests before pushing.",
+      ),
     ].join("\n"),
     pc.red,
     {

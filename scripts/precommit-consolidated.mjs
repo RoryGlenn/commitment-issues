@@ -16,10 +16,14 @@ function printBox(message, color = (value) => value, options = {}) {
   );
 }
 
-const gitFiles = spawnSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"], {
-  encoding: "utf8",
-  shell: process.platform === "win32",
-});
+const gitFiles = spawnSync(
+  "git",
+  ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+  {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  },
+);
 
 const stagedJsFiles = gitFiles.stdout
   .split("\n")
@@ -30,14 +34,20 @@ let hasError = false;
 let errorMessage = "";
 
 if (stagedJsFiles.length > 0) {
-  const checkTests = spawnSync("node", ["scripts/check-tests.mjs", ...stagedJsFiles], {
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+  const checkTests = spawnSync(
+    "node",
+    ["scripts/check-tests.mjs", ...stagedJsFiles],
+    {
+      stdio: "inherit",
+      shell: process.platform === "win32",
+    },
+  );
 
   if (checkTests.error) {
     hasError = true;
-    errorMessage = pc.dim("Unable to run staged test file checks. Check that scripts/check-tests.mjs exists and Node is available.");
+    errorMessage = pc.dim(
+      "Unable to run staged test file checks. Check that scripts/check-tests.mjs exists and Node is available.",
+    );
   }
 }
 
@@ -71,7 +81,11 @@ if (hasError) {
 } else {
   color = pc.green;
   title = "success";
-  messageLines = [pc.bold("All checks passed"), "", pc.dim("No pre-commit suggestions found")];
+  messageLines = [
+    pc.bold("All checks passed"),
+    "",
+    pc.dim("No pre-commit suggestions found"),
+  ];
 }
 
 printBox(messageLines.join("\n"), color, {

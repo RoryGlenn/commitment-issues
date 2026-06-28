@@ -16,10 +16,14 @@ function printBox(message, color = (value) => value, options = {}) {
   );
 }
 
-const gitFiles = spawnSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"], {
-  encoding: "utf8",
-  shell: process.platform === "win32",
-});
+const gitFiles = spawnSync(
+  "git",
+  ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+  {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  },
+);
 
 const stagedJsFiles = gitFiles.stdout
   .split("\n")
@@ -30,11 +34,15 @@ let issues = [];
 
 // Check for test file issues
 if (stagedJsFiles.length > 0) {
-  const checkTests = spawnSync("node", ["scripts/check-tests.mjs", ...stagedJsFiles], {
-    encoding: "utf8",
-    stdio: ["pipe", "pipe", "pipe"],
-    shell: process.platform === "win32",
-  });
+  const checkTests = spawnSync(
+    "node",
+    ["scripts/check-tests.mjs", ...stagedJsFiles],
+    {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      shell: process.platform === "win32",
+    },
+  );
 
   if (checkTests.error) {
     issues.push({
@@ -110,8 +118,12 @@ if (issues.length > 0) {
 
   messageLines.push("");
   messageLines.push(pc.dim("Run when ready:"));
-  messageLines.push(`  ${pc.bold("npm run lint:fix   ")} ${pc.dim("# Fix ESLint issues")}`);
-  messageLines.push(`  ${pc.bold("npm run format     ")} ${pc.dim("# Fix formatting")}`);
+  messageLines.push(
+    `  ${pc.bold("npm run lint:fix   ")} ${pc.dim("# Fix ESLint issues")}`,
+  );
+  messageLines.push(
+    `  ${pc.bold("npm run format     ")} ${pc.dim("# Fix formatting")}`,
+  );
 } else {
   color = pc.green;
   title = "success";
