@@ -195,6 +195,7 @@ if (stagedFormatFiles.length > 0) {
         formatIssueCount > 0
           ? `${formatIssueCount} file${formatIssueCount === 1 ? "" : "s"} with formatting issues`
           : "Formatting issues found",
+      detail: formatIssueCount > 0 ? prettierFiles.join("\n") : undefined,
     });
   } else if ((prettierResult.status || 0) > 1) {
     issues.push({
@@ -226,7 +227,9 @@ if (issues.length > 0) {
   issues.forEach((issue) => {
     messageLines.push(`${pc.yellow("→")} ${issue.message}`);
     if (issue.detail) {
-      messageLines.push(`  ${pc.dim(issue.detail)}`);
+      issue.detail.split("\n").forEach((line) => {
+        messageLines.push(`  ${pc.dim(line)}`);
+      });
     }
   });
 
