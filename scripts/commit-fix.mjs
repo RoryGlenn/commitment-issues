@@ -60,6 +60,30 @@ if (headResult.error || headResult.status !== 0) {
   process.exit(1);
 }
 
+const remoteContainsResult = run("git", ["branch", "-r", "--contains", "HEAD"]);
+const headIsPushed =
+  !remoteContainsResult.error &&
+  remoteContainsResult.status === 0 &&
+  remoteContainsResult.stdout.trim().length > 0;
+
+if (headIsPushed) {
+  printBox(
+    [
+      pc.bold("The latest commit has already been pushed."),
+      "",
+      pc.dim(
+        "Amending it would rewrite published history. Make a new commit with fixes instead.",
+      ),
+    ].join("\n"),
+    pc.red,
+    {
+      title: "error",
+      titleAlignment: "center",
+    },
+  );
+  process.exit(1);
+}
+
 const stagedDirtyResult = run("git", ["diff", "--cached", "--name-only"]);
 const unstagedDirtyResult = run("git", ["diff", "--name-only"]);
 
@@ -193,7 +217,7 @@ if (committedJsFiles.length > 0) {
 if (formatOnlyFiles.length > 0) {
   const prettierResult = spawnSync(
     "npx",
-    ["prettier", "--write", "--ignore-unknown", ...formatOnlyFiles],
+    ["prettier", "--write", "--ignore-unknown", "--", ...formatOnlyFiles],
     {
       stdio: "inherit",
       shell: isWindows,

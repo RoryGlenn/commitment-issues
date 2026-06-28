@@ -11,7 +11,7 @@ let hasRemainingIssues = false;
 
 const eslintResult = spawnSync(
   "npx",
-  ["eslint", "--cache", "--cache-strategy", "content", "--fix", ...files],
+  ["eslint", "--cache", "--cache-strategy", "content", "--fix", "--", ...files],
   {
     stdio: "inherit",
     shell: isWindows,
@@ -24,7 +24,7 @@ if (eslintResult.error || (eslintResult.status || 0) !== 0) {
 
 const prettierResult = spawnSync(
   "npx",
-  ["prettier", "--write", "--ignore-unknown", ...files],
+  ["prettier", "--write", "--ignore-unknown", "--", ...files],
   {
     stdio: "inherit",
     shell: isWindows,

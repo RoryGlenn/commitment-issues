@@ -67,3 +67,21 @@ test("suppresses commit:fix when tracked worktree changes would block amend", (t
     /Other tracked changes will still be present after commit/,
   );
 });
+
+test("labels non-fixable ESLint issues as manual and omits commit:fix", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Prettier-clean file whose only problem is an unfixable no-unused-vars error.
+  writeFile(
+    path.join(tempDir, "src", "manual.js"),
+    "const unusedValue = 123;\n",
+  );
+  run("git", ["add", "src/manual.js"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.match(output, /ESLint issue needing manual fixes/);
+  assert.doesNotMatch(output, /npm run commit:fix/);
+});

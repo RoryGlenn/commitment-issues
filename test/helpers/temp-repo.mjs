@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-export const repoRoot = "/Users/roryglenn/Repos/precommit-checks";
+const helpersDir = path.dirname(fileURLToPath(import.meta.url));
+export const repoRoot = path.resolve(helpersDir, "..", "..");
 
 export function run(command, args, cwd, options = {}) {
   return spawnSync(command, args, {

@@ -125,7 +125,7 @@ if (stagedJsFiles.length > 0) {
       autoFixable: false,
       type: "tests",
       message: `${missingTests.length} staged source file${missingTests.length === 1 ? "" : "s"} missing unit tests`,
-      detail: `${shortFileList(missingTests)}`,
+      detail: missingTests.join("\n"),
     });
   }
 
@@ -138,6 +138,7 @@ if (stagedJsFiles.length > 0) {
       "content",
       "--format",
       "json",
+      "--",
       ...stagedJsFiles,
     ],
     {
@@ -155,6 +156,7 @@ if (stagedJsFiles.length > 0) {
       detail: "Check ESLint install and project config",
     });
   } else {
+    let eslintFixableCount = 0;
     try {
       const parsed = JSON.parse(eslintResult.stdout || "[]");
       eslintIssueCount = parsed.reduce(
@@ -162,17 +164,37 @@ if (stagedJsFiles.length > 0) {
           sum + (fileResult.errorCount || 0) + (fileResult.warningCount || 0),
         0,
       );
+      eslintFixableCount = parsed.reduce(
+        (sum, fileResult) =>
+          sum +
+          (fileResult.fixableErrorCount || 0) +
+          (fileResult.fixableWarningCount || 0),
+        0,
+      );
     } catch {
       eslintIssueCount = 0;
+      eslintFixableCount = 0;
     }
 
-    if (eslintIssueCount > 0) {
+    const eslintManualCount = eslintIssueCount - eslintFixableCount;
+
+    if (eslintFixableCount > 0) {
       issues.push({
         autoFixable: true,
         type: "lint",
-        message: `${eslintIssueCount} ESLint issue${eslintIssueCount === 1 ? "" : "s"} found`,
+        message: `${eslintFixableCount} auto-fixable ESLint issue${eslintFixableCount === 1 ? "" : "s"} found`,
       });
-    } else if ((eslintResult.status || 0) > 1) {
+    }
+
+    if (eslintManualCount > 0) {
+      issues.push({
+        autoFixable: false,
+        type: "lint",
+        message: `${eslintManualCount} ESLint issue${eslintManualCount === 1 ? "" : "s"} needing manual fixes`,
+      });
+    }
+
+    if (eslintIssueCount === 0 && (eslintResult.status || 0) > 1) {
       issues.push({
         autoFixable: false,
         type: "lint",
@@ -186,7 +208,13 @@ if (stagedJsFiles.length > 0) {
 if (stagedFormatFiles.length > 0) {
   const prettierResult = spawnSync(
     "npx",
-    ["prettier", "--list-different", "--ignore-unknown", ...stagedFormatFiles],
+    [
+      "prettier",
+      "--list-different",
+      "--ignore-unknown",
+      "--",
+      ...stagedFormatFiles,
+    ],
     {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],

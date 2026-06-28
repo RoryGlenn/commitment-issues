@@ -1,1 +1,1 @@
-echo "Pre-push note: CI will run full checks after push."
+echo "Pre-push note: run 'npm test' locally to validate hook behavior."
