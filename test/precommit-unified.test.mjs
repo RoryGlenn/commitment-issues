@@ -85,3 +85,36 @@ test("labels non-fixable ESLint issues as manual and omits commit:fix", (t) => {
   assert.match(output, /ESLint issue needing manual fixes/);
   assert.doesNotMatch(output, /npm run commit:fix/);
 });
+
+test("does not flag files that live inside a test directory", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(
+    path.join(tempDir, "test", "helpers", "util.mjs"),
+    "export const u = 1;\n",
+  );
+  run("git", ["add", "test/helpers/util.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.doesNotMatch(output, /missing unit tests/);
+});
+
+test("does not flag source files that have a matching test in test/", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(
+    path.join(tempDir, "src", "widget.mjs"),
+    "export const widget = () => 1;\n",
+  );
+  writeFile(path.join(tempDir, "test", "widget.test.mjs"), "export {};\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.doesNotMatch(output, /missing unit tests/);
+});

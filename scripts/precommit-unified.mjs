@@ -25,20 +25,27 @@ function isTestFile(file) {
   return testSuffixes.some((suffix) => file.endsWith(suffix));
 }
 
+function isInTestDir(file) {
+  return /(^|\/)(test|tests|__tests__|__mocks__)\//.test(file);
+}
+
 function findTestFile(file) {
   const dirname = path.dirname(file);
   const basename = path.basename(file, path.extname(file));
 
-  const candidates = [
-    ...testSuffixes.map((suffix) => path.join(dirname, `${basename}${suffix}`)),
-    ...testSuffixes.map((suffix) =>
-      path.join(dirname, "__tests__", `${basename}${suffix}`),
-    ),
+  const candidateDirs = [
+    dirname,
+    path.join(dirname, "__tests__"),
+    "test",
+    "tests",
   ];
 
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
+  for (const dir of candidateDirs) {
+    for (const suffix of testSuffixes) {
+      const candidate = path.join(dir, `${basename}${suffix}`);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
   }
 
@@ -117,7 +124,7 @@ let formatIssueCount = 0;
 
 if (stagedJsFiles.length > 0) {
   const missingTests = stagedJsFiles.filter(
-    (file) => !isTestFile(file) && !findTestFile(file),
+    (file) => !isTestFile(file) && !isInTestDir(file) && !findTestFile(file),
   );
 
   if (missingTests.length > 0) {
