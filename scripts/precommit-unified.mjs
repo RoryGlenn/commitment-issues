@@ -1,6 +1,11 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import boxen from "boxen";
 import pc from "picocolors";
+
+const isWindows = process.platform === "win32";
+const testSuffixes = [".test.js", ".spec.js", ".test.mjs", ".spec.mjs"];
 
 function printBox(message, color = (value) => value, options = {}) {
   console.log(
@@ -17,11 +22,49 @@ function printBox(message, color = (value) => value, options = {}) {
 }
 
 function quoteForShell(value) {
-  if (process.platform === "win32") {
+  if (isWindows) {
     return `"${value.replace(/"/g, '\\"')}"`;
   }
 
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function isTestFile(file) {
+  return testSuffixes.some((suffix) => file.endsWith(suffix));
+}
+
+function findTestFile(file) {
+  const dirname = path.dirname(file);
+  const basename = path.basename(file, path.extname(file));
+
+  const candidates = [
+    ...testSuffixes.map((suffix) => path.join(dirname, `${basename}${suffix}`)),
+    ...testSuffixes.map((suffix) =>
+      path.join(dirname, "__tests__", `${basename}${suffix}`),
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function shortFileList(files, max = 3) {
+  const shown = files.slice(0, max);
+  if (shown.length === 0) {
+    return "";
+  }
+
+  const extra = files.length - shown.length;
+  if (extra > 0) {
+    return `${shown.join(", ")} (+${extra} more)`;
+  }
+
+  return shown.join(", ");
 }
 
 const gitFiles = spawnSync(
@@ -29,9 +72,26 @@ const gitFiles = spawnSync(
   ["diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
   {
     encoding: "utf8",
-    shell: process.platform === "win32",
+    shell: isWindows,
   },
 );
+
+if (gitFiles.error || gitFiles.status !== 0) {
+  printBox(
+    [
+      pc.bold("Unable to inspect staged files."),
+      "",
+      pc.dim("Commit will continue. Verify Git is available in PATH."),
+    ].join("\n"),
+    pc.red,
+    {
+      title: "error",
+      titleAlignment: "center",
+    },
+  );
+
+  process.exit(0);
+}
 
 const stagedFiles = gitFiles.stdout
   .split("\n")
@@ -45,21 +105,40 @@ const stagedFormatFiles = stagedFiles.filter((file) =>
 
 let issues = [];
 let eslintIssueCount = 0;
+let formatIssueCount = 0;
 
 if (stagedJsFiles.length > 0) {
+  const missingTests = stagedJsFiles.filter(
+    (file) => !isTestFile(file) && !findTestFile(file),
+  );
+
+  if (missingTests.length > 0) {
+    issues.push({
+      type: "tests",
+      message: `${missingTests.length} staged source file${missingTests.length === 1 ? "" : "s"} missing unit tests`,
+      detail: `Examples: ${shortFileList(missingTests)}`,
+    });
+  }
+
   const eslintResult = spawnSync(
     "npx",
-    ["eslint", "--format", "json", ...stagedJsFiles],
+    ["eslint", "--cache", "--cache-strategy", "content", "--format", "json", ...stagedJsFiles],
     {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
-      shell: process.platform === "win32",
+      shell: isWindows,
     },
   );
 
-  if (eslintResult.stdout) {
+  if (eslintResult.error) {
+    issues.push({
+      type: "lint",
+      message: "Unable to run ESLint",
+      detail: "Check ESLint install and project config",
+    });
+  } else {
     try {
-      const parsed = JSON.parse(eslintResult.stdout);
+      const parsed = JSON.parse(eslintResult.stdout || "[]");
       eslintIssueCount = parsed.reduce(
         (sum, fileResult) =>
           sum + (fileResult.errorCount || 0) + (fileResult.warningCount || 0),
@@ -68,67 +147,50 @@ if (stagedJsFiles.length > 0) {
     } catch {
       eslintIssueCount = 0;
     }
+
+    if (eslintIssueCount > 0) {
+      issues.push({
+        type: "lint",
+        message: `${eslintIssueCount} ESLint issue${eslintIssueCount === 1 ? "" : "s"} found`,
+      });
+    } else if ((eslintResult.status || 0) > 1) {
+      issues.push({
+        type: "lint",
+        message: "ESLint failed to complete",
+        detail: "Check your ESLint configuration",
+      });
+    }
   }
 }
 
-// Check for test file issues
-if (stagedJsFiles.length > 0) {
-  const checkTests = spawnSync(
-    "node",
-    ["scripts/check-tests.mjs", ...stagedJsFiles],
+if (stagedFormatFiles.length > 0) {
+  const prettierResult = spawnSync(
+    "npx",
+    ["prettier", "--check", "--ignore-unknown", ...stagedFormatFiles],
     {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
-      shell: process.platform === "win32",
+      shell: isWindows,
     },
   );
 
-  if (checkTests.error) {
-    issues.push({
-      type: "tests",
-      message: "Unable to run staged test file checks",
-      detail: "Check that scripts/check-tests.mjs exists and Node is available",
-    });
-  } else if (checkTests.status !== 0) {
-    issues.push({
-      type: "tests",
-      message: "Missing unit test files for staged source files",
-      detail: "Create a corresponding .test.js or .spec.js file",
-    });
-  }
-}
-
-// Run lint-staged and capture output
-const result = spawnSync("npx", ["lint-staged", "--quiet"], {
-  encoding: "utf8",
-  stdio: ["pipe", "pipe", "pipe"],
-  shell: process.platform === "win32",
-});
-
-const output = result.stdout + result.stderr;
-
-// Parse output to detect what failed
-if (result.status !== 0) {
-  if (eslintIssueCount > 0 || output.includes("eslint")) {
-    issues.push({
-      type: "lint",
-      message:
-        eslintIssueCount > 0
-          ? `${eslintIssueCount} ESLint issue${eslintIssueCount === 1 ? "" : "s"} found`
-          : "ESLint issues found",
-    });
-  }
-  if (output.includes("prettier") || output.includes("Checking formatting")) {
+  if (prettierResult.error) {
     issues.push({
       type: "format",
-      message: "Formatting issues found",
+      message: "Unable to run Prettier",
+      detail: "Check Prettier install and project config",
     });
-  }
-  // Generic fallback
-  if (issues.length === 0) {
+  } else if ((prettierResult.status || 0) !== 0) {
+    const prettierOutput = `${prettierResult.stdout}\n${prettierResult.stderr}`;
+    const matches = prettierOutput.match(/^\[warn\]\s+/gm);
+    formatIssueCount = matches ? matches.length : 0;
+
     issues.push({
-      type: "checks",
-      message: "Pre-commit checks found issues",
+      type: "format",
+      message:
+        formatIssueCount > 0
+          ? `${formatIssueCount} file${formatIssueCount === 1 ? "" : "s"} with formatting issues`
+          : "Formatting issues found",
     });
   }
 }
@@ -199,4 +261,4 @@ printBox(messageLines.join("\n"), color, {
   titleAlignment: "center",
 });
 
-process.exit(result.status !== 0 ? 0 : 0);
+process.exit(0);
