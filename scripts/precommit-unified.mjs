@@ -258,7 +258,6 @@ if (issues.length > 0) {
   const hasNonFixableIssue = issues.some((issue) => !issue.autoFixable);
   const canAmendLatestCommit =
     hasFixableIssue &&
-    !hasNonFixableIssue &&
     canInspectUnstagedFiles &&
     unstagedTrackedFiles.length === 0;
 
@@ -266,17 +265,26 @@ if (issues.length > 0) {
   if (canAmendLatestCommit) {
     messageLines.push(
       pc.dim(
-        "After this commit completes, apply automatic fixes and amend it:",
+        hasNonFixableIssue
+          ? "After this commit completes, you can still apply automatic fixes and amend it:"
+          : "After this commit completes, apply automatic fixes and amend it:",
       ),
     );
     messageLines.push(`  ${pc.bold("npm run commit:fix")}`);
+
+    if (hasNonFixableIssue) {
+      messageLines.push("");
+      messageLines.push(
+        pc.dim("Manual warnings above will still need your attention."),
+      );
+    }
   } else if (hasFixableIssue) {
     if (hasNonFixableIssue) {
       messageLines.push(
-        pc.dim(
-          "Some warnings still require manual work, so no automatic post-commit command is shown.",
-        ),
+        pc.dim("Manual warnings above will still need your attention."),
       );
+
+      messageLines.push("");
     }
 
     if (!canInspectUnstagedFiles) {
