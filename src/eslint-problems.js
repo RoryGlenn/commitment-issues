@@ -141,6 +141,8 @@ if (unusedVar) {
   const conditionalUnused = "branch";
 }
 
+print('hello world')
+
 const usedValue = mixedUsage(5, 10, 15);
 console.log(usedValue, usedArrow(7, 8), buildSummary(8, 9, 10, 11));
 
