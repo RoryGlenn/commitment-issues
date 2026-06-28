@@ -11,25 +11,24 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "build": "vite build",
+    "fix:staged": "node scripts/fix-staged.mjs",
     "test:precommit": "node scripts/precommit-unified.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,mjs}": [
-      "eslint",
-      "node scripts/check-format.mjs"
+      "node scripts/fix-staged-js.mjs"
     ],
     "*.{json,css,scss,md,html,yml,yaml}": [
-      "node scripts/check-format.mjs"
+      "prettier --write --ignore-unknown"
     ]
   },
   "devDependencies": {
     "boxen": "^8.0.1",
     "eslint": "^9.0.0",
     "husky": "^9.0.0",
-    "lint-staged": "^15.0.0",
+    "lint-staged": "^17.0.8",
     "picocolors": "^1.1.1",
     "prettier": "^3.0.0",
     "vite": "^8.1.0"
-  },
-  "dependencies": {}
+  }
 }

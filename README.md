@@ -1,46 +1,28 @@
-# Pre-commit hook scripts
+# Pre-commit checks
 
-This ZIP contains several pre-commit wrapper options for a React/JavaScript project using Husky + lint-staged + ESLint + Prettier.
+This repo contains a non-blocking pre-commit flow for JavaScript projects using Husky, lint-staged, ESLint, and Prettier.
 
-## Recommended file
+## Active flow
 
-Use this one first:
+- `.husky/pre-commit` runs `node scripts/precommit-unified.mjs`.
+- `scripts/precommit-unified.mjs` inspects staged files, prints one consolidated summary box, and never blocks the commit.
+- When ESLint or formatting issues are fixable, the hook suggests `npm run fix:staged`.
+- `npm run fix:staged` runs `scripts/fix-staged.mjs`, which delegates staged-file fixing to `lint-staged`.
+- JavaScript files are fixed by `scripts/fix-staged-js.mjs`, which runs `eslint --fix` and then `prettier --write` on the staged JS file set.
+- Other staged Prettier-supported files are fixed by `prettier --write` through `lint-staged`.
 
-```text
-scripts/precommit-boxen.mjs
-```
+## Safety model
 
-It gives you the boxed start/success/failure messages while keeping the real lint-staged, ESLint, and Prettier output visible.
+- Commits are advisory: the hook reports issues but exits successfully.
+- `npm run fix:staged` only targets staged files.
+- If a file has both staged and unstaged changes, `npm run fix:staged` refuses to run for safety.
+- If ESLint cannot fix everything automatically, available fixes are still applied and re-staged, and the command exits non-zero so the remaining issues are visible.
 
-## Options
-
-```text
-scripts/precommit-boxen.mjs      # recommended
-scripts/precommit-ora.mjs        # spinner style
-scripts/precommit-boxen-ora.mjs  # hybrid boxed + spinner
-scripts/precommit-plain.mjs      # no UI dependencies
-.husky/pre-commit                # Husky hook example
-package-json-snippet.json        # package.json fields to merge
-install.sh                       # install helper
-```
-
-## Install
+## Commands
 
 ```bash
-npm install --save-dev husky lint-staged prettier eslint boxen picocolors ora
-npx husky init
-mkdir -p scripts
-cp scripts/precommit-boxen.mjs scripts/precommit.mjs
-echo 'node scripts/precommit.mjs' > .husky/pre-commit
-chmod +x .husky/pre-commit
+npm run test:precommit  # run the unified hook script directly
+npm run fix:staged      # apply staged-only ESLint/Prettier fixes
+npm run lint            # lint the full repo
+npm run format:check    # check formatting across the repo
 ```
-
-Then merge `package-json-snippet.json` into your real `package.json`.
-
-## Notes
-
-- `prepare` is recommended so Husky installs automatically after `npm install`.
-- The hook scripts in this repo are intentionally advisory: they print suggestions and let commits/pushes continue.
-- `.husky/pre-commit` runs `scripts/precommit.mjs`.
-- `lint-staged` now also runs `scripts/check-tests.mjs` for staged JS files.
-- `.husky/pre-push` currently only prints a note and does not run a script.

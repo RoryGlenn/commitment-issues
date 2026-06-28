@@ -21,14 +21,6 @@ function printBox(message, color = (value) => value, options = {}) {
   );
 }
 
-function quoteForShell(value) {
-  if (isWindows) {
-    return `"${value.replace(/"/g, '\\"')}"`;
-  }
-
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
 function isTestFile(file) {
   return testSuffixes.some((suffix) => file.endsWith(suffix));
 }
@@ -238,30 +230,15 @@ if (issues.length > 0) {
     }
   });
 
-  const hasLintIssue = issues.some((issue) => issue.type === "lint");
-  const hasFormatIssue = issues.some((issue) => issue.type === "format");
-
-  const eslintFixCommand =
-    hasLintIssue && stagedJsFiles.length > 0
-      ? `npx eslint --fix ${stagedJsFiles.map(quoteForShell).join(" ")}`
-      : null;
-  const prettierFixCommand =
-    hasFormatIssue && stagedFormatFiles.length > 0
-      ? `npx prettier --write ${stagedFormatFiles.map(quoteForShell).join(" ")}`
-      : null;
+  const hasFixableIssue = issues.some(
+    (issue) => issue.type === "lint" || issue.type === "format",
+  );
 
   messageLines.push("");
-  messageLines.push(pc.dim("Run on staged files only:"));
-
-  if (eslintFixCommand) {
-    messageLines.push(`  ${pc.bold(eslintFixCommand)}`);
-  }
-
-  if (prettierFixCommand) {
-    messageLines.push(`  ${pc.bold(prettierFixCommand)}`);
-  }
-
-  if (!eslintFixCommand && !prettierFixCommand) {
+  if (hasFixableIssue) {
+    messageLines.push(pc.dim("Fix staged files and refresh the index:"));
+    messageLines.push(`  ${pc.bold("npm run fix:staged")}`);
+  } else {
     messageLines.push(
       `  ${pc.dim("No automatic fix command for these issues.")}`,
     );
