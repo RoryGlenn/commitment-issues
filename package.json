@@ -5,13 +5,13 @@
   "description": "Commitment Issues: advisory pre-commit checks that nudge, never block.",
   "license": "MIT",
   "author": "Rory Glenn",
-  "homepage": "https://github.com/RoryGlenn/Commitment-Issues#readme",
+  "homepage": "https://github.com/RoryGlenn/commitment-issues#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RoryGlenn/Commitment-Issues.git"
+    "url": "git+https://github.com/RoryGlenn/commitment-issues.git"
   },
   "bugs": {
-    "url": "https://github.com/RoryGlenn/Commitment-Issues/issues"
+    "url": "https://github.com/RoryGlenn/commitment-issues/issues"
   },
   "keywords": [
     "pre-commit",
