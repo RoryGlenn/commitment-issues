@@ -1,6 +1,6 @@
 {
   "name": "commitment-issues",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Commitment Issues: advisory pre-commit checks that nudge, never block.",
   "license": "MIT",
