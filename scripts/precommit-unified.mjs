@@ -153,8 +153,8 @@ let issues = [];
 
 const config = loadPrecommitConfig();
 
-// Missing-test detection is pure and instant.
-if (stagedJsFiles.length > 0) {
+// Missing-test detection is pure and instant; opt out with requireTests: false.
+if (config.requireTests !== false && stagedJsFiles.length > 0) {
   const missingTests = stagedJsFiles.filter(
     (file) => !isTestExemptFile(file) && !findTestFile(file),
   );

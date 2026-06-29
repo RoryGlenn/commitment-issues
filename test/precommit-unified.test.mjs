@@ -115,6 +115,25 @@ test("does not flag source files that have a matching test in test/", (t) => {
   assert.doesNotMatch(output, /missing unit tests/);
 });
 
+test("requireTests:false disables the missing-test check", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const pkg = JSON.parse(readFile(tempDir, "package.json"));
+  pkg.precommitChecks = { requireTests: false };
+  writeFile(
+    path.join(tempDir, "package.json"),
+    `${JSON.stringify(pkg, null, 2)}\n`,
+  );
+  writeFile(path.join(tempDir, "src", "widget.mjs"), "export const w = 1;\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.doesNotMatch(output, /missing unit tests/);
+});
+
 test("treats staged TypeScript files as lintable code files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

@@ -2,14 +2,19 @@ import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
+import { loadPrecommitConfig } from "./config.mjs";
 
 const require = createRequire(import.meta.url);
 
 export const isWindows = process.platform === "win32";
 
-// Default ceiling for any tool the hooks spawn, so a hung tool can never
-// wedge a commit indefinitely.
-export const TOOL_TIMEOUT_MS = 120000;
+// Default ceiling for any tool the hooks spawn, so a hung tool can never wedge a
+// commit indefinitely. Override with precommitChecks.timeoutMs (positive number).
+const configuredTimeout = Number(loadPrecommitConfig().timeoutMs);
+export const TOOL_TIMEOUT_MS =
+  Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : 120000;
 
 /**
  * Run a command synchronously, capturing utf8 output (shell on Windows).

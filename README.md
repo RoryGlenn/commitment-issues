@@ -159,9 +159,11 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | Key                      | Type     | Default              | Description                                                                           |
 | ------------------------ | -------- | -------------------- | ------------------------------------------------------------------------------------- |
 | `testExempt`             | string[] | `[]`                 | Glob patterns (`*`, `**`, `?`) for files excluded from the missing-test check.        |
+| `requireTests`           | boolean  | `true`               | Set `false` to disable the "missing unit tests" advisory entirely.                    |
 | `runStagedTests`         | boolean  | `false`              | Run tests for staged files at commit time (advisory).                                 |
 | `blockPushOnTestFailure` | boolean  | `false`              | Run the pushed files' tests at `git push` and block on failure.                       |
 | `testCommand`            | string[] | `["node", "--test"]` | Test runner used by both staged tests and the push gate; must accept test file paths. |
+| `timeoutMs`              | number   | `120000`             | Max time any spawned tool may run before it's treated as timed out.                   |
 
 ```json
 {
