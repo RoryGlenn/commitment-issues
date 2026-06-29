@@ -1,9 +1,9 @@
 {
-  "name": "precommit-checks",
+  "name": "commitment-issues",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Non-blocking Git pre-commit checks for ESLint and Prettier.",
+  "description": "Commitment Issues: advisory pre-commit checks that nudge, never block.",
   "scripts": {
     "prepare": "husky",
     "lint": "eslint .",
