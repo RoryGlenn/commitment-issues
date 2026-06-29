@@ -15,6 +15,14 @@ function runPrePush(tempDir, input = "") {
   });
 }
 
+// Simulate a human running the hook by hand: stdin is not a pipe/file (git only
+// pipes refs during a real push), so the script's `runByGit` detection is false.
+function runPrePushManual(tempDir) {
+  return run("node", [path.join(tempDir, "scripts", "prepush.mjs")], tempDir, {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
 function setConfig(tempDir, precommitChecks) {
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
   pkg.precommitChecks = precommitChecks;
@@ -190,4 +198,51 @@ test("blockPushOnTestFailure takes precedence over advisePushTests", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Push blocked: tests failed/);
+});
+
+test("advisory mode warns but allows the push when the test command cannot run", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, {
+    advisePushTests: true,
+    testCommand: ["definitely-not-a-real-binary-xyz"],
+  });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Could not run tests \(advisory\)/);
+});
+
+test("explains how to enable checks when run manually with no mode set", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // No push mode enabled; running by hand should not vanish silently.
+  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+
+  const result = runPrePushManual(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Pre-push test checks are disabled/);
+  assert.match(output, /blockPushOnTestFailure/);
+  assert.match(output, /advisePushTests/);
+});
+
+test("stays silent during a real push when no mode is set", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Git invocation (refs piped on stdin) must stay completely silent.
+  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal(output.trim(), "");
 });

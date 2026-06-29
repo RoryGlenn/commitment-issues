@@ -28,7 +28,7 @@ function severityBox(lines, color, title, borderColor) {
     borderColor,
   });
 }
-  
+
 // Severity-titled box helpers; each takes an array of pre-formatted lines.
 export const infoBox = (lines) => severityBox(lines, pc.cyan, "info", "cyan");
 export const successBox = (lines) =>
