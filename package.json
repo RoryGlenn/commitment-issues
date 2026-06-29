@@ -28,8 +28,11 @@
     "README.md",
     "LICENSE"
   ],
+  "bin": {
+    "commitment-issues": "scripts/init.mjs"
+  },
   "scripts": {
-    "prepare": "husky",
+    "prepare": "husky || true",
     "init": "node scripts/init.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -55,14 +58,16 @@
     ],
     "blockPushOnTestFailure": true
   },
-  "devDependencies": {
+  "dependencies": {
     "boxen": "^8.0.1",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.0.0",
     "lint-staged": "^17.0.8",
-    "picocolors": "^1.1.1",
     "prettier": "^3.0.0"
   },
   "engines": {

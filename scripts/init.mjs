@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from "node:fs";
 import pc from "picocolors";
 import { errorBox, successBox } from "./lib/ui.mjs";
