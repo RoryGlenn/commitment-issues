@@ -149,7 +149,7 @@ if (stagedJsFiles.length === 0 && stagedFormatFiles.length === 0) {
   process.exit(0);
 }
 
-let issues = [];
+const issues = [];
 
 const config = loadPrecommitConfig();
 

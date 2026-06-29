@@ -63,9 +63,11 @@
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^14.0.0",
     "husky": "^9.0.0",
     "lint-staged": "^17.0.8",
     "prettier": "^3.0.0"
