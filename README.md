@@ -216,3 +216,7 @@ npm test                 # run automated hook behavior tests
 npm run lint            # lint the full repo
 npm run format:check    # check formatting across the repo
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copy the `scripts/` folder freely.

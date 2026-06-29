@@ -1,9 +1,33 @@
 {
   "name": "commitment-issues",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "description": "Commitment Issues: advisory pre-commit checks that nudge, never block.",
+  "license": "MIT",
+  "author": "Rory Glenn",
+  "homepage": "https://github.com/RoryGlenn/Commitment-Issues#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RoryGlenn/Commitment-Issues.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RoryGlenn/Commitment-Issues/issues"
+  },
+  "keywords": [
+    "pre-commit",
+    "husky",
+    "lint-staged",
+    "eslint",
+    "prettier",
+    "git-hooks",
+    "advisory",
+    "non-blocking"
+  ],
+  "files": [
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "prepare": "husky",
     "init": "node scripts/init.mjs",
