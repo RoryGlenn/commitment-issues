@@ -54,3 +54,27 @@ test("no fix command when nothing is auto-fixable", () => {
   assert.ok(text.includes("No automatic fix command"));
   assert.ok(!text.includes("npm run commit:fix"));
 });
+
+test("renders an issue's detail lines", () => {
+  const { lines } = buildAdvisoryMessage([
+    {
+      type: "lint",
+      autoFixable: false,
+      message: "1 issue",
+      detail: "src/a.js:1:2 (no-undef)\nsrc/b.js:3:4 (no-undef)",
+    },
+  ]);
+  const text = lines.join("\n");
+  assert.ok(text.includes("src/a.js:1:2 (no-undef)"));
+  assert.ok(text.includes("src/b.js:3:4 (no-undef)"));
+});
+
+test("notes when the worktree cannot be inspected for a safe amend", () => {
+  const { lines } = buildAdvisoryMessage(
+    [{ type: "format", autoFixable: true, message: "fmt" }],
+    { canInspectUnstagedFiles: false, unstagedTrackedFiles: [] },
+  );
+  const text = lines.join("\n");
+  assert.ok(!text.includes("npm run commit:fix"));
+  assert.ok(text.includes("could not be inspected"));
+});

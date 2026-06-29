@@ -1,10 +1,13 @@
 import pc from "picocolors";
 import { shortFileList } from "./files.mjs";
 
-// Builds the consolidated advisory message for the pre-commit box from the
-// detected issues. Pure: no I/O. Returns { severity, lines }.
-//
-// Each issue is { type, message, autoFixable, detail? }.
+/**
+ * Builds the consolidated advisory message for the pre-commit box. Pure (no
+ * I/O), so it can be unit-tested directly.
+ * @param {Array<{type: string, message: string, autoFixable: boolean, detail?: string}>} issues - Detected issues.
+ * @param {{canInspectUnstagedFiles?: boolean, unstagedTrackedFiles?: string[]}} [context] - Worktree context for the commit:fix recommendation.
+ * @returns {{severity: string, lines: string[]}} Box severity and lines.
+ */
 export function buildAdvisoryMessage(issues, context = {}) {
   const { canInspectUnstagedFiles = true, unstagedTrackedFiles = [] } = context;
 

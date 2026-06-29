@@ -11,6 +11,13 @@ export const isWindows = process.platform === "win32";
 // wedge a commit indefinitely.
 export const TOOL_TIMEOUT_MS = 120000;
 
+/**
+ * Run a command synchronously, capturing utf8 output (shell on Windows).
+ * @param {string} command - Executable.
+ * @param {string[]} args - Arguments.
+ * @param {object} [options] - Extra spawnSync options.
+ * @returns {import("node:child_process").SpawnSyncReturns<string>} Result.
+ */
 export function run(command, args, options = {}) {
   return spawnSync(command, args, {
     encoding: "utf8",
@@ -37,8 +44,13 @@ function resolveTool(name) {
   }
 }
 
-// Build a spawn invocation for a tool, preferring a direct `node <bin>` call and
-// falling back to npx when the tool can't be resolved locally.
+/**
+ * Build a spawn invocation for a tool, preferring a direct `node <bin>` call and
+ * falling back to npx when the tool can't be resolved locally.
+ * @param {string} name - Package/bin name (e.g. "eslint").
+ * @param {string[]} args - Tool arguments.
+ * @returns {{command: string, args: string[], shell: boolean}} Invocation parts.
+ */
 export function toolInvocation(name, args) {
   const bin = resolveTool(name);
   if (bin) {
@@ -47,7 +59,13 @@ export function toolInvocation(name, args) {
   return { command: "npx", args: [name, ...args], shell: isWindows };
 }
 
-// Synchronous tool run (used where output is inherited).
+/**
+ * Synchronous tool run via toolInvocation, with the standard timeout.
+ * @param {string} name - Package/bin name.
+ * @param {string[]} args - Tool arguments.
+ * @param {object} [options] - Extra spawnSync options.
+ * @returns {import("node:child_process").SpawnSyncReturns<string>} Result.
+ */
 export function runTool(name, args, options = {}) {
   const { command, args: fullArgs, shell } = toolInvocation(name, args);
   return spawnSync(command, fullArgs, {
@@ -57,11 +75,15 @@ export function runTool(name, args, options = {}) {
   });
 }
 
-// Asynchronous spawn that captures stdout/stderr and resolves a result shaped
-// like spawnSync's ({ error, status, signal, stdout, stderr }). Used to run
-// independent checks concurrently. Pass `echo: true` to also stream the child's
-// output to this process live while still capturing it (a tee), so a summary
-// can be parsed from the captured text afterwards.
+/**
+ * Asynchronous spawn that resolves a spawnSync-shaped result
+ * ({ error, status, signal, stdout, stderr }). Pass `echo: true` to tee the
+ * child's output to this process live while still capturing it.
+ * @param {string} command - Executable.
+ * @param {string[]} args - Arguments.
+ * @param {object} [options] - spawn options plus optional `echo`.
+ * @returns {Promise<{error?: Error, status: number|null, signal: string|null, stdout: string, stderr: string}>} Result.
+ */
 export function spawnAsync(command, args, options = {}) {
   const { echo = false, ...spawnOptions } = options;
   return new Promise((resolve) => {

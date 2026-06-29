@@ -37,14 +37,26 @@ const storyFilePattern = /\.stories\.[^.]+$/;
 const generatedFilePattern = /\.generated\.[^.]+$/;
 const generatedDirPattern = /(^|\/)(generated|__generated__)\//;
 
+/**
+ * @param {string} file - Repo-relative file path.
+ * @returns {boolean} True for *.test.* / *.spec.* files.
+ */
 export function isTestFile(file) {
   return testSuffixes.some((suffix) => file.endsWith(suffix));
 }
 
+/**
+ * @param {string} file - Repo-relative file path.
+ * @returns {boolean} True if the file lives under test/tests/__tests__/__mocks__.
+ */
 export function isInTestDir(file) {
   return /(^|\/)(test|tests|__tests__|__mocks__)\//.test(file);
 }
 
+/**
+ * @param {string} file - Repo-relative file path.
+ * @returns {boolean} True for dotfiles or *.config.* configuration files.
+ */
 export function isConfigFile(file) {
   const base = path.basename(file);
   return base.startsWith(".") || /\.config\.[^.]+$/.test(base);
@@ -61,7 +73,11 @@ function isGeneratedFile(file) {
   );
 }
 
-// Convert a simple glob (supporting *, **, and ?) to an anchored RegExp.
+/**
+ * Convert a simple glob (supporting *, **, and ?) to an anchored RegExp.
+ * @param {string} glob - Glob pattern.
+ * @returns {RegExp} Anchored matcher for repo-relative paths.
+ */
 export function globToRegExp(glob) {
   let pattern = "";
   let i = 0;
@@ -108,7 +124,11 @@ function isUserExempt(file) {
   return testExemptGlobs.some((pattern) => pattern.test(file));
 }
 
-// Staged code files we never expect to ship with a dedicated unit test.
+/**
+ * Staged code files we never expect to ship with a dedicated unit test.
+ * @param {string} file - Repo-relative file path.
+ * @returns {boolean} True when the file is exempt from the missing-test check.
+ */
 export function isTestExemptFile(file) {
   return (
     isTestFile(file) ||
@@ -121,6 +141,12 @@ export function isTestExemptFile(file) {
   );
 }
 
+/**
+ * Find the matching test for a source file (sibling, adjacent __tests__/, or a
+ * top-level test/ or tests/ dir).
+ * @param {string} file - Repo-relative source path.
+ * @returns {string|null} The test file path, or null if none exists.
+ */
 export function findTestFile(file) {
   const dirname = path.dirname(file);
   const basename = path.basename(file, path.extname(file));
@@ -144,10 +170,13 @@ export function findTestFile(file) {
   return null;
 }
 
-// Given a set of changed files, returns the test files worth running for them:
-// the staged/changed test files themselves, plus any matching test discovered
-// for a changed source file. Shared by the commit hook (staged tests) and the
-// pre-push gate (tests for pushed files).
+/**
+ * Given a set of changed files, returns the test files worth running for them:
+ * the changed test files themselves, plus any matching test discovered for a
+ * changed source file. Shared by the commit hook and the pre-push gate.
+ * @param {string[]} files - Changed/staged repo-relative paths.
+ * @returns {string[]} De-duplicated list of test files to run.
+ */
 export function collectTestsForFiles(files) {
   const tests = new Set();
   for (const file of files) {
@@ -163,6 +192,12 @@ export function collectTestsForFiles(files) {
   return [...tests];
 }
 
+/**
+ * Render a compact "a, b, c (+N more)" list for boxed output.
+ * @param {string[]} files - File paths.
+ * @param {number} [max=3] - How many to show before summarizing the rest.
+ * @returns {string} The compacted list.
+ */
 export function shortFileList(files, max = 3) {
   const shown = files.slice(0, max);
   if (shown.length === 0) {

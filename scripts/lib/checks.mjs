@@ -1,5 +1,10 @@
 // Pure helpers for interpreting tool output (no child processes here).
 
+/**
+ * Totals ESLint JSON results into issue and auto-fixable counts.
+ * @param {string} stdout - ESLint `--format json` output.
+ * @returns {{issueCount: number, fixableCount: number}} Aggregated counts.
+ */
 export function summarizeEslintJson(stdout) {
   try {
     const parsed = JSON.parse(stdout || "[]");
@@ -21,6 +26,10 @@ export function summarizeEslintJson(stdout) {
   }
 }
 
+/**
+ * @param {string} output - Prettier `--list-different` output.
+ * @returns {string[]} Trimmed, non-empty file paths.
+ */
 export function parsePrettierList(output) {
   return output
     .split("\n")
@@ -28,9 +37,13 @@ export function parsePrettierList(output) {
     .filter(Boolean);
 }
 
-// Extracts the non-auto-fixable ESLint messages so the hook can point at the
-// exact file, location, and rule a developer must fix by hand. A message is
-// considered manual when ESLint did not attach an automatic `fix`.
+/**
+ * Extracts the non-auto-fixable ESLint messages so the hook can point at the
+ * exact file, location, and rule a developer must fix by hand. A message is
+ * manual when ESLint did not attach an automatic `fix`.
+ * @param {string} stdout - ESLint `--format json` output.
+ * @returns {Array<{filePath: string, line: number, column: number, ruleId: string|null}>} Manual issues.
+ */
 export function eslintManualIssues(stdout) {
   try {
     const parsed = JSON.parse(stdout || "[]");
@@ -54,11 +67,12 @@ export function eslintManualIssues(stdout) {
   }
 }
 
-// Best-effort parse of a `node --test` run summary into { passed, failed }.
-// Matches both the TAP reporter ("# pass 46") and the spec reporter
-// ("ℹ pass 46"). Returns null when the output isn't recognizable (e.g. a
-// custom pushTestCommand running jest/vitest), so callers can fall back to a
-// generic message.
+/**
+ * Best-effort parse of a `node --test` run summary. Handles the TAP reporter
+ * ("# pass 46") and spec reporter ("ℹ pass 46"), and strips ANSI first.
+ * @param {string} output - Test runner output.
+ * @returns {{passed: number, failed: number}|null} Counts, or null if unrecognized.
+ */
 export function parseNodeTestSummary(output) {
   // Strip ANSI color codes so colored reporter output still parses.
   const clean = (output || "").replace(/\u001b\[[0-9;]*m/g, "");

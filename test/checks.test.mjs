@@ -91,3 +91,14 @@ test("parseNodeTestSummary returns null for unrecognized output", () => {
   assert.equal(parseNodeTestSummary(""), null);
   assert.equal(parseNodeTestSummary("Tests: 1 failed, 2 passed"), null);
 });
+
+test("parseNodeTestSummary handles pass-only and fail-only output", () => {
+  assert.deepEqual(parseNodeTestSummary("# pass 3\n"), {
+    passed: 3,
+    failed: 0,
+  });
+  assert.deepEqual(parseNodeTestSummary("# fail 2\n"), {
+    passed: 0,
+    failed: 2,
+  });
+});
