@@ -29,8 +29,24 @@ const testCommand =
 
 // Git feeds the pre-push hook "<local ref> <local sha> <remote ref> <remote
 // sha>" lines on stdin. Read them to learn exactly what is being pushed.
-async function readPushRefs() {
+function stdinIsPiped() {
   if (process.stdin.isTTY) {
+    return false;
+  }
+  try {
+    const stat = fs.fstatSync(0);
+    return stat.isFIFO() || stat.isFile() || stat.isSocket();
+  } catch {
+    return false;
+  }
+}
+
+async function readPushRefs() {
+  // `isTTY` is unreliable on Windows (undefined under Git Bash/MSYS), so detect
+  // piped input directly: git connects fd 0 to a pipe/file when it runs the
+  // hook, whereas a manual run leaves it on the interactive terminal. Without
+  // this, a manual `node scripts/prepush.mjs` would block forever reading stdin.
+  if (!stdinIsPiped()) {
     return [];
   }
   let raw = "";
