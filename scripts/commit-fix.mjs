@@ -224,11 +224,17 @@ if (changedFiles.length === 0) {
   process.exit(0);
 }
 
-const amendResult = spawnSync("git", ["commit", "--amend", "--no-edit"], {
-  stdio: "inherit",
-  shell: isWindows,
-  timeout: TOOL_TIMEOUT_MS,
-});
+const amendResult = spawnSync(
+  "git",
+  // Skip the pre-commit hook: commit:fix already lint/format-checked these
+  // files, so re-running the advisory hook here would only print a duplicate box.
+  ["commit", "--amend", "--no-edit", "--no-verify"],
+  {
+    stdio: "inherit",
+    shell: isWindows,
+    timeout: TOOL_TIMEOUT_MS,
+  },
+);
 
 if (amendResult.error || (amendResult.status || 0) !== 0) {
   errorBox([
