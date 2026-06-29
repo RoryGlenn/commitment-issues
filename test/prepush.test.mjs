@@ -15,11 +15,12 @@ function runPrePush(tempDir, input = "") {
   });
 }
 
-// Simulate a human running the hook by hand: stdin is not a pipe/file (git only
-// pipes refs during a real push), so the script's `runByGit` detection is false.
+// Simulate a human running the hook by hand in a terminal. We can't attach a
+// real TTY from spawnSync, so use the script's interactive override seam.
 function runPrePushManual(tempDir) {
   return run("node", [path.join(tempDir, "scripts", "prepush.mjs")], tempDir, {
-    stdio: ["ignore", "pipe", "pipe"],
+    input: "",
+    env: { ...process.env, PREPUSH_ASSUME_INTERACTIVE: "1" },
   });
 }
 
@@ -198,6 +199,8 @@ test("blockPushOnTestFailure takes precedence over advisePushTests", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Push blocked: tests failed/);
+  // Setting both modes is a config conflict and must be surfaced.
+  assert.match(output, /Conflicting pre-push config/);
 });
 
 test("advisory mode warns but allows the push when the test command cannot run", (t) => {

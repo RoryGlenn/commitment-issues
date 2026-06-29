@@ -15,24 +15,17 @@ const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 const config = loadPrecommitConfig();
 
-// Git connects fd 0 to a pipe/file when it runs the hook, whereas a manual run
-// leaves it on the interactive terminal. `isTTY` is unreliable on Windows
-// (undefined under Git Bash/MSYS), so detect piped input directly. This both
-// avoids blocking forever on stdin during a manual run and lets us tell whether
-// the script is being run by git or by a human.
-function stdinIsPiped() {
-  if (process.stdin.isTTY) {
-    return false;
-  }
-  try {
-    const stat = fs.fstatSync(0);
-    return stat.isFIFO() || stat.isFile() || stat.isSocket();
-  } catch {
-    return false;
-  }
-}
-
-const runByGit = stdinIsPiped();
+// A real `git push` pipes the ref list into the hook, so the hook's stdin is
+// never a TTY then. A developer running the script by hand in a terminal does
+// have a TTY on stdin. `isTTY` is the only stdin signal that is reliable across
+// Windows (PowerShell/cmd), macOS, and Linux — fstat-based pipe detection is
+// not (git's pipe on Windows doesn't report as a FIFO). So we only treat a run
+// as interactive when stdin is *certainly* a TTY; on any ambiguity we assume
+// git and stay silent, guaranteeing a real push never prints the advisory box.
+// PREPUSH_ASSUME_INTERACTIVE is a test/debug seam to force the interactive path.
+const interactive =
+  process.stdin.isTTY === true ||
+  process.env.PREPUSH_ASSUME_INTERACTIVE === "1";
 
 // Two opt-in modes for running the suite before a push:
 //   blockPushOnTestFailure: run tests and block the push if any fail.
@@ -42,11 +35,24 @@ const runByGit = stdinIsPiped();
 const blocking = config.blockPushOnTestFailure === true;
 const advisory = !blocking && config.advisePushTests === true;
 
+// The two modes are mutually exclusive; if a repo sets both, surface the
+// conflict so it's clearly a config mistake rather than silently ignored.
+if (config.blockPushOnTestFailure === true && config.advisePushTests === true) {
+  warningBox([
+    pc.bold("Conflicting pre-push config"),
+    "",
+    pc.dim("Both blockPushOnTestFailure and advisePushTests are set to true."),
+    pc.dim("They are mutually exclusive — using blockPushOnTestFailure (block"),
+    pc.dim("on failure). Remove advisePushTests from package.json to silence"),
+    pc.dim("this warning."),
+  ]);
+}
+
 if (!blocking && !advisory) {
   // Silent during a real `git push` (the documented non-blocking default), but
   // when a human runs this by hand it would otherwise exit with no output and
   // look broken — so explain why nothing ran and how to turn a mode on.
-  if (!runByGit) {
+  if (interactive) {
     infoBox([
       pc.bold("Pre-push test checks are disabled."),
       "",
@@ -67,17 +73,40 @@ const testCommand =
 
 // Git feeds the pre-push hook "<local ref> <local sha> <remote ref> <remote
 // sha>" lines on stdin. Read them to learn exactly what is being pushed.
+function readStdin() {
+  // Interactive terminal: no refs are coming, and reading a TTY would block, so
+  // skip it entirely.
+  if (interactive) {
+    return Promise.resolve("");
+  }
+  // Otherwise read the piped refs, but guard with a timeout: a shell that hands
+  // us a non-TTY stdin with no data (e.g. Git Bash run by hand) must not hang
+  // the script forever waiting for input that never arrives. A real push closes
+  // the pipe promptly, so `end` fires well before the timeout.
+  return new Promise((resolve) => {
+    let raw = "";
+    let settled = false;
+    const done = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(raw);
+    };
+    const timer = setTimeout(done, 1000);
+    timer.unref?.();
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      raw += chunk;
+    });
+    process.stdin.on("end", done);
+    process.stdin.on("error", done);
+  });
+}
+
 async function readPushRefs() {
-  // When not run by git (manual invocation), there are no refs on stdin; skip
-  // the read entirely so we never block waiting for input that won't arrive.
-  if (!runByGit) {
-    return [];
-  }
-  let raw = "";
-  process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) {
-    raw += chunk;
-  }
+  const raw = await readStdin();
   return raw
     .split("\n")
     .map((line) => line.trim())
