@@ -21,12 +21,18 @@ export function printBox(message, color = (value) => value, options = {}) {
   );
 }
 
-function severityBox(lines, color, title) {
-  printBox(lines.join("\n"), color, { title, titleAlignment: "center" });
+function severityBox(lines, color, title, borderColor) {
+  printBox(lines.join("\n"), color, {
+    title,
+    titleAlignment: "center",
+    borderColor,
+  });
 }
 
 // Severity-titled box helpers; each takes an array of pre-formatted lines.
-export const infoBox = (lines) => severityBox(lines, pc.cyan, "info");
-export const successBox = (lines) => severityBox(lines, pc.green, "success");
-export const warningBox = (lines) => severityBox(lines, pc.yellow, "warning");
-export const errorBox = (lines) => severityBox(lines, pc.red, "error");
+export const infoBox = (lines) => severityBox(lines, pc.cyan, "info", "cyan");
+export const successBox = (lines) =>
+  severityBox(lines, pc.green, "success", "green");
+export const warningBox = (lines) =>
+  severityBox(lines, pc.yellow, "warning", "yellow");
+export const errorBox = (lines) => severityBox(lines, pc.red, "error", "red");
