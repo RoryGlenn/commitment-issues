@@ -64,13 +64,14 @@ test("spawnAsync with echo tees output while capturing it", async () => {
   const original = process.stdout.write.bind(process.stdout);
   const originalErr = process.stderr.write.bind(process.stderr);
   let echoed = "";
-  process.stdout.write = (chunk, ...rest) => {
+  // Capture without forwarding so the child's output doesn't pollute the runner.
+  process.stdout.write = (chunk) => {
     echoed += chunk;
-    return original(chunk, ...rest);
+    return true;
   };
-  process.stderr.write = (chunk, ...rest) => {
+  process.stderr.write = (chunk) => {
     echoed += chunk;
-    return originalErr(chunk, ...rest);
+    return true;
   };
   try {
     const result = await spawnAsync(
