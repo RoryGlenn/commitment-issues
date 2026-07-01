@@ -126,7 +126,7 @@ let hasRemainingIssues = false;
 
 if (committedJsFiles.length > 0) {
   const jsFixResult = run(
-    "node",
+    process.execPath,
     ["scripts/fix-staged-js.mjs", ...committedJsFiles],
     {
       stdio: "inherit",

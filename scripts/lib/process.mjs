@@ -6,8 +6,6 @@ import { loadPrecommitConfig } from "./config.mjs";
 
 const require = createRequire(import.meta.url);
 
-export const isWindows = process.platform === "win32";
-
 // Default ceiling for any tool the hooks spawn, so a hung tool can never wedge a
 // commit indefinitely. Override with precommitChecks.timeoutMs (positive number).
 const configuredTimeout = Number(loadPrecommitConfig().timeoutMs);
