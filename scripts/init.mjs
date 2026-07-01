@@ -3,18 +3,18 @@ import fs from "node:fs";
 import pc from "picocolors";
 import { errorBox, successBox } from "./lib/ui.mjs";
 import { run } from "./lib/process.mjs";
+import { BIN, HOOK_BODIES } from "./lib/hooks.mjs";
 
 // One-command setup for a consuming repo: wires up the Husky hooks, npm scripts,
 // lint-staged config, and gitignored caches without clobbering existing values.
-// Safe to re-run.
+// Everything runs through the installed `commitment-issues` bin, so nothing is
+// vendored. Safe to re-run.
 
 if (!fs.existsSync("package.json")) {
   errorBox([
     pc.bold("No package.json found."),
     "",
-    pc.dim(
-      "Run this from your project root after copying the scripts/ folder.",
-    ),
+    pc.dim("Run this from your project root."),
   ]);
   process.exit(1);
 }
@@ -26,10 +26,15 @@ pkg.scripts = pkg.scripts || {};
 
 // `prepare` runs on every install and is our automatic self-heal entry point:
 // `doctor --quiet` re-establishes the hook wiring (and sets up husky the first
-// time). Upgrade an older `husky`-only value to it.
-const desiredPrepare = "node scripts/doctor.mjs --quiet";
+// time). Upgrade older values from previous setups to it.
+const desiredPrepare = `${BIN} doctor --quiet`;
+const legacyPrepare = [
+  "husky",
+  "husky || true",
+  "node scripts/doctor.mjs --quiet",
+];
 if (
-  (!pkg.scripts.prepare || pkg.scripts.prepare === "husky") &&
+  (!pkg.scripts.prepare || legacyPrepare.includes(pkg.scripts.prepare)) &&
   pkg.scripts.prepare !== desiredPrepare
 ) {
   pkg.scripts.prepare = desiredPrepare;
@@ -37,10 +42,10 @@ if (
 }
 
 const scripts = {
-  "commit:fix": "node scripts/commit-fix.mjs",
-  "fix:staged": "node scripts/fix-staged.mjs",
-  "test:precommit": "node scripts/precommit-unified.mjs",
-  doctor: "node scripts/doctor.mjs",
+  "commit:fix": `${BIN} commit-fix`,
+  "fix:staged": `${BIN} fix-staged`,
+  "test:precommit": `${BIN} precommit`,
+  doctor: `${BIN} doctor`,
 };
 for (const [name, value] of Object.entries(scripts)) {
   if (!pkg.scripts[name]) {
@@ -51,7 +56,7 @@ for (const [name, value] of Object.entries(scripts)) {
 
 if (!pkg["lint-staged"]) {
   pkg["lint-staged"] = {
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["node scripts/fix-staged-js.mjs"],
+    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [`${BIN} fix-staged-js`],
     "*.{json,css,scss,md,html,yml,yaml}": ["prettier --write --ignore-unknown"],
   };
   created.push("lint-staged config");
@@ -68,11 +73,7 @@ fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
 run("npx", ["husky"]);
 
 fs.mkdirSync(".husky", { recursive: true });
-const hooks = {
-  ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
-  ".husky/pre-push": "node scripts/prepush.mjs\n",
-};
-for (const [hookPath, body] of Object.entries(hooks)) {
+for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
   if (!fs.existsSync(hookPath)) {
     fs.writeFileSync(hookPath, body);
     fs.chmodSync(hookPath, 0o755);

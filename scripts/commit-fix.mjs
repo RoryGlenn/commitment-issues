@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, runTool, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
@@ -6,6 +8,8 @@ import {
   formatFilePattern,
   shortFileList,
 } from "./lib/files.mjs";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 const headResult = run("git", ["rev-parse", "--verify", "HEAD"]);
 
@@ -127,7 +131,7 @@ let hasRemainingIssues = false;
 if (committedJsFiles.length > 0) {
   const jsFixResult = run(
     process.execPath,
-    ["scripts/fix-staged-js.mjs", ...committedJsFiles],
+    [path.join(scriptDir, "fix-staged-js.mjs"), ...committedJsFiles],
     {
       stdio: "inherit",
       timeout: TOOL_TIMEOUT_MS,

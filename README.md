@@ -7,51 +7,42 @@ Advisory pre-commit checks that nudge, never block. A non-blocking pre-commit fl
 ## Requirements
 
 - **Node.js >= 22** — the scripts use modern ESM features and the built-in `node --test` runner.
-- Dev dependencies in your project: `husky`, `lint-staged`, `eslint`, `prettier`, plus `boxen`, `picocolors`, and `cross-spawn` for the boxed output and cross-platform process spawning.
-- An ESLint flat config (`eslint.config.js`) in your project. For TypeScript, it must be TypeScript-aware (see [TypeScript and mixed projects](#typescript-and-mixed-projects)). The bundled config includes React support via `eslint-plugin-react` and `eslint-plugin-react-hooks`, applying recommended rules to `.jsx`/`.tsx` files with automatic React version detection.
+- Peer tools in your project: `husky`, `lint-staged`, `eslint`, `prettier` (the hooks run these). `commitment-issues` itself brings `boxen`, `picocolors`, and `cross-spawn` along as dependencies.
+- An ESLint flat config (`eslint.config.js`) in your project. For TypeScript, it must be TypeScript-aware (see [TypeScript and mixed projects](#typescript-and-mixed-projects)).
 
 ## Installation
 
-1. Install the dev dependencies:
+```bash
+npm install -D commitment-issues husky lint-staged eslint prettier
+npx commitment-issues init
+```
 
-   ```bash
-   npm install -D husky lint-staged eslint prettier boxen picocolors cross-spawn
-   ```
+That's it. `init` wires up the `.husky/pre-commit` and `.husky/pre-push` hooks (which call the `commitment-issues` bin), adds the npm scripts and `lint-staged` config, seeds an empty `precommitChecks` block, activates Husky, and gitignores the caches — all idempotent, so it's safe to re-run. Nothing is copied into your repo; everything runs from the installed package.
 
-2. Copy the `scripts/` directory (including `scripts/lib/`) into your project root.
-
-3. Run the one-command setup:
-
-   ```bash
-   node scripts/init.mjs
-   ```
-
-   This wires up the `.husky/pre-commit` and `.husky/pre-push` hooks, adds the npm scripts and `lint-staged` config, seeds an empty `precommitChecks` block, and gitignores the caches — all idempotent, so it's safe to re-run.
-
-4. Make sure your project has an ESLint flat config (`eslint.config.js`); for TypeScript, make it TypeScript-aware (see below).
+Make sure your project has an ESLint flat config (`eslint.config.js`); for TypeScript, make it TypeScript-aware (see below).
 
 <details>
 <summary>Prefer manual setup?</summary>
 
-Skip step 3 and instead register the hooks and add the scripts yourself:
+Instead of `npx commitment-issues init`, register the hooks and add the scripts yourself:
 
 ```bash
 npx husky init
-echo "node scripts/precommit-unified.mjs" > .husky/pre-commit
-echo "node scripts/prepush.mjs" > .husky/pre-push
+echo "commitment-issues precommit" > .husky/pre-commit
+echo "commitment-issues prepush" > .husky/pre-push
 ```
 
 ```json
 {
   "scripts": {
-    "prepare": "node scripts/doctor.mjs --quiet",
-    "commit:fix": "node scripts/commit-fix.mjs",
-    "fix:staged": "node scripts/fix-staged.mjs",
-    "test:precommit": "node scripts/precommit-unified.mjs",
-    "doctor": "node scripts/doctor.mjs"
+    "prepare": "commitment-issues doctor --quiet",
+    "commit:fix": "commitment-issues commit-fix",
+    "fix:staged": "commitment-issues fix-staged",
+    "test:precommit": "commitment-issues precommit",
+    "doctor": "commitment-issues doctor"
   },
   "lint-staged": {
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["node scripts/fix-staged-js.mjs"],
+    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["commitment-issues fix-staged-js"],
     "*.{json,css,scss,md,html,yml,yaml}": ["prettier --write --ignore-unknown"]
   }
 }
@@ -65,18 +56,19 @@ Your next `git commit` will run the advisory checks.
 
 ## Project structure
 
+- `scripts/cli.mjs` — the `commitment-issues` bin; dispatches subcommands (`init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, `fix-staged-js`).
 - `scripts/precommit-unified.mjs` — the pre-commit hook entrypoint (advisory checks).
-- `scripts/init.mjs` — one-command setup for a consuming repo.
+- `scripts/init.mjs` — one-command setup for a consuming repo (`commitment-issues init`).
 - `scripts/prepush.mjs` — the opt-in pre-push test gate.
-- `scripts/doctor.mjs` — `npm run doctor`, verifies and repairs the Husky hook wiring.
-- `scripts/fix-staged.mjs` — `npm run fix:staged`, runs lint-staged on staged files.
+- `scripts/doctor.mjs` — `commitment-issues doctor`, verifies and repairs the Husky hook wiring.
+- `scripts/fix-staged.mjs` — `commitment-issues fix-staged`, runs lint-staged on staged files.
 - `scripts/fix-staged-js.mjs` — lint-staged task: `eslint --fix` + `prettier --write`.
 - `scripts/commit-fix.mjs` — `npm run commit:fix`, auto-fixes and amends the latest commit.
 - `scripts/lib/` — shared helpers: `ui.mjs` (boxes), `process.mjs` (spawning/tool resolution), `files.mjs` (path/test heuristics), `checks.mjs` (output parsing), `message.mjs` (advisory builder), `config.mjs` (reads `precommitChecks`).
 
 ## Active flow
 
-- `.husky/pre-commit` runs `node scripts/precommit-unified.mjs`.
+- `.husky/pre-commit` runs `commitment-issues precommit`.
 - `scripts/precommit-unified.mjs` inspects staged files, prints one consolidated summary box, and never blocks the commit.
 - When automatic fixes can still be applied safely after the commit, the hook suggests `npm run commit:fix` as the post-commit amend path.
 - `npm run fix:staged` runs `scripts/fix-staged.mjs`, which delegates staged-file fixing to `lint-staged`.
@@ -160,7 +152,7 @@ The `run` subcommand is required — without it Vitest starts **watch mode** and
 
 ## Blocking pushes on test failure (opt-in)
 
-The pre-commit flow is always advisory. If you want a hard gate, enforce it at **push** time instead — commits stay cheap and non-blocking, while broken code is stopped before it is shared. This is handled by a separate `pre-push` hook (`.husky/pre-push` runs `node scripts/prepush.mjs`).
+The pre-commit flow is always advisory. If you want a hard gate, enforce it at **push** time instead — commits stay cheap and non-blocking, while broken code is stopped before it is shared. This is handled by a separate `pre-push` hook (`.husky/pre-push` runs `commitment-issues prepush`).
 
 It is **off by default**. Enable it in `package.json`:
 
@@ -192,7 +184,7 @@ This runs the same pushed-files tests and prints the live output and summary, bu
 To register the hook, add it once:
 
 ```bash
-echo "node scripts/prepush.mjs" > .husky/pre-push
+echo "commitment-issues prepush" > .husky/pre-push
 ```
 
 > The gate is capped by a timeout. To bypass it for a single push, use `git push --no-verify`.
@@ -254,16 +246,14 @@ These scripts are Git-hook tooling, so disable Husky in CI with `HUSKY=0` to avo
 ## Commands
 
 ```bash
-npm run init            # one-command setup (hooks, scripts, config)
-npm run doctor          # verify and repair the git hook wiring
-npm run test:precommit  # run the unified hook script directly
-npm run fix:staged      # apply staged-only ESLint/Prettier fixes
-npm run commit:fix      # apply automatic fixes to the latest clean commit and amend it
-npm test                 # run automated hook behavior tests
-npm run test:coverage   # run tests with a coverage report
-npm run lint            # lint the full repo
-npm run format:check    # check formatting across the repo
+npx commitment-issues init   # one-command setup (hooks, scripts, config)
+npm run doctor               # verify and repair the git hook wiring
+npm run test:precommit       # run the pre-commit checks directly
+npm run fix:staged           # apply staged-only ESLint/Prettier fixes
+npm run commit:fix           # apply automatic fixes to the latest clean commit and amend it
 ```
+
+The npm scripts above are added by `init` and call the `commitment-issues` bin. You can also invoke any subcommand directly, e.g. `npx commitment-issues doctor`.
 
 ## Troubleshooting
 
@@ -271,7 +261,7 @@ npm run format:check    # check formatting across the repo
 
 If commits and pushes suddenly skip all checks — no advisory box, no push gate — the Husky wiring was probably knocked out. Husky runs every hook through the **gitignored** `.husky/_` wrapper directory plus git's `core.hooksPath`, and **neither is committed**. A `git clean -fdx`, a stale checkout, a discarded-untracked-files action in a Git GUI, or a dependency reinstall that skipped `prepare` can remove them — which silently switches off _both_ `pre-commit` and `pre-push` at once.
 
-**This heals itself on install.** `init` sets `prepare` to `node scripts/doctor.mjs --quiet`, so every `npm install`/`npm ci` automatically re-establishes the wiring (silently when healthy, with a one-line notice when it repairs something). It can never break an install — in a non-git context it just no-ops.
+**This heals itself on install.** `init` sets `prepare` to `commitment-issues doctor --quiet`, so every `npm install`/`npm ci` automatically re-establishes the wiring (silently when healthy, with a one-line notice when it repairs something). It can never break an install — in a non-git context it just no-ops.
 
 If the wiring drops _without_ a reinstall (e.g. a `git clean` mid-session), git can't launch any hook to fix itself — that's an inherent chicken-and-egg limit. Repair it on demand with:
 
@@ -285,4 +275,4 @@ npm run doctor
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Copy the `scripts/` folder freely.
+MIT — see [LICENSE](LICENSE).

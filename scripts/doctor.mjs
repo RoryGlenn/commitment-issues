@@ -4,6 +4,7 @@ import path from "node:path";
 import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run } from "./lib/process.mjs";
+import { HOOK_BODIES } from "./lib/hooks.mjs";
 
 // Diagnose and self-heal the Husky hook wiring. Both hooks run through the
 // gitignored `.husky/_` wrappers and git's `core.hooksPath` — neither of which
@@ -19,10 +20,6 @@ import { run } from "./lib/process.mjs";
 const quiet = process.argv.includes("--quiet");
 
 const HOOKS_PATH = ".husky/_";
-const HOOK_BODIES = {
-  ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
-  ".husky/pre-push": "node scripts/prepush.mjs\n",
-};
 
 // Prerequisite missing (no package.json / not a git repo). Interactive: explain
 // and fail. Quiet: skip silently and succeed so installs never break.

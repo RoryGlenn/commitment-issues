@@ -29,7 +29,7 @@
     "LICENSE"
   ],
   "bin": {
-    "commitment-issues": "scripts/init.mjs"
+    "commitment-issues": "scripts/cli.mjs"
   },
   "scripts": {
     "prepare": "node scripts/doctor.mjs --quiet",

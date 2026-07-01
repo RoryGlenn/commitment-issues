@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+// Single entry point for the `commitment-issues` bin. It dispatches a
+// subcommand to the matching script that lives alongside it inside the
+// installed package, so consumers run `commitment-issues <command>` from their
+// hooks and npm scripts — no vendoring, no node_modules paths.
+
+const COMMANDS = {
+  init: "init.mjs",
+  doctor: "doctor.mjs",
+  precommit: "precommit-unified.mjs",
+  prepush: "prepush.mjs",
+  "commit-fix": "commit-fix.mjs",
+  "fix-staged": "fix-staged.mjs",
+  "fix-staged-js": "fix-staged-js.mjs",
+};
+
+const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+const [subcommand, ...rest] = process.argv.slice(2);
+
+function printUsage(stream) {
+  const names = Object.keys(COMMANDS).join(", ");
+  stream(`commitment-issues <command> [args]
+
+Commands: ${names}
+
+Get started:  commitment-issues init`);
+}
+
+if (!subcommand || subcommand === "-h" || subcommand === "--help") {
+  printUsage(subcommand ? console.log : console.error);
+  process.exit(subcommand ? 0 : 1);
+}
+
+const file = COMMANDS[subcommand];
+if (!file) {
+  console.error(
+    `commitment-issues: unknown command '${subcommand}'. Run 'commitment-issues --help'.`,
+  );
+  process.exit(1);
+}
+
+// Run the target script in this same process: rewrite argv so it sees only its
+// own arguments, then import it. The scripts call process.exit themselves, which
+// propagates the correct exit code (and stdin stays connected for pre-push).
+const target = path.join(scriptsDir, file);
+process.argv = [process.argv[0], target, ...rest];
+try {
+  await import(pathToFileURL(target).href);
+} catch (error) {
+  console.error(error?.stack || error?.message || error);
+  process.exit(1);
+}

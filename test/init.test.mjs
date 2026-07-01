@@ -28,15 +28,26 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.equal(first.status, 0);
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  assert.equal(pkg.scripts["commit:fix"], "node scripts/commit-fix.mjs");
-  assert.equal(pkg.scripts["fix:staged"], "node scripts/fix-staged.mjs");
-  assert.equal(pkg.scripts.doctor, "node scripts/doctor.mjs");
-  assert.equal(pkg.scripts.prepare, "node scripts/doctor.mjs --quiet");
-  assert.ok(pkg["lint-staged"]);
+  assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
+  assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
+  assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
+  assert.equal(pkg.scripts.prepare, "commitment-issues doctor --quiet");
+  assert.equal(
+    pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
+    "commitment-issues fix-staged-js",
+  );
   assert.ok(pkg.precommitChecks);
 
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
+  assert.match(
+    readFile(tempDir, ".husky/pre-commit"),
+    /commitment-issues precommit/,
+  );
+  assert.match(
+    readFile(tempDir, ".husky/pre-push"),
+    /commitment-issues prepush/,
+  );
   assert.match(readFile(tempDir, ".gitignore"), /\.prettiercache/);
 
   // Re-running changes nothing.
