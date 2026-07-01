@@ -10,6 +10,13 @@ import { run } from "./lib/process.mjs";
 // is committed — so a `git clean -fdx`, a stale checkout, or a reinstall that
 // skipped `prepare` can silently switch off ALL hooks at once. This restores
 // them without clobbering anything, and is safe to run anytime.
+//
+// With `--quiet` it runs from `prepare` on every install: it stays silent when
+// healthy, prints a one-line notice only when it repairs something, and never
+// exits non-zero (so it can never break `npm install`, including CI/Docker with
+// no `.git`).
+
+const quiet = process.argv.includes("--quiet");
 
 const HOOKS_PATH = ".husky/_";
 const HOOK_BODIES = {
@@ -17,23 +24,46 @@ const HOOK_BODIES = {
   ".husky/pre-push": "node scripts/prepush.mjs\n",
 };
 
+// Prerequisite missing (no package.json / not a git repo). Interactive: explain
+// and fail. Quiet: skip silently and succeed so installs never break.
+function notApplicable(lines) {
+  if (!quiet) {
+    errorBox(lines);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+// Repair could not complete. Interactive: explain and fail. Quiet: warn in one
+// line and still succeed so the install isn't broken.
+function repairFailed(lines) {
+  if (quiet) {
+    console.warn(
+      pc.yellow(
+        "commitment-issues: could not wire up git hooks — run `npm run doctor`.",
+      ),
+    );
+    process.exit(0);
+  }
+  errorBox(lines);
+  process.exit(1);
+}
+
 if (!fs.existsSync("package.json")) {
-  errorBox([
+  notApplicable([
     pc.bold("No package.json found."),
     "",
     pc.dim("Run this from your project root."),
   ]);
-  process.exit(1);
 }
 
 const insideRepo = run("git", ["rev-parse", "--is-inside-work-tree"]);
 if (insideRepo.error || insideRepo.status !== 0) {
-  errorBox([
+  notApplicable([
     pc.bold("Not a git repository."),
     "",
     pc.dim("Run this from inside your git project."),
   ]);
-  process.exit(1);
 }
 
 function currentHooksPath() {
@@ -69,12 +99,14 @@ if (missingHooks.length > 0) {
 }
 
 if (problems.length === 0) {
-  successBox([
-    pc.bold("Git hooks are healthy."),
-    "",
-    pc.dim("core.hooksPath → .husky/_"),
-    pc.dim("pre-commit and pre-push are wired up and active."),
-  ]);
+  if (!quiet) {
+    successBox([
+      pc.bold("Git hooks are healthy."),
+      "",
+      pc.dim("core.hooksPath → .husky/_"),
+      pc.dim("pre-commit and pre-push are wired up and active."),
+    ]);
+  }
   process.exit(0);
 }
 
@@ -85,12 +117,11 @@ const repaired = [];
 if (!wiringIntact()) {
   const husky = run("npx", ["husky"]);
   if (husky.error || (husky.status || 0) !== 0) {
-    errorBox([
+    repairFailed([
       pc.bold("Could not repair the Husky wiring."),
       "",
       pc.dim("Check that husky is installed (npm install), then retry."),
     ]);
-    process.exit(1);
   }
   repaired.push("husky wiring (core.hooksPath + .husky/_)");
 }
@@ -109,22 +140,27 @@ if (
   !wiringIntact() ||
   missingHooks.some((hookPath) => !fs.existsSync(hookPath))
 ) {
-  errorBox([
+  repairFailed([
     pc.bold("Hook wiring still looks broken after repair."),
     "",
     pc.dim("Try running: npx husky"),
     pc.dim(`Then confirm: git config --get core.hooksPath → ${HOOKS_PATH}`),
   ]);
-  process.exit(1);
 }
 
-warningBox([
-  pc.bold("Repaired the git hook wiring."),
-  "",
-  pc.dim(`Was broken: ${problems.join("; ")}.`),
-  pc.dim(`Fixed: ${repaired.join(", ")}.`),
-  "",
-  pc.dim("pre-commit and pre-push are active again."),
-]);
+if (quiet) {
+  console.log(
+    pc.dim(`commitment-issues: repaired git hooks (${repaired.join(", ")}).`),
+  );
+} else {
+  warningBox([
+    pc.bold("Repaired the git hook wiring."),
+    "",
+    pc.dim(`Was broken: ${problems.join("; ")}.`),
+    pc.dim(`Fixed: ${repaired.join(", ")}.`),
+    "",
+    pc.dim("pre-commit and pre-push are active again."),
+  ]);
+}
 
 process.exit(0);

@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { cleanupTempRepo, createTempRepo, run } from "./helpers/temp-repo.mjs";
+import {
+  cleanupTempRepo,
+  createTempRepo,
+  repoRoot,
+  run,
+} from "./helpers/temp-repo.mjs";
 
 function runDoctor(tempDir) {
   return run("node", [path.join(tempDir, "scripts", "doctor.mjs")], tempDir);
@@ -74,4 +80,51 @@ test("doctor recreates a missing hook file", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /Repaired the git hook wiring/);
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
+});
+
+test("doctor --quiet stays silent when the wiring is healthy", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
+    tempDir,
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
+});
+
+test("doctor --quiet repairs and reports in one line", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
+    tempDir,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /repaired git hooks/);
+  assert.equal(hooksPath(tempDir), ".husky/_");
+});
+
+test("doctor --quiet never breaks an install outside a git repo", (t) => {
+  // Simulates `prepare` running during `npm install` in CI/Docker with no .git.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-nongit-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, "package.json"), '{"name":"x"}\n');
+
+  const result = run(
+    "node",
+    [path.join(repoRoot, "scripts", "doctor.mjs"), "--quiet"],
+    dir,
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
 });

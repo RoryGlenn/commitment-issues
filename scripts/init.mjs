@@ -23,8 +23,20 @@ const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const created = [];
 
 pkg.scripts = pkg.scripts || {};
+
+// `prepare` runs on every install and is our automatic self-heal entry point:
+// `doctor --quiet` re-establishes the hook wiring (and sets up husky the first
+// time). Upgrade an older `husky`-only value to it.
+const desiredPrepare = "node scripts/doctor.mjs --quiet";
+if (
+  (!pkg.scripts.prepare || pkg.scripts.prepare === "husky") &&
+  pkg.scripts.prepare !== desiredPrepare
+) {
+  pkg.scripts.prepare = desiredPrepare;
+  created.push("script prepare");
+}
+
 const scripts = {
-  prepare: "husky",
   "commit:fix": "node scripts/commit-fix.mjs",
   "fix:staged": "node scripts/fix-staged.mjs",
   "test:precommit": "node scripts/precommit-unified.mjs",

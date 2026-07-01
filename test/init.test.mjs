@@ -31,7 +31,7 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.equal(pkg.scripts["commit:fix"], "node scripts/commit-fix.mjs");
   assert.equal(pkg.scripts["fix:staged"], "node scripts/fix-staged.mjs");
   assert.equal(pkg.scripts.doctor, "node scripts/doctor.mjs");
-  assert.equal(pkg.scripts.prepare, "husky");
+  assert.equal(pkg.scripts.prepare, "node scripts/doctor.mjs --quiet");
   assert.ok(pkg["lint-staged"]);
   assert.ok(pkg.precommitChecks);
 

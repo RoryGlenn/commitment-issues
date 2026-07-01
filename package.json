@@ -32,7 +32,7 @@
     "commitment-issues": "scripts/init.mjs"
   },
   "scripts": {
-    "prepare": "husky || true",
+    "prepare": "node scripts/doctor.mjs --quiet",
     "prepublishOnly": "npm test",
     "init": "node scripts/init.mjs",
     "lint": "eslint .",

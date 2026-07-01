@@ -44,9 +44,11 @@ echo "node scripts/prepush.mjs" > .husky/pre-push
 ```json
 {
   "scripts": {
+    "prepare": "node scripts/doctor.mjs --quiet",
     "commit:fix": "node scripts/commit-fix.mjs",
     "fix:staged": "node scripts/fix-staged.mjs",
-    "test:precommit": "node scripts/precommit-unified.mjs"
+    "test:precommit": "node scripts/precommit-unified.mjs",
+    "doctor": "node scripts/doctor.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["node scripts/fix-staged-js.mjs"],
@@ -269,15 +271,15 @@ npm run format:check    # check formatting across the repo
 
 If commits and pushes suddenly skip all checks — no advisory box, no push gate — the Husky wiring was probably knocked out. Husky runs every hook through the **gitignored** `.husky/_` wrapper directory plus git's `core.hooksPath`, and **neither is committed**. A `git clean -fdx`, a stale checkout, a discarded-untracked-files action in a Git GUI, or a dependency reinstall that skipped `prepare` can remove them — which silently switches off _both_ `pre-commit` and `pre-push` at once.
 
-Repair it:
+**This heals itself on install.** `init` sets `prepare` to `node scripts/doctor.mjs --quiet`, so every `npm install`/`npm ci` automatically re-establishes the wiring (silently when healthy, with a one-line notice when it repairs something). It can never break an install — in a non-git context it just no-ops.
+
+If the wiring drops _without_ a reinstall (e.g. a `git clean` mid-session), git can't launch any hook to fix itself — that's an inherent chicken-and-egg limit. Repair it on demand with:
 
 ```bash
 npm run doctor
 ```
 
 `doctor` checks that `core.hooksPath` points at `.husky/_`, that the `.husky/_` wrappers exist, and that `.husky/pre-commit`/`.husky/pre-push` are present — and rebuilds whatever is missing (without overwriting existing hooks). It's safe to run anytime; if everything is already healthy it just says so.
-
-To prevent it recurring, keep `"prepare": "husky"` in your `package.json` so every `npm install`/`npm ci` re-establishes the wiring automatically.
 
 > Also check you haven't left `HUSKY=0` set in your environment — that env var disables **all** Husky hooks until it's removed.
 
