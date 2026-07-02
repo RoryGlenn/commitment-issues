@@ -162,7 +162,10 @@ export function findTestFile(file) {
     for (const suffix of testSuffixes) {
       const candidate = path.join(dir, `${basename}${suffix}`);
       if (fs.existsSync(candidate)) {
-        return candidate;
+        // Normalize to POSIX separators so the returned path matches git's
+        // forward-slash output (dedupes cleanly in collectTestsForFiles and
+        // keeps the displayed test command consistent on Windows).
+        return candidate.split(path.sep).join("/");
       }
     }
   }

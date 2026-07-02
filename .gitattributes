@@ -1,0 +1,10 @@
+# Normalize line endings on checkin and force LF in the working tree so a
+# Windows clone with core.autocrlf=true can't inject CRLF. This matters most
+# for the shell-executed git hooks below: Git for Windows runs them via bundled
+# sh, which fails on a trailing \r.
+* text=auto eol=lf
+
+# Hooks and scripts must stay LF regardless of platform.
+.husky/** text eol=lf
+*.mjs text eol=lf
+*.sh text eol=lf
