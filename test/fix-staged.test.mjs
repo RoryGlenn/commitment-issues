@@ -140,3 +140,20 @@ test("refuses to fix a staged file missing from the working tree", (t) => {
   assert.equal(result.status, 1);
   assert.match(output, /missing from the working tree/);
 });
+
+test("reports already clean and pluralizes for multiple unchanged files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Two already-clean files: lint-staged makes no change, so the index snapshot
+  // is unchanged (both snapshots non-null and equal).
+  writeFile(path.join(tempDir, "src", "a.js"), "export const a = 1;\n");
+  writeFile(path.join(tempDir, "src", "b.js"), "export const b = 2;\n");
+  run("git", ["add", "src/a.js", "src/b.js"], tempDir);
+
+  const result = runFixStaged(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Checked 2 staged files/);
+});

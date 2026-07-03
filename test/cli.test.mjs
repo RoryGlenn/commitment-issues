@@ -61,3 +61,21 @@ test("cli forwards arguments to the subcommand", (t) => {
   // `--quiet` reached doctor: silent when already healthy.
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
 });
+
+test("cli prints usage to stderr and exits 1 when given no command", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = cli(tempDir, []);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /commitment-issues <command>/);
+});
+
+test("cli treats -h like --help", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = cli(tempDir, ["-h"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /commitment-issues <command>/);
+});

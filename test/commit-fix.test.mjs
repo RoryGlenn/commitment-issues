@@ -209,3 +209,35 @@ test("errors when the amend itself fails", (t) => {
   assert.equal(result.status, 1);
   assert.match(output, /could not be amended/);
 });
+
+test("already-clean summary pluralizes for multiple files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "a.js"), "export const a = 1;\n");
+  writeFile(path.join(tempDir, "src", "b.js"), "export const b = 2;\n");
+  run("git", ["add", "src/a.js", "src/b.js"], tempDir);
+  run("git", ["commit", "-m", "clean"], tempDir);
+
+  const result = runCommitFix(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Checked 2 files from the latest commit/,
+  );
+});
+
+test("amend summary pluralizes for multiple updated files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "a.json"), '{"a":1}\n');
+  writeFile(path.join(tempDir, "src", "b.json"), '{"b":2}\n');
+  run("git", ["add", "src/a.json", "src/b.json"], tempDir);
+  run("git", ["commit", "-m", "unformatted"], tempDir);
+
+  const result = runCommitFix(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Updated 2 files from the latest commit/,
+  );
+});

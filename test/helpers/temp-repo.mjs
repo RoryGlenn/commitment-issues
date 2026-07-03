@@ -7,10 +7,14 @@ import { spawnSync } from "node:child_process";
 const helpersDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(helpersDir, "..", "..");
 
-// Absolute path to the real git, captured once so the fake-git shim can
-// delegate non-failing invocations to it regardless of PATH overrides.
-export const REAL_GIT =
-  spawnSync("which", ["git"], { encoding: "utf8" }).stdout.trim() || "git";
+// Absolute path to the real git, captured once (before any PATH override) so
+// the fake-git shim can delegate non-failing invocations to it. `which` is
+// POSIX-only, so use `where` on Windows.
+export const REAL_GIT = (() => {
+  const finder = process.platform === "win32" ? "where" : "which";
+  const out = spawnSync(finder, ["git"], { encoding: "utf8" }).stdout || "";
+  return out.split(/\r?\n/)[0].trim() || "git";
+})();
 
 export function run(command, args, cwd, options = {}) {
   // CI sets HUSKY=0 for the install step, which turns `npx husky` into a no-op.
@@ -105,26 +109,44 @@ export function addBareRemote(tempDir) {
   return remoteDir;
 }
 
+// Write a cross-platform executable `name` into binDir that runs a Node shim
+// with the same arguments: a shebang launcher for POSIX shells plus a matching
+// `.cmd` for Windows (cross-spawn resolves `.cmd` there via PATHEXT).
+function writeCrossPlatformShim(binDir, name, shimBody) {
+  const shimPath = path.join(binDir, `${name}-shim.mjs`);
+  fs.writeFileSync(shimPath, shimBody);
+  const unix = path.join(binDir, name);
+  fs.writeFileSync(unix, `#!/bin/sh\nexec node "${shimPath}" "$@"\n`);
+  fs.chmodSync(unix, 0o755);
+  fs.writeFileSync(
+    path.join(binDir, `${name}.cmd`),
+    `@node "${shimPath}" %*\r\n`,
+  );
+}
+
 // Build an env that puts a fake `git` first on PATH. The shim exits 1 for any
 // invocation whose joined args contain `matchSubstring`, and delegates to the
 // real git otherwise — used to exercise the scripts' defensive "git command
-// failed" branches without corrupting a real repository.
+// failed" branches without corrupting a real repository. Cross-platform: a Node
+// shim behind `git`/`git.cmd` launchers.
 export function fakeGitEnv(tempDir, matchSubstring) {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
-  const gitPath = path.join(binDir, "git");
-  fs.writeFileSync(
-    gitPath,
-    `#!/bin/sh
-if [ -n "$FAKE_GIT_MATCH" ]; then
-  case "$*" in
-    *"$FAKE_GIT_MATCH"*) exit 1 ;;
-  esac
-fi
-exec "$FAKE_GIT_REAL" "$@"
+  writeCrossPlatformShim(
+    binDir,
+    "git",
+    `import { spawnSync } from "node:child_process";
+const args = process.argv.slice(2);
+const match = process.env.FAKE_GIT_MATCH || "";
+if (match && args.join(" ").includes(match)) {
+  process.exit(1);
+}
+const result = spawnSync(process.env.FAKE_GIT_REAL || "git", args, {
+  stdio: "inherit",
+});
+process.exit(result.status == null ? 1 : result.status);
 `,
   );
-  fs.chmodSync(gitPath, 0o755);
   return {
     ...process.env,
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
@@ -135,13 +157,18 @@ exec "$FAKE_GIT_REAL" "$@"
 
 // Build an env that puts a stub executable named `name` first on PATH which
 // does nothing but exit with `exitCode`. Used to force a spawned helper (e.g.
-// `npx husky`) to succeed-as-a-no-op or fail on demand.
+// `npx husky`) to succeed-as-a-no-op or fail on demand. Cross-platform: a shell
+// launcher plus a `.cmd`.
 export function stubBinEnv(tempDir, name, exitCode = 1) {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
-  const binPath = path.join(binDir, name);
-  fs.writeFileSync(binPath, `#!/bin/sh\nexit ${exitCode}\n`);
-  fs.chmodSync(binPath, 0o755);
+  const unix = path.join(binDir, name);
+  fs.writeFileSync(unix, `#!/bin/sh\nexit ${exitCode}\n`);
+  fs.chmodSync(unix, 0o755);
+  fs.writeFileSync(
+    path.join(binDir, `${name}.cmd`),
+    `@exit /b ${exitCode}\r\n`,
+  );
   return {
     ...process.env,
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,

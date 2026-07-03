@@ -462,3 +462,142 @@ test("reports when Prettier cannot complete (unparseable file)", (t) => {
 
   assert.match(output, /Prettier failed to complete/);
 });
+
+test("pluralizes the non-checkable info box for multiple files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "assets", "a.png"), "x\n");
+  writeFile(path.join(tempDir, "assets", "b.png"), "y\n");
+  run("git", ["add", "assets"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /2 staged files will be committed/,
+  );
+});
+
+test("pluralizes auto-fixable ESLint issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  // Two `let`s that are never reassigned trip the auto-fixable prefer-const rule.
+  writeFile(
+    path.join(tempDir, "src", "fixable.js"),
+    "let a = 1;\nlet b = 2;\nexport { a, b };\n",
+  );
+  run("git", ["add", "src/fixable.js"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /2 auto-fixable ESLint issues/,
+  );
+});
+
+test("pluralizes manual ESLint issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  // Two unused constants: no-unused-vars is not auto-fixable, so both are manual.
+  writeFile(
+    path.join(tempDir, "src", "manual.js"),
+    "const a = 1;\nconst b = 2;\n",
+  );
+  run("git", ["add", "src/manual.js"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /2 ESLint issues needing manual fixes/,
+  );
+});
+
+test("reports a manual ESLint issue that has no rule id (parse error)", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  // A syntax error is a fatal parse error: it has a location but no ruleId,
+  // exercising the ruleId-less branch of the manual-issue detail formatter.
+  writeFile(path.join(tempDir, "src", "oops.js"), "const x = ;\n");
+  run("git", ["add", "src/oops.js"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /ESLint issue.*manual fixes/,
+  );
+});
+
+test("continues (advisory) when the unstaged-file probe fails", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "x.js"), "export const x = 1;\n");
+  run("git", ["add", "src/x.js"], tempDir);
+
+  // Fail only the unstaged `git diff --name-only` probe; the staged probe works.
+  const env = fakeGitEnv(tempDir, "diff --name-only");
+  const result = runHook(tempDir, { env });
+
+  assert.equal(result.status, 0);
+});
+
+test("reports a staged-test timeout", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    requireTests: false,
+    runStagedTests: true,
+    timeoutMs: 1,
+  });
+  writeFile(
+    path.join(tempDir, "test", "slow.test.mjs"),
+    'import test from "node:test";\ntest("slow", () => {});\n',
+  );
+  run("git", ["add", "test/slow.test.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(`${result.stdout}${result.stderr}`, /Staged tests timed out/);
+});
+
+test("pluralizes the failing staged-test count", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { runStagedTests: true });
+  const failing =
+    'import test from "node:test";\n' +
+    'import assert from "node:assert/strict";\n' +
+    'test("fails", () => assert.equal(1, 2));\n';
+  writeFile(path.join(tempDir, "test", "a.test.mjs"), failing);
+  writeFile(path.join(tempDir, "test", "b.test.mjs"), failing);
+  run("git", ["add", "test"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /2 staged test files failing/,
+  );
+});
+
+test("pluralizes formatting issues across multiple files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  writeFile(path.join(tempDir, "src", "a.json"), '{"x":1}\n');
+  writeFile(path.join(tempDir, "src", "b.json"), '{"y":2}\n');
+  run("git", ["add", "src"], tempDir);
+
+  const result = runHook(tempDir);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /2 files with formatting issues/,
+  );
+});

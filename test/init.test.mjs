@@ -143,3 +143,33 @@ test("init errors and exits when there is no package.json", (t) => {
   assert.equal(result.status, 1);
   assert.match(`${result.stdout}${result.stderr}`, /No package\.json found/);
 });
+
+test("init creates a .gitignore when none exists", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.rmSync(path.join(tempDir, ".gitignore"), { force: true });
+  writeFile(
+    path.join(tempDir, "package.json"),
+    `${JSON.stringify({ name: "x", version: "1.0.0", type: "module" }, null, 2)}\n`,
+  );
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  assert.match(readFile(tempDir, ".gitignore"), /\.eslintcache/);
+});
+
+test("init appends caches to a .gitignore with no trailing newline", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, ".gitignore"), "dist");
+  writeFile(
+    path.join(tempDir, "package.json"),
+    `${JSON.stringify({ name: "x", version: "1.0.0", type: "module" }, null, 2)}\n`,
+  );
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  assert.match(readFile(tempDir, ".gitignore"), /dist\n\.eslintcache/);
+});
