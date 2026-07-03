@@ -45,14 +45,14 @@ In default advisory mode, your commit still goes through. The tool just gives fu
 
 ## What it catches
 
-| Check | What happens |
-| --- | --- |
-| Lint issues | Reports issues during commit |
-| Formatting drift | Reports issues and suggests a safe fix |
-| Missing tests | Points out code without nearby tests |
+| Check                | What happens                                |
+| -------------------- | ------------------------------------------- |
+| Lint issues          | Reports issues during commit                |
+| Formatting drift     | Reports issues and suggests a safe fix      |
+| Missing tests        | Points out code without nearby tests        |
 | Failing staged tests | Optional commit-time warning or enforcement |
-| Failing push tests | Optional push blocker |
-| Broken Husky wiring | `doctor` can repair it |
+| Failing push tests   | Optional push blocker                       |
+| Broken Husky wiring  | `doctor` can repair it                      |
 
 ## Requirements
 
@@ -243,15 +243,15 @@ echo "commitment-issues prepush" > .husky/pre-push
 
 All options live under `precommitChecks` in `package.json`; all are optional:
 
-| Key                      | Type     | Default              | Description                                                                                                        |
-| ------------------------ | -------- | -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `testExempt`             | string[] | `[]`                 | Glob patterns (`*`, `**`, `?`) for files excluded from the missing-test check.                                     |
-| `requireTests`           | boolean  | `true`               | Set `false` to disable the "missing unit tests" check.                                                            |
-| `runStagedTests`         | boolean  | `false`              | Run tests for staged files at commit time.                                                                         |
-| `blockPushOnTestFailure` | boolean  | `false`              | Run the pushed files' tests at `git push` and block on failure.                                                    |
-| `advisePushTests`        | boolean  | `false`              | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.               |
-| `testCommand`            | string[] | `["node", "--test"]` | Test runner used by both staged tests and the push gate; must accept test file paths.                              |
-| `timeoutMs`              | number   | `120000`             | Max time any spawned tool may run before it's treated as timed out.                                                |
+| Key                      | Type     | Default              | Description                                                                                          |
+| ------------------------ | -------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `testExempt`             | string[] | `[]`                 | Glob patterns (`*`, `**`, `?`) for files excluded from the missing-test check.                       |
+| `requireTests`           | boolean  | `true`               | Set `false` to disable the "missing unit tests" check.                                               |
+| `runStagedTests`         | boolean  | `false`              | Run tests for staged files at commit time.                                                           |
+| `blockPushOnTestFailure` | boolean  | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
+| `advisePushTests`        | boolean  | `false`              | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
+| `testCommand`            | string[] | `["node", "--test"]` | Test runner used by both staged tests and the push gate; must accept test file paths.                |
+| `timeoutMs`              | number   | `120000`             | Max time any spawned tool may run before it's treated as timed out.                                  |
 
 ```json
 {
