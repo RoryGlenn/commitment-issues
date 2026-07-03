@@ -13,10 +13,17 @@ export const REAL_GIT =
   spawnSync("which", ["git"], { encoding: "utf8" }).stdout.trim() || "git";
 
 export function run(command, args, cwd, options = {}) {
+  // CI sets HUSKY=0 for the install step, which turns `npx husky` into a no-op.
+  // The doctor/cli tests need husky to actually wire up hooks, so strip HUSKY
+  // from the subprocess env (whether inherited or caller-provided) to keep the
+  // tests hermetic regardless of the outer environment.
+  const env = { ...(options.env ?? process.env) };
+  delete env.HUSKY;
   return spawnSync(command, args, {
     cwd,
     encoding: "utf8",
     ...options,
+    env,
   });
 }
 
