@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import fs from "node:fs";
+import fs from "node:fs"; 
 import path from "node:path";
 import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
