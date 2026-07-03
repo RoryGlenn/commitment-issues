@@ -84,6 +84,14 @@ if (!pkg.precommitChecks) {
   created.push("precommitChecks config");
 }
 
+if (
+  !("advisePushTests" in pkg.precommitChecks) &&
+  !("blockPushOnTestFailure" in pkg.precommitChecks)
+) {
+  pkg.precommitChecks.advisePushTests = true;
+  created.push("pre-push advisory config");
+}
+
 fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
 
 // Activate Husky (sets git hooksPath) — ignore failure so init still finishes.
@@ -130,5 +138,6 @@ successBox([
     ? pc.dim(`Added: ${created.join(", ")}.`)
     : pc.dim("Already configured — nothing to change."),
   "",
-  pc.dim("Your next commit runs the advisory checks."),
+  pc.dim("Your next commit runs advisory checks."),
+  pc.dim("Your next push runs advisory tests when matching tests exist."),
 ]);
