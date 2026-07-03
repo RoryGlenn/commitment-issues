@@ -4,6 +4,14 @@ Advisory pre-commit checks that nudge, never block. A non-blocking pre-commit fl
 
 **Advisory by design:** the hook reports issues but never blocks a commit, never discards unstaged work, and never rewrites already-pushed history.
 
+## Why the name?
+
+Because sometimes your code has commitment issues.
+
+`commitment-issues` lets your commits go through, but not without gently pointing out the things future-you may regret: lint problems, formatting drift, missing tests, and other small signs that the relationship may need work.
+
+It nudges. It advises. It never blocks the commit.
+
 ## Requirements
 
 - **Node.js >= 22** — the scripts use modern ESM features and the built-in `node --test` runner.
