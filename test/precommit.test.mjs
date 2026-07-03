@@ -4,16 +4,19 @@ import path from "node:path";
 import {
   cleanupTempRepo,
   createTempRepo,
+  fakeGitEnv,
   readFile,
   run,
+  setPrecommitConfig,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function runHook(tempDir) {
+function runHook(tempDir, options = {}) {
   return run(
     "node",
-    [path.join(tempDir, "scripts", "precommit-unified.mjs")],
+    [path.join(tempDir, "scripts", "precommit.mjs")],
     tempDir,
+    options,
   );
 }
 
@@ -353,4 +356,109 @@ test("runs staged tests and stays clean when they pass (opt-in)", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.doesNotMatch(output, /failing/);
+});
+
+test("continues (exit 0) when staged files cannot be inspected", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "x.js"), "export const x = 1;\n");
+  run("git", ["add", "src/x.js"], tempDir);
+
+  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const result = runHook(tempDir, { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  // Advisory: it never blocks, even when git is unavailable.
+  assert.equal(result.status, 0);
+  assert.match(output, /Unable to inspect staged files\./);
+});
+
+test("reports a timeout when tools exceed the configured limit", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A 1ms ceiling forces ESLint and Prettier to be killed before they finish.
+  setPrecommitConfig(tempDir, { requireTests: false, timeoutMs: 1 });
+  writeFile(path.join(tempDir, "src", "slow.js"), "export const x=1;\n");
+  run("git", ["add", "src/slow.js"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /timed out/);
+});
+
+test("reports when ESLint cannot complete (broken config)", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // An eslint config that throws makes ESLint exit >1 with no JSON results.
+  writeFile(
+    path.join(tempDir, "eslint.config.js"),
+    "throw new Error('broken config');\n",
+  );
+  setPrecommitConfig(tempDir, { requireTests: false });
+  writeFile(path.join(tempDir, "src", "x.js"), "export const x = 1;\n");
+  run("git", ["add", "src/x.js"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /ESLint failed to complete/);
+});
+
+test("reports when staged tests cannot run (bad testCommand)", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    runStagedTests: true,
+    testCommand: ["definitely-not-a-real-binary-xyz"],
+  });
+  writeFile(
+    path.join(tempDir, "test", "thing.test.mjs"),
+    'import test from "node:test";\ntest("passes", () => {});\n',
+  );
+  run("git", ["add", "test/thing.test.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.match(output, /Unable to run staged tests/);
+});
+
+test("flags auto-fixable ESLint issues (prefer-const)", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  // `let` that is never reassigned trips the auto-fixable prefer-const rule.
+  writeFile(
+    path.join(tempDir, "src", "fixable.js"),
+    "let x = 1;\nexport { x };\n",
+  );
+  run("git", ["add", "src/fixable.js"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.match(output, /auto-fixable ESLint issue/);
+});
+
+test("reports when Prettier cannot complete (unparseable file)", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  // Malformed JSON is a format-only file Prettier cannot parse (exit > 1).
+  writeFile(path.join(tempDir, "src", "bad.json"), '{"a":}\n');
+  run("git", ["add", "src/bad.json"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.match(output, /Prettier failed to complete/);
 });

@@ -57,7 +57,7 @@ Your next `git commit` will run the advisory checks.
 ## Project structure
 
 - `scripts/cli.mjs` — the `commitment-issues` bin; dispatches subcommands (`init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, `fix-staged-js`).
-- `scripts/precommit-unified.mjs` — the pre-commit hook entrypoint (advisory checks).
+- `scripts/precommit.mjs` — the pre-commit hook entrypoint (advisory checks).
 - `scripts/init.mjs` — one-command setup for a consuming repo (`commitment-issues init`).
 - `scripts/prepush.mjs` — the opt-in pre-push test gate.
 - `scripts/doctor.mjs` — `commitment-issues doctor`, verifies and repairs the Husky hook wiring.
@@ -69,7 +69,7 @@ Your next `git commit` will run the advisory checks.
 ## Active flow
 
 - `.husky/pre-commit` runs `commitment-issues precommit`.
-- `scripts/precommit-unified.mjs` inspects staged files, prints one consolidated summary box, and never blocks the commit.
+- `scripts/precommit.mjs` inspects staged files, prints one consolidated summary box, and never blocks the commit.
 - When automatic fixes can still be applied safely after the commit, the hook suggests `npm run commit:fix` as the post-commit amend path.
 - `npm run fix:staged` runs `scripts/fix-staged.mjs`, which delegates staged-file fixing to `lint-staged`.
 - `npm run commit:fix` runs `scripts/commit-fix.mjs`, which applies automatic fixes to the latest clean commit and amends it in place (with `--no-verify`, so the advisory hook doesn't re-run and print a duplicate box).

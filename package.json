@@ -44,7 +44,7 @@
     "doctor": "node scripts/doctor.mjs",
     "test": "node --test test/*.test.mjs",
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs",
-    "test:precommit": "node scripts/precommit-unified.mjs"
+    "test:precommit": "node scripts/precommit.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [

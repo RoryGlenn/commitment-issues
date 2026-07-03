@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import {
+  addBareRemote,
   cleanupTempRepo,
   createTempRepo,
+  fakeGitEnv,
   readFile,
   run,
   writeFile,
@@ -253,4 +255,79 @@ test("stays silent during a real push when no mode is set", (t) => {
 
   assert.equal(result.status, 0);
   assert.equal(output.trim(), "");
+});
+
+test("falls back to the upstream branch when run without piped refs", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  addBareRemote(tempDir); // sets an upstream at the current HEAD
+  commitWidget(tempDir, 1); // a new commit ahead of @{u}, with a passing test
+
+  // Interactive run: no refs on stdin, so it diffs @{u}..HEAD instead.
+  const result = runPrePushManual(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /All tests passed/);
+  assert.match(output, /widget\.test\.mjs/);
+});
+
+test("runs a non-node test command and allows the push", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // `cat` is not the node test runner, so the tee/summary fallback path runs.
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: ["cat"],
+  });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /All tests passed/);
+});
+
+test("blocks the push when the node runner writes no summary (bad flag)", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Still recognized as the node runner (has --test), but the bogus flag makes
+  // node abort before writing the TAP file, so the summary parse falls back.
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: ["node", "--test", "--totally-bogus-flag-xyz"],
+  });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked/);
+});
+
+test("allows the push when the pushed-files diff cannot be computed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  // Fail the diff that lists pushed files; the gate treats it as "no files".
+  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /No tests to run before push/);
 });

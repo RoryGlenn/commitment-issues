@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   cleanupTempRepo,
   createTempRepo,
   readFile,
+  repoRoot,
   run,
   writeFile,
 } from "./helpers/temp-repo.mjs";
@@ -128,4 +130,16 @@ test("init leaves a customized hook untouched", (t) => {
   assert.equal(result.status, 0);
   // A non-legacy body is a user's own hook — never clobber it.
   assert.equal(readFile(tempDir, ".husky/pre-commit"), "echo custom hook\n");
+});
+
+test("init errors and exits when there is no package.json", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "init-nopkg-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  // Run the real script (resolves its own lib/ imports) from a dir with no
+  // package.json to hit the early "run this from your project root" guard.
+  const result = run("node", [path.join(repoRoot, "scripts", "init.mjs")], dir);
+
+  assert.equal(result.status, 1);
+  assert.match(`${result.stdout}${result.stderr}`, /No package\.json found/);
 });

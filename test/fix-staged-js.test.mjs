@@ -53,3 +53,26 @@ test("formats a TypeScript file and exits 0 when auto-fixable", (t) => {
   assert.equal(result.status, 0);
   assert.equal(readFile(tempDir, "src/fixme.ts"), "export const x = 1;\n");
 });
+
+test("exits 0 immediately when given no file arguments", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = runFixStagedJs(tempDir, []);
+
+  assert.equal(result.status, 0);
+  assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
+});
+
+test("exits 1 when Prettier cannot parse the file", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A syntax error makes both ESLint and Prettier fail; the Prettier failure
+  // branch flips hasRemainingIssues too.
+  writeFile(path.join(tempDir, "src", "syntax.js"), "const x = ;\n");
+
+  const result = runFixStagedJs(tempDir, ["src/syntax.js"]);
+
+  assert.equal(result.status, 1);
+});

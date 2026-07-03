@@ -89,9 +89,14 @@ function readStdin() {
     let settled = false;
     let timer;
     const done = () => {
+      // Defensive re-entrancy guard: `done` is wired to end/error and the idle
+      // timer, but the first call settles and detaches the others, so the
+      // second-call return is not reachable deterministically.
+      /* node:coverage disable */
       if (settled) {
         return;
       }
+      /* node:coverage enable */
       settled = true;
       clearTimeout(timer);
       process.stdin.off("data", onData);

@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const COMMANDS = {
   init: "init.mjs",
   doctor: "doctor.mjs",
-  precommit: "precommit-unified.mjs",
+  precommit: "precommit.mjs",
   prepush: "prepush.mjs",
   "commit-fix": "commit-fix.mjs",
   "fix-staged": "fix-staged.mjs",
@@ -47,9 +47,14 @@ if (!file) {
 // propagates the correct exit code (and stdin stays connected for pre-push).
 const target = path.join(scriptsDir, file);
 process.argv = [process.argv[0], target, ...rest];
+// The dispatch import is exercised by the subcommand tests; the catch only
+// fires if a bundled script is missing or corrupt (unreachable in a healthy
+// install), so this dispatch wrapper is excluded from coverage.
+/* node:coverage disable */
 try {
   await import(pathToFileURL(target).href);
 } catch (error) {
   console.error(error?.stack || error?.message || error);
   process.exit(1);
 }
+/* node:coverage enable */

@@ -8,6 +8,7 @@ import {
   createTempRepo,
   repoRoot,
   run,
+  stubBinEnv,
 } from "./helpers/temp-repo.mjs";
 
 function runDoctor(tempDir) {
@@ -127,4 +128,79 @@ test("doctor --quiet never breaks an install outside a git repo", (t) => {
 
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
+});
+
+test("doctor errors (interactive) when there is no package.json", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-nopkg-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  // No --quiet: the "not applicable" guard prints a box and exits 1.
+  const result = run(
+    "node",
+    [path.join(repoRoot, "scripts", "doctor.mjs")],
+    dir,
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(`${result.stdout}${result.stderr}`, /No package\.json found/);
+});
+
+test("doctor reports failure when husky wiring cannot be repaired", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Stub `npx` so `npx husky` fails; the wiring repair cannot complete.
+  const env = stubBinEnv(tempDir, "npx", 1);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs")],
+    tempDir,
+    { env },
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Could not repair the Husky wiring/,
+  );
+});
+
+test("doctor --quiet warns but never fails when repair cannot complete", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const env = stubBinEnv(tempDir, "npx", 1);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
+    tempDir,
+    { env },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /could not wire up git hooks/,
+  );
+});
+
+test("doctor reports when the wiring is still broken after repair", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // `npx husky` "succeeds" but does nothing, so hooksPath stays unset and the
+  // post-repair verification still finds the wiring broken.
+  const env = stubBinEnv(tempDir, "npx", 0);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs")],
+    tempDir,
+    { env },
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /still looks broken after repair/,
+  );
 });

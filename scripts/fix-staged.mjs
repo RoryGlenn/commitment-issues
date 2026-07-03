@@ -9,9 +9,13 @@ import {
 } from "./lib/files.mjs";
 
 function getIndexSnapshot(files) {
+  // Defensive guard for a reusable helper: every caller passes the non-empty
+  // fixable-file set, so the empty case is not reached in practice.
+  /* node:coverage disable */
   if (files.length === 0) {
     return "";
   }
+  /* node:coverage enable */
 
   const snapshotResult = run("git", ["ls-files", "--stage", "--", ...files]);
 
@@ -125,6 +129,9 @@ const result = runTool(
   },
 );
 
+// Defensive: lint-staged runs through the resolved local Node binary, which
+// always spawns, so a spawn-level error is not reachable in practice.
+/* node:coverage disable */
 if (result.error) {
   errorBox([
     pc.bold("Unable to run staged fixes."),
@@ -133,6 +140,7 @@ if (result.error) {
   ]);
   process.exit(1);
 }
+/* node:coverage enable */
 
 console.log("");
 
