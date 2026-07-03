@@ -4,11 +4,20 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     name: ${{ matrix.os }} / Node ${{ matrix.node-version }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
 
     env:
       HUSKY: 0
@@ -34,3 +43,18 @@ jobs:
       - run: npm run format:check
 
       - run: npm test
+
+      - name: Test coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 24
+        run: npm run test:coverage
+
+      - name: Package smoke test
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 24
+        shell: bash
+        run: |
+          npm pack
+          mkdir -p /tmp/commitment-issues-smoke
+          cd /tmp/commitment-issues-smoke
+          npm init -y
+          npm install "$GITHUB_WORKSPACE"/commitment-issues-*.tgz
+          npx commitment-issues --help
