@@ -38,7 +38,7 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
     pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
     "commitment-issues fix-staged-js",
   );
-  assert.ok(pkg.precommitChecks);
+  assert.equal(pkg.precommitChecks.advisePushTests, true);
 
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
@@ -102,6 +102,7 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
   assert.equal(pkg.scripts.prepare, "commitment-issues doctor --quiet");
   assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
+  assert.equal(pkg.precommitChecks.advisePushTests, true);
   assert.equal(
     pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
     "commitment-issues fix-staged-js",
@@ -114,6 +115,34 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
     readFile(tempDir, ".husky/pre-push"),
     /commitment-issues prepush/,
   );
+});
+
+test("init preserves explicit push blocking config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(
+    path.join(tempDir, "package.json"),
+    `${JSON.stringify(
+      {
+        name: "x",
+        version: "1.0.0",
+        type: "module",
+        precommitChecks: {
+          blockPushOnTestFailure: true,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+
+  const pkg = JSON.parse(readFile(tempDir, "package.json"));
+  assert.equal(pkg.precommitChecks.blockPushOnTestFailure, true);
+  assert.equal("advisePushTests" in pkg.precommitChecks, false);
 });
 
 test("init leaves a customized hook untouched", (t) => {
