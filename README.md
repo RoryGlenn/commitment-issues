@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
-[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
+[![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Advisory-first pre-commit checks for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier. The default flow gives lightweight feedback, and stricter behavior can be enabled through configuration.
@@ -56,7 +56,7 @@ In default advisory mode, your commit still goes through. The tool just gives fu
 
 ## Requirements
 
-- **Node.js >= 22** — the scripts use modern ESM features and the built-in `node --test` runner.
+- **Node.js >= 22.22.1** — the scripts use modern ESM features and the built-in `node --test` runner.
 - Peer tools in your project: `husky`, `lint-staged`, `eslint`, `prettier` (the hooks run these). `commitment-issues` itself brings `boxen`, `picocolors`, and `cross-spawn` along as dependencies.
 - An ESLint flat config (`eslint.config.js`) in your project. For TypeScript, it must be TypeScript-aware (see [TypeScript and mixed projects](#typescript-and-mixed-projects)).
 
@@ -309,11 +309,11 @@ The npm scripts above are added by `init` and call the `commitment-issues` bin. 
 
 ### The hooks silently stopped running
 
-If commits and pushes suddenly skip all checks — no advisory box, no push gate — the Husky wiring was probably knocked out. Husky runs every hook through the **gitignored** `.husky/_` wrapper directory plus git's `core.hooksPath`, and **neither is committed**. A `git clean -fdx`, a stale checkout, a discarded-untracked-files action in a Git GUI, or a dependency reinstall that skipped `prepare` can remove them — which silently switches off _both_ `pre-commit` and `pre-push` at once.
+If commits and pushes suddenly skip all checks — no advisory box, no push gate — the Husky wiring was probably knocked out. Husky runs every hook through the **gitignored** `.husky/_` wrapper directory plus git's `core.hooksPath`, and **neither is committed**. A stale checkout, a dependency reinstall that skipped `prepare`, or a cleanup that removes ignored files can switch off _both_ `pre-commit` and `pre-push` at once.
 
 **This heals itself on install.** `init` sets `prepare` to `commitment-issues doctor --quiet`, so every `npm install`/`npm ci` automatically re-establishes the wiring (silently when healthy, with a one-line notice when it repairs something). It can never break an install — in a non-git context it just no-ops.
 
-If the wiring drops _without_ a reinstall (e.g. a `git clean` mid-session), git can't launch any hook to fix itself — that's an inherent chicken-and-egg limit. Repair it on demand with:
+If the wiring drops _without_ a reinstall, git can't launch any hook to fix itself — that's an inherent chicken-and-egg limit. Repair it on demand with:
 
 ```bash
 npm run doctor
