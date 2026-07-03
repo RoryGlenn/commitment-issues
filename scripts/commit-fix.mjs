@@ -226,6 +226,26 @@ if (changedFiles.length === 0) {
   process.exit(0);
 }
 
+// The staged fixes differ from the latest commit, but if they merely reverted
+// that commit's only changes, the index now matches the parent tree — amending
+// would create an empty commit, which git refuses. Detect that and guide the
+// user to drop the now-redundant commit instead of failing confusingly.
+const parentRef = run("git", ["rev-parse", "--verify", "--quiet", "HEAD^"]);
+if (!parentRef.error && parentRef.status === 0) {
+  const diffVsParent = run("git", ["diff", "--cached", "--quiet", "HEAD^"]);
+  if (!diffVsParent.error && diffVsParent.status === 0) {
+    warningBox([
+      pc.bold("Nothing to amend — the fixes emptied the latest commit."),
+      "",
+      pc.dim("The automatic fixes reverted the only changes in the latest"),
+      pc.dim("commit, so amending it would create an empty commit."),
+      "",
+      pc.dim("Drop the now-redundant commit with:  git reset --soft HEAD^"),
+    ]);
+    process.exit(0);
+  }
+}
+
 const amendResult = run(
   "git",
   // Skip the pre-commit hook: commit:fix already lint/format-checked these

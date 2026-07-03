@@ -241,3 +241,25 @@ test("amend summary pluralizes for multiple updated files", (t) => {
     /Updated 2 files from the latest commit/,
   );
 });
+
+test("guides the user when the fixes would empty the commit", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Base commit with a clean file, then a commit whose ONLY change is a
+  // formatting issue (a trailing space) that Prettier reverts — so amending
+  // after the fix would leave an empty commit.
+  writeFile(path.join(tempDir, "src", "ws.js"), "export const x = 1;\n");
+  run("git", ["add", "src/ws.js"], tempDir);
+  run("git", ["commit", "-m", "base"], tempDir);
+  writeFile(path.join(tempDir, "src", "ws.js"), "export const x = 1; \n");
+  run("git", ["add", "src/ws.js"], tempDir);
+  run("git", ["commit", "-m", "whitespace only"], tempDir);
+
+  const result = runCommitFix(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /emptied the latest commit/);
+  assert.match(output, /git reset --soft HEAD\^/);
+});
