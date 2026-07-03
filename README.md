@@ -1,5 +1,10 @@
 # Commitment Issues
 
+[![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
+[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Advisory pre-commit checks that nudge, never block. A non-blocking pre-commit flow for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier. It works on pure JS, pure TS, and mixed JS/TS codebases.
 
 **Advisory by design:** the hook reports issues but never blocks a commit, never discards unstaged work, and never rewrites already-pushed history.
@@ -11,6 +16,41 @@ Because sometimes your code has commitment issues.
 `commitment-issues` lets your commits go through, but not without gently pointing out the things future-you may regret: lint problems, formatting drift, missing tests, and other small signs that the relationship may need work.
 
 It nudges. It advises. It never blocks the commit.
+
+> `commitment-issues` is intentionally not a bouncer.
+>
+> It is the friend at the door saying, “You can go in, but you may want to fix your shirt first.”
+
+## What it looks like
+
+```text
+┌──────────────────────────────────────┐
+│                                      │
+│   Pre-commit suggestions found       │
+│                                      │
+│   Commit will continue. Suggestions: │
+│                                      │
+│   → Formatting issues found          │
+│   → Missing unit test                │
+│                                      │
+│   apply automatic fixes and amend it:│
+│     npm run commit:fix               │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+Your commit still goes through. The tool just gives future-you a heads up.
+
+## What it catches
+
+| Check | What happens |
+| --- | --- |
+| Lint issues | Warns during commit |
+| Formatting drift | Warns and suggests a safe fix |
+| Missing tests | Points out code without nearby tests |
+| Failing staged tests | Optional advisory warning |
+| Failing push tests | Optional push blocker |
+| Broken Husky wiring | `doctor` can repair it |
 
 ## Requirements
 
