@@ -77,14 +77,11 @@ test("findTestFile and collectTestsForFiles locate sibling tests", (t) => {
   fs.writeFileSync("src/widget.mjs", "export const w = 1;\n");
   fs.writeFileSync("src/widget.test.mjs", "export {};\n");
 
-  assert.equal(
-    findTestFile("src/widget.mjs"),
-    path.join("src", "widget.test.mjs"),
-  );
+  assert.equal(findTestFile("src/widget.mjs"), "src/widget.test.mjs");
   assert.equal(findTestFile("src/missing.mjs"), null);
 
   assert.deepEqual(collectTestsForFiles(["src/widget.mjs"]), [
-    path.join("src", "widget.test.mjs"),
+    "src/widget.test.mjs",
   ]);
   assert.deepEqual(collectTestsForFiles(["src/widget.test.mjs"]), [
     "src/widget.test.mjs",
