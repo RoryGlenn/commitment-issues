@@ -79,12 +79,12 @@ test("findTestFile and collectTestsForFiles locate sibling tests", (t) => {
 
   assert.equal(
     findTestFile("src/widget.mjs"),
-    path.join("src", "widget.test.mjs"),
+    "src/widget.test.mjs",
   );
   assert.equal(findTestFile("src/missing.mjs"), null);
 
   assert.deepEqual(collectTestsForFiles(["src/widget.mjs"]), [
-    path.join("src", "widget.test.mjs"),
+    "src/widget.test.mjs",
   ]);
   assert.deepEqual(collectTestsForFiles(["src/widget.test.mjs"]), [
     "src/widget.test.mjs",

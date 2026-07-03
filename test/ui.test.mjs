@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import {
   printBox,
   infoBox,
@@ -52,15 +51,13 @@ test("severity boxes color the entire border, not just the body", () => {
   // picocolors/chalk disable ANSI on a non-TTY pipe, so force color on in a
   // child process and assert a box-drawing border glyph is wrapped in a color
   // escape — i.e. the border itself is colored, not only the body text.
-  const uiPath = fileURLToPath(
-    new URL("../scripts/lib/ui.mjs", import.meta.url),
-  );
+  const uiUrl = new URL("../scripts/lib/ui.mjs", import.meta.url).href;
   const child = spawnSync(
     process.execPath,
     [
       "--input-type=module",
       "-e",
-      `import { errorBox } from ${JSON.stringify(uiPath)}; errorBox(["boom"]);`,
+      `import { errorBox } from ${JSON.stringify(uiUrl)}; errorBox(["boom"]);`,
     ],
     { encoding: "utf8", env: { ...process.env, FORCE_COLOR: "1" } },
   );
