@@ -10,6 +10,7 @@ import {
 } from "./lib/files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const headResult = run("git", ["rev-parse", "--verify", "HEAD"]);
 
@@ -41,8 +42,17 @@ if (headIsPushed) {
   process.exit(1);
 }
 
-const stagedDirtyResult = run("git", ["diff", "--cached", "--name-only"]);
-const unstagedDirtyResult = run("git", ["diff", "--name-only"]);
+const stagedDirtyResult = run("git", [
+  ...GIT_PATH_ARGS,
+  "diff",
+  "--cached",
+  "--name-only",
+]);
+const unstagedDirtyResult = run("git", [
+  ...GIT_PATH_ARGS,
+  "diff",
+  "--name-only",
+]);
 
 if (
   stagedDirtyResult.error ||
@@ -81,6 +91,7 @@ if (dirtyTrackedFiles.length > 0) {
 }
 
 const committedFilesResult = run("git", [
+  ...GIT_PATH_ARGS,
   "diff-tree",
   "--root",
   "--no-commit-id",
@@ -179,6 +190,7 @@ if (addResult.error || addResult.status !== 0) {
 }
 
 const stagedFixResult = run("git", [
+  ...GIT_PATH_ARGS,
   "diff",
   "--cached",
   "--name-only",
@@ -232,7 +244,13 @@ if (changedFiles.length === 0) {
 // user to drop the now-redundant commit instead of failing confusingly.
 const parentRef = run("git", ["rev-parse", "--verify", "--quiet", "HEAD^"]);
 if (!parentRef.error && parentRef.status === 0) {
-  const diffVsParent = run("git", ["diff", "--cached", "--quiet", "HEAD^"]);
+  const diffVsParent = run("git", [
+    ...GIT_PATH_ARGS,
+    "diff",
+    "--cached",
+    "--quiet",
+    "HEAD^",
+  ]);
   if (!diffVsParent.error && diffVsParent.status === 0) {
     warningBox([
       pc.bold("Nothing to amend — the fixes emptied the latest commit."),
