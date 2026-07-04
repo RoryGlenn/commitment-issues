@@ -16,20 +16,33 @@ function runInit(tempDir) {
   return run("node", [path.join(tempDir, "scripts", "init.mjs")], tempDir);
 }
 
+function writePackage(tempDir, pkg) {
+  writeFile(
+    path.join(tempDir, "package.json"),
+    `${JSON.stringify(pkg, null, 2)}\n`,
+  );
+}
+
+function readPackage(tempDir) {
+  return JSON.parse(readFile(tempDir, "package.json"));
+}
+
 test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   // Start from a bare package.json so init has work to do.
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify({ name: "x", version: "1.0.0", private: true, type: "module" }, null, 2)}\n`,
-  );
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    private: true,
+    type: "module",
+  });
 
   const first = runInit(tempDir);
   assert.equal(first.status, 0);
 
-  const pkg = JSON.parse(readFile(tempDir, "package.json"));
+  const pkg = readPackage(tempDir);
   assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
@@ -62,30 +75,23 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify(
-      {
-        name: "x",
-        version: "1.0.0",
-        type: "module",
-        scripts: {
-          prepare: "husky",
-          "commit:fix": "node scripts/commit-fix.mjs",
-          "fix:staged": "node scripts/fix-staged.mjs",
-          "test:precommit": "node scripts/precommit-unified.mjs",
-          doctor: "node scripts/doctor.mjs",
-        },
-        "lint-staged": {
-          "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
-            "node scripts/fix-staged-js.mjs",
-          ],
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    scripts: {
+      prepare: "husky",
+      "commit:fix": "node scripts/commit-fix.mjs",
+      "fix:staged": "node scripts/fix-staged.mjs",
+      "test:precommit": "node scripts/precommit-unified.mjs",
+      doctor: "node scripts/doctor.mjs",
+    },
+    "lint-staged": {
+      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
+        "node scripts/fix-staged-js.mjs",
+      ],
+    },
+  });
   writeFile(
     path.join(tempDir, ".husky", "pre-commit"),
     "node scripts/precommit-unified.mjs\n",
@@ -98,7 +104,7 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
 
-  const pkg = JSON.parse(readFile(tempDir, "package.json"));
+  const pkg = readPackage(tempDir);
   assert.equal(pkg.scripts.prepare, "commitment-issues doctor --quiet");
   assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
@@ -121,44 +127,99 @@ test("init preserves explicit push blocking config", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify(
-      {
-        name: "x",
-        version: "1.0.0",
-        type: "module",
-        precommitChecks: {
-          blockPushOnTestFailure: true,
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    precommitChecks: {
+      blockPushOnTestFailure: true,
+    },
+  });
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
 
-  const pkg = JSON.parse(readFile(tempDir, "package.json"));
+  const pkg = readPackage(tempDir);
   assert.equal(pkg.precommitChecks.blockPushOnTestFailure, true);
   assert.equal("advisePushTests" in pkg.precommitChecks, false);
 });
 
-test("init leaves a customized hook untouched", (t) => {
+test("init preserves an unrelated prepare script", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify({ name: "x", version: "1.0.0", type: "module" }, null, 2)}\n`,
-  );
-  writeFile(path.join(tempDir, ".husky", "pre-commit"), "echo custom hook\n");
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    scripts: {
+      prepare: "node ./scripts/build-assets.mjs",
+    },
+  });
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
-  // A non-legacy body is a user's own hook — never clobber it.
-  assert.equal(readFile(tempDir, ".husky/pre-commit"), "echo custom hook\n");
+
+  const pkg = readPackage(tempDir);
+  assert.equal(pkg.scripts.prepare, "node ./scripts/build-assets.mjs");
+  assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
+});
+
+test("init preserves existing lint-staged object config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    "lint-staged": {
+      "*.md": ["prettier --check"],
+    },
+  });
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+
+  const pkg = readPackage(tempDir);
+  assert.deepEqual(pkg["lint-staged"], {
+    "*.md": ["prettier --check"],
+  });
+  assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
+});
+
+test("init preserves existing lint-staged array config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    "lint-staged": ["prettier --check"],
+  });
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+
+  const pkg = readPackage(tempDir);
+  assert.deepEqual(pkg["lint-staged"], ["prettier --check"]);
+  assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
+});
+
+test("init leaves customized hooks untouched", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  writeFile(path.join(tempDir, ".husky", "pre-commit"), "echo custom commit\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), "echo custom push\n");
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  // Non-legacy bodies are a user's own hooks — never clobber them.
+  assert.equal(readFile(tempDir, ".husky/pre-commit"), "echo custom commit\n");
+  assert.equal(readFile(tempDir, ".husky/pre-push"), "echo custom push\n");
 });
 
 test("init errors and exits when there is no package.json", (t) => {
@@ -173,15 +234,27 @@ test("init errors and exits when there is no package.json", (t) => {
   assert.match(`${result.stdout}${result.stderr}`, /No package\.json found/);
 });
 
+test("init errors clearly when package.json is invalid JSON", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "package.json"), "{ invalid json\n");
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 1);
+  assert.match(`${result.stdout}${result.stderr}`, /Invalid package\.json/);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Fix package\.json so it contains valid JSON/,
+  );
+});
+
 test("init creates a .gitignore when none exists", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   fs.rmSync(path.join(tempDir, ".gitignore"), { force: true });
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify({ name: "x", version: "1.0.0", type: "module" }, null, 2)}\n`,
-  );
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
@@ -193,10 +266,7 @@ test("init appends caches to a .gitignore with no trailing newline", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   writeFile(path.join(tempDir, ".gitignore"), "dist");
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify({ name: "x", version: "1.0.0", type: "module" }, null, 2)}\n`,
-  );
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
