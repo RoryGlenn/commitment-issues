@@ -80,7 +80,7 @@ test("README documents the package engine exactly", () => {
   const readme = readText("README.md");
   const engine = escapeRegExp(pkg.engines.node);
 
-  assert.match(readme, new RegExp(`Node(?:\\.js)?\\s+${engine}`));
+  assert.match(readme, new RegExp(`Node(?:\.js)?\s+${engine}`));
 });
 
 test("package description does not contradict configurable blocking", () => {
@@ -164,6 +164,26 @@ test("README relative image assets exist and are included in npm package files",
       isPackaged(imagePath, pkg),
       true,
       `${imagePath} should be included by package.json files`,
+    );
+  }
+});
+
+test("message-state SVG assets exist and are included in npm package files", () => {
+  const pkg = readJson("package.json");
+  const docs = readText("docs/message-states.md");
+  const imagePaths = readmeImagePaths(docs);
+
+  assert.ok(imagePaths.length >= 15, "message states should have SVG examples");
+
+  for (const imagePath of imagePaths) {
+    const absolutePath = path.resolve(root, "docs", imagePath);
+    const packagePath = path.relative(root, absolutePath).replaceAll(path.sep, "/");
+
+    assert.equal(fs.existsSync(absolutePath), true, `${imagePath} should exist`);
+    assert.equal(
+      isPackaged(packagePath, pkg),
+      true,
+      `${packagePath} should be included by package.json files`,
     );
   }
 });
