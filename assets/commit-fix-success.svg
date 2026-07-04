@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="555" height="197" viewBox="0 0 555 197" role="img" aria-labelledby="title desc">
+  <title id="title">Commit fix success terminal output</title>
+  <desc id="desc">A terminal-style success box showing that the latest commit was amended with automatic fixes.</desc>
+  <rect width="555" height="197" fill="#181818"/>
+  <g transform="translate(14 25)">
+    <rect x="0" y="0" width="501" height="155" rx="5" ry="5" fill="none" stroke="#2ee993" stroke-width="1.3"/>
+    <rect x="205" y="-10" width="92" height="20" fill="#181818"/>
+    <text x="251" y="5" fill="#2ee993" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">success</text>
+
+    <text x="35" y="50" fill="#2ee993" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Latest commit amended with automatic fixes.</text>
+
+    <text x="35" y="95" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Updated 1 file from the latest commit.</text>
+    <text x="35" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">scripts/precommit.mjs</text>
+  </g>
+</svg>
