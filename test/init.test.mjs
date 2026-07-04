@@ -87,9 +87,7 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
       doctor: "node scripts/doctor.mjs",
     },
     "lint-staged": {
-      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
-        "node scripts/fix-staged-js.mjs",
-      ],
+      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["node scripts/fix-staged-js.mjs"],
     },
   });
   writeFile(
