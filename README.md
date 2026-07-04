@@ -39,6 +39,12 @@ It nudges first. It can enforce when configured. It keeps the choice explicit.
   <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="555">
 </p>
 
+**Safety refusal**
+
+<p>
+  <img src="assets/partially-staged-error.svg" alt="Error output showing that partially staged files cannot be fixed safely" width="620">
+</p>
+
 **Pre-push test summary**
 
 <p>
@@ -319,6 +325,8 @@ The hook prints one box per commit:
 - **warning** — issues found; behavior depends on your configuration
 - **info** — nothing to check
 - **error** — the hook could not inspect Git or run a tool
+
+See [Message states](docs/message-states.md) for a fuller gallery of common output states.
 
 ## Safety model
 
