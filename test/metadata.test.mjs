@@ -54,9 +54,9 @@ function readmeImagePaths(readme) {
   const markdownImages = [...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map(
     ([, imagePath]) => imagePath,
   );
-  const htmlImages = [...readme.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(
-    ([, imagePath]) => imagePath,
-  );
+  const htmlImages = [
+    ...readme.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi),
+  ].map(([, imagePath]) => imagePath);
   return [...markdownImages, ...htmlImages];
 }
 
