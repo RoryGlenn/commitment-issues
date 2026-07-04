@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: ["22.22.1", 24]
+        node-version: ["22.22.1", "24"]
 
     steps:
       - uses: actions/checkout@v4
@@ -73,33 +73,33 @@ jobs:
             npx --no-install commitment-issues --help
             npx --no-install commitment-issues init
 
-            @'
-import js from "@eslint/js";
-import globals from "globals";
-
-export default [
-  js.configs.recommended,
-  {
-    languageOptions: {
-      globals: globals.node,
-    },
-  },
-];
-'@ | Set-Content -Path "eslint.config.js" -Encoding utf8
+            Set-Content -Path "eslint.config.js" -Encoding utf8 -Value @(
+              'import js from "@eslint/js";'
+              'import globals from "globals";'
+              ''
+              'export default ['
+              '  js.configs.recommended,'
+              '  {'
+              '    languageOptions: {'
+              '      globals: globals.node,'
+              '    },'
+              '  },'
+              '];'
+            )
 
             New-Item -ItemType Directory -Force -Path "src", "test" | Out-Null
 
-            @'
-export const widget = () => 1;
-'@ | Set-Content -Path "src/widget.mjs" -Encoding utf8
+            Set-Content -Path "src/widget.mjs" -Encoding utf8 -Value @(
+              'export const widget = () => 1;'
+            )
 
-            @'
-import test from "node:test";
-import assert from "node:assert/strict";
-import { widget } from "../src/widget.mjs";
-
-test("widget", () => assert.equal(widget(), 1));
-'@ | Set-Content -Path "test/widget.test.mjs" -Encoding utf8
+            Set-Content -Path "test/widget.test.mjs" -Encoding utf8 -Value @(
+              'import test from "node:test";'
+              'import assert from "node:assert/strict";'
+              'import { widget } from "../src/widget.mjs";'
+              ''
+              'test("widget", () => assert.equal(widget(), 1));'
+            )
 
             git add -A
             git commit -m "first checked commit"
@@ -113,5 +113,5 @@ test("widget", () => assert.equal(widget(), 1));
           }
 
       - name: Test coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 24
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run test:coverage
