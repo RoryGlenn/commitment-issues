@@ -8,6 +8,8 @@ import {
   shortFileList,
 } from "./lib/files.mjs";
 
+const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
+
 function getIndexSnapshot(files) {
   // Defensive guard for a reusable helper: every caller passes the non-empty
   // fixable-file set, so the empty case is not reached in practice.
@@ -17,7 +19,13 @@ function getIndexSnapshot(files) {
   }
   /* node:coverage enable */
 
-  const snapshotResult = run("git", ["ls-files", "--stage", "--", ...files]);
+  const snapshotResult = run("git", [
+    ...GIT_PATH_ARGS,
+    "ls-files",
+    "--stage",
+    "--",
+    ...files,
+  ]);
 
   if (snapshotResult.error || snapshotResult.status !== 0) {
     return null;
@@ -27,6 +35,7 @@ function getIndexSnapshot(files) {
 }
 
 const stagedResult = run("git", [
+  ...GIT_PATH_ARGS,
   "diff",
   "--cached",
   "--name-only",
@@ -68,7 +77,7 @@ if (fixableFiles.length === 0) {
   process.exit(0);
 }
 
-const unstagedResult = run("git", ["diff", "--name-only"]);
+const unstagedResult = run("git", [...GIT_PATH_ARGS, "diff", "--name-only"]);
 
 if (unstagedResult.error || unstagedResult.status !== 0) {
   errorBox([
