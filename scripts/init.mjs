@@ -141,12 +141,15 @@ if (ignores.length > 0) {
   created.push(".gitignore caches");
 }
 
+const setupSummary =
+  created.length > 0
+    ? [pc.dim("Added:"), ...created.map((item) => pc.dim(`- ${item}`))]
+    : [pc.dim("Already configured — nothing to change.")];
+
 successBox([
   pc.bold("Commitment Issues is set up."),
   "",
-  created.length > 0
-    ? pc.dim(`Added: ${created.join(", ")}.`)
-    : pc.dim("Already configured — nothing to change."),
+  ...setupSummary,
   "",
   pc.dim("Your next commit runs advisory checks."),
   pc.dim("Your next push runs advisory tests when matching tests exist."),
