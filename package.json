@@ -46,8 +46,8 @@
     "doctor": "node scripts/doctor.mjs",
     "test": "node --test test/*.test.mjs",
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs",
-    "test:lifecycle": "node scripts/ci-lifecycle-smoke.mjs",
-    "test:precommit": "node scripts/precommit.mjs"
+    "test:precommit": "node scripts/precommit.mjs",
+    "test:smoke": "node scripts/ci-lifecycle-smoke.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
