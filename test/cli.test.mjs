@@ -21,7 +21,12 @@ function cli(tempDir, args, options = {}) {
 }
 
 function sourceCli(cwd, args, options = {}) {
-  return run("node", [path.join(repoRoot, "scripts", "cli.mjs"), ...args], cwd, options);
+  return run(
+    "node",
+    [path.join(repoRoot, "scripts", "cli.mjs"), ...args],
+    cwd,
+    options,
+  );
 }
 
 function combinedOutput(result) {
