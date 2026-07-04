@@ -51,6 +51,26 @@ test("run passes a space-containing argument as a single argv", () => {
   assert.equal(result.stdout, "hello world");
 });
 
+test("run passes shell-sensitive tokens as literal argv", () => {
+  const tokens = [
+    "has space",
+    "quote'file",
+    "semi;colon",
+    "unicode-猫",
+    "glob[abc].js",
+    String.raw`windows\\path.js`,
+  ];
+
+  const result = run("node", [
+    "-e",
+    "process.stdout.write(JSON.stringify(process.argv.slice(1)))",
+    ...tokens,
+  ]);
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(result.stdout), tokens);
+});
+
 test("runTool runs a resolved tool synchronously", () => {
   const result = runTool("prettier", ["--version"], { encoding: "utf8" });
   assert.equal(result.status, 0);
