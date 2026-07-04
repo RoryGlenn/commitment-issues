@@ -25,23 +25,25 @@ It nudges first. It can enforce when configured. It keeps the choice explicit.
 
 ## What it looks like
 
-Default advisory output:
+`commitment-issues` prints compact terminal boxes so commit and push feedback is visible without being noisy.
 
-```text
-┌──────────────────────────────────────┐
-│                                      │
-│   Pre-commit suggestions found       │
-│                                      │
-│   Commit will continue. Suggestions: │
-│                                      │
-│   → Formatting issues found          │
-│   → Missing unit test                │
-│                                      │
-│   apply automatic fixes and amend it:│
-│     npm run commit:fix               │
-│                                      │
-└──────────────────────────────────────┘
-```
+**Pre-commit suggestions**
+
+<p>
+  <img src="assets/precommit-suggestions-warning.svg" alt="Pre-commit warning output showing formatting suggestions and the commit fix command" width="476">
+</p>
+
+**Safe automatic amend**
+
+<p>
+  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="555">
+</p>
+
+**Pre-push test summary**
+
+<p>
+  <img src="assets/prepush-success.svg" alt="Success output showing all pushed-file tests passed and push was allowed" width="294">
+</p>
 
 In default advisory mode, your commit still goes through. The tool gives future-you a heads up.
 
