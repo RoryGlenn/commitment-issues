@@ -19,7 +19,17 @@ if (!fs.existsSync("package.json")) {
   process.exit(1);
 }
 
-const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+let pkg;
+try {
+  pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+} catch {
+  errorBox([
+    pc.bold("Invalid package.json."),
+    "",
+    pc.dim("Fix package.json so it contains valid JSON, then run init again."),
+  ]);
+  process.exit(1);
+}
 const created = [];
 
 pkg.scripts = pkg.scripts || {};
