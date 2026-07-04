@@ -25,6 +25,8 @@
   ],
   "files": [
     "scripts/",
+    "assets/",
+    "docs/",
     "README.md",
     "LICENSE"
   ],
