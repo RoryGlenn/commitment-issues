@@ -64,6 +64,33 @@ test("applies staged fixes successfully when all issues are auto-fixable", (t) =
   assert.equal(readFile(tempDir, "src/success.js"), 'console.log("x");\n');
 });
 
+test("handles shell-sensitive staged filenames safely", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const files = [
+    "src/has space.js",
+    "src/quote'file.js",
+    "src/semi;colon.js",
+    "src/unicode-猫.js",
+    "src/glob[abc].js",
+  ];
+
+  for (const file of files) {
+    writeFile(path.join(tempDir, ...file.split("/")), "export const value = 1;\n");
+  }
+  run("git", ["add", ...files], tempDir);
+
+  const result = runFixStaged(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Checked 5 staged files/);
+  for (const file of files) {
+    assert.match(output, new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+});
+
 test("returns warning when fixes apply but lint issues remain", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
