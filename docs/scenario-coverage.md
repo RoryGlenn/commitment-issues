@@ -82,6 +82,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 - **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
 - **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
+- **INIT-014** — init adds `node_modules/` to `.gitignore` defaults and avoids duplicate existing entries. Fixture: `test/init-gitignore.test.mjs`.
 
 ### Safety path matrix
 
@@ -92,6 +93,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-005** — Windows-style backslash tokens are passed as literal argv. Unit: `test/process.test.mjs`.
 - **SEC-006** — glob-like filename characters are passed safely through a staged-file flow. Subprocess: `test/fix-staged.test.mjs`.
 - **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`.
+- **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
 
 ### Performance
 
