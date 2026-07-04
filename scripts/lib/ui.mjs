@@ -21,8 +21,18 @@ export function printBox(message, color = (value) => value, options = {}) {
   );
 }
 
+function boxLines(linesOrResult) {
+  if (Array.isArray(linesOrResult)) {
+    return linesOrResult;
+  }
+  if (Array.isArray(linesOrResult?.lines)) {
+    return linesOrResult.lines;
+  }
+  return [String(linesOrResult ?? "")];
+}
+
 function severityBox(lines, color, title, borderColor) {
-  printBox(lines.join("\n"), color, {
+  printBox(boxLines(lines).join("\n"), color, {
     title,
     titleAlignment: "center",
     borderColor,
