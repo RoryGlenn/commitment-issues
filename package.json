@@ -35,7 +35,7 @@
   },
   "scripts": {
     "prepare": "node scripts/doctor.mjs --quiet",
-    "prepublishOnly": "npm test",
+    "prepublishOnly": "npm test && npm run test:smoke",
     "init": "node scripts/init.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
