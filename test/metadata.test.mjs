@@ -18,6 +18,21 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function markdownProse(markdown) {
+  return markdown
+    .replace(/```[\s\S]*?```/g, (block) =>
+      block
+        .split(/\r?\n/)
+        .map(() => "")
+        .join("\n"),
+    )
+    .replace(/`[^`\n]+`/g, "");
+}
+
+function lineNumberAt(text, index) {
+  return text.slice(0, index).split(/\r?\n/).length;
+}
+
 function packageFilePatterns(pkg) {
   return new Set(pkg.files || []);
 }
@@ -63,6 +78,41 @@ test("package description does not contradict configurable blocking", () => {
 
   assert.doesNotMatch(pkg.description, /\bnever blocks?\b/i);
   assert.match(pkg.description, /advisory|configurable|enforcement|hook/i);
+});
+
+test("README does not make unconditional non-blocking claims", () => {
+  const prose = markdownProse(readText("README.md"));
+  const bannedClaims = [
+    {
+      pattern: /\bnever blocks?\b/i,
+      message: "Avoid claiming the tool never blocks; push blocking is configurable.",
+    },
+    {
+      pattern: /\b(?:cannot|can't) block\b/i,
+      message: "Avoid claiming the tool cannot block; push blocking is configurable.",
+    },
+    {
+      pattern: /\balways (?:allows?|continues?|passes?)\b/i,
+      message: "Avoid claiming checks always allow work to continue.",
+    },
+  ];
+
+  for (const { pattern, message } of bannedClaims) {
+    const match = pattern.exec(prose);
+    assert.equal(
+      match,
+      null,
+      match ? `${message} README.md:${lineNumberAt(prose, match.index)}` : message,
+    );
+  }
+});
+
+test("README documents both advisory and blocking push modes", () => {
+  const readme = readText("README.md");
+
+  assert.match(readme, /## Advisory push tests \(default\)/);
+  assert.match(readme, /## Blocking pushes on test failure \(opt-in\)/);
+  assert.match(readme, /blockPushOnTestFailure and advisePushTests are both set/i);
 });
 
 test("package files entries exist", () => {
