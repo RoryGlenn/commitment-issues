@@ -38,11 +38,29 @@ const generatedFilePattern = /\.generated\.[^.]+$/;
 const generatedDirPattern = /(^|\/)(generated|__generated__)\//;
 
 /**
+ * Normalize repo-relative paths to Git-style POSIX separators.
+ * @param {string} file - Repo-relative file path.
+ * @returns {string} Normalized repo-relative path.
+ */
+export function normalizeRepoPath(file) {
+  let normalized = file.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  while (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  return normalized;
+}
+
+function repoBasename(file) {
+  return path.posix.basename(normalizeRepoPath(file));
+}
+
+/**
  * @param {string} file - Repo-relative file path.
  * @returns {boolean} True for *.test.* / *.spec.* files.
  */
 export function isTestFile(file) {
-  return testSuffixes.some((suffix) => file.endsWith(suffix));
+  const normalized = normalizeRepoPath(file);
+  return testSuffixes.some((suffix) => normalized.endsWith(suffix));
 }
 
 /**
@@ -50,7 +68,7 @@ export function isTestFile(file) {
  * @returns {boolean} True if the file lives under test/tests/__tests__/__mocks__.
  */
 export function isInTestDir(file) {
-  return /(^|\/)(test|tests|__tests__|__mocks__)\//.test(file);
+  return /(^|\/)(test|tests|__tests__|__mocks__)\//.test(normalizeRepoPath(file));
 }
 
 /**
@@ -58,18 +76,19 @@ export function isInTestDir(file) {
  * @returns {boolean} True for dotfiles or *.config.* configuration files.
  */
 export function isConfigFile(file) {
-  const base = path.basename(file);
+  const base = repoBasename(file);
   return base.startsWith(".") || /\.config\.[^.]+$/.test(base);
 }
 
 function isStoryFile(file) {
-  return storyFilePattern.test(path.basename(file));
+  return storyFilePattern.test(repoBasename(file));
 }
 
 function isGeneratedFile(file) {
+  const normalized = normalizeRepoPath(file);
   return (
-    generatedDirPattern.test(file) ||
-    generatedFilePattern.test(path.basename(file))
+    generatedDirPattern.test(normalized) ||
+    generatedFilePattern.test(repoBasename(normalized))
   );
 }
 
@@ -79,13 +98,14 @@ function isGeneratedFile(file) {
  * @returns {RegExp} Anchored matcher for repo-relative paths.
  */
 export function globToRegExp(glob) {
+  const normalizedGlob = normalizeRepoPath(glob);
   let pattern = "";
   let i = 0;
-  while (i < glob.length) {
-    const char = glob[i];
-    if (char === "*" && glob[i + 1] === "*") {
+  while (i < normalizedGlob.length) {
+    const char = normalizedGlob[i];
+    if (char === "*" && normalizedGlob[i + 1] === "*") {
       i += 2;
-      if (glob[i] === "/") {
+      if (normalizedGlob[i] === "/") {
         pattern += "(?:.*/)?";
         i += 1;
       } else {
@@ -121,7 +141,8 @@ function loadTestExemptGlobs() {
 const testExemptGlobs = loadTestExemptGlobs();
 
 function isUserExempt(file) {
-  return testExemptGlobs.some((pattern) => pattern.test(file));
+  const normalized = normalizeRepoPath(file);
+  return testExemptGlobs.some((pattern) => pattern.test(normalized));
 }
 
 /**
@@ -130,14 +151,15 @@ function isUserExempt(file) {
  * @returns {boolean} True when the file is exempt from the missing-test check.
  */
 export function isTestExemptFile(file) {
+  const normalized = normalizeRepoPath(file);
   return (
-    isTestFile(file) ||
-    isInTestDir(file) ||
-    isConfigFile(file) ||
-    declarationFilePattern.test(file) ||
-    isStoryFile(file) ||
-    isGeneratedFile(file) ||
-    isUserExempt(file)
+    isTestFile(normalized) ||
+    isInTestDir(normalized) ||
+    isConfigFile(normalized) ||
+    declarationFilePattern.test(normalized) ||
+    isStoryFile(normalized) ||
+    isGeneratedFile(normalized) ||
+    isUserExempt(normalized)
   );
 }
 
@@ -148,24 +170,25 @@ export function isTestExemptFile(file) {
  * @returns {string|null} The test file path, or null if none exists.
  */
 export function findTestFile(file) {
-  const dirname = path.dirname(file);
-  const basename = path.basename(file, path.extname(file));
+  const normalized = normalizeRepoPath(file);
+  const dirname = path.posix.dirname(normalized);
+  const basename = path.posix.basename(normalized, path.posix.extname(normalized));
 
   const candidateDirs = [
     dirname,
-    path.join(dirname, "__tests__"),
+    path.posix.join(dirname, "__tests__"),
     "test",
     "tests",
   ];
 
   for (const dir of candidateDirs) {
     for (const suffix of testSuffixes) {
-      const candidate = path.join(dir, `${basename}${suffix}`);
+      const candidate = path.posix.join(dir, `${basename}${suffix}`);
       if (fs.existsSync(candidate)) {
         // Normalize to POSIX separators so the returned path matches git's
         // forward-slash output (dedupes cleanly in collectTestsForFiles and
         // keeps the displayed test command consistent on Windows).
-        return candidate.split(path.sep).join("/");
+        return normalizeRepoPath(candidate);
       }
     }
   }
@@ -183,10 +206,11 @@ export function findTestFile(file) {
 export function collectTestsForFiles(files) {
   const tests = new Set();
   for (const file of files) {
-    if (isTestFile(file)) {
-      tests.add(file);
-    } else if (codeFilePattern.test(file)) {
-      const match = findTestFile(file);
+    const normalized = normalizeRepoPath(file);
+    if (isTestFile(normalized)) {
+      tests.add(normalized);
+    } else if (codeFilePattern.test(normalized)) {
+      const match = findTestFile(normalized);
       if (match) {
         tests.add(match);
       }
