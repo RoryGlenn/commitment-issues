@@ -6,9 +6,8 @@ function normalizeInput(issuesOrOptions, context) {
     return { issues: issuesOrOptions, context };
   }
 
-  const options = issuesOrOptions && typeof issuesOrOptions === "object"
-    ? issuesOrOptions
-    : {};
+  const options =
+    issuesOrOptions && typeof issuesOrOptions === "object" ? issuesOrOptions : {};
   const issues = Array.isArray(options.issues) ? options.issues : [];
   const normalizedContext = {
     canInspectUnstagedFiles:
@@ -23,6 +22,16 @@ function normalizeInput(issuesOrOptions, context) {
   };
 
   return { issues, context: normalizedContext };
+}
+
+function issueMessage(issue) {
+  const match = issue.message.match(/^(\d+) file(s)? need Prettier formatting$/);
+  if (!match) {
+    return issue.message;
+  }
+
+  const count = Number(match[1]);
+  return `${count} file${count === 1 ? "" : "s"} with formatting issues`;
 }
 
 /**
@@ -57,7 +66,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
   ];
 
   issues.forEach((issue) => {
-    lines.push(`${pc.yellow("→")} ${issue.message}`);
+    lines.push(`${pc.yellow("→")} ${issueMessage(issue)}`);
     if (issue.detail) {
       issue.detail.split("\n").forEach((line) => {
         lines.push(`  ${pc.dim(line)}`);
