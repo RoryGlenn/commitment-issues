@@ -6,21 +6,15 @@ import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
 
-function commandName(name) {
-  if (process.platform === "win32" && ["npm", "npx"].includes(name)) {
-    return `${name}.cmd`;
-  }
-  return name;
-}
-
 function run(command, args, cwd) {
   const env = { ...process.env };
   delete env.HUSKY;
 
-  const result = spawnSync(commandName(command), args, {
+  const result = spawnSync(command, args, {
     cwd,
     env,
     stdio: "inherit",
+    shell: true,
   });
 
   if (result.error) {
