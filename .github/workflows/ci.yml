@@ -44,17 +44,28 @@ jobs:
 
       - run: npm test
 
+      - name: Package bin smoke
+        shell: pwsh
+        run: |
+          $packDir = Join-Path $env:RUNNER_TEMP "commitment-issues-pack"
+          $smokeDir = Join-Path $env:RUNNER_TEMP "commitment-issues-smoke"
+
+          Remove-Item -Recurse -Force $packDir, $smokeDir -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $packDir, $smokeDir | Out-Null
+
+          $packOutput = npm pack --pack-destination $packDir
+          $tarballName = $packOutput | Select-Object -Last 1
+          $tarball = Join-Path $packDir $tarballName
+
+          Push-Location $smokeDir
+          try {
+            npm init -y
+            npm install $tarball
+            npx --no-install commitment-issues --help
+          } finally {
+            Pop-Location
+          }
+
       - name: Test coverage
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == 24
         run: npm run test:coverage
-
-      - name: Package smoke test
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 24
-        shell: bash
-        run: |
-          npm pack
-          mkdir -p /tmp/commitment-issues-smoke
-          cd /tmp/commitment-issues-smoke
-          npm init -y
-          npm install "$GITHUB_WORKSPACE"/commitment-issues-*.tgz
-          npx commitment-issues --help
