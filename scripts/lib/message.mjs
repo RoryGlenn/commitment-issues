@@ -7,7 +7,9 @@ function normalizeInput(issuesOrOptions, context) {
   }
 
   const options =
-    issuesOrOptions && typeof issuesOrOptions === "object" ? issuesOrOptions : {};
+    issuesOrOptions && typeof issuesOrOptions === "object"
+      ? issuesOrOptions
+      : {};
   const issues = Array.isArray(options.issues) ? options.issues : [];
   const normalizedContext = {
     canInspectUnstagedFiles:
@@ -29,7 +31,9 @@ function issueMessage(issue) {
     return "ESLint failed to complete";
   }
 
-  const match = issue.message.match(/^(\d+) file(s)? need Prettier formatting$/);
+  const match = issue.message.match(
+    /^(\d+) file(s)? need Prettier formatting$/,
+  );
   if (!match) {
     return issue.message;
   }
