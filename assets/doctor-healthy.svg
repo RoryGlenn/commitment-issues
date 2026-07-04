@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="430" height="178" viewBox="0 0 430 178" role="img" aria-labelledby="title desc">
+  <title id="title">Doctor healthy terminal output</title>
+  <desc id="desc">A terminal-style success box saying git hooks are healthy and already configured.</desc>
+  <rect width="430" height="178" fill="#181818"/>
+  <g transform="translate(15 18)">
+    <rect x="0" y="0" width="385" height="130" rx="5" ry="5" fill="none" stroke="#2ee993" stroke-width="1.3"/>
+    <rect x="148" y="-8" width="90" height="18" fill="#181818"/>
+    <text x="192.5" y="6" fill="#2ee993" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">success</text>
+    <text x="35" y="50" fill="#2ee993" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Git hooks are healthy.</text>
+    <text x="35" y="95" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Already configured — nothing to change.</text>
+  </g>
+</svg>
