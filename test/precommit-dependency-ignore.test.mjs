@@ -17,7 +17,10 @@ test("precommit ignores accidentally staged node_modules files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  fs.rmSync(path.join(tempDir, "node_modules"), { recursive: true, force: true });
+  fs.rmSync(path.join(tempDir, "node_modules"), {
+    recursive: true,
+    force: true,
+  });
   writeFile(
     path.join(tempDir, "node_modules", "package-a", "index.js"),
     "const ignored = 1;\n",
@@ -37,12 +40,18 @@ test("precommit checks project files while ignoring staged node_modules files", 
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  fs.rmSync(path.join(tempDir, "node_modules"), { recursive: true, force: true });
+  fs.rmSync(path.join(tempDir, "node_modules"), {
+    recursive: true,
+    force: true,
+  });
   writeFile(
     path.join(tempDir, "node_modules", "package-a", "index.js"),
     "const ignored = 1;\n",
   );
-  writeFile(path.join(tempDir, "src", "needs-test.js"), "export const x = 1;\n");
+  writeFile(
+    path.join(tempDir, "src", "needs-test.js"),
+    "export const x = 1;\n",
+  );
   run("git", ["add", "-f", "node_modules/package-a/index.js"], tempDir);
   run("git", ["add", "src/needs-test.js"], tempDir);
 
