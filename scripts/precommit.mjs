@@ -15,7 +15,7 @@ import {
 } from "./lib/checks.mjs";
 import { buildAdvisoryMessage } from "./lib/message.mjs";
 import {
-  codeFilePattern,
+  codeFilePattern, 
   formatFilePattern,
   findTestFile,
   isTestExemptFile,
