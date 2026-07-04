@@ -5,12 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import { loadPrecommitConfig } from "../scripts/lib/config.mjs";
 
+const originalCwd = process.cwd();
+
 function withTempPackage(t, packageJson) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cfg-"));
-  const cwd = process.cwd();
 
   t.after(() => {
-    process.chdir(cwd);
+    process.chdir(originalCwd);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -60,7 +61,11 @@ test("loadPrecommitConfig ignores malformed precommitChecks containers", (t) => 
 
   for (const value of malformedValues) {
     withTempPackage(t, { precommitChecks: value });
-    assert.deepEqual(loadPrecommitConfig(), {}, `${JSON.stringify(value)} should be ignored`);
+    assert.deepEqual(
+      loadPrecommitConfig(),
+      {},
+      `${JSON.stringify(value)} should be ignored`,
+    );
   }
 });
 
