@@ -13,7 +13,7 @@ function normalizeInput(issuesOrOptions, context) {
     canInspectUnstagedFiles:
       typeof options.canInspectUnstagedFiles === "boolean"
         ? options.canInspectUnstagedFiles
-        : !options.hasTrackedWorktreeChanges,
+        : true,
     unstagedTrackedFiles: Array.isArray(options.unstagedTrackedFiles)
       ? options.unstagedTrackedFiles
       : Array.isArray(options.dirtyTrackedFiles)
@@ -25,6 +25,10 @@ function normalizeInput(issuesOrOptions, context) {
 }
 
 function issueMessage(issue) {
+  if (issue.message === "ESLint failed before reporting any file issues") {
+    return "ESLint failed to complete";
+  }
+
   const match = issue.message.match(/^(\d+) file(s)? need Prettier formatting$/);
   if (!match) {
     return issue.message;
