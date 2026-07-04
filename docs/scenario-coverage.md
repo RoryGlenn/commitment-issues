@@ -77,6 +77,16 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-010** — init preserves existing lint-staged array config. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 
+### Safety path matrix
+
+- **SEC-001** — paths with spaces are passed as argv and through a staged-file flow. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
+- **SEC-002** — paths with quotes are passed safely through argv and staged-file flows. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
+- **SEC-003** — paths with semicolons are passed safely through argv and staged-file flows. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
+- **SEC-004** — Unicode paths are passed safely through argv and staged-file flows. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
+- **SEC-005** — Windows-style backslash tokens are passed as literal argv. Unit: `test/process.test.mjs`.
+- **SEC-006** — glob-like filename characters are passed safely through a staged-file flow. Subprocess: `test/fix-staged.test.mjs`.
+- **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`.
+
 ### Performance
 
 - **PERF-001** — timeout is enforced. Fixture: precommit / prepush tests.
@@ -88,8 +98,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ## Partial
 
-- **SEC-001** — paths with spaces are passed as argv. Unit: `test/process.test.mjs`; command-level tests still needed.
-- **SEC-004** — paths with Unicode are passed safely. Path unit: `test/path-normalization.test.mjs`; command-level tests still needed.
 - **LIFE-001** — user installs and immediately commits. Covered by init + precommit fixtures; needs full external-repo install smoke.
 - **LIFE-002** — user installs and immediately pushes. Covered by init + prepush fixtures; needs full external-repo install smoke.
 
@@ -113,12 +121,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Safety path matrix
 
-- Paths with quotes passed through command-level flows.
-- Paths with semicolons passed through command-level flows.
-- Paths with Unicode passed through command-level flows.
-- Windows backslashes passed through command-level flows.
-- Glob characters passed through command-level flows.
 - Newlines in filenames, if Git and the platform can create the filename reliably.
+- Pre-push Git path output with forced `core.quotePath=false`; connector blocked the full-file write, so this remains a later cleanup.
 
 ### Release and lifecycle
 
@@ -130,15 +134,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - Corporate locked-down environment behavior.
 
 ## Next batches
-
-### Batch 3: safety path matrix
-
-- Quotes.
-- Semicolons.
-- Unicode.
-- Windows backslashes.
-- Glob characters.
-- Newlines if supported reliably.
 
 ### Batch 4: deferred support boundaries
 
