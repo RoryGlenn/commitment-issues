@@ -50,6 +50,16 @@ function isPackaged(relativePath, pkg) {
   );
 }
 
+function readmeImagePaths(readme) {
+  const markdownImages = [...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map(
+    ([, imagePath]) => imagePath,
+  );
+  const htmlImages = [...readme.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(
+    ([, imagePath]) => imagePath,
+  );
+  return [...markdownImages, ...htmlImages];
+}
+
 test("package-lock root metadata stays in sync with package.json", () => {
   const pkg = readJson("package.json");
   const lock = readJson("package-lock.json");
@@ -137,9 +147,9 @@ test("package files entries exist", () => {
 test("README relative image assets exist and are included in npm package files", () => {
   const pkg = readJson("package.json");
   const readme = readText("README.md");
-  const imageMatches = readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g);
+  const imagePaths = readmeImagePaths(readme);
 
-  for (const [, imagePath] of imageMatches) {
+  for (const imagePath of imagePaths) {
     if (/^(https?:)?\/\//.test(imagePath) || imagePath.startsWith("#")) {
       continue;
     }
