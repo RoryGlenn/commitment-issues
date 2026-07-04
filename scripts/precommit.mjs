@@ -22,6 +22,8 @@ import {
   collectTestsForFiles,
 } from "./lib/files.mjs";
 
+const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
+
 function runEslint(files) {
   const { command, args } = toolInvocation("eslint", [
     "--cache",
@@ -62,6 +64,7 @@ function runStagedTestCommand(testCommand, tests) {
 }
 
 const gitFiles = run("git", [
+  ...GIT_PATH_ARGS,
   "diff",
   "--cached",
   "--name-only",
@@ -84,7 +87,12 @@ const stagedFiles = gitFiles.stdout
   .filter(Boolean);
 
 if (stagedFiles.length === 0) {
-  const anyStagedResult = run("git", ["diff", "--cached", "--name-only"]);
+  const anyStagedResult = run("git", [
+    ...GIT_PATH_ARGS,
+    "diff",
+    "--cached",
+    "--name-only",
+  ]);
   const hasStagedChanges =
     !anyStagedResult.error &&
     anyStagedResult.status === 0 &&
@@ -107,7 +115,11 @@ if (stagedFiles.length === 0) {
   process.exit(0);
 }
 
-const unstagedFilesResult = run("git", ["diff", "--name-only"]);
+const unstagedFilesResult = run("git", [
+  ...GIT_PATH_ARGS,
+  "diff",
+  "--name-only",
+]);
 
 const canInspectUnstagedFiles =
   !unstagedFilesResult.error && unstagedFilesResult.status === 0;
@@ -218,8 +230,8 @@ if (eslintResult) {
       issues.push({
         autoFixable: false,
         type: "lint",
-        message: "ESLint failed to complete",
-        detail: "Check your ESLint configuration",
+        message: "ESLint failed before reporting any file issues",
+        detail: "Check ESLint install and project config",
       });
     }
   }
@@ -237,28 +249,16 @@ if (prettierResult) {
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check Prettier install and project config",
     });
-  } else if ((prettierResult.status || 0) === 1) {
-    const prettierFiles = parsePrettierList(
-      `${prettierResult.stdout}\n${prettierResult.stderr}`,
-    );
-    const formatIssueCount = prettierFiles.length;
-
-    issues.push({
-      autoFixable: true,
-      type: "format",
-      message:
-        formatIssueCount > 0
-          ? `${formatIssueCount} file${formatIssueCount === 1 ? "" : "s"} with formatting issues`
-          : "Formatting issues found",
-      detail: formatIssueCount > 0 ? prettierFiles.join("\n") : undefined,
-    });
-  } else if ((prettierResult.status || 0) > 1) {
-    issues.push({
-      autoFixable: false,
-      type: "format",
-      message: "Prettier failed to complete",
-      detail: "Check your Prettier configuration",
-    });
+  } else {
+    const files = parsePrettierList(prettierResult.stdout, prettierResult.stderr);
+    if (files.length > 0) {
+      issues.push({
+        autoFixable: true,
+        type: "format",
+        message: `${files.length} file${files.length === 1 ? "" : "s"} need Prettier formatting`,
+        detail: files.join("\n"),
+      });
+    }
   }
 }
 
@@ -267,35 +267,56 @@ if (testRun) {
     issues.push({
       autoFixable: false,
       type: "tests",
-      message: testRun.signal
-        ? "Staged tests timed out"
-        : "Unable to run staged tests",
+      message: testRun.signal ? "Staged tests timed out" : "Unable to run staged tests",
       detail: testRun.signal
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check precommitChecks.testCommand in package.json",
     });
   } else if ((testRun.status || 0) !== 0) {
-    const testOutput = `${testRun.stdout || ""}${testRun.stderr || ""}`.trim();
-    if (testOutput) {
-      console.log(testOutput);
-    }
     issues.push({
       autoFixable: false,
       type: "tests",
       message: `${stagedTests.length} staged test file${stagedTests.length === 1 ? "" : "s"} failing`,
-      detail: `Run: ${[...testCommand, ...stagedTests].join(" ")}`,
+      detail: stagedTests.join("\n"),
     });
   }
 }
 
-console.log("");
+const autoFixableIssues = issues.filter((issue) => issue.autoFixable);
+const manualIssues = issues.filter((issue) => !issue.autoFixable);
 
-// Build the consolidated message and print it.
-const { severity, lines } = buildAdvisoryMessage(issues, {
-  canInspectUnstagedFiles,
-  unstagedTrackedFiles,
-});
+const dirtyTrackedResult = run("git", [
+  ...GIT_PATH_ARGS,
+  "diff",
+  "--name-only",
+]);
+const dirtyTrackedFiles =
+  !dirtyTrackedResult.error && dirtyTrackedResult.status === 0
+    ? dirtyTrackedResult.stdout
+        .split("\n")
+        .map((file) => file.trim())
+        .filter(Boolean)
+    : [];
 
-(severity === "warning" ? warningBox : successBox)(lines);
+const hasTrackedWorktreeChanges = dirtyTrackedFiles.length > 0;
+
+if (issues.length === 0) {
+  successBox([
+    pc.bold("All pre-commit checks passed."),
+    "",
+    pc.dim(`${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} checked.`),
+  ]);
+  process.exit(0);
+}
+
+warningBox(
+  buildAdvisoryMessage({
+    issues,
+    autoFixableIssues,
+    manualIssues,
+    hasTrackedWorktreeChanges,
+    dirtyTrackedFiles,
+  }),
+);
 
 process.exit(0);
