@@ -27,11 +27,16 @@ export function summarizeEslintJson(stdout) {
 }
 
 /**
- * @param {string} output - Prettier `--list-different` output.
- * @returns {string[]} Trimmed, non-empty file paths.
+ * @param {...string} outputs - Prettier `--list-different` output streams.
+ * @returns {string[]} Trimmed, non-empty file paths or failure details.
  */
-export function parsePrettierList(output) {
-  return output
+export function parsePrettierList(...outputs) {
+  const combined = outputs.filter(Boolean).join("\n");
+  if (/\[error\]|SyntaxError|ParserError/i.test(combined)) {
+    return ["Prettier failed to complete"];
+  }
+
+  return (outputs[0] || "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
