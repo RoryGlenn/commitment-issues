@@ -130,15 +130,18 @@ for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
 const gitignore = fs.existsSync(".gitignore")
   ? fs.readFileSync(".gitignore", "utf8")
   : "";
-const ignores = [".eslintcache", ".prettiercache"].filter(
-  (entry) => !gitignore.split("\n").some((line) => line.trim() === entry),
+const gitignoreLines = gitignore.split("\n").map((line) => line.trim());
+const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
+  (entry) =>
+    !gitignoreLines.includes(entry) &&
+    !(entry === "node_modules/" && gitignoreLines.includes("node_modules")),
 );
 if (ignores.length > 0) {
   fs.writeFileSync(
     ".gitignore",
     `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
   );
-  created.push(".gitignore caches");
+  created.push(".gitignore defaults");
 }
 
 const setupSummary =
