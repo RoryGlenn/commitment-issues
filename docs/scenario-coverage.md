@@ -23,6 +23,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
 - **PKG-007** — package includes README gallery assets and docs in the tarball. Manual: `npm pack --dry-run`.
 - **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
+- **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
 
 ### Path normalization
 
@@ -101,14 +102,11 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### User lifecycle
 
+- **LIFE-001** — user installs and immediately commits in a fresh external repo. CI lifecycle smoke: `.github/workflows/ci.yml`.
+- **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle smoke: `.github/workflows/ci.yml`.
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
 - **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
-
-## Partial
-
-- **LIFE-001** — user installs and immediately commits. Covered by init + precommit fixtures and npm install/init/precommit smoke; needs full external-repo `git commit` smoke.
-- **LIFE-002** — user installs and immediately pushes. Covered by init + prepush fixtures and npm install/init smoke; needs full external-repo `git push` smoke.
 
 ## Deferred
 
@@ -135,9 +133,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Release and lifecycle
 
-- Full external-repo install plus first `git commit` smoke.
-- Full external-repo install plus first `git push` smoke.
-- Exact minimum Node version.
 - Release from a tag.
 - Release from GitHub Actions.
 - Upgrade from older package versions.
@@ -145,12 +140,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - Corporate locked-down environment behavior.
 
 ## Next batches
-
-### Batch 4: lifecycle smoke tests
-
-- Full external-repo install plus first `git commit` smoke.
-- Full external-repo install plus first `git push` smoke.
-- Exact minimum Node version.
 
 ### Batch 5: deferred support boundaries
 
