@@ -42,6 +42,12 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   const first = runInit(tempDir);
   assert.equal(first.status, 0);
 
+  const firstOutput = `${first.stdout}${first.stderr}`;
+  assert.match(firstOutput, /Added:/);
+  assert.match(firstOutput, /- script prepare/);
+  assert.match(firstOutput, /- script commit:fix/);
+  assert.doesNotMatch(firstOutput, /Added: script prepare, script commit:fix/);
+
   const pkg = readPackage(tempDir);
   assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
