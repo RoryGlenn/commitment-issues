@@ -53,6 +53,8 @@ It nudges first. It can enforce when configured. It keeps the choice explicit.
 
 In default advisory mode, your commit still goes through. The tool gives future-you a heads up.
 
+The boxes are intentionally advisory-first: they explain what happened, what is safe to do next, and when the tool refuses to mutate risky work.
+
 ## What it catches
 
 | Check                | What happens                                       |
@@ -74,6 +76,8 @@ In default advisory mode, your commit still goes through. The tool gives future-
 ## Quickstart
 
 Use this when you want the shortest path from install to the first checked commit.
+
+Want to see the common output states first? See [Message states](docs/message-states.md).
 
 ### 1. Install
 
