@@ -26,7 +26,7 @@ function markdownProse(markdown) {
         .map(() => "")
         .join("\n"),
     )
-    .replace(/`[^`\n]+`/g, "");
+    .replace(/`([^`\n]+)`/g, "$1");
 }
 
 function lineNumberAt(text, index) {
@@ -108,11 +108,11 @@ test("README does not make unconditional non-blocking claims", () => {
 });
 
 test("README documents both advisory and blocking push modes", () => {
-  const readme = readText("README.md");
+  const prose = markdownProse(readText("README.md"));
 
-  assert.match(readme, /## Advisory push tests \(default\)/);
-  assert.match(readme, /## Blocking pushes on test failure \(opt-in\)/);
-  assert.match(readme, /blockPushOnTestFailure and advisePushTests are both set/i);
+  assert.match(prose, /## Advisory push tests \(default\)/);
+  assert.match(prose, /## Blocking pushes on test failure \(opt-in\)/);
+  assert.match(prose, /blockPushOnTestFailure and advisePushTests are both set/i);
 });
 
 test("package files entries exist", () => {
