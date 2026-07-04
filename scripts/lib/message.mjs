@@ -1,9 +1,19 @@
 import pc from "picocolors";
 import { shortFileList } from "./files.mjs";
 
+function normalizeTone(tone) {
+  return tone === "fun" ? "fun" : "standard";
+}
+
 function normalizeInput(issuesOrOptions, context) {
   if (Array.isArray(issuesOrOptions)) {
-    return { issues: issuesOrOptions, context };
+    return {
+      issues: issuesOrOptions,
+      context: {
+        ...context,
+        tone: normalizeTone(context?.tone),
+      },
+    };
   }
 
   const options =
@@ -21,39 +31,92 @@ function normalizeInput(issuesOrOptions, context) {
       : Array.isArray(options.dirtyTrackedFiles)
         ? options.dirtyTrackedFiles
         : [],
+    tone: normalizeTone(options.tone ?? context?.tone),
   };
 
   return { issues, context: normalizedContext };
 }
 
-function issueMessage(issue) {
+function plural(count, singular, pluralValue = `${singular}s`) {
+  return count === 1 ? singular : pluralValue;
+}
+
+function funIssueMessage(issue, message) {
+  const prettierMatch = issue.message.match(
+    /^(\d+) file(s)? need Prettier formatting$/,
+  );
+  if (prettierMatch) {
+    const count = Number(prettierMatch[1]);
+    return `${count} ${plural(count, "file")} and Prettier are currently seeing other people`;
+  }
+
+  const missingTestsMatch = issue.message.match(
+    /^(\d+) staged source file(s)? missing unit tests$/,
+  );
+  if (missingTestsMatch) {
+    const count = Number(missingTestsMatch[1]);
+    return `${count} staged source ${plural(count, "file")} ghosted ${count === 1 ? "its" : "their"} unit tests`;
+  }
+
+  const manualLintMatch = issue.message.match(
+    /^(\d+) ESLint issue(s)? needing manual fixes$/,
+  );
+  if (manualLintMatch) {
+    const count = Number(manualLintMatch[1]);
+    return `${count} ESLint ${plural(count, "issue")} need${count === 1 ? "s" : ""} a human conversation`;
+  }
+
+  const autoFixableLintMatch = issue.message.match(
+    /^(\d+) auto-fixable ESLint issue(s)? found$/,
+  );
+  if (autoFixableLintMatch) {
+    const count = Number(autoFixableLintMatch[1]);
+    return `${count} ESLint ${plural(count, "issue")} can probably be talked through`;
+  }
+
+  const failingTestsMatch = issue.message.match(
+    /^(\d+) staged test file(s)? failing$/,
+  );
+  if (failingTestsMatch) {
+    const count = Number(failingTestsMatch[1]);
+    return `${count} staged test ${plural(count, "file")} failed the vibe check`;
+  }
+
+  return message;
+}
+
+function issueMessage(issue, tone = "standard") {
   if (issue.message === "ESLint failed before reporting any file issues") {
-    return "ESLint failed to complete";
+    return tone === "fun"
+      ? "ESLint started the conversation and then left"
+      : "ESLint failed to complete";
   }
 
   const match = issue.message.match(
     /^(\d+) file(s)? need Prettier formatting$/,
   );
-  if (!match) {
-    return issue.message;
-  }
+  const message = match
+    ? `${Number(match[1])} ${plural(Number(match[1]), "file")} with formatting issues`
+    : issue.message;
 
-  const count = Number(match[1]);
-  return `${count} file${count === 1 ? "" : "s"} with formatting issues`;
+  return tone === "fun" ? funIssueMessage(issue, message) : message;
 }
 
 /**
  * Builds the consolidated advisory message for the pre-commit box. Pure (no
  * I/O), so it can be unit-tested directly.
  * @param {Array<{type: string, message: string, autoFixable: boolean, detail?: string}>|object} issuesOrOptions - Detected issues, or an options object containing issues.
- * @param {{canInspectUnstagedFiles?: boolean, unstagedTrackedFiles?: string[]}} [context] - Worktree context for the commit:fix recommendation.
+ * @param {{canInspectUnstagedFiles?: boolean, unstagedTrackedFiles?: string[], tone?: string}} [context] - Worktree context for the commit:fix recommendation.
  * @returns {{severity: string, lines: string[]}} Box severity and lines.
  */
 export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
   const normalized = normalizeInput(issuesOrOptions, context);
   const issues = normalized.issues;
-  const { canInspectUnstagedFiles = true, unstagedTrackedFiles = [] } =
-    normalized.context;
+  const {
+    canInspectUnstagedFiles = true,
+    unstagedTrackedFiles = [],
+    tone = "standard",
+  } = normalized.context;
 
   if (issues.length === 0) {
     return {
@@ -69,12 +132,16 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
   const lines = [
     pc.bold("Pre-commit suggestions found"),
     "",
-    pc.dim("Commit will continue. Suggestions:"),
+    pc.dim(
+      tone === "fun"
+        ? "Commit will continue. Relationship notes:"
+        : "Commit will continue. Suggestions:",
+    ),
     "",
   ];
 
   issues.forEach((issue) => {
-    lines.push(`${pc.yellow("→")} ${issueMessage(issue)}`);
+    lines.push(`${pc.yellow("→")} ${issueMessage(issue, tone)}`);
     if (issue.detail) {
       issue.detail.split("\n").forEach((line) => {
         lines.push(`  ${pc.dim(line)}`);
@@ -94,8 +161,12 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
     lines.push(
       pc.dim(
         hasNonFixableIssue
-          ? "you can still apply automatic fixes and amend it:"
-          : "apply automatic fixes and amend it:",
+          ? tone === "fun"
+            ? "you can still fix the easy stuff and amend it:"
+            : "you can still apply automatic fixes and amend it:"
+          : tone === "fun"
+            ? "apply the easy apologies and amend it:"
+            : "apply automatic fixes and amend it:",
       ),
     );
     lines.push(`  ${pc.bold("npm run commit:fix")}`);
@@ -103,13 +174,29 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
     if (hasNonFixableIssue) {
       lines.push("");
       lines.push(
-        pc.dim("commit:fix only auto-fixes formatting and fixable lint."),
+        pc.dim(
+          tone === "fun"
+            ? "commit:fix only handles the easy apologies."
+            : "commit:fix only auto-fixes formatting and fixable lint.",
+        ),
       );
-      lines.push(pc.dim("Manual items above still need your attention."));
+      lines.push(
+        pc.dim(
+          tone === "fun"
+            ? "The awkward parts still need a human conversation."
+            : "Manual items above still need your attention.",
+        ),
+      );
     }
   } else if (hasFixableIssue) {
     if (hasNonFixableIssue) {
-      lines.push(pc.dim("Manual items above still need your attention."));
+      lines.push(
+        pc.dim(
+          tone === "fun"
+            ? "The awkward parts still need a human conversation."
+            : "Manual items above still need your attention.",
+        ),
+      );
       lines.push("");
     }
 
@@ -128,7 +215,13 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
       lines.push(`  ${pc.dim(shortFileList(unstagedTrackedFiles))}`);
     }
   } else {
-    lines.push(`  ${pc.dim("No automatic fix command for these issues.")}`);
+    lines.push(
+      `  ${pc.dim(
+        tone === "fun"
+          ? "No automatic fix command. This one needs a real conversation."
+          : "No automatic fix command for these issues.",
+      )}`,
+    );
   }
 
   return { severity: "warning", lines };
