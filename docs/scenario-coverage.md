@@ -20,6 +20,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-003** — package description does not contradict configurable blocking. Unit: `test/metadata.test.mjs`.
 - **PKG-004** — package `files` entries exist. Unit: `test/metadata.test.mjs`.
 - **PKG-005** — package bin works from packed tarball across OS / Node matrix. CI smoke: `.github/workflows/ci.yml`.
+- **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
+- **PKG-007** — package includes README gallery assets and docs in the tarball. Manual: `npm pack --dry-run`.
+- **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
 
 ### Path normalization
 
@@ -34,6 +37,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **DOC-001** — README avoids unconditional non-blocking claims. Unit: `test/metadata.test.mjs`.
 - **DOC-002** — README documents advisory push mode. Unit: `test/metadata.test.mjs`.
 - **DOC-003** — README documents blocking push mode. Unit: `test/metadata.test.mjs`.
+- **DOC-004** — README image references cannot drift away from packaged assets. Unit: `test/metadata.test.mjs`.
 
 ### Config
 
@@ -76,6 +80,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-009** — init preserves existing lint-staged object config. Fixture: `test/init.test.mjs`.
 - **INIT-010** — init preserves existing lint-staged array config. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
+- **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
+- **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
 
 ### Safety path matrix
 
@@ -95,11 +101,12 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
+- **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
 
 ## Partial
 
-- **LIFE-001** — user installs and immediately commits. Covered by init + precommit fixtures; needs full external-repo install smoke.
-- **LIFE-002** — user installs and immediately pushes. Covered by init + prepush fixtures; needs full external-repo install smoke.
+- **LIFE-001** — user installs and immediately commits. Covered by init + precommit fixtures and npm install/init/precommit smoke; needs full external-repo `git commit` smoke.
+- **LIFE-002** — user installs and immediately pushes. Covered by init + prepush fixtures and npm install/init smoke; needs full external-repo `git push` smoke.
 
 ## Deferred
 
@@ -126,6 +133,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Release and lifecycle
 
+- Full external-repo install plus first `git commit` smoke.
+- Full external-repo install plus first `git push` smoke.
 - Exact minimum Node version.
 - Release from a tag.
 - Release from GitHub Actions.
@@ -135,9 +144,14 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ## Next batches
 
-### Batch 4: deferred support boundaries
+### Batch 4: lifecycle smoke tests
+
+- Full external-repo install plus first `git commit` smoke.
+- Full external-repo install plus first `git push` smoke.
+- Exact minimum Node version.
+
+### Batch 5: deferred support boundaries
 
 - pnpm / yarn / bun.
 - Monorepo root/package fixtures.
-- Exact minimum Node version.
 - Release-from-tag / release-from-CI workflows.
