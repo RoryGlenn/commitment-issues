@@ -45,7 +45,7 @@ jobs:
       - run: npm test
 
       - name: Package lifecycle smoke
-        run: npm run doctor
+        run: npm run prepublishOnly
 
       - name: Test coverage
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == 24
