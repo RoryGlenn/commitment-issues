@@ -115,21 +115,6 @@ if (stagedFiles.length === 0) {
   process.exit(0);
 }
 
-const unstagedFilesResult = run("git", [
-  ...GIT_PATH_ARGS,
-  "diff",
-  "--name-only",
-]);
-
-const canInspectUnstagedFiles =
-  !unstagedFilesResult.error && unstagedFilesResult.status === 0;
-const unstagedTrackedFiles = canInspectUnstagedFiles
-  ? unstagedFilesResult.stdout
-      .split("\n")
-      .map((file) => file.trim())
-      .filter(Boolean)
-  : [];
-
 const stagedJsFiles = stagedFiles.filter((file) => codeFilePattern.test(file));
 const stagedFormatFiles = stagedFiles.filter((file) =>
   formatFilePattern.test(file),
@@ -250,7 +235,10 @@ if (prettierResult) {
         : "Check Prettier install and project config",
     });
   } else {
-    const files = parsePrettierList(prettierResult.stdout, prettierResult.stderr);
+    const files = parsePrettierList(
+      prettierResult.stdout,
+      prettierResult.stderr,
+    );
     if (files.length > 0) {
       issues.push({
         autoFixable: true,
@@ -267,7 +255,9 @@ if (testRun) {
     issues.push({
       autoFixable: false,
       type: "tests",
-      message: testRun.signal ? "Staged tests timed out" : "Unable to run staged tests",
+      message: testRun.signal
+        ? "Staged tests timed out"
+        : "Unable to run staged tests",
       detail: testRun.signal
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check precommitChecks.testCommand in package.json",
@@ -304,7 +294,9 @@ if (issues.length === 0) {
   successBox([
     pc.bold("All pre-commit checks passed."),
     "",
-    pc.dim(`${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} checked.`),
+    pc.dim(
+      `${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} checked.`,
+    ),
   ]);
   process.exit(0);
 }
