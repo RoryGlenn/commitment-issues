@@ -86,7 +86,11 @@ test("handles shell-sensitive staged filenames safely", (t) => {
 
   const result = runFixStaged(tempDir);
   const output = `${result.stdout}${result.stderr}`;
-  const stagedAfter = run("git", ["diff", "--cached", "--name-only"], tempDir);
+  const stagedAfter = run(
+    "git",
+    ["-c", "core.quotePath=false", "diff", "--cached", "--name-only"],
+    tempDir,
+  );
 
   assert.equal(result.status, 0);
   assert.match(output, /Checked 5 staged files/);
