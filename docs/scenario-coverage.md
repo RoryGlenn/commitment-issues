@@ -68,10 +68,14 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-001** — init wires hooks, scripts, config, and is idempotent. Fixture: `test/init.test.mjs`.
 - **INIT-002** — init upgrades legacy vendored setup. Fixture: `test/init.test.mjs`.
 - **INIT-003** — init preserves explicit push blocking config. Fixture: `test/init.test.mjs`.
-- **INIT-004** — init leaves customized hooks untouched. Fixture: `test/init.test.mjs`.
+- **INIT-004** — init leaves customized pre-commit and pre-push hooks untouched. Fixture: `test/init.test.mjs`.
 - **INIT-005** — init errors when `package.json` is missing. Fixture: `test/init.test.mjs`.
 - **INIT-006** — init creates `.gitignore` when absent. Fixture: `test/init.test.mjs`.
 - **INIT-007** — init appends cache ignores with no trailing newline. Fixture: `test/init.test.mjs`.
+- **INIT-008** — init preserves an unrelated existing `prepare` script. Fixture: `test/init.test.mjs`.
+- **INIT-009** — init preserves existing lint-staged object config. Fixture: `test/init.test.mjs`.
+- **INIT-010** — init preserves existing lint-staged array config. Fixture: `test/init.test.mjs`.
+- **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 
 ### Performance
 
@@ -103,13 +107,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Init / install fixture matrix
 
-- Existing custom pre-commit hook variants beyond current customized-hook coverage.
-- Existing custom pre-push hook variants beyond current customized-hook coverage.
-- Existing prepare script.
-- Existing lint-staged object syntax.
-- Existing lint-staged array syntax.
-- Invalid `package.json`.
 - Read-only `package.json` / `.gitignore` where practical.
+- More custom hook variants if users report specific merge expectations.
+- More lint-staged merge variants if users report specific merge expectations.
 
 ### Safety path matrix
 
@@ -130,16 +130,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - Corporate locked-down environment behavior.
 
 ## Next batches
-
-### Batch 2: init / install fixture matrix
-
-- Existing custom pre-commit hook variants.
-- Existing custom pre-push hook variants.
-- Existing prepare script.
-- Existing lint-staged object syntax.
-- Existing lint-staged array syntax.
-- Invalid `package.json`.
-- Read-only package files where practical.
 
 ### Batch 3: safety path matrix
 
