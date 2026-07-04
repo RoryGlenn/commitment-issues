@@ -103,18 +103,20 @@ try {
 
   writeFile(
     path.join(smokeDir, "eslint.config.js"),
-    `import js from "@eslint/js";
-import globals from "globals";
-
-export default [
-  js.configs.recommended,
-  {
-    languageOptions: {
-      globals: globals.node,
-    },
-  },
-];
-`,
+    [
+      'import js from "@eslint/js";',
+      'import globals from "globals";',
+      "",
+      "export default [",
+      "  js.configs.recommended,",
+      "  {",
+      "    languageOptions: {",
+      "      globals: globals.node,",
+      "    },",
+      "  },",
+      "];",
+      "",
+    ].join("\n"),
   );
 
   writeFile(
@@ -123,12 +125,14 @@ export default [
   );
   writeFile(
     path.join(smokeDir, "test", "widget.test.mjs"),
-    `import test from "node:test";
-import assert from "node:assert/strict";
-import { widget } from "../src/widget.mjs";
-
-test("widget", () => assert.equal(widget(), 1));
-`,
+    [
+      'import test from "node:test";',
+      'import assert from "node:assert/strict";',
+      'import { widget } from "../src/widget.mjs";',
+      "",
+      'test("widget", () => assert.equal(widget(), 1));',
+      "",
+    ].join("\n"),
   );
 
   run("git", ["add", "-A"], smokeDir);
