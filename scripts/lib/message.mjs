@@ -1,15 +1,42 @@
 import pc from "picocolors";
 import { shortFileList } from "./files.mjs";
 
+function normalizeInput(issuesOrOptions, context) {
+  if (Array.isArray(issuesOrOptions)) {
+    return { issues: issuesOrOptions, context };
+  }
+
+  const options = issuesOrOptions && typeof issuesOrOptions === "object"
+    ? issuesOrOptions
+    : {};
+  const issues = Array.isArray(options.issues) ? options.issues : [];
+  const normalizedContext = {
+    canInspectUnstagedFiles:
+      typeof options.canInspectUnstagedFiles === "boolean"
+        ? options.canInspectUnstagedFiles
+        : !options.hasTrackedWorktreeChanges,
+    unstagedTrackedFiles: Array.isArray(options.unstagedTrackedFiles)
+      ? options.unstagedTrackedFiles
+      : Array.isArray(options.dirtyTrackedFiles)
+        ? options.dirtyTrackedFiles
+        : [],
+  };
+
+  return { issues, context: normalizedContext };
+}
+
 /**
  * Builds the consolidated advisory message for the pre-commit box. Pure (no
  * I/O), so it can be unit-tested directly.
- * @param {Array<{type: string, message: string, autoFixable: boolean, detail?: string}>} issues - Detected issues.
+ * @param {Array<{type: string, message: string, autoFixable: boolean, detail?: string}>|object} issuesOrOptions - Detected issues, or an options object containing issues.
  * @param {{canInspectUnstagedFiles?: boolean, unstagedTrackedFiles?: string[]}} [context] - Worktree context for the commit:fix recommendation.
  * @returns {{severity: string, lines: string[]}} Box severity and lines.
  */
-export function buildAdvisoryMessage(issues, context = {}) {
-  const { canInspectUnstagedFiles = true, unstagedTrackedFiles = [] } = context;
+export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
+  const normalized = normalizeInput(issuesOrOptions, context);
+  const issues = normalized.issues;
+  const { canInspectUnstagedFiles = true, unstagedTrackedFiles = [] } =
+    normalized.context;
 
   if (issues.length === 0) {
     return {
