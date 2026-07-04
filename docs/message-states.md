@@ -64,141 +64,92 @@ Typical meaning:
 
 ### No staged files
 
-```text
-info
-
-No staged files to check.
-
-Stage changes with git add before committing.
-```
+<p>
+  <img src="../assets/no-staged-files.svg" alt="Info output showing that no staged files were found" width="476">
+</p>
 
 Shown when the pre-commit hook runs with no staged files.
 
 ### Deletion-only commit
 
-```text
-info
-
-Deletion-only commit — nothing to check.
-
-Removing files needs no lint, format, or tests. Looks good!
-```
+<p>
+  <img src="../assets/deletion-only-commit.svg" alt="Info output showing that only deleted files are staged" width="520">
+</p>
 
 Shown when only deleted files are staged.
 
 ### No lintable or formattable files
 
-```text
-info
-
-No lintable or formattable files staged.
-
-N staged files will be committed without checks.
-```
+<p>
+  <img src="../assets/no-lintable-files.svg" alt="Info output showing that no lintable or formattable files are staged" width="500">
+</p>
 
 Shown when staged files are outside the JavaScript, TypeScript, and formatted-file patterns.
 
+### No project files
+
+<p>
+  <img src="../assets/no-project-files.svg" alt="Info output showing that only dependency files are staged" width="430">
+</p>
+
+Shown when accidentally staged dependency files are ignored and no project files remain to check.
+
 ### Missing tests
 
-```text
-warning
-
-Pre-commit suggestions found
-
-Commit will continue. Suggestions:
-
-→ 1 staged source file missing unit tests
-  src/example.js
-
-No automatic fix command for these issues.
-```
+<p>
+  <img src="../assets/missing-tests-warning.svg" alt="Warning output showing that a staged source file is missing unit tests" width="476">
+</p>
 
 Shown when a staged source file has no nearby matching test and is not exempt.
 
 ### Manual lint issue
 
-```text
-warning
-
-Pre-commit suggestions found
-
-Commit will continue. Suggestions:
-
-→ 1 ESLint issue needing manual fixes
-  src/example.js:1:7 (no-undef)
-
-No automatic fix command for these issues.
-```
+<p>
+  <img src="../assets/manual-lint-warning.svg" alt="Warning output showing an ESLint issue that needs manual fixes" width="476">
+</p>
 
 Shown when ESLint reports issues that cannot be fixed automatically.
 
 ### Tool timeout
 
-```text
-warning
-
-Pre-commit suggestions found
-
-Commit will continue. Suggestions:
-
-→ ESLint timed out
-  No result within 120s
-```
+<p>
+  <img src="../assets/tool-limit-warning.svg" alt="Warning output showing that a tool exceeded the configured time limit" width="476">
+</p>
 
 Shown when a spawned tool exceeds the configured timeout.
 
 ### Advisory push failure
 
-```text
-warning
-
-Tests failed (advisory)
-
-N passed, M failed
-
-Push allowed, but the failing tests above need attention.
-```
+<p>
+  <img src="../assets/advisory-push-failure.svg" alt="Warning output showing failing push-time tests in advisory mode" width="450">
+</p>
 
 Shown when `advisePushTests` is enabled and pushed-file tests fail.
 
 ### Blocking push failure
 
-```text
-error
-
-Push blocked: tests failed
-
-N passed, M failed
-
-Fix the failing tests above, then push again.
-```
+<p>
+  <img src="../assets/blocking-push-failure.svg" alt="Error output showing failing push-time tests in blocking mode" width="450">
+</p>
 
 Shown when `blockPushOnTestFailure` is enabled and pushed-file tests fail.
 
 ### Doctor repaired hooks
 
-```text
-success
-
-Git hooks are healthy.
-
-Repaired the git hook wiring.
-```
+<p>
+  <img src="../assets/doctor-repaired-hooks.svg" alt="Success output showing that doctor repaired Git hook wiring" width="430">
+</p>
 
 Shown when `doctor` repairs missing or broken Husky wiring.
 
 ### Doctor already healthy
 
-```text
-success
-
-Git hooks are healthy.
-
-Already configured — nothing to change.
-```
+<p>
+  <img src="../assets/doctor-healthy.svg" alt="Success output showing that doctor found Git hook wiring already healthy" width="430">
+</p>
 
 Shown when `doctor` finds the hook wiring already correct.
 
 ## Adding more examples
 
-Add a new SVG only when the state is useful to explain visually in the README or docs. Otherwise, prefer a short text example here so the README stays focused on the core user journey.
+Add an SVG for each documented message state so the gallery stays visually consistent. Keep README focused on the core user journey and use this page for the complete state catalog.
