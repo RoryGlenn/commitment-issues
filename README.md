@@ -5,7 +5,9 @@
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier. The default flow gives lightweight feedback before commits and advisory test feedback before pushes; stricter blocking behavior can be enabled through configuration.
+Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier.
+
+The default flow gives lightweight feedback before commits and advisory test feedback before pushes. Stricter blocking behavior can be enabled through configuration.
 
 **Advisory by default:** the hooks report issues without discarding unstaged work, rewriting already-pushed history, or blocking pushes. Blocking behavior is opt-in.
 
@@ -41,7 +43,7 @@ Default advisory output:
 └──────────────────────────────────────┘
 ```
 
-In default advisory mode, your commit still goes through. The tool just gives future-you a heads up.
+In default advisory mode, your commit still goes through. The tool gives future-you a heads up.
 
 ## What it catches
 
@@ -52,95 +54,140 @@ In default advisory mode, your commit still goes through. The tool just gives fu
 | Missing tests        | Points out code without nearby tests               |
 | Failing staged tests | Optional commit-time warning or enforcement        |
 | Failing push tests   | Advisory warning by default; optional push blocker |
-| Broken Husky wiring  | `doctor` can repair it                             |
+| Broken hook wiring   | `doctor` can repair it                             |
 
 ## Requirements
 
 - **Node.js >= 22.22.1** — the scripts use modern ESM features and the built-in `node --test` runner.
-- Peer tools in your project: `husky`, `lint-staged`, `eslint`, `prettier` (the hooks run these). `commitment-issues` itself brings `boxen`, `picocolors`, and `cross-spawn` along as dependencies.
-- An ESLint flat config (`eslint.config.js`) in your project. For TypeScript, it must be TypeScript-aware (see [TypeScript and mixed projects](#typescript-and-mixed-projects)).
+- Peer tools in your project: `husky`, `lint-staged`, `eslint`, and `prettier`.
+- An ESLint flat config, usually `eslint.config.js`.
+- For TypeScript, a TypeScript-aware ESLint config.
 
-## Installation
+## Quickstart
+
+Use this when you want the shortest path from install to the first checked commit.
+
+### 1. Install
+
+Install `commitment-issues` with the peer tools it runs:
 
 ```bash
 npm install -D commitment-issues husky lint-staged eslint prettier
+```
+
+### 2. Initialize
+
+Run the setup command:
+
+```bash
 npx commitment-issues init
 ```
 
-That's it. `init` wires up the `.husky/pre-commit` and `.husky/pre-push` hooks (which call the `commitment-issues` bin), adds the npm scripts and `lint-staged` config, enables advisory push tests in `precommitChecks`, activates Husky, and gitignores the caches — all idempotent, so it's safe to re-run. Nothing is copied into your repo; everything runs from the installed package.
+This wires the Git hooks, adds helper npm scripts, adds the `lint-staged` config, enables advisory push tests, activates Husky, and ignores the local ESLint/Prettier cache files.
 
-Make sure your project has an ESLint flat config (`eslint.config.js`); for TypeScript, make it TypeScript-aware (see below).
+The command is idempotent, so it is safe to re-run.
 
-<details>
-<summary>Prefer manual setup?</summary>
+### 3. Make a commit
 
-Instead of `npx commitment-issues init`, register the hooks and add the scripts yourself:
+Stage your work and commit normally:
 
 ```bash
-npx husky init
-echo "commitment-issues precommit" > .husky/pre-commit
-echo "commitment-issues prepush" > .husky/pre-push
+git add -A
+git commit -m "your message"
 ```
+
+By default, commit-time checks are advisory. They report issues, but the commit continues.
+
+### 4. Fix staged files when needed
+
+When the hook reports auto-fixable lint or formatting issues before committing, run:
+
+```bash
+npm run fix:staged
+```
+
+Then stage the updated files and commit again.
+
+### 5. Fix the latest commit when safe
+
+When the hook suggests amending the latest commit, run:
+
+```bash
+npm run commit:fix
+```
+
+This only runs when the working tree is safe enough to amend.
+
+### 6. Push behavior
+
+After `init`, push-time tests run in advisory mode. They warn when associated pushed-file tests fail, but the push continues.
+
+To make pushed-file test failures block the push, set:
 
 ```json
 {
-  "scripts": {
-    "prepare": "commitment-issues doctor --quiet",
-    "commit:fix": "commitment-issues commit-fix",
-    "fix:staged": "commitment-issues fix-staged",
-    "test:precommit": "commitment-issues precommit",
-    "doctor": "commitment-issues doctor"
-  },
-  "lint-staged": {
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["commitment-issues fix-staged-js"],
-    "*.{json,css,scss,md,html,yml,yaml}": ["prettier --write --ignore-unknown"]
-  },
   "precommitChecks": {
-    "advisePushTests": true
+    "blockPushOnTestFailure": true
   }
 }
 ```
 
-Then gitignore `.eslintcache` and `.prettiercache`.
+If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
 
-</details>
+## What `init` changes
 
-Your next `git commit` will run the configured commit checks. Your next `git push` will run advisory push tests when pushed files have matching tests.
+`npx commitment-issues init` updates the consuming repo so the installed package can run from Git hooks:
+
+- wires the pre-commit hook to `commitment-issues precommit`
+- wires the pre-push hook to `commitment-issues prepush`
+- adds npm scripts for `doctor`, `fix:staged`, `commit:fix`, and direct pre-commit checks
+- adds a `lint-staged` config for JavaScript, TypeScript, and common formatted files
+- enables advisory push tests through `precommitChecks.advisePushTests`
+- activates Husky
+- gitignores `.eslintcache` and `.prettiercache`
+
+Nothing is copied into your repo from the package source. The hooks call the installed `commitment-issues` bin.
+
+## What happens on commit and push?
+
+| Action       | Default behavior                                        | Stricter option                                                |
+| ------------ | ------------------------------------------------------- | -------------------------------------------------------------- |
+| `git commit` | Reports lint, formatting, missing-test, and test issues | Enable `runStagedTests` to run staged-related tests            |
+| `git push`   | Runs pushed-file tests in advisory mode after `init`    | Enable `blockPushOnTestFailure` to stop pushes on test failure |
 
 ## Project structure
 
-- `scripts/cli.mjs` — the `commitment-issues` bin; dispatches subcommands (`init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, `fix-staged-js`).
+- `scripts/cli.mjs` — the `commitment-issues` bin; dispatches subcommands: `init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, and `fix-staged-js`.
 - `scripts/precommit.mjs` — the pre-commit hook entrypoint.
-- `scripts/init.mjs` — one-command setup for a consuming repo (`commitment-issues init`).
+- `scripts/init.mjs` — one-command setup for a consuming repo.
 - `scripts/prepush.mjs` — the advisory-by-default pre-push test runner; can become a blocking gate through configuration.
-- `scripts/doctor.mjs` — `commitment-issues doctor`, verifies and repairs the Husky hook wiring.
-- `scripts/fix-staged.mjs` — `commitment-issues fix-staged`, runs lint-staged on staged files.
-- `scripts/fix-staged-js.mjs` — lint-staged task: `eslint --fix` + `prettier --write`.
-- `scripts/commit-fix.mjs` — `npm run commit:fix`, auto-fixes and amends the latest commit.
-- `scripts/lib/` — shared helpers: `ui.mjs` (boxes), `process.mjs` (spawning/tool resolution), `files.mjs` (path/test heuristics), `checks.mjs` (output parsing), `message.mjs` (advisory builder), `config.mjs` (reads `precommitChecks`).
+- `scripts/doctor.mjs` — verifies and repairs the hook wiring.
+- `scripts/fix-staged.mjs` — runs lint-staged on staged files.
+- `scripts/fix-staged-js.mjs` — lint-staged task: ESLint fix followed by Prettier write.
+- `scripts/commit-fix.mjs` — applies automatic fixes to the latest clean commit and amends it in place.
+- `scripts/lib/` — shared helpers for UI, spawning, file heuristics, output parsing, advisory messages, and config loading.
 
 ## Active flow
 
-- `.husky/pre-commit` runs `commitment-issues precommit`.
+- The pre-commit hook runs `commitment-issues precommit`.
 - `scripts/precommit.mjs` inspects staged files and prints one consolidated summary box.
-- `.husky/pre-push` runs `commitment-issues prepush`.
-- `scripts/prepush.mjs` runs tests associated with pushed files in advisory mode by default; `blockPushOnTestFailure` turns it into a hard gate.
-- When automatic fixes can still be applied safely after the commit, the hook suggests `npm run commit:fix` as the post-commit amend path.
-- `npm run fix:staged` runs `scripts/fix-staged.mjs`, which delegates staged-file fixing to `lint-staged`.
-- `npm run commit:fix` runs `scripts/commit-fix.mjs`, which applies automatic fixes to the latest clean commit and amends it in place (with `--no-verify`, so the hook doesn't re-run and print a duplicate box).
-- JavaScript files are fixed by `scripts/fix-staged-js.mjs`, which runs `eslint --fix` and then `prettier --write` on the staged JS file set.
-- Other staged Prettier-supported files are fixed by `prettier --write` through `lint-staged`.
+- The pre-push hook runs `commitment-issues prepush`.
+- `scripts/prepush.mjs` runs tests associated with pushed files in advisory mode by default.
+- `blockPushOnTestFailure` turns pushed-file test failures into a hard gate.
+- When automatic fixes can still be applied safely after a commit, the hook suggests `npm run commit:fix`.
+- `npm run fix:staged` delegates staged-file fixing to `lint-staged`.
+- `npm run commit:fix` applies automatic fixes to the latest clean commit and amends it in place.
 
 ## TypeScript and mixed projects
 
-- Staged `.ts`, `.tsx`, `.mts`, `.cts`, and `.cjs` files are treated as code files alongside `.js`/`.jsx`/`.mjs`, so they flow through ESLint and Prettier just like JavaScript.
-- `.d.ts` declaration files are excluded from the "missing unit tests" check.
-- The unit-test heuristic recognizes matching tests in the same directory, an adjacent `__tests__/`, or a top-level `test/`/`tests/` directory (e.g. `src/foo.ts` is satisfied by `test/foo.test.ts`).
-- **Prerequisite for real TypeScript:** these scripts delegate linting to your project's own ESLint config, so your `eslint.config.js` must be set up for TypeScript (e.g. [`typescript-eslint`](https://typescript-eslint.io/)). Prettier formats TypeScript out of the box. Without a TypeScript-aware ESLint parser, ESLint will report parse errors on real type syntax.
+- Staged `.ts`, `.tsx`, `.mts`, `.cts`, and `.cjs` files are treated as code files alongside `.js`, `.jsx`, and `.mjs`.
+- `.d.ts` declaration files are excluded from the missing-test check.
+- The unit-test heuristic recognizes matching tests in the same directory, an adjacent `__tests__/`, or a top-level `test/` / `tests/` directory.
+- These scripts delegate linting to your project's own ESLint config. Real TypeScript projects need a TypeScript-aware ESLint parser/config.
 
 ## Unit-test heuristics
 
-The hook flags staged code files that have no matching test, but it skips files that don't normally need one:
+The hook flags staged code files that have no matching test, but it skips files that do not normally need one:
 
 - test files themselves (`*.test.*`, `*.spec.*`) and anything under `test/`, `tests/`, `__tests__/`, or `__mocks__/`
 - config files (`*.config.*` and dotfile configs like `.eslintrc.cjs`)
@@ -148,9 +195,9 @@ The hook flags staged code files that have no matching test, but it skips files 
 - Storybook stories (`*.stories.*`)
 - generated code (`*.generated.*`, or files under `generated/` / `__generated__/`)
 
-A matching test is found when it sits next to the file, in an adjacent `__tests__/`, or in a top-level `test/` / `tests/` directory (so `src/foo.ts` is satisfied by `test/foo.test.ts`).
+A matching test is found when it sits next to the file, in an adjacent `__tests__/`, or in a top-level `test/` / `tests/` directory. For example, `src/foo.ts` is satisfied by `test/foo.test.ts`.
 
-To exempt additional paths, add glob patterns under `precommitChecks.testExempt` in `package.json` (supports `*`, `**`, and `?`):
+To exempt additional paths, add glob patterns under `precommitChecks.testExempt` in `package.json`:
 
 ```json
 {
@@ -162,7 +209,7 @@ To exempt additional paths, add glob patterns under `precommitChecks.testExempt`
 
 ## Running staged tests (opt-in)
 
-By default the commit hook only checks for _missing_ tests; it does not run them. To also run the tests relevant to a commit, enable it in `package.json`:
+By default the commit hook only checks for missing tests; it does not run them. To also run the tests relevant to a commit, enable it in `package.json`:
 
 ```json
 {
@@ -175,11 +222,11 @@ By default the commit hook only checks for _missing_ tests; it does not run them
 
 When enabled, the hook runs `testCommand` against the staged test files plus the tests it can find for staged source files. `testCommand` is optional and defaults to `node --test`.
 
-> Note: enabling `runStagedTests` executes a repo-defined command (`testCommand`) on every commit, just like `lint-staged`. Only enable it in repositories you trust. Spawned tools are capped by a timeout so a hung command can't wedge a commit.
+> Enabling `runStagedTests` executes a repo-defined command on every commit, similar to `lint-staged`. Only enable it in repositories you trust. Spawned tools are capped by a timeout so a hung command cannot wedge a commit.
 
-### Using a different test runner (Vitest, Jest, …)
+### Using a different test runner
 
-`testCommand` can be **any** command that accepts test file paths as arguments — both the staged-test check and the push gate append the relevant test files to it. If your project doesn't use Node's built-in runner, point it at your own.
+`testCommand` can be any command that accepts test file paths as arguments. Both the staged-test check and the push gate append the relevant test files to it.
 
 **Vitest:**
 
@@ -191,7 +238,7 @@ When enabled, the hook runs `testCommand` against the staged test files plus the
 }
 ```
 
-The `run` subcommand is required — without it Vitest starts **watch mode** and the hook will hang.
+The `run` subcommand is required. Without it, Vitest starts watch mode and the hook will hang.
 
 **Jest:**
 
@@ -203,11 +250,11 @@ The `run` subcommand is required — without it Vitest starts **watch mode** and
 }
 ```
 
-> **Common gotcha:** if your tests rely on a runner's globals (e.g. Vitest's or Jest's `test`/`expect` without importing them), running them under the default `node --test` fails with `ReferenceError: test is not defined`. That's not a broken test — it's the wrong runner. Set `testCommand` to your actual runner.
+If your tests rely on a runner's globals, running them under the default `node --test` can fail with `ReferenceError: test is not defined`. Set `testCommand` to your actual runner.
 
 ## Advisory push tests (default)
 
-`init` enables `advisePushTests` by default. On `git push`, the pre-push hook runs **only the tests associated with the files being pushed** — the changed test files themselves, plus any test discovered for a changed source file.
+`init` enables `advisePushTests` by default. On `git push`, the pre-push hook runs only the tests associated with the files being pushed: the changed test files themselves, plus any test discovered for a changed source file.
 
 ```json
 {
@@ -233,9 +280,9 @@ Use push-time blocking when you want a hard gate before code is shared. Enable i
 }
 ```
 
-When enabled, the same pushed-files test run **blocks the push (exit 1) if any tests fail**. If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
+When enabled, the same pushed-files test run blocks the push if any tests fail. If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
 
-> The gate is capped by a timeout.
+The gate is capped by a timeout.
 
 ## Configuration reference
 
@@ -243,13 +290,13 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 
 | Key                      | Type     | Default              | Description                                                                                          |
 | ------------------------ | -------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `testExempt`             | string[] | `[]`                 | Glob patterns (`*`, `**`, `?`) for files excluded from the missing-test check.                       |
-| `requireTests`           | boolean  | `true`               | Set `false` to disable the "missing unit tests" check.                                               |
+| `testExempt`             | string[] | `[]`                 | Glob patterns for files excluded from the missing-test check.                                        |
+| `requireTests`           | boolean  | `true`               | Set `false` to disable the missing-test check.                                                       |
 | `runStagedTests`         | boolean  | `false`              | Run tests for staged files at commit time.                                                           |
 | `advisePushTests`        | boolean  | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
 | `blockPushOnTestFailure` | boolean  | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
-| `testCommand`            | string[] | `["node", "--test"]` | Test runner used by both staged tests and the push gate; must accept test file paths.                |
-| `timeoutMs`              | number   | `120000`             | Max time any spawned tool may run before it's treated as timed out.                                  |
+| `testCommand`            | string[] | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
+| `timeoutMs`              | number   | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
 
 ```json
 {
@@ -267,8 +314,8 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 The hook prints one box per commit:
 
 - **success** — staged files were checked and look clean
-- **warning** — issues found (lint, formatting, missing/failing tests); behavior depends on your configuration
-- **info** — nothing to check: no staged files, only a deletion, or only non-code/non-format files were staged
+- **warning** — issues found; behavior depends on your configuration
+- **info** — nothing to check
 - **error** — the hook could not inspect Git or run a tool
 
 ## Safety model
@@ -284,44 +331,46 @@ The hook prints one box per commit:
 
 The hook is tuned to stay fast even on slow machines:
 
-- ESLint, Prettier, and (opt-in) staged tests run **concurrently**.
+- ESLint, Prettier, and opt-in staged tests run concurrently.
 - Tools run directly through the project's local Node binaries, skipping `npx` resolution overhead.
-- ESLint (`.eslintcache`) and Prettier (`.prettiercache`) caches speed up repeated runs. Both are written to the project root and should be gitignored.
+- ESLint and Prettier caches speed up repeated runs.
 
 ## Continuous integration
 
-These scripts are Git-hook tooling, so disable Husky in CI to avoid installing hooks during `npm ci`. This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
+These scripts are Git-hook tooling, so disable Husky in CI to avoid installing hooks during `npm ci`.
+
+This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
 
 ## Commands
 
 ```bash
-npx commitment-issues init   # one-command setup (hooks, scripts, config)
-npm run doctor               # verify and repair the git hook wiring
+npx commitment-issues init   # one-command setup
+npm run doctor               # verify and repair hook wiring
 npm run test:precommit       # run the pre-commit checks directly
 npm run fix:staged           # apply staged-only ESLint/Prettier fixes
 npm run commit:fix           # apply automatic fixes to the latest clean commit and amend it
 ```
 
-The npm scripts above are added by `init` and call the `commitment-issues` bin. You can also invoke any subcommand directly, e.g. `npx commitment-issues doctor`.
+The npm scripts above are added by `init` and call the `commitment-issues` bin. You can also invoke any subcommand directly, for example `npx commitment-issues doctor`.
 
 ## Troubleshooting
 
 ### The hooks silently stopped running
 
-If commits and pushes suddenly skip all checks — no advisory box, no push gate — the Husky wiring was probably knocked out. Husky runs every hook through the **gitignored** `.husky/_` wrapper directory plus git's `core.hooksPath`, and **neither is committed**. A stale checkout, a dependency reinstall that skipped `prepare`, or a cleanup that removes ignored files can switch off _both_ `pre-commit` and `pre-push` at once.
+If commits and pushes suddenly skip all checks, the Husky wiring was probably knocked out by a stale checkout, a dependency reinstall that skipped `prepare`, or a cleanup that removed ignored hook support files.
 
-**This heals itself on install.** `init` sets `prepare` to `commitment-issues doctor --quiet`, so every `npm install`/`npm ci` automatically re-establishes the wiring (silently when healthy, with a one-line notice when it repairs something). It can never break an install — in a non-git context it just no-ops.
+`init` sets `prepare` to `commitment-issues doctor --quiet`, so every install can re-establish the wiring. In a non-git context it no-ops.
 
-If the wiring drops _without_ a reinstall, git can't launch any hook to fix itself — that's an inherent chicken-and-egg limit. Repair it on demand with:
+If the wiring drops without a reinstall, repair it on demand with:
 
 ```bash
 npm run doctor
 ```
 
-`doctor` checks that `core.hooksPath` points at `.husky/_`, that the `.husky/_` wrappers exist, and that `.husky/pre-commit`/`.husky/pre-push` are present — and rebuilds whatever is missing (without overwriting existing hooks). It's safe to run anytime; if everything is already healthy it just says so.
+`doctor` checks hook wiring and rebuilds missing pieces without overwriting existing hooks. It is safe to run anytime; if everything is already healthy it just says so.
 
-> Also check your environment has not disabled Husky hooks.
+Also check your environment has not disabled Husky hooks.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](../LICENSE).
