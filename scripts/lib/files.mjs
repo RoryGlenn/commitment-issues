@@ -227,10 +227,10 @@ export function collectTestsForFiles(files) {
 /**
  * Render a compact "a, b, c (+N more)" list for boxed output.
  * @param {string[]} files - File paths.
- * @param {number} [max=3] - How many to show before summarizing the rest.
+ * @param {number} [max=5] - How many to show before summarizing the rest.
  * @returns {string} The compacted list.
  */
-export function shortFileList(files, max = 3) {
+export function shortFileList(files, max = 5) {
   const shown = files.slice(0, max);
   if (shown.length === 0) {
     return "";
