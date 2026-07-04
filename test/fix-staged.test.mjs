@@ -77,18 +77,24 @@ test("handles shell-sensitive staged filenames safely", (t) => {
   ];
 
   for (const file of files) {
-    writeFile(path.join(tempDir, ...file.split("/")), "export const value = 1;\n");
+    writeFile(
+      path.join(tempDir, ...file.split("/")),
+      "export const value = 1;\n",
+    );
   }
   run("git", ["add", ...files], tempDir);
 
   const result = runFixStaged(tempDir);
   const output = `${result.stdout}${result.stderr}`;
+  const stagedAfter = run("git", ["diff", "--cached", "--name-only"], tempDir);
 
   assert.equal(result.status, 0);
   assert.match(output, /Checked 5 staged files/);
-  for (const file of files) {
-    assert.match(output, new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
+  assert.match(output, /src\/has space\.js/);
+  assert.match(output, /src\/quote'file\.js/);
+  assert.match(output, /src\/semi;colon\.js/);
+  assert.match(output, /\(\+2 more\)/);
+  assert.deepEqual(stagedAfter.stdout.trim().split("\n").sort(), files.sort());
 });
 
 test("returns warning when fixes apply but lint issues remain", (t) => {
