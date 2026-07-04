@@ -177,9 +177,15 @@ test("message-state SVG assets exist and are included in npm package files", () 
 
   for (const imagePath of imagePaths) {
     const absolutePath = path.resolve(root, "docs", imagePath);
-    const packagePath = path.relative(root, absolutePath).replaceAll(path.sep, "/");
+    const packagePath = path
+      .relative(root, absolutePath)
+      .replaceAll(path.sep, "/");
 
-    assert.equal(fs.existsSync(absolutePath), true, `${imagePath} should exist`);
+    assert.equal(
+      fs.existsSync(absolutePath),
+      true,
+      `${imagePath} should exist`,
+    );
     assert.equal(
       isPackaged(packagePath, pkg),
       true,
