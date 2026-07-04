@@ -53,9 +53,8 @@ jobs:
           Remove-Item -Recurse -Force $packDir, $smokeDir -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $packDir, $smokeDir | Out-Null
 
-          $packOutput = npm pack --pack-destination $packDir
-          $tarballName = $packOutput | Select-Object -Last 1
-          $tarball = Join-Path $packDir $tarballName
+          npm pack --pack-destination $packDir
+          $tarball = Get-ChildItem -Path $packDir -Filter "*.tgz" | Select-Object -First 1 -ExpandProperty FullName
 
           Push-Location $smokeDir
           try {
