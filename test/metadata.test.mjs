@@ -80,7 +80,7 @@ test("README documents the package engine exactly", () => {
   const readme = readText("README.md");
   const engine = escapeRegExp(pkg.engines.node);
 
-  assert.match(readme, new RegExp(`Node(?:\.js)?\s+${engine}`));
+  assert.match(readme, new RegExp(`Node(?:\\.js)?\\s+${engine}`));
 });
 
 test("package description does not contradict configurable blocking", () => {
