@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import crossSpawn from "cross-spawn";
 
 const root = process.cwd();
 
@@ -10,11 +10,10 @@ function run(command, args, cwd) {
   const env = { ...process.env };
   delete env.HUSKY;
 
-  const result = spawnSync(command, args, {
+  const result = crossSpawn.sync(command, args, {
     cwd,
     env,
     stdio: "inherit",
-    shell: true,
   });
 
   if (result.error) {
