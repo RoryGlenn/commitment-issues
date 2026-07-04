@@ -24,6 +24,11 @@ import {
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
+function isThirdPartyPath(file) {
+  const normalized = file.replace(/\\/g, "/");
+  return /(^|\/)node_modules\//.test(`${normalized}/`);
+}
+
 function runEslint(files) {
   const { command, args } = toolInvocation("eslint", [
     "--cache",
@@ -81,12 +86,12 @@ if (gitFiles.error || gitFiles.status !== 0) {
   process.exit(0);
 }
 
-const stagedFiles = gitFiles.stdout
+const rawStagedFiles = gitFiles.stdout
   .split("\n")
   .map((file) => file.trim())
   .filter(Boolean);
 
-if (stagedFiles.length === 0) {
+if (rawStagedFiles.length === 0) {
   const anyStagedResult = run("git", [
     ...GIT_PATH_ARGS,
     "diff",
@@ -111,6 +116,18 @@ if (stagedFiles.length === 0) {
           pc.dim("Stage changes with git add before committing."),
         ],
   );
+
+  process.exit(0);
+}
+
+const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
+
+if (stagedFiles.length === 0) {
+  infoBox([
+    pc.bold("No project files to check."),
+    "",
+    pc.dim("Only package dependency files are staged."),
+  ]);
 
   process.exit(0);
 }
