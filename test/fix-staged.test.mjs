@@ -93,7 +93,8 @@ test("handles shell-sensitive staged filenames safely", (t) => {
   assert.match(output, /src\/has space\.js/);
   assert.match(output, /src\/quote'file\.js/);
   assert.match(output, /src\/semi;colon\.js/);
-  assert.match(output, /\(\+2 more\)/);
+  assert.match(output, /src\/unicode-猫\.js/);
+  assert.match(output, /src\/glob\[abc\]\.js/);
   assert.deepEqual(stagedAfter.stdout.trim().split("\n").sort(), files.sort());
 });
 
