@@ -62,7 +62,11 @@ test("predicate helpers classify files", () => {
 test("shortFileList compacts long lists and handles empty input", () => {
   assert.equal(shortFileList([]), "");
   assert.equal(shortFileList(["a", "b"]), "a, b");
-  assert.equal(shortFileList(["a", "b", "c", "d"]), "a, b, c (+1 more)");
+  assert.equal(shortFileList(["a", "b", "c", "d"]), "a, b, c, d");
+  assert.equal(
+    shortFileList(["a", "b", "c", "d", "e", "f"]),
+    "a, b, c, d, e (+1 more)",
+  );
 });
 
 test("findTestFile and collectTestsForFiles locate sibling tests", (t) => {
