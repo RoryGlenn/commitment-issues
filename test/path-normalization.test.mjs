@@ -29,7 +29,10 @@ function writeModule(file) {
 }
 
 test("normalizeRepoPath converts repo paths to Git-style POSIX separators", () => {
-  assert.equal(normalizeRepoPath("src\\widget.test.mjs"), "src/widget.test.mjs");
+  assert.equal(
+    normalizeRepoPath("src\\widget.test.mjs"),
+    "src/widget.test.mjs",
+  );
   assert.equal(
     normalizeRepoPath(".\\src\\nested//widget.test.mjs"),
     "src/nested/widget.test.mjs",
@@ -54,7 +57,10 @@ test("findTestFile accepts POSIX, Windows, and mixed-separator inputs", (t) => {
 
   assert.equal(findTestFile("src/widget.mjs"), "src/widget.test.mjs");
   assert.equal(findTestFile("src\\widget.mjs"), "src/widget.test.mjs");
-  assert.equal(findTestFile("src/nested\\tool.mjs"), "src/nested/tool.test.mjs");
+  assert.equal(
+    findTestFile("src/nested\\tool.mjs"),
+    "src/nested/tool.test.mjs",
+  );
 });
 
 test("findTestFile preserves spaces and Unicode while returning POSIX paths", (t) => {

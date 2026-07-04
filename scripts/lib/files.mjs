@@ -68,7 +68,9 @@ export function isTestFile(file) {
  * @returns {boolean} True if the file lives under test/tests/__tests__/__mocks__.
  */
 export function isInTestDir(file) {
-  return /(^|\/)(test|tests|__tests__|__mocks__)\//.test(normalizeRepoPath(file));
+  return /(^|\/)(test|tests|__tests__|__mocks__)\//.test(
+    normalizeRepoPath(file),
+  );
 }
 
 /**
@@ -172,7 +174,10 @@ export function isTestExemptFile(file) {
 export function findTestFile(file) {
   const normalized = normalizeRepoPath(file);
   const dirname = path.posix.dirname(normalized);
-  const basename = path.posix.basename(normalized, path.posix.extname(normalized));
+  const basename = path.posix.basename(
+    normalized,
+    path.posix.extname(normalized),
+  );
 
   const candidateDirs = [
     dirname,

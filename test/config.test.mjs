@@ -17,7 +17,9 @@ function withTempPackage(t, packageJson) {
 
   if (packageJson !== undefined) {
     const content =
-      typeof packageJson === "string" ? packageJson : JSON.stringify(packageJson);
+      typeof packageJson === "string"
+        ? packageJson
+        : JSON.stringify(packageJson);
     fs.writeFileSync(path.join(dir, "package.json"), content);
   }
 

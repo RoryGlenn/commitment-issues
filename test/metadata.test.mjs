@@ -85,11 +85,13 @@ test("README does not make unconditional non-blocking claims", () => {
   const bannedClaims = [
     {
       pattern: /\bnever blocks?\b/i,
-      message: "Avoid claiming the tool never blocks; push blocking is configurable.",
+      message:
+        "Avoid claiming the tool never blocks; push blocking is configurable.",
     },
     {
       pattern: /\b(?:cannot|can't) block\b/i,
-      message: "Avoid claiming the tool cannot block; push blocking is configurable.",
+      message:
+        "Avoid claiming the tool cannot block; push blocking is configurable.",
     },
     {
       pattern: /\balways (?:allows?|continues?|passes?)\b/i,
@@ -102,7 +104,9 @@ test("README does not make unconditional non-blocking claims", () => {
     assert.equal(
       match,
       null,
-      match ? `${message} README.md:${lineNumberAt(prose, match.index)}` : message,
+      match
+        ? `${message} README.md:${lineNumberAt(prose, match.index)}`
+        : message,
     );
   }
 });
@@ -112,7 +116,10 @@ test("README documents both advisory and blocking push modes", () => {
 
   assert.match(prose, /## Advisory push tests \(default\)/);
   assert.match(prose, /## Blocking pushes on test failure \(opt-in\)/);
-  assert.match(prose, /blockPushOnTestFailure and advisePushTests are both set/i);
+  assert.match(
+    prose,
+    /blockPushOnTestFailure and advisePushTests are both set/i,
+  );
 });
 
 test("package files entries exist", () => {
