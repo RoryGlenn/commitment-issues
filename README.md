@@ -6,6 +6,8 @@
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+_Git hooks that nudge instead of blocking — advisory by default, strict when you ask._
+
 Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier.
 
 **Advisory by default:** `commitment-issues` reports issues without discarding unstaged work, rewriting already-pushed history, or blocking pushes. Blocking behavior is opt-in.
@@ -130,6 +132,22 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 | ------------ | ------------------------------------------------------- | -------------------------------------------------------------- |
 | `git commit` | Reports lint, formatting, missing-test, and test issues | Enable `runStagedTests` to run staged-related tests            |
 | `git push`   | Runs pushed-file tests in advisory mode after `init`    | Enable `blockPushOnTestFailure` to stop pushes on test failure |
+
+## How it compares
+
+`commitment-issues` builds on Husky and lint-staged, adding an advisory-first opinion and a one-command setup. Compared with wiring those tools together yourself or reaching for another hook manager:
+
+| Capability                                  | commitment-issues  | husky + lint-staged (DIY) | lefthook            | pre-commit          |
+| ------------------------------------------- | ------------------ | ------------------------- | ------------------- | ------------------- |
+| Advisory (non-blocking) by default          | Yes                | You build it              | No (fails the hook) | No (fails the hook) |
+| One-command setup                           | Yes (`init`)       | Manual wiring             | Config file         | Config file         |
+| Self-heals broken hook wiring               | Yes (`doctor`)     | No                        | No                  | No                  |
+| Pushed-file test gate (advisory → blocking) | Yes                | You build it              | Manual              | Manual              |
+| Safe auto-fix + amend helper                | Yes (`commit:fix`) | No                        | No                  | No                  |
+| Refuses unsafe fixes on partial staging     | Yes                | No                        | No                  | No                  |
+| Primary ecosystem                           | JS / TS (npm)      | JS / TS (npm)             | Any                 | Any (Python)        |
+
+> Husky and lint-staged are complements, not competitors — `commitment-issues` uses them under the hood and wires them up for you.
 
 ## Advisory push tests (default)
 
