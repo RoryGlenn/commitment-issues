@@ -88,25 +88,25 @@ To make pushed-file test failures block the push, set:
 **Pre-commit suggestions**
 
 <p>
-  <img src="assets/precommit-suggestions-warning.svg" alt="Pre-commit warning output showing formatting suggestions and the commit fix command" width="476">
+  <img src="assets/precommit-suggestions-warning.svg" alt="Pre-commit warning output showing formatting suggestions and the commit fix command" width="479">
 </p>
 
 **Safety refusal**
 
 <p>
-  <img src="assets/partially-staged-error.svg" alt="Error output showing that partially staged files cannot be fixed safely" width="620">
+  <img src="assets/partially-staged-error.svg" alt="Error output showing that partially staged files cannot be fixed safely" width="568">
 </p>
 
 **Safe automatic amend**
 
 <p>
-  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="555">
+  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="590">
 </p>
 
 **Advisory push failure**
 
 <p>
-  <img src="assets/advisory-push-failure.svg" alt="Warning output showing failing push-time tests in advisory mode" width="450">
+  <img src="assets/advisory-push-failure.svg" alt="Warning output showing failing push-time tests in advisory mode" width="713">
 </p>
 
 In default advisory mode, your commit and push still go through. The tool gives future-you a heads up.

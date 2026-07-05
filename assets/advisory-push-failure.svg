@@ -1,14 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="450" height="238" viewBox="0 0 450 238" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="713" height="200" viewBox="0 0 713 200" role="img" aria-labelledby="title desc">
   <title id="title">Advisory push failure terminal output</title>
   <desc id="desc">A terminal-style warning box showing failing push-time tests in advisory mode.</desc>
-  <rect width="450" height="238" rx="8" ry="8" fill="#181818"/>
-  <g transform="translate(15 18)">
-    <rect x="0" y="0" width="400" height="198" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
-    <rect x="155" y="-8" width="90" height="18" fill="#181818"/>
-    <text x="200" y="6" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
-    <text x="35" y="50" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Tests failed (advisory)</text>
-    <text x="35" y="95" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">7 passed, 1 failed</text>
-    <text x="35" y="140" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Push allowed, but the failing tests</text>
-    <text x="35" y="162" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">above need attention.</text>
+  <rect width="713" height="200" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="673" height="156" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
+    <rect x="288" y="-10" width="97" height="20" fill="#181818"/>
+    <text x="336.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
+    <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Tests failed (advisory)</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">1 passed, 1 failed</text>
+    <text x="34" y="132" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Push allowed, but the failing tests above need attention.</text>
   </g>
 </svg>

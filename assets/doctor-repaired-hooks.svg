@@ -1,12 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="430" height="178" viewBox="0 0 430 178" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="617" height="230" viewBox="0 0 617 230" role="img" aria-labelledby="title desc">
   <title id="title">Doctor repaired hooks terminal output</title>
-  <desc id="desc">A terminal-style success box saying git hooks are healthy and hook wiring was repaired.</desc>
-  <rect width="430" height="178" rx="8" ry="8" fill="#181818"/>
-  <g transform="translate(15 18)">
-    <rect x="0" y="0" width="385" height="130" rx="5" ry="5" fill="none" stroke="#2ee993" stroke-width="1.3"/>
-    <rect x="148" y="-8" width="90" height="18" fill="#181818"/>
-    <text x="192.5" y="6" fill="#2ee993" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">success</text>
-    <text x="35" y="50" fill="#2ee993" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Git hooks are healthy.</text>
-    <text x="35" y="95" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Repaired the git hook wiring.</text>
+  <desc id="desc">A terminal-style warning box saying doctor repaired the git hook wiring.</desc>
+  <rect width="617" height="230" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="577" height="186" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
+    <rect x="240" y="-10" width="97" height="20" fill="#181818"/>
+    <text x="288.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
+    <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Repaired the git hook wiring.</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Was broken: .husky/_ hook wrappers are missing.</text>
+    <text x="34" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Fixed: husky wiring (core.hooksPath + .husky/_).</text>
+    <text x="34" y="162" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">pre-commit and pre-push are active again.</text>
   </g>
 </svg>

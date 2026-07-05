@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="430" height="178" viewBox="0 0 430 178" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="543" height="156" viewBox="0 0 543 156" role="img" aria-labelledby="title desc">
   <title id="title">No project files terminal output</title>
   <desc id="desc">A terminal-style info box saying only dependency files are staged.</desc>
-  <rect width="430" height="178" rx="8" ry="8" fill="#181818"/>
-  <g transform="translate(15 18)">
-    <rect x="0" y="0" width="385" height="130" rx="5" ry="5" fill="none" stroke="#68d8ff" stroke-width="1.3"/>
-    <rect x="170" y="-8" width="45" height="18" fill="#181818"/>
-    <text x="192.5" y="6" fill="#68d8ff" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">info</text>
-    <text x="35" y="50" fill="#68d8ff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">No project files to check.</text>
-    <text x="35" y="95" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Only package dependency files are staged.</text>
+  <rect width="543" height="156" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="503" height="112" rx="5" ry="5" fill="none" stroke="#68d8ff" stroke-width="1.3"/>
+    <rect x="220" y="-10" width="63" height="20" fill="#181818"/>
+    <text x="251.5" y="5" fill="#68d8ff" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">info</text>
+    <text x="34" y="44" fill="#68d8ff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">No project files to check.</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Only package dependency files are staged.</text>
   </g>
 </svg>
