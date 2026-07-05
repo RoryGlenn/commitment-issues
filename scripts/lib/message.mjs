@@ -32,6 +32,7 @@ function normalizeInput(issuesOrOptions, context) {
         ? options.dirtyTrackedFiles
         : [],
     tone: normalizeTone(options.tone ?? context?.tone),
+    commitCommand: options.commitCommand,
   };
 
   return { issues, context: normalizedContext };
@@ -116,6 +117,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
     canInspectUnstagedFiles = true,
     unstagedTrackedFiles = [],
     tone = "standard",
+    commitCommand = "npm run commit:fix",
   } = normalized.context;
 
   if (issues.length === 0) {
@@ -169,7 +171,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
             : "apply automatic fixes and amend it:",
       ),
     );
-    lines.push(`  ${pc.bold("npm run commit:fix")}`);
+    lines.push(`  ${pc.bold(commitCommand)}`);
 
     if (hasNonFixableIssue) {
       lines.push("");

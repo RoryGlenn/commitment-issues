@@ -149,6 +149,10 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 
 > Husky and lint-staged are complements, not competitors — `commitment-issues` uses them under the hood and wires them up for you.
 
+## Package managers
+
+`commitment-issues` works with **npm, pnpm, yarn, and bun**. It detects your package manager — from `npm_config_user_agent` and your lockfile — and tailors the command hints it prints (for example, a pnpm project sees `pnpm run commit:fix`). Hooks run through `node_modules/.bin`, so no extra configuration is required.
+
 ## Advisory push tests (default)
 
 `init` enables `advisePushTests` by default. On `git push`, the pre-push hook runs only the tests associated with the files being pushed: the changed test files themselves, plus any test discovered for a changed source file.

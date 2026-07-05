@@ -189,12 +189,16 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
 - **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
 
+### Package managers
+
+- **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
+
 ## Deferred
 
-- **PM-002** — pnpm package-manager compatibility. Document support boundary first.
-- **PM-003** — yarn classic compatibility. Document support boundary first.
-- **PM-004** — yarn berry compatibility. Document support boundary first.
-- **PM-005** — bun compatibility. Document support boundary first.
+- **PM-002** — pnpm end-to-end install/hook lifecycle smoke (detection and command hints covered by PM-001).
+- **PM-003** — yarn classic end-to-end lifecycle smoke (detection and command hints covered by PM-001).
+- **PM-004** — yarn berry end-to-end lifecycle smoke (detection and command hints covered by PM-001).
+- **PM-005** — bun end-to-end lifecycle smoke (detection and command hints covered by PM-001).
 - **MONO-001** — workspace root behavior. Deferred until workspace support boundary is explicit.
 - **MONO-002** — nested workspace package behavior. Deferred until workspace support boundary is explicit.
 - **PERF-002** — many-files performance. Add only after the behavior matrix is stable.

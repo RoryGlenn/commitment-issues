@@ -5,6 +5,7 @@ import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run } from "./lib/process.mjs";
 import { HOOK_BODIES } from "./lib/hooks.mjs";
+import { installCommand, runScript } from "./lib/package-manager.mjs";
 
 // Diagnose and self-heal the Husky hook wiring. Both hooks run through the
 // gitignored `.husky/_` wrappers and git's `core.hooksPath` — neither of which
@@ -37,7 +38,7 @@ function repairFailed(lines) {
   if (quiet) {
     console.warn(
       pc.yellow(
-        "commitment-issues: could not wire up git hooks — run `npm run doctor`.",
+        `commitment-issues: could not wire up git hooks — run \`${runScript("doctor")}\`.`,
       ),
     );
     process.exit(0);
@@ -163,7 +164,9 @@ if (!wiringIntact()) {
     repairFailed([
       pc.bold("Could not repair the Husky wiring."),
       "",
-      pc.dim("Check that husky is installed (npm install), then retry."),
+      pc.dim(
+        `Check that husky is installed (${installCommand()}), then retry.`,
+      ),
     ]);
   }
   repaired.push("husky wiring (core.hooksPath + .husky/_)");
@@ -203,7 +206,7 @@ if (unwiredHooks.length > 0) {
         `commitment-issues: ${unwiredHooks
           .map((report) => report.hookPath)
           .join(", ")} do not invoke commitment-issues — run ` +
-          "`npm run doctor`.",
+          `\`${runScript("doctor")}\`.`,
       ),
     );
     process.exit(0);

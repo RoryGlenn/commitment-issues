@@ -14,6 +14,7 @@ import {
   summarizeEslintJson,
 } from "./lib/checks.mjs";
 import { buildAdvisoryMessage } from "./lib/message.mjs";
+import { runScript } from "./lib/package-manager.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
@@ -322,6 +323,7 @@ warningBox(
   buildAdvisoryMessage({
     issues,
     tone: config.tone,
+    commitCommand: runScript("commit:fix"),
     autoFixableIssues,
     manualIssues,
     hasTrackedWorktreeChanges,

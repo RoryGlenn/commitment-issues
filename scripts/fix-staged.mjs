@@ -7,6 +7,7 @@ import {
   formatFilePattern,
   shortFileList,
 } from "./lib/files.mjs";
+import { runScript } from "./lib/package-manager.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
@@ -71,7 +72,7 @@ if (fixableFiles.length === 0) {
     pc.bold("No staged files to fix."),
     "",
     pc.dim(
-      "Stage a JS, JSON, CSS, Markdown, HTML, or YAML file and run npm run fix:staged again.",
+      `Stage a JS, JSON, CSS, Markdown, HTML, or YAML file and run ${runScript("fix:staged")} again.`,
     ),
   ]);
   process.exit(0);
@@ -112,7 +113,7 @@ if (partiallyStagedFiles.length > 0) {
     "",
     `  ${shortFileList(partiallyStagedFiles)}`,
     "",
-    pc.dim("Then run npm run fix:staged again."),
+    pc.dim(`Then run ${runScript("fix:staged")} again.`),
   ]);
   process.exit(1);
 }

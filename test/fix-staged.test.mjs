@@ -31,6 +31,29 @@ test("shows info box when there are no staged fixable files", (t) => {
   assert.match(output, /No staged files to fix\./);
 });
 
+test("surfaces the detected package manager in command hints", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A pnpm lockfile with no package-manager env (as at hook time) makes the
+  // command hints resolve to pnpm instead of the npm default.
+  writeFile(path.join(tempDir, "pnpm-lock.yaml"), "");
+  const file = path.join(tempDir, "src", "partial.js");
+  writeFile(file, "export const value = 1;\n");
+  run("git", ["add", "src/partial.js"], tempDir);
+  writeFile(file, "export const value = 2;\n");
+
+  const env = { ...process.env };
+  delete env.npm_config_user_agent;
+
+  const result = runFixStaged(tempDir, { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Cannot safely fix partially staged files/);
+  assert.match(output, /pnpm run fix:staged/);
+});
+
 test("refuses to fix partially staged files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
