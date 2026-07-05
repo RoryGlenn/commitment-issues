@@ -78,12 +78,13 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-006** — init creates `.gitignore` when absent. Fixture: `test/init.test.mjs`.
 - **INIT-007** — init appends cache ignores with no trailing newline. Fixture: `test/init.test.mjs`.
 - **INIT-008** — init preserves an unrelated existing `prepare` script. Fixture: `test/init.test.mjs`.
-- **INIT-009** — init preserves existing lint-staged object config. Fixture: `test/init.test.mjs`.
+- **INIT-009** — init merges a missing JS lint-staged task into existing object configs. Fixture: `test/init.test.mjs`.
 - **INIT-010** — init preserves existing lint-staged array config. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 - **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
 - **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
 - **INIT-014** — init adds `node_modules/` to `.gitignore` defaults and avoids duplicate existing entries. Fixture: `test/init-gitignore.test.mjs`.
+- **INIT-015** — init preserves an existing custom JS lint-staged task. Fixture: `test/init.test.mjs`.
 
 ### Safety path matrix
 
@@ -93,7 +94,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-004** — Unicode paths are passed safely through argv and staged-file flows. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
 - **SEC-005** — Windows-style backslash tokens are passed as literal argv. Unit: `test/process.test.mjs`.
 - **SEC-006** — glob-like filename characters are passed safely through a staged-file flow. Subprocess: `test/fix-staged.test.mjs`.
-- **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`.
+- **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source/tests: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`, `scripts/prepush.mjs`, `test/prepush.test.mjs`.
 - **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
 
 ### Performance
@@ -129,7 +130,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 ### Safety path matrix
 
 - Newlines in filenames, if Git and the platform can create the filename reliably.
-- Pre-push Git path output with forced `core.quotePath=false`; connector blocked the full-file write, so this remains a later cleanup.
 
 ### Release and lifecycle
 
