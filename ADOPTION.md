@@ -9,7 +9,7 @@ in `package.json` `files`.)
 - [x] One-line positioning tagline in the README ("Git hooks that nudge instead of blocking…").
 - [x] "How it compares" table (vs a hand-rolled husky + lint-staged setup, lefthook, pre-commit).
 - [x] "Package managers" section (npm, pnpm, yarn, bun).
-- [ ] Demo GIF / asciinema of `init` → advisory box near the top of the README.
+- [ ] Demo GIF near the top of the README — recipe ready in `promo/demo.tape` (render with `vhs promo/demo.tape`), then embed.
 - [ ] Simple logo / wordmark for the README header and social preview.
 
 ## Trust signals
@@ -37,8 +37,8 @@ in `package.json` `files`.)
 
 ## Content & community
 
-- [ ] "Show HN: Commitment Issues — advisory-first git hooks."
-- [ ] Blog post: "Why I stopped letting pre-commit hooks block my commits."
+- [ ] "Show HN: Commitment Issues — advisory-first git hooks." Draft ready in `promo/launch.md`.
+- [ ] Blog post: "Why I stopped letting pre-commit hooks block my commits." Draft ready in `promo/launch.md`.
 - [ ] Answer relevant threads (r/javascript, r/node, StackOverflow, "husky is annoying" discussions) — genuinely, not spammy.
 - [ ] Cross-post to dev.to / Hashnode.
 
