@@ -83,6 +83,95 @@ test("doctor recreates a missing hook file", (t) => {
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
 });
 
+test("doctor accepts a custom hook that still invokes commitment-issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring + exact hook bodies
+  // A user adds their own line but keeps our subcommand — still healthy.
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "echo running my own lint step\ncommitment-issues precommit\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+});
+
+test("doctor reports a pre-commit hook that never invokes commitment-issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "echo my own unrelated hook\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /does not invoke commitment-issues/);
+  assert.match(output, /\.husky\/pre-commit/);
+  // The user's own hook body must never be overwritten.
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
+    "echo my own unrelated hook\n",
+  );
+});
+
+test("doctor reports a pre-push hook that never invokes commitment-issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-push"),
+    "echo my own unrelated hook\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /does not invoke commitment-issues/);
+  assert.match(output, /\.husky\/pre-push/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".husky", "pre-push"), "utf8"),
+    "echo my own unrelated hook\n",
+  );
+});
+
+test("doctor --quiet warns but exits 0 when a hook does not invoke commitment-issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "echo my own unrelated hook\n",
+  );
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
+    tempDir,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  // Never break an install, but do not silently claim health either.
+  assert.equal(result.status, 0);
+  assert.match(output, /do not invoke commitment-issues/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
+    "echo my own unrelated hook\n",
+  );
+});
+
 test("doctor --quiet stays silent when the wiring is healthy", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

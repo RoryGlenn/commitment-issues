@@ -73,20 +73,40 @@ for (const [name, value] of Object.entries(scripts)) {
 }
 
 const jsGlob = "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}";
-if (!pkg["lint-staged"]) {
+const jsTask = [`${BIN} fix-staged-js`];
+const lintStaged = pkg["lint-staged"];
+// Only object-style lint-staged configs (glob → command map) are merged into.
+// Array and function configs (the latter only exist in JS config files, not
+// package.json) express custom behavior we must not second-guess, so preserve
+// them untouched.
+const isObjectConfig =
+  lintStaged !== null &&
+  typeof lintStaged === "object" &&
+  !Array.isArray(lintStaged);
+if (!lintStaged) {
   pkg["lint-staged"] = {
-    [jsGlob]: [`${BIN} fix-staged-js`],
+    [jsGlob]: jsTask,
     "*.{json,css,scss,md,html,yml,yaml}": ["prettier --write --ignore-unknown"],
   };
   created.push("lint-staged config");
-} else if (
-  Array.isArray(pkg["lint-staged"][jsGlob]) &&
-  pkg["lint-staged"][jsGlob].length === 1 &&
-  pkg["lint-staged"][jsGlob][0] === "node scripts/fix-staged-js.mjs"
-) {
-  // Upgrade the legacy vendored task to the bin.
-  pkg["lint-staged"][jsGlob] = [`${BIN} fix-staged-js`];
-  created.push("lint-staged task");
+} else if (isObjectConfig) {
+  const currentJsTask = lintStaged[jsGlob];
+  if (
+    Array.isArray(currentJsTask) &&
+    currentJsTask.length === 1 &&
+    currentJsTask[0] === "node scripts/fix-staged-js.mjs"
+  ) {
+    // Upgrade the legacy vendored task to the bin.
+    lintStaged[jsGlob] = jsTask;
+    created.push("lint-staged task");
+  } else if (currentJsTask === undefined) {
+    // The user has an object config but no JS task, so `npm run fix:staged`
+    // would never run our JS fixer. Add it alongside their existing globs
+    // without touching anything else.
+    lintStaged[jsGlob] = jsTask;
+    created.push("lint-staged JS task");
+  }
+  // A custom JS task is left exactly as the user wrote it.
 }
 
 if (!pkg.precommitChecks) {

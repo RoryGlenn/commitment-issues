@@ -155,6 +155,34 @@ process.exit(result.status == null ? 1 : result.status);
   };
 }
 
+// Build an env whose `git` appends each invocation's argv (one space-joined
+// line per call) to `logPath` before delegating to the real git, so a test can
+// assert exactly how a script invoked git (e.g. that it forced
+// core.quotePath=false). Cross-platform: a Node shim behind `git`/`git.cmd`.
+export function recordingGitEnv(tempDir, logPath) {
+  const binDir = path.join(tempDir, ".fakebin");
+  fs.mkdirSync(binDir, { recursive: true });
+  writeCrossPlatformShim(
+    binDir,
+    "git",
+    `import fs from "node:fs";
+import { spawnSync } from "node:child_process";
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.GIT_LOG_FILE, args.join(" ") + "\\n");
+const result = spawnSync(process.env.FAKE_GIT_REAL || "git", args, {
+  stdio: "inherit",
+});
+process.exit(result.status == null ? 1 : result.status);
+`,
+  );
+  return {
+    ...process.env,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+    GIT_LOG_FILE: logPath,
+    FAKE_GIT_REAL: REAL_GIT,
+  };
+}
+
 // Build an env that puts a stub executable named `name` first on PATH which
 // does nothing but exit with `exitCode`. Used to force a spawned helper (e.g.
 // `npx husky`) to succeed-as-a-no-op or fail on demand. Cross-platform: a shell

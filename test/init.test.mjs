@@ -169,7 +169,7 @@ test("init preserves an unrelated prepare script", (t) => {
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
 });
 
-test("init preserves existing lint-staged object config", (t) => {
+test("init merges the JS task into an existing lint-staged object config", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -184,12 +184,41 @@ test("init preserves existing lint-staged object config", (t) => {
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /- lint-staged JS task/);
 
   const pkg = readPackage(tempDir);
+  // The user's Markdown task is untouched, but the JS task is added so that
+  // `npm run fix:staged` actually runs the JS fixer.
   assert.deepEqual(pkg["lint-staged"], {
     "*.md": ["prettier --check"],
+    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["commitment-issues fix-staged-js"],
   });
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
+});
+
+test("init preserves a custom JS task in a lint-staged object config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    "lint-staged": {
+      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["eslint --fix"],
+      "*.md": ["prettier --check"],
+    },
+  });
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+
+  const pkg = readPackage(tempDir);
+  // A user-defined JS task is never overwritten.
+  assert.deepEqual(pkg["lint-staged"], {
+    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["eslint --fix"],
+    "*.md": ["prettier --check"],
+  });
 });
 
 test("init preserves existing lint-staged array config", (t) => {

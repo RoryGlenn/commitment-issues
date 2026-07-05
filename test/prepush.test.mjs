@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import {
   addBareRemote,
@@ -7,6 +8,7 @@ import {
   createTempRepo,
   fakeGitEnv,
   readFile,
+  recordingGitEnv,
   run,
   writeFile,
 } from "./helpers/temp-repo.mjs";
@@ -311,14 +313,35 @@ test("blocks the push when the node runner writes no summary (bad flag)", (t) =>
   assert.match(output, /Push blocked/);
 });
 
-test("allows the push when the pushed-files diff cannot be computed", (t) => {
+test("blocks the push when the pushed-files diff cannot be computed", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   setConfig(tempDir, { blockPushOnTestFailure: true });
   commitWidget(tempDir, 1);
 
-  // Fail the diff that lists pushed files; the gate treats it as "no files".
+  // Fail the diff that lists pushed files. Blocking mode must fail closed
+  // rather than treat an un-inspectable push as "no tests to run".
+  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: could not inspect pushed files/);
+});
+
+test("advisory mode warns but allows when the pushed-files diff cannot be computed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { advisePushTests: true });
+  commitWidget(tempDir, 1);
+
   const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
   const result = run(
     "node",
@@ -329,5 +352,81 @@ test("allows the push when the pushed-files diff cannot be computed", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
-  assert.match(output, /No tests to run before push/);
+  assert.match(output, /Could not inspect pushed files \(advisory\)/);
+  assert.match(output, /Push allowed/);
+});
+
+test("stays silent and allows when the diff fails but no mode is enabled", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Disabled mode exits before any diff, so a broken diff is irrelevant.
+  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+  commitWidget(tempDir, 1);
+
+  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal(output.trim(), "");
+});
+
+test("forces core.quotePath=false when diffing pushed files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  const logPath = path.join(tempDir, "git-invocations.log");
+  const env = recordingGitEnv(tempDir, logPath);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+
+  assert.equal(result.status, 0);
+  // The pushed-file diff must run with core.quotePath=false, matching the
+  // pre-commit/fix flows so non-ASCII paths are not octal-escaped.
+  const log = fs.readFileSync(logPath, "utf8");
+  assert.match(log, /-c core\.quotePath=false diff --name-only/);
+});
+
+test("discovers associated tests for pushed files with Unicode paths", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  // A Unicode filename is octal-escaped by git unless core.quotePath=false, in
+  // which case the associated test would not be found and would silently pass.
+  writeFile(
+    path.join(tempDir, "src", "gadget-猫.mjs"),
+    "export const gadget = () => 1;\n",
+  );
+  writeFile(
+    path.join(tempDir, "src", "gadget-猫.test.mjs"),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'import { gadget } from "./gadget-猫.mjs";\n' +
+      'test("gadget", () => assert.equal(gadget(), 1));\n',
+  );
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "add unicode gadget"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  // The Unicode-named test must actually be discovered and run, not skipped.
+  assert.doesNotMatch(output, /No tests to run before push/);
+  assert.match(output, /All tests passed/);
+  assert.match(output, /1 passed, 0 failed/);
 });

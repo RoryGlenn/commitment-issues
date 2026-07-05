@@ -78,6 +78,35 @@ function wiringIntact() {
   );
 }
 
+// A hook file existing is not the same as it doing anything for us: git will
+// happily run a hook whose body is a user's own unrelated script. Checking for
+// the subcommand (rather than an exact body match) keeps user-customized hooks
+// that still call us classified as healthy.
+function hookContainsExpectedCommand(hookPath, command) {
+  if (!fs.existsSync(hookPath)) {
+    return false;
+  }
+  return fs.readFileSync(hookPath, "utf8").includes(command);
+}
+
+// Four-way classification so the repair logic can react appropriately:
+//   missing               → recreate from HOOK_BODIES
+//   wired                 → our exact generated body; healthy
+//   custom-with-command   → user's own hook that still calls us; healthy
+//   custom-without-command→ user's own hook that never calls us; a problem we
+//                           report but must never overwrite.
+function hookStatus(hookPath, expectedCommand) {
+  if (!fs.existsSync(hookPath)) {
+    return "missing";
+  }
+  if (fs.readFileSync(hookPath, "utf8") === HOOK_BODIES[hookPath]) {
+    return "wired";
+  }
+  return hookContainsExpectedCommand(hookPath, expectedCommand)
+    ? "custom-with-command"
+    : "custom-without-command";
+}
+
 const problems = [];
 if (currentHooksPath() !== HOOKS_PATH) {
   problems.push("git core.hooksPath is not set to .husky/_");
@@ -88,11 +117,28 @@ if (
 ) {
   problems.push(".husky/_ hook wrappers are missing");
 }
-const missingHooks = Object.keys(HOOK_BODIES).filter(
-  (hookPath) => !fs.existsSync(hookPath),
+// Classify every hook once so existence, content, and "is it actually wired"
+// are all considered — reporting healthy on the mere presence of a hook file
+// was the bug this addresses.
+const hookReports = Object.keys(HOOK_BODIES).map((hookPath) => {
+  const command = HOOK_BODIES[hookPath].trim();
+  return { hookPath, command, status: hookStatus(hookPath, command) };
+});
+const missingHooks = hookReports
+  .filter((report) => report.status === "missing")
+  .map((report) => report.hookPath);
+const unwiredHooks = hookReports.filter(
+  (report) => report.status === "custom-without-command",
 );
 if (missingHooks.length > 0) {
   problems.push(`missing hook file(s): ${missingHooks.join(", ")}`);
+}
+if (unwiredHooks.length > 0) {
+  problems.push(
+    `hook(s) not invoking commitment-issues: ${unwiredHooks
+      .map((report) => report.hookPath)
+      .join(", ")}`,
+  );
 }
 
 if (problems.length === 0) {
@@ -143,6 +189,39 @@ if (
     pc.dim("Try running: npx husky"),
     pc.dim(`Then confirm: git config --get core.hooksPath → ${HOOKS_PATH}`),
   ]);
+}
+
+// A user-owned hook that never calls commitment-issues can't be repaired
+// without clobbering their script, so surface it instead of silently claiming
+// health. Quiet mode still exits 0 (an install must never break) but warns
+// rather than staying silent; interactive mode explains the manual fix and
+// exits non-zero because the tool is genuinely not wired in.
+if (unwiredHooks.length > 0) {
+  if (quiet) {
+    console.warn(
+      pc.yellow(
+        `commitment-issues: ${unwiredHooks
+          .map((report) => report.hookPath)
+          .join(", ")} do not invoke commitment-issues — run ` +
+          "`npm run doctor`.",
+      ),
+    );
+    process.exit(0);
+  }
+  warningBox([
+    pc.bold("A git hook does not invoke commitment-issues."),
+    "",
+    ...unwiredHooks.map((report) =>
+      pc.dim(`${report.hookPath} never runs \`${report.command}\`.`),
+    ),
+    "",
+    pc.dim("Add the command above to each hook, or delete the hook file so"),
+    pc.dim("doctor can recreate it. Existing hooks are never overwritten."),
+    ...(repaired.length > 0
+      ? ["", pc.dim(`Also repaired: ${repaired.join(", ")}.`)]
+      : []),
+  ]);
+  process.exit(1);
 }
 
 if (quiet) {

@@ -13,6 +13,11 @@ const ZERO_SHA = "0".repeat(40);
 // branch (no remote sha yet) so every file in the pushed history counts.
 const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
+// Force literal, unquoted paths (as the pre-commit/fix flows already do) so
+// pushed files with spaces or non-ASCII names still match their associated
+// tests instead of arriving octal-escaped from git.
+const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
+
 const config = loadPrecommitConfig();
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is
@@ -140,45 +145,99 @@ function diffFiles(base, head) {
   // Exclude deletions (--diff-filter=ACMRT): a deleted test file must not be
   // re-run, or the gate would fail trying to load a file that no longer exists.
   const result = run("git", [
+    ...GIT_PATH_ARGS,
     "diff",
     "--name-only",
     "--diff-filter=ACMRT",
     base,
     head,
   ]);
-  if ((result.status || 0) !== 0) {
-    return [];
+  // Surface the failure rather than swallowing it as "no files": blocking mode
+  // must be able to fail closed instead of silently allowing a push it could
+  // not actually inspect.
+  if (result.error || (result.status || 0) !== 0) {
+    return {
+      ok: false,
+      files: [],
+      detail:
+        (result.stderr || "").trim() || `git diff ${base}..${head} failed`,
+    };
   }
-  return result.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return {
+    ok: true,
+    files: result.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  };
 }
 
 async function getPushedFiles() {
   const refs = await readPushRefs();
   const files = new Set();
+  const diffErrors = [];
+
+  const collect = (result) => {
+    if (result.ok) {
+      for (const file of result.files) {
+        files.add(file);
+      }
+    } else {
+      diffErrors.push(result.detail);
+    }
+  };
 
   if (refs.length > 0) {
     for (const { localSha, remoteSha } of refs) {
       const base = remoteSha && remoteSha !== ZERO_SHA ? remoteSha : EMPTY_TREE;
-      for (const file of diffFiles(base, localSha)) {
-        files.add(file);
-      }
+      collect(diffFiles(base, localSha));
     }
-    return [...files];
+    return { files: [...files], diffErrors };
   }
 
   // Fallback for manual runs (no stdin): compare against the upstream branch.
+  // A missing upstream is not an error — there is simply nothing to diff — so
+  // only a genuine `git diff` failure counts as a diff error.
   if (run("git", ["rev-parse", "@{u}"]).status === 0) {
-    for (const file of diffFiles("@{u}", "HEAD")) {
-      files.add(file);
-    }
+    collect(diffFiles("@{u}", "HEAD"));
   }
-  return [...files];
+  return { files: [...files], diffErrors };
 }
 
-const pushedFiles = await getPushedFiles();
+const { files: pushedFiles, diffErrors } = await getPushedFiles();
+
+// A failed diff means we don't know what is being pushed, so we can't know
+// which tests to run. Advisory mode stays out of the way (warn, then allow);
+// blocking mode fails closed rather than waving through an un-inspectable push.
+if (diffErrors.length > 0) {
+  const detailLines = [...new Set(diffErrors)].map((detail) => pc.dim(detail));
+  if (blocking) {
+    errorBox([
+      pc.bold("Push blocked: could not inspect pushed files"),
+      "",
+      pc.dim("Git could not list the files being pushed, so the pre-push test"),
+      pc.dim("gate cannot run."),
+      "",
+      ...detailLines,
+      "",
+      pc.dim("Fix the Git error above, then push again."),
+      pc.dim("To bypass this gate once: git push --no-verify"),
+    ]);
+    process.exit(1);
+  }
+  warningBox([
+    pc.bold("Could not inspect pushed files (advisory)"),
+    "",
+    pc.dim("Git could not list the files being pushed, so no pre-push tests"),
+    pc.dim("ran."),
+    "",
+    ...detailLines,
+    "",
+    pc.dim("Push allowed."),
+  ]);
+  process.exit(0);
+}
+
 const testFiles = collectTestsForFiles(pushedFiles);
 
 if (testFiles.length === 0) {

@@ -93,8 +93,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-004** — Unicode paths are passed safely through argv and staged-file flows. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
 - **SEC-005** — Windows-style backslash tokens are passed as literal argv. Unit: `test/process.test.mjs`.
 - **SEC-006** — glob-like filename characters are passed safely through a staged-file flow. Subprocess: `test/fix-staged.test.mjs`.
-- **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`.
+- **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`, `scripts/prepush.mjs`.
 - **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
+- **SEC-009** — pre-push diff forces `core.quotePath=false`, so pushed files with spaces or Unicode names still match their associated tests. Unit: `test/prepush.test.mjs`.
 
 ### Performance
 
@@ -129,7 +130,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 ### Safety path matrix
 
 - Newlines in filenames, if Git and the platform can create the filename reliably.
-- Pre-push Git path output with forced `core.quotePath=false`; connector blocked the full-file write, so this remains a later cleanup.
 
 ### Release and lifecycle
 
