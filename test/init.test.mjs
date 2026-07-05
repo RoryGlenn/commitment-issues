@@ -12,6 +12,8 @@ import {
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
+const jsGlob = "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}";
+
 function runInit(tempDir) {
   return run("node", [path.join(tempDir, "scripts", "init.mjs")], tempDir);
 }
@@ -53,10 +55,7 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
   assert.equal(pkg.scripts.prepare, "commitment-issues doctor --quiet");
-  assert.equal(
-    pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
-    "commitment-issues fix-staged-js",
-  );
+  assert.equal(pkg["lint-staged"][jsGlob][0], "commitment-issues fix-staged-js");
   assert.equal(pkg.precommitChecks.advisePushTests, true);
 
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
@@ -93,7 +92,7 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
       doctor: "node scripts/doctor.mjs",
     },
     "lint-staged": {
-      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["node scripts/fix-staged-js.mjs"],
+      [jsGlob]: ["node scripts/fix-staged-js.mjs"],
     },
   });
   writeFile(
@@ -113,10 +112,7 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
   assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
   assert.equal(pkg.precommitChecks.advisePushTests, true);
-  assert.equal(
-    pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
-    "commitment-issues fix-staged-js",
-  );
+  assert.equal(pkg["lint-staged"][jsGlob][0], "commitment-issues fix-staged-js");
   assert.match(
     readFile(tempDir, ".husky/pre-commit"),
     /commitment-issues precommit/,
@@ -169,7 +165,7 @@ test("init preserves an unrelated prepare script", (t) => {
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
 });
 
-test("init preserves existing lint-staged object config", (t) => {
+test("init merges missing JS lint-staged task into existing object config", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -184,12 +180,38 @@ test("init preserves existing lint-staged object config", (t) => {
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /lint-staged JS task/);
 
   const pkg = readPackage(tempDir);
   assert.deepEqual(pkg["lint-staged"], {
     "*.md": ["prettier --check"],
+    [jsGlob]: ["commitment-issues fix-staged-js"],
   });
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
+});
+
+test("init preserves an existing custom JS lint-staged task", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    "lint-staged": {
+      [jsGlob]: ["eslint --fix"],
+      "*.md": ["prettier --check"],
+    },
+  });
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+
+  const pkg = readPackage(tempDir);
+  assert.deepEqual(pkg["lint-staged"], {
+    [jsGlob]: ["eslint --fix"],
+    "*.md": ["prettier --check"],
+  });
 });
 
 test("init preserves existing lint-staged array config", (t) => {
