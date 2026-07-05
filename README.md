@@ -130,6 +130,29 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 | `git commit` | Reports lint, formatting, missing-test, and test issues | Enable `runStagedTests` to run staged-related tests            |
 | `git push`   | Runs pushed-file tests in advisory mode after `init`    | Enable `blockPushOnTestFailure` to stop pushes on test failure |
 
+## Advisory push tests (default)
+
+`init` enables `advisePushTests` by default. On `git push`, the pre-push hook runs only the tests associated with the files being pushed: the changed test files themselves, plus any test discovered for a changed source file.
+
+Failures show a `Tests failed (advisory)` warning box, but the push still proceeds. If the pushed files have no associated tests, the push is allowed. The runner is `testCommand`, which defaults to `node --test` and must accept test file paths as arguments.
+
+## Blocking pushes on test failure (opt-in)
+
+Use push-time blocking when you want a hard gate before code is shared. Enable it in `package.json`:
+
+```json
+{
+  "precommitChecks": {
+    "blockPushOnTestFailure": true,
+    "testCommand": ["node", "--test"]
+  }
+}
+```
+
+When enabled, the same pushed-files test run blocks the push if any tests fail. If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
+
+The gate is capped by a timeout.
+
 ## Safety model
 
 - Default commit-time checks report issues without mutating the working tree.
