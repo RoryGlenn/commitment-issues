@@ -321,6 +321,7 @@ if (issues.length === 0) {
 warningBox(
   buildAdvisoryMessage({
     issues,
+    tone: config.tone,
     autoFixableIssues,
     manualIssues,
     hasTrackedWorktreeChanges,

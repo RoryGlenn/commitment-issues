@@ -23,6 +23,22 @@ It nudges first. It can enforce when configured. It keeps the choice explicit.
 >
 > It tells you what looks risky before you share the work, while leaving enforcement as a deliberate configuration choice.
 
+## Optional: make it a little weird
+
+The default output stays professional, but local projects can opt into a more playful advisory tone:
+
+```json
+{
+  "precommitChecks": {
+    "tone": "fun"
+  }
+}
+```
+
+This only changes advisory message text. It does not change exit codes, safety checks, automatic fixes, push behavior, or blocking behavior.
+
+Use it when you want the package name to show through a little more in local developer output.
+
 ## What it looks like
 
 `commitment-issues` prints compact terminal boxes so commit and push feedback is visible without being noisy.
@@ -300,15 +316,16 @@ The gate is capped by a timeout.
 
 All options live under `precommitChecks` in `package.json`; all are optional:
 
-| Key                      | Type     | Default              | Description                                                                                          |
-| ------------------------ | -------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `testExempt`             | string[] | `[]`                 | Glob patterns for files excluded from the missing-test check.                                        |
-| `requireTests`           | boolean  | `true`               | Set `false` to disable the missing-test check.                                                       |
-| `runStagedTests`         | boolean  | `false`              | Run tests for staged files at commit time.                                                           |
-| `advisePushTests`        | boolean  | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
-| `blockPushOnTestFailure` | boolean  | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
-| `testCommand`            | string[] | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
-| `timeoutMs`              | number   | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
+| Key                      | Type                    | Default              | Description                                                                                          |
+| ------------------------ | ----------------------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                | `[]`                 | Glob patterns for files excluded from the missing-test check.                                        |
+| `requireTests`           | boolean                 | `true`               | Set `false` to disable the missing-test check.                                                       |
+| `runStagedTests`         | boolean                 | `false`              | Run tests for staged files at commit time.                                                           |
+| `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
+| `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
+| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
+| `timeoutMs`              | number                  | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
+| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
 
 ```json
 {
@@ -353,7 +370,7 @@ The hook is tuned to stay fast even on slow machines:
 
 These scripts are Git-hook tooling, so disable Husky in CI to avoid installing hooks during `npm ci`.
 
-This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
+This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
 
 ## Commands
 
@@ -387,4 +404,4 @@ Also check your environment has not disabled Husky hooks.
 
 ## License
 
-MIT — see [LICENSE](../LICENSE).
+MIT — see [LICENSE](LICENSE).
