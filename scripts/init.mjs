@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import pc from "picocolors";
-import { errorBox, successBox } from "./lib/ui.mjs";
+import { errorBox, printBox } from "./lib/ui.mjs";
 import { run } from "./lib/process.mjs";
 import { BIN, HOOK_BODIES } from "./lib/hooks.mjs";
-import { renderLogo } from "./lib/logo.mjs";
+import { logoLines } from "./lib/logo.mjs";
 
 // One-command setup for a consuming repo: wires up the Husky hooks, npm scripts,
 // lint-staged config, and gitignored caches without clobbering existing values.
@@ -31,8 +31,6 @@ try {
   ]);
   process.exit(1);
 }
-
-console.log(renderLogo());
 
 const created = [];
 
@@ -173,11 +171,17 @@ const setupSummary =
     ? [pc.dim("Added:"), ...created.map((item) => pc.dim(`- ${item}`))]
     : [pc.dim("Already configured — nothing to change.")];
 
-successBox([
-  pc.bold("Commitment Issues is set up."),
-  "",
-  ...setupSummary,
-  "",
-  pc.dim("Your next commit runs advisory checks."),
-  pc.dim("Your next push runs advisory tests when matching tests exist."),
-]);
+printBox(
+  [
+    ...logoLines(),
+    "",
+    pc.bold("Commitment Issues is set up."),
+    "",
+    ...setupSummary,
+    "",
+    pc.dim("Your next commit runs advisory checks."),
+    pc.dim("Your next push runs advisory tests when matching tests exist."),
+  ].join("\n"),
+  (value) => value,
+  { borderColor: "green" },
+);

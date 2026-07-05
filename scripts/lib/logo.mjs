@@ -1,32 +1,34 @@
 import pc from "picocolors";
 
-// A little broken heart (commitment issues — get it?) beside the wordmark,
-// shown at the top of `init` to greet a fresh setup. Kept in scripts/lib so it
-// stays out of the missing-test check.
+// A bold, split heart (commitment issues — get it?) with the wordmark, used as
+// the header of the `init` box. Kept in scripts/lib so it stays test-exempt.
 const HEART = [
-  "   .-.   .-.",
-  "  (   \\ /   )",
-  "   `.  X  .'",
-  "     `.|.'",
-  "       V",
+  "  ▄██▄   ▄██▄",
+  " ██████ ██████",
+  " ▀█████ █████▀",
+  "   ▀███ ███▀",
+  "     ▀█ █▀",
 ];
 
+// Top-to-bottom red→magenta gradient so the mark reads as a (broken) heart
+// rather than an error box.
+const SHADES = [pc.redBright, pc.red, pc.red, pc.magenta, pc.magentaBright];
+
 /**
- * Render the branded init banner: a broken-heart mark plus the wordmark and
- * tagline. Colors follow the terminal's support (picocolors no-ops when piped).
- * @returns {string} The banner, ready to print.
+ * The branded logo as an array of lines: a split-heart mark with the wordmark
+ * and tagline beside it. Intended to be spread into the top of the `init` box.
+ * Colors follow the terminal's support (picocolors no-ops when piped).
+ * @returns {string[]} The logo lines, ready to drop into a box.
  */
-export function renderLogo() {
-  const sideText = [
-    null,
-    pc.bold("commitment-issues"),
-    pc.dim("git hooks that nudge, not block"),
-    null,
-    null,
-  ];
-  const lines = HEART.map((line, index) => {
-    const mark = pc.magenta(line.padEnd(15));
-    return sideText[index] ? `${mark}  ${sideText[index]}` : mark;
+export function logoLines() {
+  return HEART.map((row, index) => {
+    const mark = SHADES[index](row.padEnd(15));
+    if (index === 2) {
+      return `${mark}  ${pc.bold("commitment-issues")}`;
+    }
+    if (index === 3) {
+      return `${mark}  ${pc.dim("git hooks that nudge, not block")}`;
+    }
+    return mark;
   });
-  return `\n${lines.join("\n")}\n`;
 }
