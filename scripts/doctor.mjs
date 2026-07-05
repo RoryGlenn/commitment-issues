@@ -78,6 +78,67 @@ function wiringIntact() {
   );
 }
 
+export function hookContainsExpectedCommand(hookPath, command) {
+  if (!fs.existsSync(hookPath)) {
+    return false;
+  }
+  return fs.readFileSync(hookPath, "utf8").includes(command);
+}
+
+export function hookStatus(hookPath, expectedCommand) {
+  if (!fs.existsSync(hookPath)) {
+    return "missing";
+  }
+
+  const current = fs.readFileSync(hookPath, "utf8");
+  if (current === HOOK_BODIES[hookPath]) {
+    return "wired";
+  }
+  if (hookContainsExpectedCommand(hookPath, expectedCommand)) {
+    return "custom-with-command";
+  }
+  return "custom-without-command";
+}
+
+function hookReports() {
+  return Object.entries(HOOK_BODIES).map(([hookPath, body]) => ({
+    hookPath,
+    expectedCommand: body.trim(),
+    status: hookStatus(hookPath, body.trim()),
+  }));
+}
+
+function customHooksWithoutCommand() {
+  return hookReports().filter(
+    ({ status }) => status === "custom-without-command",
+  );
+}
+
+function reportUnwiredCustomHooks(unwiredHooks) {
+  if (quiet) {
+    console.warn(
+      pc.yellow(
+        "commitment-issues: custom hooks do not invoke commitment-issues — run `npm run doctor`.",
+      ),
+    );
+    process.exit(0);
+  }
+
+  const lines = unwiredHooks.flatMap(({ hookPath, expectedCommand }) => [
+    pc.dim(`${hookPath} exists but does not invoke commitment-issues.`),
+    pc.dim(`Add this command to ${hookPath}: ${expectedCommand}`),
+  ]);
+
+  warningBox([
+    pc.bold("Commitment Issues is not wired into every hook."),
+    "",
+    ...lines,
+    "",
+    pc.dim("Custom hooks were preserved. Add the command manually."),
+  ]);
+  process.exit(1);
+}
+
 const problems = [];
 if (currentHooksPath() !== HOOKS_PATH) {
   problems.push("git core.hooksPath is not set to .husky/_");
@@ -88,11 +149,15 @@ if (
 ) {
   problems.push(".husky/_ hook wrappers are missing");
 }
-const missingHooks = Object.keys(HOOK_BODIES).filter(
-  (hookPath) => !fs.existsSync(hookPath),
-);
+const missingHooks = hookReports()
+  .filter(({ status }) => status === "missing")
+  .map(({ hookPath }) => hookPath);
 if (missingHooks.length > 0) {
   problems.push(`missing hook file(s): ${missingHooks.join(", ")}`);
+}
+const unwiredCustomHooks = customHooksWithoutCommand();
+for (const { hookPath, expectedCommand } of unwiredCustomHooks) {
+  problems.push(`${hookPath} does not invoke ${expectedCommand}`);
 }
 
 if (problems.length === 0) {
@@ -135,7 +200,7 @@ for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
 
 if (
   !wiringIntact() ||
-  missingHooks.some((hookPath) => !fs.existsSync(hookPath))
+  hookReports().some(({ status }) => status === "missing")
 ) {
   repairFailed([
     pc.bold("Hook wiring still looks broken after repair."),
@@ -143,6 +208,11 @@ if (
     pc.dim("Try running: npx husky"),
     pc.dim(`Then confirm: git config --get core.hooksPath → ${HOOKS_PATH}`),
   ]);
+}
+
+const remainingUnwiredHooks = customHooksWithoutCommand();
+if (remainingUnwiredHooks.length > 0) {
+  reportUnwiredCustomHooks(remainingUnwiredHooks);
 }
 
 if (quiet) {

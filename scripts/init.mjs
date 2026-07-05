@@ -73,20 +73,31 @@ for (const [name, value] of Object.entries(scripts)) {
 }
 
 const jsGlob = "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}";
-if (!pkg["lint-staged"]) {
+const lintStaged = pkg["lint-staged"];
+if (!lintStaged) {
   pkg["lint-staged"] = {
     [jsGlob]: [`${BIN} fix-staged-js`],
     "*.{json,css,scss,md,html,yml,yaml}": ["prettier --write --ignore-unknown"],
   };
   created.push("lint-staged config");
 } else if (
-  Array.isArray(pkg["lint-staged"][jsGlob]) &&
-  pkg["lint-staged"][jsGlob].length === 1 &&
-  pkg["lint-staged"][jsGlob][0] === "node scripts/fix-staged-js.mjs"
+  typeof lintStaged === "object" &&
+  !Array.isArray(lintStaged) &&
+  lintStaged !== null
 ) {
-  // Upgrade the legacy vendored task to the bin.
-  pkg["lint-staged"][jsGlob] = [`${BIN} fix-staged-js`];
-  created.push("lint-staged task");
+  if (
+    Array.isArray(lintStaged[jsGlob]) &&
+    lintStaged[jsGlob].length === 1 &&
+    lintStaged[jsGlob][0] === "node scripts/fix-staged-js.mjs"
+  ) {
+    // Upgrade the legacy vendored task to the bin.
+    lintStaged[jsGlob] = [`${BIN} fix-staged-js`];
+    created.push("lint-staged JS task");
+  } else if (!(jsGlob in lintStaged)) {
+    // Preserve unrelated object-style configs while making `fix:staged` useful.
+    lintStaged[jsGlob] = [`${BIN} fix-staged-js`];
+    created.push("lint-staged JS task");
+  }
 }
 
 if (!pkg.precommitChecks) {
