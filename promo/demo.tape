@@ -1,6 +1,13 @@
 # promo/demo.tape — generate the README demo GIF with:  vhs promo/demo.tape
 #
-# Requires VHS (https://github.com/charmbracelet/vhs), plus ttyd and ffmpeg.
+# VHS is the Charm terminal recorder (https://github.com/charmbracelet/vhs) — a
+# standalone binary, NOT the "vhs" npm package. Do NOT run `npx vhs`.
+# Install:
+#   Linux: Charm apt repo for `vhs`, plus `ffmpeg` and `ttyd`
+#          (e.g. `sudo apt install vhs ffmpeg` + `sudo snap install ttyd --classic`)
+#   macOS: `brew install vhs`  (pulls in ffmpeg + ttyd)
+# Then run this tape from the repo root:  vhs promo/demo.tape
+#
 # Timings depend on install/network speed — after a first render, tune the
 # Sleep values so each box is fully visible. Output lands at assets/demo.gif,
 # which is already inside package.json `files`, ready to embed in the README.
