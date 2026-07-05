@@ -1,6 +1,6 @@
 {
   "name": "commitment-issues",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "type": "module",
   "description": "Commitment Issues: advisory-first Git hook checks with optional enforcement.",
   "license": "MIT",
