@@ -192,10 +192,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 ### Package managers
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
+- **PM-002** — pnpm end-to-end lifecycle smoke (pack → install → init → commit → push in a fresh pnpm project). CI: `.github/workflows/ci.yml` (pnpm-smoke job); script: `scripts/ci-lifecycle-smoke.mjs`.
 
 ## Deferred
 
-- **PM-002** — pnpm end-to-end install/hook lifecycle smoke (detection and command hints covered by PM-001).
 - **PM-003** — yarn classic end-to-end lifecycle smoke (detection and command hints covered by PM-001).
 - **PM-004** — yarn berry end-to-end lifecycle smoke (detection and command hints covered by PM-001).
 - **PM-005** — bun end-to-end lifecycle smoke (detection and command hints covered by PM-001).
