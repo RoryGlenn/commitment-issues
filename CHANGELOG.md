@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-05
+
 ### Added
 
 - Package-manager detection (npm, pnpm, yarn, bun) via `npm_config_user_agent` and lockfiles, with package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output (e.g. `pnpm run commit:fix`).
