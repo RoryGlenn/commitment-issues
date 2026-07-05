@@ -4,6 +4,7 @@ import pc from "picocolors";
 import { errorBox, successBox } from "./lib/ui.mjs";
 import { run } from "./lib/process.mjs";
 import { BIN, HOOK_BODIES } from "./lib/hooks.mjs";
+import { renderLogo } from "./lib/logo.mjs";
 
 // One-command setup for a consuming repo: wires up the Husky hooks, npm scripts,
 // lint-staged config, and gitignored caches without clobbering existing values.
@@ -30,6 +31,9 @@ try {
   ]);
   process.exit(1);
 }
+
+console.log(renderLogo());
+
 const created = [];
 
 pkg.scripts = pkg.scripts || {};

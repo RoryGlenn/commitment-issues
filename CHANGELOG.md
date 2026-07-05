@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A branded banner (broken-heart logo + wordmark) shown at the top of `commitment-issues init`.
+
 ## [2.3.0] - 2026-07-05
 
 ### Added
