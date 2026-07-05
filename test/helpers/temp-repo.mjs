@@ -52,9 +52,20 @@ export function createTempRepo({ commit = true } = {}) {
   run("git", ["config", "user.name", "test"], tempDir);
   run("git", ["config", "user.email", "test@example.com"], tempDir);
 
+  // Copy the repo's own package.json, but drop its personal `tone` preference.
+  // Behavior tests assert on the default (standard) advisory wording; the
+  // fun-tone variants are covered separately by tests that opt in explicitly
+  // via setPrecommitConfig. Without this, the repo choosing `tone: "fun"` for
+  // its own commits would silently rewrite those assertions.
+  const rootPkg = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  );
+  if (rootPkg.precommitChecks && typeof rootPkg.precommitChecks === "object") {
+    delete rootPkg.precommitChecks.tone;
+  }
   writeFile(
     path.join(tempDir, "package.json"),
-    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+    `${JSON.stringify(rootPkg, null, 2)}\n`,
   );
   writeFile(
     path.join(tempDir, "eslint.config.js"),
