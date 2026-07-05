@@ -10,7 +10,7 @@ const root = process.cwd();
 // the first arg (the pnpm-smoke CI job does) to prove the tool installs, wires
 // its hooks, and runs under pnpm's linked node_modules layout.
 const packageManager = process.argv[2] || "npm";
-const SUPPORTED_MANAGERS = new Set(["npm", "pnpm"]);
+const SUPPORTED_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);
 if (!SUPPORTED_MANAGERS.has(packageManager)) {
   throw new Error(
     `Unsupported package manager "${packageManager}" (expected: ${[
@@ -30,18 +30,30 @@ const DEV_DEPS = [
 
 // Install the packed tarball plus the peer tools using the selected manager.
 function installDevDeps(tarball) {
-  if (packageManager === "pnpm") {
-    return ["pnpm", ["add", "-D", tarball, ...DEV_DEPS]];
+  switch (packageManager) {
+    case "pnpm":
+      return ["pnpm", ["add", "-D", tarball, ...DEV_DEPS]];
+    case "yarn":
+      return ["yarn", ["add", "-D", tarball, ...DEV_DEPS]];
+    case "bun":
+      return ["bun", ["add", "--dev", tarball, ...DEV_DEPS]];
+    default:
+      return ["npm", ["install", "-D", tarball, ...DEV_DEPS]];
   }
-  return ["npm", ["install", "-D", tarball, ...DEV_DEPS]];
 }
 
-// Run the installed commitment-issues bin using the selected manager.
+// Run the installed commitment-issues bin using the selected manager. npm and
+// yarn both expose it on node_modules/.bin, so npx --no-install runs it without
+// touching the network; pnpm and bun use their own runners.
 function execBin(args) {
-  if (packageManager === "pnpm") {
-    return ["pnpm", ["exec", "commitment-issues", ...args]];
+  switch (packageManager) {
+    case "pnpm":
+      return ["pnpm", ["exec", "commitment-issues", ...args]];
+    case "bun":
+      return ["bunx", ["commitment-issues", ...args]];
+    default:
+      return ["npx", ["--no-install", "commitment-issues", ...args]];
   }
-  return ["npx", ["--no-install", "commitment-issues", ...args]];
 }
 
 function run(command, args, cwd) {

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Package-manager detection (npm, pnpm, yarn, bun) via `npm_config_user_agent` and lockfiles, with package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output (e.g. `pnpm run commit:fix`).
-- pnpm end-to-end lifecycle smoke in CI (pack → install → init → commit → push in a fresh pnpm project).
+- End-to-end CI lifecycle smokes for pnpm, yarn, and bun (pack → install → init → commit → push), alongside the existing npm smoke.
 - README "How it compares" table, a "Package managers" section, and a one-line positioning tagline.
 - This changelog.
 

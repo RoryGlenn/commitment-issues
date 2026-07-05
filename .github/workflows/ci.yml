@@ -53,10 +53,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run test:coverage
 
-  pnpm-smoke:
-    name: pnpm lifecycle smoke
+  pm-smoke:
+    name: ${{ matrix.pm }} lifecycle smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        pm: [pnpm, yarn, bun]
 
     env:
       HUSKY: 0
@@ -69,11 +74,15 @@ jobs:
           node-version: "24"
           cache: npm
 
-      - uses: pnpm/action-setup@v4
+      - if: matrix.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
         with:
           version: 10
 
+      - if: matrix.pm == 'bun'
+        uses: oven-sh/setup-bun@v2
+
       - run: npm ci
 
-      - name: pnpm lifecycle smoke
-        run: npm run test:smoke:pnpm
+      - name: ${{ matrix.pm }} lifecycle smoke
+        run: npm run test:smoke:${{ matrix.pm }}

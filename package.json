@@ -49,7 +49,9 @@
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs",
     "test:precommit": "node scripts/precommit.mjs",
     "test:smoke": "node scripts/ci-lifecycle-smoke.mjs",
-    "test:smoke:pnpm": "node scripts/ci-lifecycle-smoke.mjs pnpm"
+    "test:smoke:pnpm": "node scripts/ci-lifecycle-smoke.mjs pnpm",
+    "test:smoke:yarn": "node scripts/ci-lifecycle-smoke.mjs yarn",
+    "test:smoke:bun": "node scripts/ci-lifecycle-smoke.mjs bun"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [

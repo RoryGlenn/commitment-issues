@@ -192,13 +192,13 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 ### Package managers
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
-- **PM-002** — pnpm end-to-end lifecycle smoke (pack → install → init → commit → push in a fresh pnpm project). CI: `.github/workflows/ci.yml` (pnpm-smoke job); script: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-002** — pnpm end-to-end lifecycle smoke (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-003** — yarn classic end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-005** — bun end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
 
 ## Deferred
 
-- **PM-003** — yarn classic end-to-end lifecycle smoke (detection and command hints covered by PM-001).
-- **PM-004** — yarn berry end-to-end lifecycle smoke (detection and command hints covered by PM-001).
-- **PM-005** — bun end-to-end lifecycle smoke (detection and command hints covered by PM-001).
+- **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003.
 - **MONO-001** — workspace root behavior. Deferred until workspace support boundary is explicit.
 - **MONO-002** — nested workspace package behavior. Deferred until workspace support boundary is explicit.
 - **PERF-002** — many-files performance. Add only after the behavior matrix is stable.
