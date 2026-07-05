@@ -162,15 +162,15 @@ All options live under `precommitChecks` in `package.json`.
 }
 ```
 
-| Key                      | What it controls                                      |
-| ------------------------ | ----------------------------------------------------- |
-| `runStagedTests`         | Runs related tests at commit time                     |
-| `blockPushOnTestFailure` | Blocks pushes when pushed-file tests fail             |
-| `testCommand`            | Sets the test runner used by staged and pushed tests  |
-| `testExempt`             | Exempts extra paths from missing-test warnings        |
-| `requireTests`           | Turns missing-test warnings on or off                 |
-| `timeoutMs`              | Caps spawned tool runtime                             |
-| `tone`                   | Uses `"standard"` or `"fun"` advisory message text |
+| Key                      | What it controls                                     |
+| ------------------------ | ---------------------------------------------------- |
+| `runStagedTests`         | Runs related tests at commit time                    |
+| `blockPushOnTestFailure` | Blocks pushes when pushed-file tests fail            |
+| `testCommand`            | Sets the test runner used by staged and pushed tests |
+| `testExempt`             | Exempts extra paths from missing-test warnings       |
+| `requireTests`           | Turns missing-test warnings on or off                |
+| `timeoutMs`              | Caps spawned tool runtime                            |
+| `tone`                   | Uses `"standard"` or `"fun"` advisory message text   |
 
 See [Configuration and Behavior](docs/configuration.md) for the full behavior reference, test-runner examples, TypeScript notes, and CI notes.
 

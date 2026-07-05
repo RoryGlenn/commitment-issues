@@ -146,16 +146,16 @@ The gate is capped by a timeout.
 
 All options live under `precommitChecks` in `package.json`; all are optional:
 
-| Key                      | Type                     | Default              | Description                                                                                          |
-| ------------------------ | ------------------------ | -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `testExempt`             | string[]                 | `[]`                 | Glob patterns for files excluded from the missing-test check.                                        |
-| `requireTests`           | boolean                  | `true`               | Set `false` to disable the missing-test check.                                                       |
-| `runStagedTests`         | boolean                  | `false`              | Run tests for staged files at commit time.                                                           |
-| `advisePushTests`        | boolean                  | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
-| `blockPushOnTestFailure` | boolean                  | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
-| `testCommand`            | string[]                 | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
-| `timeoutMs`              | number                   | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
-| `tone`                   | `"standard"` or `"fun"` | `"standard"`       | Output tone for advisory pre-commit messages.                                                        |
+| Key                      | Type                    | Default              | Description                                                                                          |
+| ------------------------ | ----------------------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                | `[]`                 | Glob patterns for files excluded from the missing-test check.                                        |
+| `requireTests`           | boolean                 | `true`               | Set `false` to disable the missing-test check.                                                       |
+| `runStagedTests`         | boolean                 | `false`              | Run tests for staged files at commit time.                                                           |
+| `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
+| `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
+| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
+| `timeoutMs`              | number                  | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
+| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
 
 ```json
 {
