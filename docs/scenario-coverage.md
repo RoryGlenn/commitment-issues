@@ -78,12 +78,92 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-006** — init creates `.gitignore` when absent. Fixture: `test/init.test.mjs`.
 - **INIT-007** — init appends cache ignores with no trailing newline. Fixture: `test/init.test.mjs`.
 - **INIT-008** — init preserves an unrelated existing `prepare` script. Fixture: `test/init.test.mjs`.
-- **INIT-009** — init preserves existing lint-staged object config. Fixture: `test/init.test.mjs`.
+- **INIT-009** — init merges a missing JS lint-staged task into an existing object config while preserving other globs. Fixture: `test/init.test.mjs`.
 - **INIT-010** — init preserves existing lint-staged array config. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 - **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
 - **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
 - **INIT-014** — init adds `node_modules/` to `.gitignore` defaults and avoids duplicate existing entries. Fixture: `test/init-gitignore.test.mjs`.
+- **INIT-015** — init preserves an existing custom JS lint-staged task instead of overwriting it. Fixture: `test/init.test.mjs`.
+
+### Pre-commit checks
+
+- **PRE-001** — auto-fixable formatting/lint warnings recommend `npm run commit:fix` (and pluralize). Fixture: `test/precommit.test.mjs`.
+- **PRE-002** — a mix of fixable and manual issues recommends `commit:fix` and still flags the manual work. Fixture: `test/precommit.test.mjs`.
+- **PRE-003** — `commit:fix` is suppressed when tracked worktree changes would block a safe amend. Fixture: `test/precommit.test.mjs`.
+- **PRE-004** — non-fixable ESLint issues are labeled manual with no `commit:fix`, including messages with no rule id. Fixture: `test/precommit.test.mjs`.
+- **PRE-005** — staged JS/TS source files without a matching test are flagged as missing unit tests. Fixture: `test/precommit.test.mjs`.
+- **PRE-006** — files in test dirs, files with a matching test, config, Storybook, generated, `.d.ts`, and `testExempt` globs are not flagged. Fixture: `test/precommit.test.mjs`.
+- **PRE-007** — `requireTests: false` disables the missing-test check. Fixture: `test/precommit.test.mjs`.
+- **PRE-008** — nothing staged, only non-checkable files, and deletion-only commits each show the correct info box. Fixture: `test/precommit.test.mjs`.
+- **PRE-009** — opt-in staged tests run and warn on failure or stay clean on success (pluralized). Fixture: `test/precommit.test.mjs`.
+- **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
+
+### Commit fix (amend)
+
+- **CFIX-001** — amends the latest commit when all fixes are automatic. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-002** — amends and warns when non-fixable lint issues remain. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-003** — reports the latest commit is already clean when nothing changes (pluralized). Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-004** — the amend summary pluralizes for multiple updated files. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-005** — refuses to amend a commit that has already been pushed. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-006** — refuses to amend when tracked worktree changes exist. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-007** — shows info when the latest commit has no fixable files. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-008** — guides the user to `git reset --soft HEAD^` when the fixes would empty the commit. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-009** — warns when a format-only file cannot be fixed automatically. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-010** — Git failures error clearly: no commit, worktree/file-list/staging/staged-fix inspection, and amend failure. Fixture: `test/commit-fix.test.mjs`.
+
+### Staged fixes
+
+- **STG-001** — `fix:staged` applies auto-fixes and refreshes the index; reports already clean when nothing changes (pluralized, tolerant of an unreadable index snapshot). Fixture: `test/fix-staged.test.mjs`.
+- **STG-002** — `fix:staged` warns when fixes apply but non-fixable lint issues remain. Fixture: `test/fix-staged.test.mjs`.
+- **STG-003** — `fix:staged` shows an info box when there are no staged fixable files. Fixture: `test/fix-staged.test.mjs`.
+- **STG-004** — `fix:staged` refuses partially staged files and files missing from the working tree. Fixture: `test/fix-staged.test.mjs`.
+- **STG-005** — `fix:staged` errors when staged or unstaged files cannot be inspected. Fixture: `test/fix-staged.test.mjs`.
+- **STG-006** — `fix-staged-js` formats JS/TS and exits 0 when everything is auto-fixable. Fixture: `test/fix-staged-js.test.mjs`.
+- **STG-007** — `fix-staged-js` exits 1 on remaining non-fixable lint or a Prettier parse error. Fixture: `test/fix-staged-js.test.mjs`.
+- **STG-008** — `fix-staged-js` exits 0 immediately when given no file arguments. Fixture: `test/fix-staged-js.test.mjs`.
+
+### Doctor and hook health
+
+- **HOOK-001** — doctor repairs missing Husky wiring (`core.hooksPath` + `.husky/_`). Fixture: `test/doctor.test.mjs`.
+- **HOOK-002** — doctor reports healthy when the wiring is intact. Fixture: `test/doctor.test.mjs`.
+- **HOOK-003** — doctor restores wiring after `.husky/_` is removed. Fixture: `test/doctor.test.mjs`.
+- **HOOK-004** — doctor recreates a missing hook file without overwriting existing ones. Fixture: `test/doctor.test.mjs`.
+- **HOOK-005** — custom hooks that still invoke `commitment-issues` are accepted as healthy. Fixture: `test/doctor.test.mjs`.
+- **HOOK-006** — custom pre-commit/pre-push hooks that never invoke `commitment-issues` are reported and left untouched. Fixture: `test/doctor.test.mjs`.
+- **HOOK-007** — `doctor --quiet` warns but exits 0 when a custom hook does not invoke `commitment-issues`. Fixture: `test/doctor.test.mjs`.
+- **HOOK-008** — `doctor --quiet` stays silent when healthy and reports repairs in one line. Fixture: `test/doctor.test.mjs`.
+- **HOOK-009** — `doctor --quiet` never breaks an install (no git repo, or repair cannot complete). Fixture: `test/doctor.test.mjs`.
+- **HOOK-010** — interactive doctor errors clearly: no `package.json`, unrepairable wiring, or still broken after repair. Fixture: `test/doctor.test.mjs`.
+
+### Pre-push modes
+
+- **PUSH-001** — disabled by default: silent and allows during a real push, and explains how to enable a mode when run interactively. Fixture: `test/prepush.test.mjs`.
+- **PUSH-002** — blocking mode runs only the pushed files' tests and blocks on failure; a pass shows a summary and allows. Fixture: `test/prepush.test.mjs`.
+- **PUSH-003** — advisory mode runs tests and warns without blocking; a pass shows a summary. Fixture: `test/prepush.test.mjs`.
+- **PUSH-004** — `blockPushOnTestFailure` takes precedence over `advisePushTests`, and the dual-mode conflict is surfaced. Fixture: `test/prepush.test.mjs`.
+- **PUSH-005** — no associated tests (including deleted test files) allows the push. Fixture: `test/prepush.test.mjs`.
+- **PUSH-006** — falls back to the upstream branch when run without piped refs. Fixture: `test/prepush.test.mjs`.
+- **PUSH-007** — non-node test commands run through the tee/summary fallback. Fixture: `test/prepush.test.mjs`.
+- **PUSH-008** — test-command failure blocks in blocking mode and warns/allows in advisory mode; a missing summary blocks. Fixture: `test/prepush.test.mjs`.
+- **PUSH-009** — pushed-file diff failure fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
+
+### Advisory message and tone
+
+- **MSG-001** — a success message renders when there are no issues. Unit: `test/message.test.mjs`.
+- **MSG-002** — recommends `commit:fix` when amend is safe; suppressed when worktree changes block amend or it cannot be inspected. Unit: `test/message.test.mjs`.
+- **MSG-003** — mixed fixable + manual issues recommend `commit:fix` and flag manual work, including when amend is blocked. Unit: `test/message.test.mjs`.
+- **MSG-004** — no fix command is shown when nothing is auto-fixable. Unit: `test/message.test.mjs`.
+- **MSG-005** — an issue's detail lines render. Unit: `test/message.test.mjs`.
+- **MSG-006** — fun tone renders the "Relationship notes" variant from `precommitChecks.tone`. Subprocess: `test/fun-tone.test.mjs`.
+
+### Internal helpers
+
+- **LIB-001** — ESLint JSON summarizing and manual-issue extraction (totals, fixables, empty/invalid, missing rule id). Unit: `test/checks.test.mjs`.
+- **LIB-002** — Prettier list parsing and Node test-summary parsing (TAP/spec, pass-only/fail-only, unrecognized → null). Unit: `test/checks.test.mjs`.
+- **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
+- **LIB-004** — test discovery helpers: `findTestFile`/`collectTestsForFiles` and `shortFileList`. Unit: `test/lib-files.test.mjs`.
+- **LIB-005** — box rendering: `printBox` and severity boxes color the whole border. Unit: `test/ui.test.mjs`.
 
 ### Safety path matrix
 
