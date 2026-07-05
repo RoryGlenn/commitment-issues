@@ -49,25 +49,25 @@ Use it when you want the package name to show through a little more in local dev
   <img src="assets/precommit-suggestions-warning.svg" alt="Pre-commit warning output showing formatting suggestions and the commit fix command" width="476">
 </p>
 
-**Safe automatic amend**
-
-<p>
-  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="555">
-</p>
-
 **Safety refusal**
 
 <p>
   <img src="assets/partially-staged-error.svg" alt="Error output showing that partially staged files cannot be fixed safely" width="620">
 </p>
 
-**Pre-push test summary**
+**Safe automatic amend**
 
 <p>
-  <img src="assets/prepush-success.svg" alt="Success output showing all pushed-file tests passed and push was allowed" width="294">
+  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="555">
 </p>
 
-In default advisory mode, your commit still goes through. The tool gives future-you a heads up.
+**Advisory push failure**
+
+<p>
+  <img src="assets/advisory-push-failure.svg" alt="Warning output showing failing push-time tests in advisory mode" width="450">
+</p>
+
+In default advisory mode, your commit and push still go through. The tool gives future-you a heads up.
 
 The boxes are intentionally advisory-first: they explain what happened, what is safe to do next, and when the tool refuses to mutate risky work.
 
