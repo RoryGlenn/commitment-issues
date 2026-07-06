@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/commitment-issues.png" alt="commitment-issues — advisory-first Git hooks for developers who overthink every commit" width="100%" />
+</p>
+
 # Commitment Issues
 
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
