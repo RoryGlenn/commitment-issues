@@ -49,24 +49,20 @@ Type `autoload -Uz vcs_info colors && colors; setopt PROMPT_SUBST; zstyle ':vcs_
 Type "clear" Enter
 Show
 
-Type "npm install commitment-issues" Enter
-Sleep 4s
-Show
-
 # --- 1. One command sets everything up ---
+Hide
 Type "npx commitment-issues init" Enter
-Sleep 4s
 # Commit the hook setup off-camera, then clear it so beat 2 starts on a clean
 # screen and the next commit shows a single file. --no-verify skips its hook box.
 Hide
 Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
-Type "clear" Enter
-Show
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
-
+Hide
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
-Sleep 500ms
+Type "clear" Enter
+
+Show
 Type "git commit -am 'print hello world'" Enter
 Sleep 4s
 Show
