@@ -67,7 +67,7 @@ function run(command, args, cwd) {
   });
 
   if (result.error) {
-    throw result.error; 
+    throw result.error;
   }
 
   if (result.status !== 0) {
