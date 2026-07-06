@@ -6,7 +6,7 @@ in `package.json` `files`.)
 
 ## Positioning & first impression
 
-- [x] One-line positioning tagline in the README ("Git hooks that nudge instead of blocking…").
+- [x] One-line positioning tagline in the README ("For developers who overthink every commit").
 - [x] "How it compares" table (vs a hand-rolled husky + lint-staged setup, lefthook, pre-commit).
 - [x] "Package managers" section (npm, pnpm, yarn, bun).
 - [ ] Demo GIF near the top of the README — recipe ready in `promo/demo.tape` (render with `vhs promo/demo.tape`), then embed.

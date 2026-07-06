@@ -27,7 +27,7 @@ export function logoLines() {
       return `${mark}  ${pc.bold("commitment-issues")}`;
     }
     if (index === 3) {
-      return `${mark}  ${pc.dim("git hooks that nudge, not block")}`;
+      return `${mark}  ${pc.dim("For developers who overthink every commit.")}`;
     }
     return mark;
   });

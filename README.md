@@ -10,7 +10,7 @@
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-_Git hooks that nudge instead of blocking — advisory by default, strict when you ask._
+_For developers who overthink every commit._
 
 <p align="center">
   <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />

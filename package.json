@@ -2,7 +2,7 @@
   "name": "commitment-issues",
   "version": "2.3.0",
   "type": "module",
-  "description": "Commitment Issues: advisory-first Git hook checks with optional enforcement.",
+  "description": "For developers who overthink every commit: advisory-first Git hook checks with optional enforcement.",
   "license": "MIT",
   "author": "Rory Glenn",
   "homepage": "https://github.com/RoryGlenn/commitment-issues#readme",
