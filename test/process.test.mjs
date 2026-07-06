@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   run,
   toolInvocation,
   runTool,
   spawnAsync,
+  isPackageInstalled,
 } from "../scripts/lib/process.mjs";
 
 test("toolInvocation resolves a local bin and runs it via the current Node", () => {
@@ -30,6 +33,36 @@ test("toolInvocation falls back to npx for a resolvable package with no bin", ()
   const inv = toolInvocation("picocolors", ["--help"]);
   assert.equal(inv.command, "npx");
   assert.deepEqual(inv.args, ["picocolors", "--help"]);
+});
+
+test("isPackageInstalled resolves a package present in the project", () => {
+  // Resolves from process.cwd() (the repo root under `npm test`), where these
+  // are installed, using the same manifest resolution the hooks rely on.
+  assert.equal(isPackageInstalled("eslint"), true);
+  assert.equal(isPackageInstalled("picocolors"), true);
+});
+
+test("isPackageInstalled reports a package that cannot be resolved", () => {
+  assert.equal(isPackageInstalled("definitely-not-installed-xyz"), false);
+});
+
+test("isPackageInstalled resolves relative to the given project root", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pkg-installed-"));
+  try {
+    fs.writeFileSync(path.join(dir, "package.json"), '{"name":"host"}\n');
+    // A dependency present in this project's node_modules resolves...
+    const pkgDir = path.join(dir, "node_modules", "present-dep");
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkgDir, "package.json"),
+      '{"name":"present-dep","version":"1.0.0"}\n',
+    );
+    assert.equal(isPackageInstalled("present-dep", dir), true);
+    // ...while one that is not installed there does not.
+    assert.equal(isPackageInstalled("absent-dep", dir), false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("run captures stdout synchronously", () => {

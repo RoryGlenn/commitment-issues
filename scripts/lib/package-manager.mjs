@@ -60,3 +60,25 @@ export function runScript(script, cwd) {
 export function installCommand(cwd) {
   return `${detectPackageManager(cwd)} install`;
 }
+
+/**
+ * The command to add dev dependencies under the detected package manager, e.g.
+ * "npm install -D a b" or "pnpm add -D a b". Mirrors the forms the lifecycle
+ * smoke test installs with, so a suggestion always matches the real manager.
+ * @param {string[]} packages - Package names to install.
+ * @param {string} [cwd] - Project root, forwarded to detectPackageManager.
+ * @returns {string} e.g. "yarn add -D husky lint-staged".
+ */
+export function devInstallCommand(packages, cwd) {
+  const list = packages.join(" ");
+  switch (detectPackageManager(cwd)) {
+    case "pnpm":
+      return `pnpm add -D ${list}`;
+    case "yarn":
+      return `yarn add -D ${list}`;
+    case "bun":
+      return `bun add --dev ${list}`;
+    default:
+      return `npm install -D ${list}`;
+  }
+}

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   detectPackageManager,
+  devInstallCommand,
   installCommand,
   runScript,
 } from "../scripts/lib/package-manager.mjs";
@@ -88,4 +89,21 @@ test("runScript and installCommand format for the detected manager", (t) => {
 
   process.env.npm_config_user_agent = "npm/10 node/v22.22.1";
   assert.equal(runScript("fix:staged"), "npm run fix:staged");
+});
+
+test("devInstallCommand builds the dev-install form for each manager", (t) => {
+  setUserAgent(t, "npm/10.2.0 node/v22.22.1");
+  assert.equal(
+    devInstallCommand(["husky", "lint-staged"]),
+    "npm install -D husky lint-staged",
+  );
+
+  process.env.npm_config_user_agent = "pnpm/8.15.0 node/v22.22.1";
+  assert.equal(devInstallCommand(["eslint"]), "pnpm add -D eslint");
+
+  process.env.npm_config_user_agent = "yarn/1.22.19 node/v22.22.1";
+  assert.equal(devInstallCommand(["prettier"]), "yarn add -D prettier");
+
+  process.env.npm_config_user_agent = "bun/1.1.0 node/v22.22.1";
+  assert.equal(devInstallCommand(["husky"]), "bun add --dev husky");
 });

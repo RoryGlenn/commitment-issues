@@ -187,6 +187,55 @@ test("doctor --quiet stays silent when the wiring is healthy", (t) => {
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
 });
 
+// Detach the node_modules symlink (createTempRepo points it at the real repo's,
+// where every peer tool resolves) and leave an empty directory in its place, so
+// the required tools no longer resolve. Wiring is already on disk from the first
+// run, so the next run stays healthy and performs no repair (no npx / network).
+function hideNodeModules(tempDir) {
+  fs.unlinkSync(path.join(tempDir, "node_modules"));
+  fs.mkdirSync(path.join(tempDir, "node_modules"));
+}
+
+test("doctor warns (interactive) when required tools are not installed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring while the tools resolve
+  hideNodeModules(tempDir);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  // Advisory: missing tools never fail an otherwise-healthy repo.
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+  assert.match(output, /Some required tools are not installed/);
+  for (const tool of ["husky", "lint-staged", "eslint", "prettier"]) {
+    assert.match(output, new RegExp(tool));
+  }
+  assert.match(output, /npm install -D/);
+});
+
+test("doctor --quiet warns about missing tools in one line but exits 0", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish healthy wiring first
+  hideNodeModules(tempDir);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
+    tempDir,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /missing required tool\(s\)/);
+  assert.match(output, /eslint/);
+  assert.match(output, /npm install -D/);
+});
+
 test("doctor --quiet repairs and reports in one line", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

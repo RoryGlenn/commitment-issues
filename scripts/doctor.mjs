@@ -3,9 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
-import { run } from "./lib/process.mjs";
+import { run, isPackageInstalled } from "./lib/process.mjs";
 import { HOOK_BODIES } from "./lib/hooks.mjs";
-import { installCommand, runScript } from "./lib/package-manager.mjs";
+import {
+  devInstallCommand,
+  installCommand,
+  runScript,
+} from "./lib/package-manager.mjs";
 
 // Diagnose and self-heal the Husky hook wiring. Both hooks run through the
 // gitignored `.husky/_` wrappers and git's `core.hooksPath` — neither of which
@@ -21,6 +25,11 @@ import { installCommand, runScript } from "./lib/package-manager.mjs";
 const quiet = process.argv.includes("--quiet");
 
 const HOOKS_PATH = ".husky/_";
+
+// Peer tools commitment-issues runs but deliberately does not bundle. They are
+// declared as peerDependencies (an install-time nudge); this same list drives
+// the runtime advisory below for a tool that is still absent when hooks run.
+const REQUIRED_TOOLS = ["husky", "lint-staged", "eslint", "prettier"];
 
 // Prerequisite missing (no package.json / not a git repo). Interactive: explain
 // and fail. Quiet: skip silently and succeed so installs never break.
@@ -62,6 +71,36 @@ if (insideRepo.error || insideRepo.status !== 0) {
     "",
     pc.dim("Run this from inside your git project."),
   ]);
+}
+
+// Advisory peer-tool check, independent of hook wiring. commitment-issues
+// orchestrates husky, lint-staged, eslint, and prettier without bundling them;
+// peerDependencies nudge at install time, but a tool can still be absent at
+// runtime (removed later, installed with --no-save, or hoisted oddly in a
+// monorepo). Surface it here, before toolInvocation silently degrades to a
+// slow, network-dependent npx fallback mid-commit. This never fails: a missing
+// tool is reported, never treated as a repairable problem or a non-zero exit.
+const missingTools = REQUIRED_TOOLS.filter((name) => !isPackageInstalled(name));
+if (missingTools.length > 0) {
+  const installHint = devInstallCommand(missingTools);
+  if (quiet) {
+    console.warn(
+      pc.yellow(
+        `commitment-issues: missing required tool(s): ${missingTools.join(
+          ", ",
+        )} — install with \`${installHint}\`.`,
+      ),
+    );
+  } else {
+    warningBox([
+      pc.bold("Some required tools are not installed."),
+      "",
+      ...missingTools.map((name) => pc.dim(`• ${name}`)),
+      "",
+      pc.dim("commitment-issues runs these during pre-commit and pre-push."),
+      pc.dim(`Install them: ${installHint}`),
+    ]);
+  }
 }
 
 function currentHooksPath() {
