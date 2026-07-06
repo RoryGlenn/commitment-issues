@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A branded setup banner in `commitment-issues init` — a split-heart logo and wordmark unified into the setup box.
+- A branded setup banner in `commitment-issues init` — an ASCII bird mascot with the tagline and feature pills, unified into the setup box.
 
 ## [2.3.0] - 2026-07-05
 
