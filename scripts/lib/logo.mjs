@@ -1,39 +1,34 @@
 import pc from "picocolors";
 
-// An ASCII take on our anxious, bespectacled bird mascot, used as the header of
-// the `init` box. Kept in scripts/lib so it stays test-exempt.
-const BIRD = [
-  '    .-""-.',
-  "   / .-.-. \\",
-  "  |=(o )(o )=|",
-  "  |    v    |",
-  "   \\  \\_/  /",
-  '    "-..-"',
+// A bold, split heart (commitment issues — get it?) with the wordmark, used as
+// the header of the `init` box. Kept in scripts/lib so it stays test-exempt.
+const HEART = [
+  "  ▄██▄   ▄██▄",
+  " ██████ ██████",
+  " ▀█████ █████▀",
+  "   ▀███ ███▀",
+  "     ▀█ █▀",
 ];
 
-// Text shown beside the bird: the wordmark, the tagline, and the feature pills.
-function sideText() {
-  return [
-    null,
-    pc.bold("commitment-issues"),
-    pc.dim("For developers who overthink every commit."),
-    null,
-    pc.dim("Tiny steps  ·  Safer history  ·  Less panic"),
-    null,
-  ];
-}
+// Top-to-bottom red→magenta gradient so the mark reads as a (broken) heart
+// rather than an error box.
+const SHADES = [pc.redBright, pc.red, pc.red, pc.magenta, pc.magentaBright];
 
 /**
- * The branded logo as an array of lines: our bird mascot with the wordmark,
- * tagline, and feature pills beside it. Intended to be spread into the top of
- * the `init` box. Colors follow the terminal's support (picocolors no-ops when
- * piped).
+ * The branded logo as an array of lines: a split-heart mark with the wordmark
+ * and tagline beside it. Intended to be spread into the top of the `init` box.
+ * Colors follow the terminal's support (picocolors no-ops when piped).
  * @returns {string[]} The logo lines, ready to drop into a box.
  */
 export function logoLines() {
-  const beside = sideText();
-  return BIRD.map((row, index) => {
-    const mark = pc.magenta(row.padEnd(15));
-    return beside[index] ? `${mark}  ${beside[index]}` : mark;
+  return HEART.map((row, index) => {
+    const mark = SHADES[index](row.padEnd(15));
+    if (index === 2) {
+      return `${mark}  ${pc.bold("commitment-issues")}`;
+    }
+    if (index === 3) {
+      return `${mark}  ${pc.dim("git hooks that nudge, not block")}`;
+    }
+    return mark;
   });
 }
