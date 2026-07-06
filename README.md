@@ -8,6 +8,10 @@
 
 _Git hooks that nudge instead of blocking — advisory by default, strict when you ask._
 
+<p align="center">
+  <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />
+</p>
+
 Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier.
 
 **Advisory by default:** `commitment-issues` reports issues without discarding unstaged work, rewriting already-pushed history, or blocking pushes. Blocking behavior is opt-in.
