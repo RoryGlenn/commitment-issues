@@ -30,7 +30,7 @@ direct adoption lever.
 - [ ] Publish with npm **provenance** (`--provenance` from a GitHub Actions release workflow via OIDC) — surfaces the Provenance badge on npm. Publishing is manual today.
 - [x] `.github/dependabot.yml` (or Renovate) for automated dependency-update PRs.
 - [ ] OpenSSF Scorecard workflow + badge.
-- [ ] Coverage badge in the README — coverage runs in CI but is never surfaced.
+- [x] Coverage badge in the README — coverage runs in CI but is never surfaced.
 
 ## Reach & compatibility (remove adoption blockers)
 
