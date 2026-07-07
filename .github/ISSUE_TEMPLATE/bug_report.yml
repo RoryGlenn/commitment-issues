@@ -1,0 +1,106 @@
+name: Bug report
+description: Report something that is not working as documented.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please search
+        [existing issues](https://github.com/RoryGlenn/commitment-issues/issues?q=is%3Aissue)
+        first to avoid duplicates.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: When I run `git commit`, the hook ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, ordered steps so we can reproduce the problem.
+      placeholder: |
+        1. `npx commitment-issues init`
+        2. Stage a file with a lint error
+        3. `git commit -m "test"`
+        4. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: >-
+        Your `precommitChecks` block from `package.json` and any relevant hook
+        files, if applicable. This will be rendered as code, so no need for
+        backticks.
+      render: json
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: commitment-issues version
+      description: Output of `npx commitment-issues --help` header or your installed version.
+      placeholder: 2.3.0
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: Output of `node --version`.
+      placeholder: v22.22.1
+    validations:
+      required: true
+  - type: dropdown
+    id: package-manager
+    attributes:
+      label: Package manager
+      options:
+        - npm
+        - pnpm
+        - yarn
+        - bun
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Paste the terminal output or advisory box you saw. This will be rendered as code.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I ran `npm run doctor` and the problem persists (if hook-related).
+          required: false

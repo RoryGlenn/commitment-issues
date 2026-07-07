@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/RoryGlenn/commitment-issues/issues/new?labels=question&template=question.yml
+    about: Ask how to configure or use commitment-issues.
+  - name: Documentation (README, FAQ, Configuration)
+    url: https://github.com/RoryGlenn/commitment-issues#readme
+    about: Check the README, FAQ, and configuration docs first — many questions are answered there.
+  - name: Report a security vulnerability
+    url: https://github.com/RoryGlenn/commitment-issues/security/advisories/new
+    about: Please report security issues privately, not as public issues.

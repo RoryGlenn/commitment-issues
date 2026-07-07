@@ -1,0 +1,36 @@
+name: Question
+description: Ask how to configure or use commitment-issues.
+title: "[Question]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking, please check the
+        [README](https://github.com/RoryGlenn/commitment-issues#readme),
+        [FAQ](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/faq.md),
+        and [Configuration docs](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/configuration.md) —
+        many questions are answered there.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to do, and what is unclear?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What have you tried?
+      description: Relevant config, commands, or output. This will be rendered as code.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I checked the README, FAQ, and configuration docs.
+          required: true

@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an idea or improvement for commitment-issues.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please search
+        [existing issues](https://github.com/RoryGlenn/commitment-issues/issues?q=is%3Aissue)
+        first to avoid duplicates.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: >-
+        Describe the problem or friction you are hitting. Focus on the "why"
+        before the "how".
+      placeholder: When working in a monorepo, I ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? How might it work or be configured?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or other approaches you have thought about.
+    validations:
+      required: false
+  - type: dropdown
+    id: scope
+    attributes:
+      label: How does this fit the advisory-first philosophy?
+      description: >-
+        commitment-issues is advisory by default and enforces only when
+        explicitly configured.
+      options:
+        - Advisory by default (opt-in enforcement)
+        - Always advisory
+        - Requires opt-in enforcement
+        - Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I would be willing to help implement this.
+          required: false
