@@ -161,7 +161,7 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 
 ## Package managers
 
-`commitment-issues` works with **npm, pnpm, yarn, and bun**. It detects your package manager — from `npm_config_user_agent` and your lockfile — and tailors the command hints it prints (for example, a pnpm project sees `pnpm run commit:fix`). Hooks run through `node_modules/.bin`, so no extra configuration is required. Each manager is exercised by an end-to-end CI lifecycle smoke. Yarn Berry projects should set `nodeLinker: node-modules` — Plug'n'Play is not supported, since hooks resolve the bin from `node_modules/.bin`.
+`commitment-issues` works with **npm, pnpm, yarn, and bun**. It detects your package manager — from `npm_config_user_agent` and your lockfile — and tailors the command hints it prints (for example, a pnpm project sees `pnpm run commit:fix`). Hooks run through `node_modules/.bin`, so no extra configuration is required. Each manager is exercised by an end-to-end CI lifecycle smoke. Yarn Berry projects should set `nodeLinker: node-modules` — Plug'n'Play is not supported, since hooks resolve the bin from `node_modules/.bin`. See the [Yarn Berry guide](docs/yarn-berry.md) for setup details.
 
 ## Advisory push tests (default)
 
@@ -264,6 +264,7 @@ Also check your environment has not disabled Husky hooks.
 
 - [FAQ](docs/faq.md) — answers for adoption, safety, configuration, test runners, package managers, CI, and removal.
 - [Migration guide](docs/migration.md) — paths from raw husky + lint-staged, lefthook, and pre-commit setups.
+- [Yarn Berry guide](docs/yarn-berry.md) — using `commitment-issues` with Yarn 2+ and the `node-modules` linker.
 - [Roadmap](ROADMAP.md) — public view of what the project is improving next.
 - [Message states](docs/message-states.md) — fuller gallery of common output states.
 - [Configuration and Behavior](docs/configuration.md) — full configuration reference, test heuristics, push behavior, TypeScript notes, CI notes, and project internals.

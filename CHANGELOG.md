@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A public roadmap in `ROADMAP.md`.
 - A coverage badge in the README that surfaces the CI coverage result.
 - An OpenSSF Scorecard workflow and badge.
+- A dedicated Yarn Berry guide covering the `node-modules` linker setup and the Plug'n'Play boundary.
 
 ## [2.3.0] - 2026-07-05
 

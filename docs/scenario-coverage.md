@@ -198,7 +198,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ## Deferred
 
-- **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003.
+- **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
 - **MONO-001** — workspace root behavior. Deferred until workspace support boundary is explicit.
 - **MONO-002** — nested workspace package behavior. Deferred until workspace support boundary is explicit.
 - **PERF-002** — many-files performance. Add only after the behavior matrix is stable.

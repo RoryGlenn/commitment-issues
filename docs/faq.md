@@ -186,7 +186,8 @@ manager and prints matching command hints, such as `pnpm run commit:fix` in a
 pnpm project.
 
 Yarn Berry projects should use `nodeLinker: node-modules`. Plug'n'Play is not
-supported because the hooks resolve binaries from `node_modules/.bin`.
+supported because the hooks resolve binaries from `node_modules/.bin`. See the
+[Yarn Berry guide](yarn-berry.md) for step-by-step setup.
 
 ## Should I use this in CI?
 
