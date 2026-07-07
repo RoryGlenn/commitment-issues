@@ -232,6 +232,7 @@ See [Configuration and Behavior](docs/configuration.md) for the full behavior re
 
 ```bash
 npx commitment-issues init   # one-command setup
+npx commitment-issues init --dry-run
 npx commitment-issues --version
 npm run doctor               # verify and repair hook wiring
 npm run test:precommit       # run the pre-commit checks directly

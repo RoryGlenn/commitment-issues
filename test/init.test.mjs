@@ -12,8 +12,8 @@ import {
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function runInit(tempDir) {
-  return run("node", [path.join(tempDir, "scripts", "init.mjs")], tempDir);
+function runInit(tempDir, args = []) {
+  return run("node", [path.join(tempDir, "scripts", "init.mjs"), ...args], tempDir);
 }
 
 function writePackage(tempDir, pkg) {
@@ -304,4 +304,28 @@ test("init appends caches to a .gitignore with no trailing newline", (t) => {
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
   assert.match(readFile(tempDir, ".gitignore"), /dist\n\.eslintcache/);
+});
+
+test("init --dry-run previews changes without writing files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    private: true,
+    type: "module",
+  });
+
+  const beforePackage = readPackage(tempDir);
+  fs.rmSync(path.join(tempDir, ".gitignore"), { force: true });
+  fs.rmSync(path.join(tempDir, ".husky"), { recursive: true, force: true });
+
+  const result = runInit(tempDir, ["--dry-run"]);
+  assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /dry run preview/i);
+  assert.match(`${result.stdout}${result.stderr}`, /Would add:/);
+  assert.equal(fs.existsSync(path.join(tempDir, ".husky")), false);
+  assert.equal(fs.existsSync(path.join(tempDir, ".gitignore")), false);
+  assert.deepEqual(readPackage(tempDir), beforePackage);
 });

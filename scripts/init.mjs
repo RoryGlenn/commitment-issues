@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import pc from "picocolors";
-import { errorBox, printBox } from "./lib/ui.mjs";
+import { errorBox, infoBox, printBox } from "./lib/ui.mjs";
 import { run } from "./lib/process.mjs";
 import { BIN, HOOK_BODIES } from "./lib/hooks.mjs";
 import { logoLines } from "./lib/logo.mjs";
@@ -19,6 +19,9 @@ if (!fs.existsSync("package.json")) {
   ]);
   process.exit(1);
 }
+
+const args = process.argv.slice(2);
+const dryRun = args.includes("--dry-run") || args.includes("-n");
 
 let pkg;
 try {
@@ -124,28 +127,34 @@ if (
   created.push("pre-push advisory config");
 }
 
-fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+if (!dryRun) {
+  fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+}
 
 // Activate Husky (sets git hooksPath) — ignore failure so init still finishes.
-run("npx", ["husky"]);
+if (!dryRun) {
+  run("npx", ["husky"]);
+}
 
-fs.mkdirSync(".husky", { recursive: true });
-// Legacy 1.x hook bodies that ran vendored scripts; upgrade them to the bin.
-const legacyHookBodies = {
-  ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
-  ".husky/pre-push": "node scripts/prepush.mjs\n",
-};
-for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
-  const current = fs.existsSync(hookPath)
-    ? fs.readFileSync(hookPath, "utf8")
-    : null;
-  if (
-    (current === null || current === legacyHookBodies[hookPath]) &&
-    current !== body
-  ) {
-    fs.writeFileSync(hookPath, body);
-    fs.chmodSync(hookPath, 0o755);
-    created.push(hookPath);
+if (!dryRun) {
+  fs.mkdirSync(".husky", { recursive: true });
+  // Legacy 1.x hook bodies that ran vendored scripts; upgrade them to the bin.
+  const legacyHookBodies = {
+    ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
+    ".husky/pre-push": "node scripts/prepush.mjs\n",
+  };
+  for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
+    const current = fs.existsSync(hookPath)
+      ? fs.readFileSync(hookPath, "utf8")
+      : null;
+    if (
+      (current === null || current === legacyHookBodies[hookPath]) &&
+      current !== body
+    ) {
+      fs.writeFileSync(hookPath, body);
+      fs.chmodSync(hookPath, 0o755);
+      created.push(hookPath);
+    }
   }
 }
 
@@ -158,7 +167,7 @@ const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
     !gitignoreLines.includes(entry) &&
     !(entry === "node_modules/" && gitignoreLines.includes("node_modules")),
 );
-if (ignores.length > 0) {
+if (ignores.length > 0 && !dryRun) {
   fs.writeFileSync(
     ".gitignore",
     `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
@@ -168,20 +177,31 @@ if (ignores.length > 0) {
 
 const setupSummary =
   created.length > 0
-    ? [pc.dim("Added:"), ...created.map((item) => pc.dim(`- ${item}`))]
+    ? [pc.dim(dryRun ? "Would add:" : "Added:"), ...created.map((item) => pc.dim(`- ${item}`))]
     : [pc.dim("Already configured — nothing to change.")];
 
-printBox(
-  [
-    ...logoLines(),
-    "",
-    pc.bold("Commitment Issues is set up."),
-    "",
-    ...setupSummary,
-    "",
-    pc.dim("Your next commit runs advisory checks."),
-    pc.dim("Your next push runs advisory tests when matching tests exist."),
-  ].join("\n"),
-  (value) => value,
-  { borderColor: "green" },
-);
+const footer = dryRun
+  ? [
+      pc.dim("No files were written."),
+      pc.dim("Run again without --dry-run to apply these changes."),
+    ]
+  : [
+      pc.dim("Your next commit runs advisory checks."),
+      pc.dim("Your next push runs advisory tests when matching tests exist."),
+    ];
+
+const body = [
+  ...logoLines(),
+  "",
+  pc.bold(dryRun ? "Commitment Issues dry run preview." : "Commitment Issues is set up."),
+  "",
+  ...setupSummary,
+  "",
+  ...footer,
+].join("\n");
+
+if (dryRun) {
+  infoBox(body.split("\n"));
+} else {
+  printBox(body, (value) => value, { borderColor: "green" });
+}
