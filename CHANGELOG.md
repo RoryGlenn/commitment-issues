@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A migration guide for raw `husky` + `lint-staged`, `lefthook`, and `pre-commit` setups.
 - A public roadmap in `ROADMAP.md`.
 - A coverage badge in the README that surfaces the CI coverage result.
+- An OpenSSF Scorecard workflow and badge.
 
 ## [2.3.0] - 2026-07-05
 
