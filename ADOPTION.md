@@ -27,7 +27,7 @@ The hooks execute inside a consumer's commit/push flow, so "safe to run" is a
 direct adoption lever.
 
 - [x] `SECURITY.md` with a private vulnerability-disclosure policy.
-- [ ] Publish with npm **provenance** (`--provenance` from a GitHub Actions release workflow via OIDC) — surfaces the Provenance badge on npm. Publishing is manual today.
+- [ ] Publish via npm **Trusted Publishing** (OIDC from the `publish.yml` release workflow) — tokenless, auto-generates provenance and surfaces the badge. Workflow is wired; the remaining step is registering the trusted publisher on npmjs.com.
 - [x] `.github/dependabot.yml` (or Renovate) for automated dependency-update PRs.
 - [x] OpenSSF Scorecard workflow + badge.
 - [x] Coverage badge in the README — surfaces the CI coverage result.
