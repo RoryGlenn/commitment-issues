@@ -55,7 +55,7 @@ direct adoption lever.
 - [x] Link the docs (message-states gallery, configuration) prominently from the README.
 - [ ] Submit to awesome lists (`awesome-nodejs`, `awesome-eslint`, an awesome-git-hooks list).
 - [ ] Publish to **JSR** (jsr.io) alongside npm.
-- [ ] Enable GitHub Discussions for Q&A.
+- [x] Enable GitHub Discussions for Q&A.
 
 ## Content & community
 
