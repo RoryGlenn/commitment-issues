@@ -48,7 +48,7 @@ Run the setup command:
 npx commitment-issues init
 ```
 
-This wires the Git hooks, adds helper npm scripts, adds the `lint-staged` config, enables advisory push tests, activates Husky, and ignores the local ESLint/Prettier cache files.
+This wires the Git hooks, adds helper npm scripts, adds the `lint-staged` config, enables advisory push tests, activates Husky, and ignores the local ESLint/Prettier cache files and `node_modules/`.
 
 The command is idempotent, so it is safe to re-run.
 

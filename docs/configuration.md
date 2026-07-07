@@ -14,7 +14,7 @@ For the short install path, start with the [README](../README.md). For terminal 
 - adds a `lint-staged` config for JavaScript, TypeScript, and common formatted files
 - enables advisory push tests through `precommitChecks.advisePushTests`
 - activates Husky
-- gitignores `.eslintcache` and `.prettiercache`
+- gitignores `.eslintcache`, `.prettiercache`, and `node_modules/`
 
 Nothing is copied into your repo from the package source. The hooks call the installed `commitment-issues` bin.
 
