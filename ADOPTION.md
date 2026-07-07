@@ -9,7 +9,7 @@ in `package.json` `files`.)
 - [x] One-line positioning tagline in the README ("For developers who overthink every commit").
 - [x] "How it compares" table (vs a hand-rolled husky + lint-staged setup, lefthook, pre-commit).
 - [x] "Package managers" section (npm, pnpm, yarn, bun).
-- [x] Demo GIF near the top of the README — recipe ready in `promo/demo.tape` (render with `vhs promo/demo.tape`), then embed.
+- [x] Demo GIF near the top of the README — rendered from `promo/demo.tape` (regenerate with `vhs promo/demo.tape`).
 - [x] Simple logo / wordmark for the README header and social preview.
 
 ## Trust signals
@@ -30,7 +30,7 @@ direct adoption lever.
 - [ ] Publish with npm **provenance** (`--provenance` from a GitHub Actions release workflow via OIDC) — surfaces the Provenance badge on npm. Publishing is manual today.
 - [x] `.github/dependabot.yml` (or Renovate) for automated dependency-update PRs.
 - [x] OpenSSF Scorecard workflow + badge.
-- [x] Coverage badge in the README — coverage runs in CI but is never surfaced.
+- [x] Coverage badge in the README — surfaces the CI coverage result.
 
 ## Reach & compatibility (remove adoption blockers)
 
@@ -42,7 +42,7 @@ direct adoption lever.
 
 ## Onboarding & DX
 
-- [x] `commitment-issues --version` / `-v` — the CLI only handles `-h` / `--help` today.
+- [x] `commitment-issues --version` / `-v` — prints the package version from the CLI.
 - [x] `init --dry-run` to preview changes before writing to `package.json` / `.gitignore`.
 - [x] Migration guide: raw husky + lint-staged / lefthook / pre-commit → `commitment-issues`.
 - [x] FAQ page expanding the README troubleshooting section.
