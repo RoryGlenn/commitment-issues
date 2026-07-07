@@ -46,7 +46,8 @@ package can run from Git hooks. It can:
 - add the JavaScript/TypeScript lint-staged task when an object-style
   `lint-staged` config exists but has no JavaScript task
 - add `precommitChecks.advisePushTests` when no push-test mode is configured
-- activate Husky
+- activate Husky through a `prepare` script (`commitment-issues doctor --quiet`),
+  which self-heals the hook wiring on install
 - create or upgrade `.husky/pre-commit` and `.husky/pre-push` when those hooks
   are missing or still use older vendored script commands
 - add cache and dependency ignores such as `.eslintcache`, `.prettiercache`, and
@@ -275,15 +276,21 @@ unwind the setup you no longer want:
    npm remove commitment-issues
    ```
 
-2. Remove the generated npm scripts you no longer want: `doctor`, `fix:staged`,
-   `commit:fix`, and `test:precommit`.
-3. Remove or edit the hook files `.husky/pre-commit` and `.husky/pre-push`. If a
+2. **Reset the `prepare` script.** `init` points `prepare` at
+   `commitment-issues doctor --quiet` so the hooks self-heal on install. If you
+   leave it after removing the dev dependency, the next `npm install` runs a
+   binary that no longer exists and **fails**. Reset `prepare` to your previous
+   value (for example `husky`, if you still use Husky), or delete the `prepare`
+   script entirely if nothing else needs it.
+3. Remove the other generated npm scripts you no longer want: `doctor`,
+   `fix:staged`, `commit:fix`, and `test:precommit`.
+4. Remove or edit the hook files `.husky/pre-commit` and `.husky/pre-push`. If a
    hook only calls `commitment-issues`, delete it; if you added other commands,
    remove just the `commitment-issues` line.
-4. Remove the `precommitChecks` section from `package.json`.
-5. Remove the generated `lint-staged` config **only** if it was added solely for
+5. Remove the `precommitChecks` section from `package.json`.
+6. Remove the generated `lint-staged` config **only** if it was added solely for
    this tool. If you already used `lint-staged`, keep your config.
-6. Optionally drop the `.eslintcache` / `.prettiercache` entries from
+7. Optionally drop the `.eslintcache` / `.prettiercache` entries from
    `.gitignore` if nothing else needs them.
 
 Keep Husky, lint-staged, ESLint, or Prettier if your project uses them
