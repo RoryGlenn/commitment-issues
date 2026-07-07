@@ -44,7 +44,7 @@ direct adoption lever.
 
 - [x] `commitment-issues --version` / `-v` — the CLI only handles `-h` / `--help` today.
 - [x] `init --dry-run` to preview changes before writing to `package.json` / `.gitignore`.
-- [ ] Migration guide: raw husky + lint-staged / lefthook / pre-commit → `commitment-issues`.
+- [x] Migration guide: raw husky + lint-staged / lefthook / pre-commit → `commitment-issues`.
 - [x] FAQ page expanding the README troubleshooting section.
 
 ## Discoverability

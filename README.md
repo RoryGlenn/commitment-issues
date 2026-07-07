@@ -261,6 +261,7 @@ Also check your environment has not disabled Husky hooks.
 ## More docs
 
 - [FAQ](docs/faq.md) — answers for adoption, safety, configuration, test runners, package managers, CI, and removal.
+- [Migration guide](docs/migration.md) — paths from raw husky + lint-staged, lefthook, and pre-commit setups.
 - [Message states](docs/message-states.md) — fuller gallery of common output states.
 - [Configuration and Behavior](docs/configuration.md) — full configuration reference, test heuristics, push behavior, TypeScript notes, CI notes, and project internals.
 
