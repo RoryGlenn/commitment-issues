@@ -51,7 +51,7 @@ direct adoption lever.
 
 - [x] npm keywords set in `package.json`.
 - [x] GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
-- [ ] Social preview image (Settings → General → Social preview).
+- [x] Social preview image (Settings → General → Social preview).
 - [x] Link the docs (message-states gallery, configuration) prominently from the README.
 - [ ] Submit to awesome lists (`awesome-nodejs`, `awesome-eslint`, an awesome-git-hooks list).
 - [ ] Publish to **JSR** (jsr.io) alongside npm.
