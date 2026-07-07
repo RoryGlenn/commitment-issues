@@ -19,7 +19,7 @@ in `package.json` `files`.)
 - [x] Cross-platform CI (Ubuntu/macOS/Windows × Node 22.22.1/24) with coverage.
 - [x] Scenario-coverage tracker mapping the full test suite.
 - [x] `CONTRIBUTING.md`, issue/PR templates, and a Code of Conduct.
-- [ ] "good first issue" labels to invite contributors.
+- [x] "good first issue" labels to invite contributors.
 
 ## Supply-chain & security trust
 
@@ -50,7 +50,7 @@ direct adoption lever.
 ## Discoverability
 
 - [x] npm keywords set in `package.json`.
-- [ ] GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
+- [x] GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
 - [ ] Social preview image (Settings → General → Social preview).
 - [x] Link the docs (message-states gallery, configuration) prominently from the README.
 - [ ] Submit to awesome lists (`awesome-nodejs`, `awesome-eslint`, an awesome-git-hooks list).
