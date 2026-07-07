@@ -1,0 +1,127 @@
+---
+name: testing-and-coverage
+description: "How to write, run, and debug tests for commitment-issues (node:test + node:assert/strict, no external runner). USE WHEN: adding or fixing tests; a test fails only in CI; coverage attribution looks wrong or drops; working with temp git repos, subprocess entry-script tests, HUSKY=0, or node:coverage-ignore comments. Explains the subprocess-coverage-via-symlink model, the HUSKY=0 hermetic-env trap, the temp-repo helpers (fakeGitEnv/recordingGitEnv/stubBinEnv/addBareRemote), and how to inspect lcov branch gaps."
+---
+
+# Testing & Coverage
+
+This package uses the built-in Node test runner only — `node:test` + `node:assert/strict`. There is **no** Jest/Mocha/Vitest, no build step, and no transpile. Tests live in `test/*.test.mjs`; shared helpers live in [`test/helpers/temp-repo.mjs`](../../../test/helpers/temp-repo.mjs).
+
+## Commands
+
+| Goal                       | Command                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| Run everything             | `npm test` (= `node --test test/*.test.mjs`)                          |
+| Run one file               | `node --test test/precommit.test.mjs`                                 |
+| Coverage report            | `npm run test:coverage` (reported, **not gated** — no threshold flag) |
+| Reproduce CI locally       | prefix any test command with `HUSKY=0` (see trap below)               |
+| End-to-end packaging smoke | `npm run test:smoke` (also `:pnpm`, `:yarn`, `:bun`)                  |
+
+## The two kinds of code, and how each is tested
+
+1. **Helper modules** (`scripts/lib/*.mjs`) are pure and side-effect-light. **Unit-test them in-process** with a direct `import`. Easy to cover.
+2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, `fix-staged-js`, `ci-lifecycle-smoke`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
+
+Typical subprocess test shape:
+
+```js
+import test from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import {
+  createTempRepo,
+  cleanupTempRepo,
+  run,
+  writeFile,
+} from "./helpers/temp-repo.mjs";
+
+test("describes the behavior", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "mixed.js"), "const value=1\n");
+  run("git", ["add", "src/mixed.js"], tempDir);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+  assert.match(output, /npm run commit:fix/);
+});
+```
+
+## CRITICAL: two invariants that silently break the suite if violated
+
+### 1. Subprocess coverage relies on **symlinks**, not copies
+
+`createTempRepo()` **symlinks** `scripts/` and `node_modules/` from the temp repo back to the real repo root, and gitignores both (`.gitignore` = `node_modules/\nscripts/\n`). Node attributes V8 coverage to a module's **realpath** and propagates it to subprocesses via `NODE_V8_COVERAGE`. The symlink is what lets subprocess runs count toward the real `scripts/*.mjs` files in the coverage report.
+
+**Do NOT change these symlinks back to `fs.cpSync`/copies.** A copy attributes coverage to the ephemeral temp path, so real entry-script coverage silently drops to ~0.
+
+### 2. `HUSKY=0` must be stripped from subprocess env (the CI trap)
+
+CI (`.github/workflows/ci.yml`) sets job-level `HUSKY=0` so that `npm ci`'s `prepare` (`doctor --quiet`) is a no-op. But husky v9 treats `HUSKY=0` as "disabled", so `npx husky` does **nothing**. If that leaks into the test subprocess, every test that wires real husky (doctor wiring, cli→doctor dispatch) breaks — **in CI only**, which is confusing.
+
+The fix already lives in `run()` inside the helper: it deletes `HUSKY` from the subprocess env (inherited or caller-provided) so tests are hermetic. **Keep it.** Always reproduce CI failures locally with `HUSKY=0 node --test test/*.test.mjs` before assuming a test is flaky.
+
+## Helpers available from `test/helpers/temp-repo.mjs`
+
+| Helper                                    | Purpose                                                                                                                                                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createTempRepo({ commit = true })`       | Fresh temp git repo, symlinked scripts + node_modules, repo's real `package.json`/`eslint.config.js`/`README.md`. Drops the repo's own `precommitChecks.tone` so tests assert default wording. Pass `{ commit: false }` for an uncommitted tree. |
+| `cleanupTempRepo(dir)`                    | Remove the temp repo. Always register with `t.after(...)`.                                                                                                                                                                                       |
+| `run(cmd, args, cwd, options?)`           | `spawnSync` wrapper that strips `HUSKY` from env. Use for both git and node subprocess calls.                                                                                                                                                    |
+| `writeFile` / `readFile` / `readHeadFile` | Write a file (mkdir -p), read a worktree file, read a path at `HEAD`.                                                                                                                                                                            |
+| `setPrecommitConfig(dir, obj)`            | Overwrite the temp repo's `precommitChecks` block (tone, timeoutMs, blockPushOnTestFailure, testExempt, runStagedTests, …).                                                                                                                      |
+| `addBareRemote(dir)`                      | Add a bare `origin` + `main` upstream so `@{u}` diffs have a target (needed for prepush tests).                                                                                                                                                  |
+| `fakeGitEnv(dir, substr)`                 | Env whose `git` exits 1 when argv contains `substr`, else delegates to `REAL_GIT`. Exercises "git command failed" defensive branches without corrupting a repo.                                                                                  |
+| `recordingGitEnv(dir, logPath)`           | Env whose `git` appends each argv line to `logPath` then delegates — assert exactly how a script called git (e.g. that it forced `core.quotePath=false`).                                                                                        |
+| `stubBinEnv(dir, name, exitCode)`         | Put a stub executable `name` first on PATH that just exits `exitCode`. Force a spawned helper (e.g. `npx husky`) to no-op or fail.                                                                                                               |
+| `REAL_GIT`, `repoRoot`                    | The real git path captured before any PATH override, and the repo root.                                                                                                                                                                          |
+
+All shim helpers are cross-platform (POSIX launcher + `.cmd`), so keep tests free of shell-specific and hard-coded-separator assumptions — CI runs on Ubuntu, macOS, and Windows.
+
+## Driving specific branches (patterns that already exist here)
+
+- **Timeout branches**: `setPrecommitConfig(dir, { ...cfg, timeoutMs: 1 })` makes `spawnAsync`'s timer kill tools (SIGTERM), covering the process timer + the eslint/prettier "timed out" paths.
+- **Tool failure branches**: a broken `eslint.config.js` (throws) → "ESLint failed to complete"; malformed staged JSON → "Prettier failed to complete"; a `prefer-const` `let` → an auto-fixable ESLint issue.
+- **Missing-tool advisory** (doctor): create a temp repo, run doctor once to establish healthy wiring, then unlink the `node_modules` symlink and `mkdir` an empty dir so tools become unresolvable while wiring already exists on disk (no repair/npx/network). See the `hideNodeModules()` pattern in `test/doctor.test.mjs`.
+- **Plural wording / no-args / parse-error / already-clean** edge cases exist to close branch gaps — mirror them when adding new user-facing strings.
+
+## Inspecting coverage gaps
+
+Coverage is reported, not gated, so don't chase 100%. To see _which_ branches are uncovered, emit lcov and grep the branch-data lines:
+
+```bash
+node --test --experimental-test-coverage \
+  --test-reporter=lcov --test-reporter-destination=/tmp/cov.info test/*.test.mjs
+grep -E ",-$|,0$" /tmp/cov.info   # BRDA lines ending in ,- (never taken) or ,0 (taken 0x)
+```
+
+### Ignoring genuinely-unreachable defensive code
+
+Some branches are defensive and unreachable (e.g. spawn `ENOENT` for tools that always resolve to a local node bin; `|| undefined` / `?? 1` fallbacks; empty-output guards). To exclude a truly-unreachable block, use **block comments** (the `ignore next` form does **not** work in Node 22+):
+
+```js
+/* node:coverage disable */
+try {
+  // unreachable defensive path
+} catch {
+  // ...
+}
+/* node:coverage enable */
+```
+
+Wrap the **whole** `try/catch` statement — wrapping only the catch body leaves the catch braces uncovered. Do not add coverage-ignores to reachable code just to raise the number.
+
+## Pre-flight before you push
+
+```bash
+npm test
+npm run lint
+npm run format:check   # `npm run format` to fix
+```
+
+Add or update a test for every behavior change (bug fixes get a regression test), keep changes cross-platform, and update `docs/` + the `## [Unreleased]` section of `CHANGELOG.md` when behavior is user-visible.
