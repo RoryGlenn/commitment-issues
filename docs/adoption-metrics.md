@@ -5,12 +5,14 @@ A lightweight, maintainer-facing checklist for keeping an eye on how
 not a dashboard to obsess over.
 
 Nothing here is telemetry: every number below is something a maintainer looks up
-by hand from public sources. The tool itself collects nothing — see the
-[Privacy section](../README.md#privacy) in the README.
+by hand — some from public sources (npm downloads, GitHub stars), and some from
+the repo's own dashboards that need repo access (GitHub Insights → Traffic). The
+tool itself collects nothing — see the [Privacy section](../README.md#privacy) in
+the README.
 
 ## Weekly
 
-- [ ] npm weekly downloads (`npm view commitment-issues` or the npm package page).
+- [ ] npm weekly downloads — from the [npm package page](https://www.npmjs.com/package/commitment-issues) or the [npm downloads API](https://api.npmjs.org/downloads/point/last-week/commitment-issues) (`npm view` does not report download counts).
 - [ ] GitHub stars — rough trend, not a vanity chase.
 - [ ] New issues opened, and whether any point at first-run friction.
 - [ ] Discussions / questions — what are people confused about?
