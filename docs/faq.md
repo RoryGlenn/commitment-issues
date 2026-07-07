@@ -221,6 +221,9 @@ npm run format:check
 npm test
 ```
 
+See the [CI provider recipes](ci-recipes.md) for ready-to-use GitHub Actions,
+GitLab CI, and CircleCI examples.
+
 ## How do I repair hook wiring?
 
 Run:

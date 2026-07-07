@@ -38,7 +38,7 @@ direct adoption lever.
 - [x] Yarn Berry (Plug'n'Play): documented boundary today (`nodeLinker: node-modules`); add real PnP support or a dedicated guide (PM-004).
 - [x] Monorepo / workspaces support (MONO-001/002).
 - [x] Framework recipes: Next.js, Vite, a TypeScript library.
-- [ ] CI-provider recipes for disabling Husky (GitHub Actions / GitLab / CircleCI).
+- [x] CI-provider recipes for disabling Husky (GitHub Actions / GitLab / CircleCI).
 
 ## Onboarding & DX
 

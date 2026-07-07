@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A dedicated Yarn Berry guide covering the `node-modules` linker setup and the Plug'n'Play boundary.
 - A monorepo & workspaces guide covering root-level setup, per-package scoping, and the support boundary.
 - Framework recipes for Next.js, Vite, and TypeScript libraries.
+- CI provider recipes for disabling Husky on GitHub Actions, GitLab CI, and CircleCI.
 
 ## [2.3.0] - 2026-07-05
 

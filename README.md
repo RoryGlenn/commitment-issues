@@ -267,6 +267,7 @@ Also check your environment has not disabled Husky hooks.
 - [Yarn Berry guide](docs/yarn-berry.md) — using `commitment-issues` with Yarn 2+ and the `node-modules` linker.
 - [Monorepo & workspaces guide](docs/monorepo.md) — running `commitment-issues` from the root of a workspaces repository.
 - [Framework recipes](docs/framework-recipes.md) — wiring for Next.js, Vite, and TypeScript libraries.
+- [CI provider recipes](docs/ci-recipes.md) — disabling Husky on GitHub Actions, GitLab CI, and CircleCI.
 - [Roadmap](ROADMAP.md) — public view of what the project is improving next.
 - [Message states](docs/message-states.md) — fuller gallery of common output states.
 - [Configuration and Behavior](docs/configuration.md) — full configuration reference, test heuristics, push behavior, TypeScript notes, CI notes, and project internals.

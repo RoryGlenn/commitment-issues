@@ -185,3 +185,5 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 These scripts are Git-hook tooling, so disable Husky in CI to avoid installing hooks during `npm ci`.
 
 This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
+
+For ready-to-use pipelines that disable Husky, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.
