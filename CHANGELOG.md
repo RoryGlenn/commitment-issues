@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A Privacy section in the README documenting the no-telemetry, no-phone-home posture.
+- Maintainer adoption-metrics checklist in `docs/adoption-metrics.md`.
+
+### Changed
+
+- Expanded the FAQ removal guide with step-by-step manual removal steps, and added before/after examples (husky + lint-staged, lefthook, pre-commit) to the migration guide.
+
 ## [2.4.0] - 2026-07-07
 
 ### Added

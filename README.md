@@ -195,6 +195,17 @@ The gate is capped by a timeout.
 - `npm run commit:fix` only runs when tracked staged and unstaged changes are absent, so it can safely amend the latest commit.
 - If ESLint cannot fix everything automatically, available fixes are still applied and re-staged, and the command exits non-zero so the remaining issues are visible.
 
+## Privacy
+
+`commitment-issues` runs entirely on your machine, inside your Git workflow.
+
+- **No telemetry.** It collects no usage data.
+- **No phone-home.** It reports nothing back to us or any third party.
+- **No repository data leaves your machine.** Your code, diffs, and history stay local.
+- Checks run locally through the tools already installed in your project.
+
+There's no account and nothing to opt out of — the checks are just your own ESLint, Prettier, and tests running where you already run them.
+
 ## Requirements
 
 - **Node.js >= 22.22.1** — the scripts use modern ESM features and the built-in `node --test` runner.

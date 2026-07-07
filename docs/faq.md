@@ -266,16 +266,31 @@ fixer, pre-push, and `doctor` output examples.
 
 ## How do I remove it?
 
-Remove the package and any setup you no longer want:
+Removal is manual today — there is no uninstall command. Remove the package and
+unwind the setup you no longer want:
 
-```bash
-npm remove commitment-issues
-```
+1. Remove the dev dependency:
 
-Then remove the `commitment-issues` npm scripts, the `precommitChecks` section,
-and the `.husky/pre-commit` / `.husky/pre-push` entries that invoke
-`commitment-issues`. Keep Husky, lint-staged, ESLint, or Prettier if your project
-uses them independently.
+   ```bash
+   npm remove commitment-issues
+   ```
+
+2. Remove the generated npm scripts you no longer want: `doctor`, `fix:staged`,
+   `commit:fix`, and `test:precommit`.
+3. Remove or edit the hook files `.husky/pre-commit` and `.husky/pre-push`. If a
+   hook only calls `commitment-issues`, delete it; if you added other commands,
+   remove just the `commitment-issues` line.
+4. Remove the `precommitChecks` section from `package.json`.
+5. Remove the generated `lint-staged` config **only** if it was added solely for
+   this tool. If you already used `lint-staged`, keep your config.
+6. Optionally drop the `.eslintcache` / `.prettiercache` entries from
+   `.gitignore` if nothing else needs them.
+
+Keep Husky, lint-staged, ESLint, or Prettier if your project uses them
+independently — `commitment-issues` only wires them together.
+
+There is no automated uninstaller yet, but `npx commitment-issues init --dry-run`
+prints exactly what `init` manages, which doubles as a checklist of what to undo.
 
 ## Why does it require Node.js 22.22.1 or newer?
 
