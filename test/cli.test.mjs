@@ -62,10 +62,14 @@ test("cli prints the package version for --version and -v", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
+  const expectedVersion = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  ).version;
+
   for (const flag of ["--version", "-v"]) {
     const result = cli(tempDir, [flag]);
     assert.equal(result.status, 0);
-    assert.equal(combinedOutput(result).trim(), "2.3.0");
+    assert.equal(combinedOutput(result).trim(), expectedVersion);
   }
 });
 
