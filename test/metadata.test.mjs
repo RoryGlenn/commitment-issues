@@ -83,6 +83,31 @@ test("README documents the package engine exactly", () => {
   assert.match(readme, new RegExp(`Node(?:\\.js)?\\s+${engine}`));
 });
 
+test("supported Node version stays consistent across docs and workflows", () => {
+  const pkg = readJson("package.json");
+  const version = pkg.engines.node.match(/\d+\.\d+\.\d+/)?.[0];
+  assert.ok(version, "engines.node should pin a concrete version");
+
+  // Every surface that states the supported Node version should track
+  // package.json engines.node, so a Node bump cannot silently leave one behind.
+  const surfaces = [
+    "README.md",
+    "docs/faq.md",
+    "docs/configuration.md",
+    ".github/CONTRIBUTING.md",
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/workflows/ci.yml",
+    "ADOPTION.md",
+  ];
+
+  for (const file of surfaces) {
+    assert.ok(
+      readText(file).includes(version),
+      `${file} should reference the supported Node version ${version} from package.json engines.node`,
+    );
+  }
+});
+
 test("package description does not contradict configurable blocking", () => {
   const pkg = readJson("package.json");
 

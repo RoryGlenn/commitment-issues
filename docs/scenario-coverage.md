@@ -39,6 +39,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **DOC-002** — README documents advisory push mode. Unit: `test/metadata.test.mjs`.
 - **DOC-003** — README documents blocking push mode. Unit: `test/metadata.test.mjs`.
 - **DOC-004** — README image references cannot drift away from packaged assets. Unit: `test/metadata.test.mjs`.
+- **DOC-005** — supported Node version stays consistent across the README, docs, and workflows. Unit: `test/metadata.test.mjs`.
 
 ### Config
 
