@@ -1,6 +1,6 @@
 {
   "name": "commitment-issues",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "description": "For developers who overthink every commit: advisory-first Git hook checks with optional enforcement.",
   "license": "MIT",
