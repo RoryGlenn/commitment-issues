@@ -64,7 +64,7 @@ direct adoption lever.
 - [ ] Answer relevant threads (r/javascript, r/node, StackOverflow, "husky is annoying" discussions) — genuinely, not spammy.
 - [ ] Cross-post to dev.to / Hashnode.
 - [x] Public roadmap (`ROADMAP.md` or a GitHub Project).
-- [ ] `FUNDING.yml` / GitHub Sponsors (optional).
+- [x] `FUNDING.yml` / GitHub Sponsors (optional).
 
 ## Measure & iterate
 
