@@ -199,8 +199,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 ## Deferred
 
 - **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
-- **MONO-001** — workspace root behavior. Deferred until workspace support boundary is explicit.
-- **MONO-002** — nested workspace package behavior. Deferred until workspace support boundary is explicit.
+- **MONO-001** — workspace root behavior. Hooks run from the Git root and check staged files across all packages using the root `precommitChecks` config and hoisted tools. Boundary documented in the [Monorepo & workspaces guide](monorepo.md).
+- **MONO-002** — nested workspace package behavior. Per-package `precommitChecks` config and per-package tool versions are out of scope; the boundary is documented in the [Monorepo & workspaces guide](monorepo.md).
 - **PERF-002** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Not covered yet

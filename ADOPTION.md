@@ -36,7 +36,7 @@ direct adoption lever.
 
 - [x] npm, pnpm, yarn, and bun supported — each with an end-to-end CI lifecycle smoke.
 - [x] Yarn Berry (Plug'n'Play): documented boundary today (`nodeLinker: node-modules`); add real PnP support or a dedicated guide (PM-004).
-- [ ] Monorepo / workspaces support (MONO-001/002).
+- [x] Monorepo / workspaces support (MONO-001/002).
 - [ ] Framework recipes: Next.js, Vite, a TypeScript library.
 - [ ] CI-provider recipes for disabling Husky (GitHub Actions / GitLab / CircleCI).
 

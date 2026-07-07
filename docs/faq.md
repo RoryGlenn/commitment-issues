@@ -189,6 +189,17 @@ Yarn Berry projects should use `nodeLinker: node-modules`. Plug'n'Play is not
 supported because the hooks resolve binaries from `node_modules/.bin`. See the
 [Yarn Berry guide](yarn-berry.md) for step-by-step setup.
 
+## Does it work in a monorepo or workspaces?
+
+Yes. Install and initialize `commitment-issues` once at the repository root. The
+Git hooks run from the root and check staged files across every workspace
+package using the root `precommitChecks` configuration and the tools hoisted to
+the root `node_modules/.bin`.
+
+Per-package `precommitChecks` configuration and per-package tool versions are not
+supported. See the [Monorepo & workspaces guide](monorepo.md) for setup, scoping,
+and the boundary details.
+
 ## Should I use this in CI?
 
 Use CI for the real enforcement path: run your normal lint, format, and test
