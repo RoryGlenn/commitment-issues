@@ -13,7 +13,11 @@ import {
 } from "./helpers/temp-repo.mjs";
 
 function runInit(tempDir, args = []) {
-  return run("node", [path.join(tempDir, "scripts", "init.mjs"), ...args], tempDir);
+  return run(
+    "node",
+    [path.join(tempDir, "scripts", "init.mjs"), ...args],
+    tempDir,
+  );
 }
 
 function writePackage(tempDir, pkg) {

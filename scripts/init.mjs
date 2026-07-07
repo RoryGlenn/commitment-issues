@@ -177,7 +177,10 @@ if (ignores.length > 0 && !dryRun) {
 
 const setupSummary =
   created.length > 0
-    ? [pc.dim(dryRun ? "Would add:" : "Added:"), ...created.map((item) => pc.dim(`- ${item}`))]
+    ? [
+        pc.dim(dryRun ? "Would add:" : "Added:"),
+        ...created.map((item) => pc.dim(`- ${item}`)),
+      ]
     : [pc.dim("Already configured — nothing to change.")];
 
 const footer = dryRun
@@ -193,7 +196,11 @@ const footer = dryRun
 const body = [
   ...logoLines(),
   "",
-  pc.bold(dryRun ? "Commitment Issues dry run preview." : "Commitment Issues is set up."),
+  pc.bold(
+    dryRun
+      ? "Commitment Issues dry run preview."
+      : "Commitment Issues is set up.",
+  ),
   "",
   ...setupSummary,
   "",
