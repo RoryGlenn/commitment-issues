@@ -63,7 +63,7 @@ direct adoption lever.
 - [ ] Blog post: "Why I stopped letting pre-commit hooks block my commits." Draft ready in `promo/launch.md`.
 - [ ] Answer relevant threads (r/javascript, r/node, StackOverflow, "husky is annoying" discussions) — genuinely, not spammy.
 - [ ] Cross-post to dev.to / Hashnode.
-- [ ] Public roadmap (`ROADMAP.md` or a GitHub Project).
+- [x] Public roadmap (`ROADMAP.md` or a GitHub Project).
 - [ ] `FUNDING.yml` / GitHub Sponsors (optional).
 
 ## Measure & iterate

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `commitment-issues --version` / `-v` to print the package version from the CLI.
 - `commitment-issues init --dry-run` to preview setup changes without writing `package.json`, `.gitignore`, or hook files.
 - A migration guide for raw `husky` + `lint-staged`, `lefthook`, and `pre-commit` setups.
+- A public roadmap in `ROADMAP.md`.
 
 ## [2.3.0] - 2026-07-05
 
