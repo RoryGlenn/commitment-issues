@@ -200,6 +200,13 @@ Per-package `precommitChecks` configuration and per-package tool versions are no
 supported. See the [Monorepo & workspaces guide](monorepo.md) for setup, scoping,
 and the boundary details.
 
+## Are there framework-specific recipes?
+
+Yes. `commitment-issues` is framework-agnostic — it uses your ESLint config and a
+configurable `testCommand` — so setup mostly comes down to wiring those per
+stack. See the [Framework recipes](framework-recipes.md) for Next.js, Vite, and
+TypeScript library setups.
+
 ## Should I use this in CI?
 
 Use CI for the real enforcement path: run your normal lint, format, and test

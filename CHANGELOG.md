@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An OpenSSF Scorecard workflow and badge.
 - A dedicated Yarn Berry guide covering the `node-modules` linker setup and the Plug'n'Play boundary.
 - A monorepo & workspaces guide covering root-level setup, per-package scoping, and the support boundary.
+- Framework recipes for Next.js, Vite, and TypeScript libraries.
 
 ## [2.3.0] - 2026-07-05
 
