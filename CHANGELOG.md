@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A branded setup banner in `commitment-issues init` — a split-heart logo and wordmark unified into the setup box.
+- `commitment-issues --version` / `-v` to print the package version from the CLI.
 
 ## [2.3.0] - 2026-07-05
 

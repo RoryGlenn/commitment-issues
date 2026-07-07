@@ -58,6 +58,17 @@ test("cli prints usage and exits 0 for --help", (t) => {
   }
 });
 
+test("cli prints the package version for --version and -v", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  for (const flag of ["--version", "-v"]) {
+    const result = cli(tempDir, [flag]);
+    assert.equal(result.status, 0);
+    assert.equal(combinedOutput(result).trim(), "2.3.0");
+  }
+});
+
 test("cli errors on an unknown command", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

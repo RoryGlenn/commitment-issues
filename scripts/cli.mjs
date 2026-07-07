@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -18,6 +19,8 @@ const COMMANDS = {
 };
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+const packageJsonPath = path.join(path.dirname(scriptsDir), "package.json");
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
 const [subcommand, ...rest] = process.argv.slice(2);
 
 function printUsage(stream) {
@@ -26,7 +29,14 @@ function printUsage(stream) {
 
 Commands: ${names}
 
+Version:    commitment-issues --version
+
 Get started:  commitment-issues init`);
+}
+
+if (subcommand === "-v" || subcommand === "--version") {
+  console.log(packageJson.version);
+  process.exit(0);
 }
 
 if (!subcommand || subcommand === "-h" || subcommand === "--help") {
