@@ -45,6 +45,8 @@ direct adoption lever.
 - [x] `commitment-issues --version` / `-v` — prints the package version from the CLI.
 - [x] `init --dry-run` to preview changes before writing to `package.json` / `.gitignore`.
 - [x] Migration guide: raw husky + lint-staged / lefthook / pre-commit → `commitment-issues`.
+- [x] Before/after migration examples showing the hook / `package.json` / `.gitignore` changes to review.
+- [x] Uninstall/removal docs — step-by-step manual removal in the [FAQ](docs/faq.md#how-do-i-remove-it).
 - [x] FAQ page expanding the README troubleshooting section.
 
 ## Discoverability
@@ -68,7 +70,10 @@ direct adoption lever.
 
 ## Measure & iterate
 
+See [`docs/adoption-metrics.md`](docs/adoption-metrics.md) for a lightweight weekly/monthly signal checklist.
+
 - [ ] Track npm weekly downloads and GitHub traffic/referrers.
 - [ ] Note where first-run drop-off happens and smooth it.
-- [ ] "No telemetry by design" — state the privacy posture explicitly as a trust signal.
+- [x] "No telemetry by design" — the [README Privacy section](README.md#privacy) states the posture explicitly.
+- [x] Maintainer adoption-metrics note ([`docs/adoption-metrics.md`](docs/adoption-metrics.md)).
 - [ ] Revisit this checklist after each release.
