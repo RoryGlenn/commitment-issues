@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 // Maintainer tool: renders the docs/message-states.md gallery SVGs into
 // assets/. Not shipped in the npm tarball (tools/ is outside the package.json
 // files allowlist).

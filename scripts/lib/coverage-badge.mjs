@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 function stripAnsi(input) {
   return input.replace(/\u001b\[[0-9;]*m/g, "");
 }

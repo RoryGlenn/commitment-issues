@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";

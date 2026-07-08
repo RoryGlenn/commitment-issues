@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import js from "@eslint/js";
 import globals from "globals";
 import react from "eslint-plugin-react";

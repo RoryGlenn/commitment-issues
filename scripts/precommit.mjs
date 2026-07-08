@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import path from "node:path";
 import pc from "picocolors";
 import { infoBox, successBox, warningBox } from "./lib/ui.mjs";

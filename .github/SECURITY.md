@@ -4,12 +4,12 @@
 
 `commitment-issues` follows [Semantic Versioning](https://semver.org/). Security
 fixes are released against the latest published version on npm. We recommend
-always running the most recent `2.x` release.
+always running the most recent `3.x` release.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.x     | :white_check_mark: |
-| < 2.0   | :x:                |
+| 3.x     | :white_check_mark: |
+| < 3.0   | :x:                |
 
 ## Reporting a vulnerability
 
@@ -42,6 +42,22 @@ If you are unable to use private reporting, you may contact the maintainer,
   release notes if you wish.
 - Once a fix is available, we will publish a new release and, where appropriate,
   a GitHub Security Advisory.
+
+## Maintainer authentication policy
+
+Maintainers who can publish releases, change repository settings, or manage
+security advisories are expected to use GitHub 2FA with phishing-resistant
+factors (passkeys or hardware security keys preferred; TOTP acceptable).
+SMS-only authentication is not considered sufficient for maintainer accounts.
+
+GitHub enforces 2FA platform-wide for contributing accounts, and this project
+follows stricter maintainer guidance for sensitive operations.
+
+## Security review cadence
+
+The project maintains a documented security review at least once every 12
+months and after major architectural changes. The latest review is tracked in
+[docs/security-review-2026-07.md](../docs/security-review-2026-07.md).
 
 ## Scope
 

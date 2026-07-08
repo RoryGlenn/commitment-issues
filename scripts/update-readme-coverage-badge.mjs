@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import fs from "node:fs";
 import path from "node:path";
 import { run } from "./lib/process.mjs";

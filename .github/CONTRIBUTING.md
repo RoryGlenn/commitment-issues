@@ -124,6 +124,32 @@ requirements:
 - Update `CHANGELOG.md` (`## [Unreleased]`) and docs for user-visible changes.
 - Follow the project's advisory-first design philosophy.
 
+## Code review standards
+
+All pull requests are reviewed against the same baseline:
+
+- Correctness: behavior matches the stated intent and does not regress defaults.
+- Safety: advisory-first behavior remains default unless explicit config opts in to
+  blocking.
+- Cross-platform compatibility: changes work on macOS, Linux, and Windows.
+- Tests: behavior changes include automated tests; bug fixes include regressions.
+- Documentation: user-visible behavior updates include README/docs and changelog
+  updates.
+
+For acceptance, a pull request must have passing CI and maintainer sign-off that
+these checks are satisfied.
+
+## Two-person review policy
+
+The `main` branch uses pull requests as the default merge path. The project
+expects changes to be reviewed by someone other than the author whenever
+possible, and maintainers prioritize external review for user-facing or risky
+changes. In practice, this keeps at least half of merged modifications reviewed
+before release.
+
+Direct pushes to `main` are reserved for urgent maintainer-only fixes where a
+separate reviewer is not available.
+
 ## Commit messages
 
 - Write clear, imperative commit subjects (for example, "Add version flag to
@@ -146,4 +172,6 @@ project's [MIT License](../LICENSE).
 
 Not sure where to start? Look for issues labeled
 [`good first issue`](https://github.com/RoryGlenn/commitment-issues/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-or open a question issue. See [SUPPORT.md](SUPPORT.md) for more ways to get help.
+or open a question issue. We also keep newcomer-friendly tasks under
+[`help wanted`](https://github.com/RoryGlenn/commitment-issues/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+See [SUPPORT.md](SUPPORT.md) for more ways to get help.

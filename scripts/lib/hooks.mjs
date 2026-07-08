@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 // Shared hook-wiring constants and helpers so init, doctor, and the hooks
 // themselves all agree on how a consuming project invokes this tool. Hooks are
 // plain `.git/hooks` files (git's default location — no core.hooksPath, no

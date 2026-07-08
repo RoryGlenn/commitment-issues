@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import spawn from "cross-spawn";
 import { createRequire } from "node:module";
 import fs from "node:fs";

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import { runTool } from "./lib/process.mjs";
 
 const files = process.argv.slice(2).filter(Boolean);

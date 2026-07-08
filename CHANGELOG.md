@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- OpenSSF badge-readiness governance docs updates:
+  - Added explicit `Code review standards` and `Two-person review policy`
+    sections to `.github/CONTRIBUTING.md`.
+  - Added maintainer phishing-resistant 2FA guidance and a security review
+    cadence section to `.github/SECURITY.md`.
+  - Added `docs/security-review-2026-07.md` to document the latest scoped
+    security review.
+  - Added `docs/security-hardening.md` to document hardening controls and
+    dynamic-analysis practices.
+  - Expanded `docs/openssf-best-practices.md` to map Gold criteria IDs to
+    concrete evidence URLs.
+
 ## [3.0.0] - 2026-07-08
 
 ### Removed (BREAKING)

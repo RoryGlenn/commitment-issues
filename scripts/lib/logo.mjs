@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import pc from "picocolors";
 
 // A bold, split heart (commitment issues — get it?) with the wordmark, used as

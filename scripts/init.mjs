@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import fs from "node:fs";
 import pc from "picocolors";
 import { errorBox, infoBox, printBox, warningBox } from "./lib/ui.mjs";

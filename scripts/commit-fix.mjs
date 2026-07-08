@@ -1,3 +1,6 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
