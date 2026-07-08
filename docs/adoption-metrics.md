@@ -6,7 +6,7 @@ not a dashboard to obsess over.
 
 Nothing here is telemetry: every number below is something a maintainer looks up
 by hand — some from public sources (npm downloads, GitHub stars), and some from
-the repo's own dashboards that need repo access (GitHub Insights → Traffic). The
+GitHub's repository dashboards that require repo access (Insights → Traffic). The
 tool itself collects nothing — see the [Privacy section](../README.md#privacy) in
 the README.
 
