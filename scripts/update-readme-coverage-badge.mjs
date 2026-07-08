@@ -12,19 +12,24 @@ const readmePath = path.join(root, "README.md");
 
 const result = run("npm", ["run", "test:coverage"], { cwd: root });
 
-process.stdout.write(result.stdout || "");
-process.stderr.write(result.stderr || "");
+// stdout/stderr are null when the spawn itself failed or was signal-killed.
+const stdout = result.stdout ?? "";
+const stderr = result.stderr ?? "";
+process.stdout.write(stdout);
+process.stderr.write(stderr);
 
 if (result.error) {
   throw result.error;
 }
 
-if ((result.status || 0) !== 0) {
-  process.exit(result.status || 1);
+// A signal-killed run reports status null — treat it as a failure (exit 1),
+// never as a successful run with unparseable output.
+if (result.status !== 0) {
+  process.exit(result.status ?? 1);
 }
 
 const branchCoverage = parseBranchCoverageFromNodeTestOutput(
-  `${result.stdout || ""}\n${result.stderr || ""}`,
+  `${stdout}\n${stderr}`,
 );
 
 if (branchCoverage === null) {

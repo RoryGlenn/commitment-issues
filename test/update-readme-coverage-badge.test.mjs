@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function fakeNpmEnv(tempDir, { output = "", status = 0 } = {}) {
+function fakeNpmEnv(tempDir, { output = "", status = 0, signal = "" } = {}) {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
 
@@ -20,6 +20,9 @@ function fakeNpmEnv(tempDir, { output = "", status = 0 } = {}) {
       "const args = process.argv.slice(2);",
       'if (args.length === 2 && args[0] === "run" && args[1] === "test:coverage") {',
       '  process.stdout.write(process.env.FAKE_NPM_OUTPUT || "");',
+      "  if (process.env.FAKE_NPM_SIGNAL) {",
+      "    process.kill(process.pid, process.env.FAKE_NPM_SIGNAL);",
+      "  }",
       '  process.exit(Number.parseInt(process.env.FAKE_NPM_STATUS || "0", 10));',
       "}",
       'process.stderr.write(`unexpected npm args: ${args.join(" ")}\\n`);',
@@ -38,6 +41,7 @@ function fakeNpmEnv(tempDir, { output = "", status = 0 } = {}) {
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
     FAKE_NPM_OUTPUT: output,
     FAKE_NPM_STATUS: String(status),
+    FAKE_NPM_SIGNAL: signal,
   };
 }
 
@@ -175,4 +179,34 @@ test("errors when npm cannot be spawned", (t) => {
 
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}${result.stderr}`, /ENOENT/);
+});
+
+test("exits 1 when the coverage run is killed by a signal", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const readmePath = path.join(tempDir, "README.md");
+  const initialReadme = fs.readFileSync(readmePath, "utf8");
+
+  // A signal-killed npm run reports status null (POSIX) or a non-zero code
+  // (Windows); either way the script must fail instead of "succeeding" with
+  // unparseable output.
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "update-readme-coverage-badge.mjs")],
+    tempDir,
+    {
+      env: fakeNpmEnv(tempDir, {
+        output: "all files | 99.99 | 88.88 | 100.00 |\n",
+        signal: "SIGKILL",
+      }),
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(
+    `${result.stdout}${result.stderr}`,
+    /Updated README coverage badge/,
+  );
+  assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
 });

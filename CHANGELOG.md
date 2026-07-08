@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Punchier fun-tone advisory messages: files now tell Prettier "this is just how I am", source files "won't commit to unit tests", failing tests say "we need to talk", and Prettier crashes "leave you on read" (`precommitChecks.tone: "fun"` only; standard tone unchanged).
 - Expanded the FAQ removal guide with step-by-step manual removal steps, and added before/after examples (husky + lint-staged, lefthook, pre-commit) to the migration guide.
 - Raised the `lint-staged` peer requirement to `>=16.2.0`: `fix:staged` relies on the `--continue-on-error` and `--no-revert` flags introduced in 16.2.0 and 16.1.0, which older versions reject as unknown options.
 

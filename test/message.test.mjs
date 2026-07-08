@@ -105,5 +105,5 @@ test("maps the Prettier failure message across tones", () => {
   assert.ok(standard.includes("Prettier failed to complete"));
 
   const fun = buildAdvisoryMessage([issue], { tone: "fun" }).lines.join("\n");
-  assert.ok(fun.includes("Prettier stopped replying mid-conversation"));
+  assert.ok(fun.includes("Prettier left you on read"));
 });

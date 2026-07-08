@@ -48,7 +48,7 @@ function funIssueMessage(issue, message) {
   );
   if (prettierMatch) {
     const count = Number(prettierMatch[1]);
-    return `${count} ${plural(count, "file")} and Prettier are currently seeing other people`;
+    return `${count} ${plural(count, "file")} told Prettier ${count === 1 ? '"this is just how I am"' : '"this is just how we are"'}`;
   }
 
   const missingTestsMatch = issue.message.match(
@@ -56,7 +56,7 @@ function funIssueMessage(issue, message) {
   );
   if (missingTestsMatch) {
     const count = Number(missingTestsMatch[1]);
-    return `${count} staged source ${plural(count, "file")} ghosted ${count === 1 ? "its" : "their"} unit tests`;
+    return `${count} staged source ${plural(count, "file")} won't commit to ${count === 1 ? "a unit test" : "unit tests"}`;
   }
 
   const manualLintMatch = issue.message.match(
@@ -64,7 +64,7 @@ function funIssueMessage(issue, message) {
   );
   if (manualLintMatch) {
     const count = Number(manualLintMatch[1]);
-    return `${count} ESLint ${plural(count, "issue")} need${count === 1 ? "s" : ""} a human conversation`;
+    return `${count} ESLint ${plural(count, "issue")} that flowers won't fix`;
   }
 
   const autoFixableLintMatch = issue.message.match(
@@ -72,7 +72,7 @@ function funIssueMessage(issue, message) {
   );
   if (autoFixableLintMatch) {
     const count = Number(autoFixableLintMatch[1]);
-    return `${count} ESLint ${plural(count, "issue")} can probably be talked through`;
+    return `${count} ESLint ${plural(count, "issue")} ready to take you back, no questions asked`;
   }
 
   const failingTestsMatch = issue.message.match(
@@ -80,7 +80,7 @@ function funIssueMessage(issue, message) {
   );
   if (failingTestsMatch) {
     const count = Number(failingTestsMatch[1]);
-    return `${count} staged test ${plural(count, "file")} failed the vibe check`;
+    return `${count} staged test ${plural(count, "file")} just said "we need to talk"`;
   }
 
   return message;
@@ -89,14 +89,12 @@ function funIssueMessage(issue, message) {
 function issueMessage(issue, tone = "standard") {
   if (issue.message === "ESLint failed before reporting any file issues") {
     return tone === "fun"
-      ? "ESLint started the conversation and then left"
+      ? "ESLint stormed off without saying what's wrong"
       : "ESLint failed to complete";
   }
 
   if (issue.message === "Prettier failed to complete") {
-    return tone === "fun"
-      ? "Prettier stopped replying mid-conversation"
-      : issue.message;
+    return tone === "fun" ? "Prettier left you on read" : issue.message;
   }
 
   const match = issue.message.match(
@@ -170,10 +168,10 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
       pc.dim(
         hasNonFixableIssue
           ? tone === "fun"
-            ? "you can still fix the easy stuff and amend it:"
+            ? "patch things up where you can and amend it:"
             : "you can still apply automatic fixes and amend it:"
           : tone === "fun"
-            ? "apply the easy apologies and amend it:"
+            ? "send the apology text and amend it:"
             : "apply automatic fixes and amend it:",
       ),
     );
@@ -184,14 +182,14 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
       lines.push(
         pc.dim(
           tone === "fun"
-            ? "commit:fix only handles the easy apologies."
+            ? "commit:fix only smooths over the small stuff."
             : "commit:fix only auto-fixes formatting and fixable lint.",
         ),
       );
       lines.push(
         pc.dim(
           tone === "fun"
-            ? "The awkward parts still need a human conversation."
+            ? "The rest can't be fixed over text."
             : "Manual items above still need your attention.",
         ),
       );
@@ -201,7 +199,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
       lines.push(
         pc.dim(
           tone === "fun"
-            ? "The awkward parts still need a human conversation."
+            ? "The rest can't be fixed over text."
             : "Manual items above still need your attention.",
         ),
       );
@@ -226,7 +224,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
     lines.push(
       `  ${pc.dim(
         tone === "fun"
-          ? "No automatic fix command. This one needs a real conversation."
+          ? "No automatic fix command. It's not the code, it's you."
           : "No automatic fix command for these issues.",
       )}`,
     );
