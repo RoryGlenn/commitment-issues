@@ -369,9 +369,13 @@ test("continues (exit 0) when staged files cannot be inspected", (t) => {
   const result = runHook(tempDir, { env });
   const output = `${result.stdout}${result.stderr}`;
 
-  // Advisory: it never blocks, even when git is unavailable.
+  // Advisory: it never blocks, even when git is unavailable. The box is a
+  // warning (not an error) because the commit continues, matching the
+  // pre-push advisory-uninspectable state.
   assert.equal(result.status, 0);
   assert.match(output, /Unable to inspect staged files\./);
+  assert.match(output, /warning/);
+  assert.doesNotMatch(output, /error/);
 });
 
 test("reports a timeout when tools exceed the configured limit", (t) => {

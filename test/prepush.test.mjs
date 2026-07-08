@@ -157,6 +157,23 @@ test("blocks the push when the test command cannot run", (t) => {
   assert.match(output, /could not run tests/);
 });
 
+test("blocks the push and reports a timeout when the test command exceeds timeoutMs", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A 1ms ceiling kills the runner before it finishes, exercising the
+  // result.signal (timed out) branch of the could-not-run reason.
+  setConfig(tempDir, { blockPushOnTestFailure: true, timeoutMs: 1 });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: could not run tests/);
+  assert.match(output, /timed out/);
+});
+
 test("advisory mode runs tests and warns without blocking on failure", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

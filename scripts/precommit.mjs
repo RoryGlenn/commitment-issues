@@ -1,6 +1,6 @@
 import path from "node:path";
 import pc from "picocolors";
-import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
+import { infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import {
   TOOL_TIMEOUT_MS,
   toolInvocation,
@@ -74,7 +74,10 @@ const gitFiles = run("git", [
 ]);
 
 if (gitFiles.error || gitFiles.status !== 0) {
-  errorBox([
+  // Advisory philosophy: the hook cannot check anything, but it must not
+  // block the commit either — warn (matching the pre-push advisory
+  // uninspectable state) and continue.
+  warningBox([
     pc.bold("Unable to inspect staged files."),
     "",
     pc.dim("Commit will continue. Verify Git is available in PATH."),

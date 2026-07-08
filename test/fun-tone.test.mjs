@@ -94,6 +94,40 @@ test("fun tone rewrites the failing staged tests message", () => {
   );
 });
 
+test("fun tone rewrites the exact tool timeout and unavailable messages", () => {
+  assert.match(
+    funText("ESLint timed out"),
+    /ESLint needed space and never texted back/,
+  );
+  assert.match(
+    funText("Prettier timed out"),
+    /Prettier needed space and never texted back/,
+  );
+  assert.match(
+    funText("Staged tests timed out"),
+    /The staged tests needed space and never texted back/,
+  );
+  assert.match(
+    funText("Unable to run ESLint"),
+    /ESLint won't even pick up the phone/,
+  );
+  assert.match(
+    funText("Unable to run Prettier"),
+    /Prettier won't even pick up the phone/,
+  );
+  assert.match(
+    funText("Unable to run staged tests"),
+    /The staged tests won't even pick up the phone/,
+  );
+});
+
+test("standard tone keeps the exact tool timeout and unavailable messages", () => {
+  const standard = buildAdvisoryMessage([
+    { type: "check", autoFixable: false, message: "ESLint timed out" },
+  ]).lines.join("\n");
+  assert.match(standard, /ESLint timed out/);
+});
+
 test("fun tone passes unrecognized messages through unchanged", () => {
   assert.match(
     funText("something completely bespoke happened"),

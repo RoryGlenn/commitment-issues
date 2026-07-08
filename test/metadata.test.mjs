@@ -226,3 +226,54 @@ test("message-state SVG assets exist and are included in npm package files", () 
     );
   }
 });
+
+test("every terminal box title appears in the message-states gallery", () => {
+  const docs = readText("docs/message-states.md");
+  const svgText = readmeImagePaths(docs)
+    .map((imagePath) => readText(path.join("docs", imagePath)))
+    .join("\n");
+  const haystack = `${docs}\n${svgText}`;
+
+  // User-facing entry scripts plus the advisory-message builder. The
+  // maintainer-only scripts (ci-lifecycle-smoke, update-readme-coverage-badge)
+  // are deliberately outside the documented gallery.
+  const sources = [
+    "scripts/cli.mjs",
+    "scripts/commit-fix.mjs",
+    "scripts/doctor.mjs",
+    "scripts/fix-staged.mjs",
+    "scripts/fix-staged-js.mjs",
+    "scripts/init.mjs",
+    "scripts/precommit.mjs",
+    "scripts/prepush.mjs",
+    "scripts/lib/message.mjs",
+  ];
+
+  // Defensive boxes marked unreachable in practice (node:coverage-disabled)
+  // stay undocumented on purpose.
+  const exemptTitles = new Set(["Unable to run staged fixes."]);
+
+  // Box titles are double-quoted pc.bold literals; inline emphasis uses
+  // single quotes or dynamic values, so it is not captured here.
+  const titles = new Set();
+  for (const source of sources) {
+    const text = readText(source);
+    for (const [, title] of text.matchAll(/pc\.bold\(\s*"([^"]+)"/g)) {
+      if (!exemptTitles.has(title)) {
+        titles.add(title);
+      }
+    }
+  }
+
+  assert.ok(
+    titles.size >= 40,
+    `box-title extraction should find the catalog (found ${titles.size})`,
+  );
+
+  for (const title of titles) {
+    assert.ok(
+      haystack.includes(title),
+      `box title "${title}" should appear in docs/message-states.md or a referenced SVG — document new message states in the gallery`,
+    );
+  }
+});

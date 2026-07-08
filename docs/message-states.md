@@ -89,7 +89,7 @@ Shown when ESLint finds issues it can fix itself (such as `prefer-const`); `npm 
 ### Failing staged tests
 
 <p>
-  <img src="../assets/precommit-staged-test-failure.svg" alt="Warning output showing that a staged test file is failing" width="561">
+  <img src="../assets/precommit-staged-test-failure.svg" alt="Warning output showing that a staged test file is failing" width="541">
 </p>
 
 Shown when `runStagedTests` is enabled and a staged test file fails. The commit still continues.
@@ -105,7 +105,7 @@ Shown when a spawned tool exceeds the configured timeout.
 ### Tool crash
 
 <p>
-  <img src="../assets/precommit-tool-crash.svg" alt="Warning output showing that ESLint failed to complete" width="561">
+  <img src="../assets/precommit-tool-crash.svg" alt="Warning output showing that ESLint failed to complete" width="541">
 </p>
 
 Shown when ESLint or Prettier exits with a crash (broken config, parse error) instead of reporting issues. A crash is never presented as auto-fixable.
@@ -113,7 +113,7 @@ Shown when ESLint or Prettier exits with a crash (broken config, parse error) in
 ### Tool unavailable
 
 <p>
-  <img src="../assets/precommit-tool-unavailable.svg" alt="Warning output showing that ESLint could not be run" width="561">
+  <img src="../assets/precommit-tool-unavailable.svg" alt="Warning output showing that ESLint could not be run" width="541">
 </p>
 
 Shown when a tool cannot be spawned at all (missing install). The commit still continues.
@@ -145,7 +145,7 @@ Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps i
 ### Unable to inspect staged files
 
 <p>
-  <img src="../assets/precommit-cannot-inspect-staged.svg" alt="Error output showing that staged files could not be inspected and the commit continues" width="665">
+  <img src="../assets/precommit-cannot-inspect-staged.svg" alt="Warning output showing that staged files could not be inspected and the commit continues" width="665">
 </p>
 
 Shown when Git cannot list the staged files at all. True to the advisory philosophy, the commit still continues.

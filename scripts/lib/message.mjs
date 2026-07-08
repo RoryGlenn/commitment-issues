@@ -86,6 +86,19 @@ function funIssueMessage(issue, message) {
   return message;
 }
 
+// Fun-tone rewrites for the exact (count-free) tool-failure messages, so a
+// fun-toned box never falls back to standard wording mid-relationship-note.
+// Standard wording stays the source of truth; keys must match it exactly.
+const FUN_EXACT_MESSAGES = {
+  "ESLint timed out": "ESLint needed space and never texted back",
+  "Prettier timed out": "Prettier needed space and never texted back",
+  "Staged tests timed out":
+    "The staged tests needed space and never texted back",
+  "Unable to run ESLint": "ESLint won't even pick up the phone",
+  "Unable to run Prettier": "Prettier won't even pick up the phone",
+  "Unable to run staged tests": "The staged tests won't even pick up the phone",
+};
+
 function issueMessage(issue, tone = "standard") {
   if (issue.message === "ESLint failed before reporting any file issues") {
     return tone === "fun"
@@ -95,6 +108,10 @@ function issueMessage(issue, tone = "standard") {
 
   if (issue.message === "Prettier failed to complete") {
     return tone === "fun" ? "Prettier left you on read" : issue.message;
+  }
+
+  if (tone === "fun" && FUN_EXACT_MESSAGES[issue.message]) {
+    return FUN_EXACT_MESSAGES[issue.message];
   }
 
   const match = issue.message.match(
@@ -222,11 +239,11 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
     }
   } else {
     lines.push(
-      `  ${pc.dim(
+      pc.dim(
         tone === "fun"
           ? "No automatic fix command. It's not the code, it's you."
           : "No automatic fix command for these issues.",
-      )}`,
+      ),
     );
   }
 

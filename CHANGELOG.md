@@ -12,11 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/external-interface.md`: a dedicated reference for the public interface (commands, scripts, hook entrypoints, configuration keys/defaults, and output/exit behavior).
 - `docs/openssf-best-practices.md`: an evidence map that links OpenSSF Best Practices criteria to concrete repository URLs for faster badge updates.
 - `docs/message-states.md` now catalogs every message state the commands can produce, each with a rendered SVG: the full `init` output set, the remaining pre-commit advisory variants (auto-fixable lint, failing staged tests, tool crash/unavailable, amend-withheld notes, fun tone, uninspectable staged files), every `commit:fix` outcome (partial amend, already clean, emptied commit, already-pushed and dirty-worktree refusals, and all failure boxes), the remaining `fix:staged` outcomes, the pre-push could-not-run-tests states and config-conflict warning, and the doctor missing-tools, not-a-repo, repair-failure, and quiet-mode states.
+- A metadata test that extracts every terminal box title from the entry scripts and fails if one is missing from the `docs/message-states.md` gallery (or its referenced SVGs), so new message states cannot ship undocumented.
+- Fun-tone rewrites for the exact tool-failure messages (`ESLint timed out`, `Prettier timed out`, `Staged tests timed out`, and the three `Unable to run …` variants), so a fun-toned advisory box no longer falls back to standard wording for those issues.
+- A pre-push regression test covering the test-command timeout (`timeoutMs`) branch of the `Push blocked: could not run tests` state.
 
 ### Changed
 
+- The pre-commit `Unable to inspect staged files` box is now a warning instead of an error: the commit continues (advisory philosophy), matching the severity of the equivalent pre-push `Could not inspect pushed files (advisory)` state.
 - README now includes a `Project status and support` section with explicit links for interaction, contribution requirements, interface docs, maintenance status, and English-language support.
 - CONTRIBUTING now includes a dedicated `Contribution requirements` section.
+
+### Fixed
+
+- The all-manual pre-commit advisory footer (`No automatic fix command for these issues.`) is no longer indented two extra spaces, matching the other footer notes.
 
 ## [2.5.0] - 2026-07-08
 
