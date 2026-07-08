@@ -94,3 +94,16 @@ test("notes when the worktree cannot be inspected for a safe amend", () => {
   assert.ok(!text.includes("npm run commit:fix"));
   assert.ok(text.includes("could not be inspected"));
 });
+
+test("maps the Prettier failure message across tones", () => {
+  const issue = {
+    type: "format",
+    autoFixable: false,
+    message: "Prettier failed to complete",
+  };
+  const standard = buildAdvisoryMessage([issue]).lines.join("\n");
+  assert.ok(standard.includes("Prettier failed to complete"));
+
+  const fun = buildAdvisoryMessage([issue], { tone: "fun" }).lines.join("\n");
+  assert.ok(fun.includes("Prettier stopped replying mid-conversation"));
+});

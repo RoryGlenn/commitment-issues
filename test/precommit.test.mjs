@@ -461,6 +461,10 @@ test("reports when Prettier cannot complete (unparseable file)", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.match(output, /Prettier failed to complete/);
+  // A crash is not a formatting issue, so the amend recommendation and the
+  // "N files with formatting issues" counting must not appear.
+  assert.doesNotMatch(output, /commit:fix/);
+  assert.doesNotMatch(output, /formatting issues/);
 });
 
 test("pluralizes the non-checkable info box for multiple files", (t) => {
@@ -545,6 +549,24 @@ test("continues (advisory) when the unstaged-file probe fails", (t) => {
   const result = runHook(tempDir, { env });
 
   assert.equal(result.status, 0);
+});
+
+test("withholds the amend recommendation when the worktree cannot be inspected", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A fixable formatting issue would normally recommend commit:fix.
+  writeFile(path.join(tempDir, "src", "format-only.json"), '{"alpha":1}\n');
+  run("git", ["add", "src/format-only.json"], tempDir);
+
+  // Fail only the unstaged `git diff --name-only` probe; the staged probe works.
+  const env = fakeGitEnv(tempDir, "diff --name-only");
+  const result = runHook(tempDir, { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not be inspected/);
+  assert.doesNotMatch(output, /commit:fix/);
 });
 
 test("reports a staged-test timeout", (t) => {

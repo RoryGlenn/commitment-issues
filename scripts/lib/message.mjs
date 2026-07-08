@@ -93,6 +93,12 @@ function issueMessage(issue, tone = "standard") {
       : "ESLint failed to complete";
   }
 
+  if (issue.message === "Prettier failed to complete") {
+    return tone === "fun"
+      ? "Prettier stopped replying mid-conversation"
+      : issue.message;
+  }
+
   const match = issue.message.match(
     /^(\d+) file(s)? need Prettier formatting$/,
   );

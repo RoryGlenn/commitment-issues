@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Expanded the FAQ removal guide with step-by-step manual removal steps, and added before/after examples (husky + lint-staged, lefthook, pre-commit) to the migration guide.
+- Raised the `lint-staged` peer requirement to `>=16.2.0`: `fix:staged` relies on the `--continue-on-error` and `--no-revert` flags introduced in 16.2.0 and 16.1.0, which older versions reject as unknown options.
+
+### Fixed
+
+- The pre-commit advisory no longer recommends amending with `commit:fix` when the working tree could not be inspected; it now explains that a safe post-commit amend could not be verified.
+- A Prettier crash (parse error or broken install) during the pre-commit check is now reported as its own non-fixable "Prettier failed to complete" issue instead of being counted as a formatting issue with a `commit:fix` recommendation.
+- `commit:fix` now refuses to amend when Git cannot verify the latest commit is unpushed, instead of assuming it is safe to rewrite.
+- Pushed-file test discovery now skips vendored `node_modules/` paths, matching the pre-commit hook's third-party filtering.
+- `init --dry-run` now previews the hook files and `.gitignore` defaults a real run would add, instead of listing only `package.json` changes.
 
 ### Security
 

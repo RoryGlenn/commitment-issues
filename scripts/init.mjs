@@ -136,25 +136,27 @@ if (!dryRun) {
   run("npx", ["husky"]);
 }
 
+// Legacy 1.x hook bodies that ran vendored scripts; upgrade them to the bin.
+const legacyHookBodies = {
+  ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
+  ".husky/pre-push": "node scripts/prepush.mjs\n",
+};
 if (!dryRun) {
   fs.mkdirSync(".husky", { recursive: true });
-  // Legacy 1.x hook bodies that ran vendored scripts; upgrade them to the bin.
-  const legacyHookBodies = {
-    ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
-    ".husky/pre-push": "node scripts/prepush.mjs\n",
-  };
-  for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
-    const current = fs.existsSync(hookPath)
-      ? fs.readFileSync(hookPath, "utf8")
-      : null;
-    if (
-      (current === null || current === legacyHookBodies[hookPath]) &&
-      current !== body
-    ) {
+}
+for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
+  const current = fs.existsSync(hookPath)
+    ? fs.readFileSync(hookPath, "utf8")
+    : null;
+  if (
+    (current === null || current === legacyHookBodies[hookPath]) &&
+    current !== body
+  ) {
+    if (!dryRun) {
       fs.writeFileSync(hookPath, body);
       fs.chmodSync(hookPath, 0o755);
-      created.push(hookPath);
     }
+    created.push(hookPath);
   }
 }
 
@@ -167,11 +169,13 @@ const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
     !gitignoreLines.includes(entry) &&
     !(entry === "node_modules/" && gitignoreLines.includes("node_modules")),
 );
-if (ignores.length > 0 && !dryRun) {
-  fs.writeFileSync(
-    ".gitignore",
-    `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
-  );
+if (ignores.length > 0) {
+  if (!dryRun) {
+    fs.writeFileSync(
+      ".gitignore",
+      `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
+    );
+  }
   created.push(".gitignore defaults");
 }
 

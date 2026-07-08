@@ -9,6 +9,7 @@ import {
   isTestFile,
   isInTestDir,
   isConfigFile,
+  isThirdPartyPath,
   findTestFile,
   collectTestsForFiles,
   shortFileList,
@@ -30,6 +31,24 @@ test("isTestExemptFile recognizes files that don't need a unit test", () => {
 test("isTestExemptFile still requires tests for ordinary source files", () => {
   assert.equal(isTestExemptFile("src/widget.ts"), false);
   assert.equal(isTestExemptFile("src/lib/math.js"), false);
+});
+
+test("isThirdPartyPath spots node_modules segments in any form", () => {
+  assert.equal(isThirdPartyPath("node_modules/pkg/index.js"), true);
+  assert.equal(isThirdPartyPath("vendor/node_modules/pkg/a.test.js"), true);
+  assert.equal(
+    isThirdPartyPath("packages\\app\\node_modules\\dep\\b.js"),
+    true,
+  );
+  assert.equal(isThirdPartyPath("src/node_modules.js"), false);
+  assert.equal(isThirdPartyPath("src/widget.js"), false);
+});
+
+test("collectTestsForFiles never runs vendored node_modules tests", () => {
+  assert.deepEqual(
+    collectTestsForFiles(["vendor/node_modules/pkg/foo.test.js"]),
+    [],
+  );
 });
 
 test("isTestExemptFile honors package.json testExempt globs", () => {

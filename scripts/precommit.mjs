@@ -20,15 +20,11 @@ import {
   formatFilePattern,
   findTestFile,
   isTestExemptFile,
+  isThirdPartyPath,
   collectTestsForFiles,
 } from "./lib/files.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
-
-function isThirdPartyPath(file) {
-  const normalized = file.replace(/\\/g, "/");
-  return /(^|\/)node_modules\//.test(`${normalized}/`);
-}
 
 function runEslint(files) {
   const { command, args } = toolInvocation("eslint", [
@@ -253,11 +249,20 @@ if (prettierResult) {
         : "Check Prettier install and project config",
     });
   } else {
-    const files = parsePrettierList(
+    const { failed, files } = parsePrettierList(
       prettierResult.stdout,
       prettierResult.stderr,
     );
-    if (files.length > 0) {
+    if (failed) {
+      // A crash (parse error, broken install) is not a formatting issue:
+      // commit:fix cannot resolve it, so never present it as auto-fixable.
+      issues.push({
+        autoFixable: false,
+        type: "format",
+        message: "Prettier failed to complete",
+        detail: "Check Prettier install and project config",
+      });
+    } else if (files.length > 0) {
       issues.push({
         autoFixable: true,
         type: "format",
@@ -290,23 +295,22 @@ if (testRun) {
   }
 }
 
-const autoFixableIssues = issues.filter((issue) => issue.autoFixable);
-const manualIssues = issues.filter((issue) => !issue.autoFixable);
-
 const dirtyTrackedResult = run("git", [
   ...GIT_PATH_ARGS,
   "diff",
   "--name-only",
 ]);
-const dirtyTrackedFiles =
-  !dirtyTrackedResult.error && dirtyTrackedResult.status === 0
-    ? dirtyTrackedResult.stdout
-        .split("\n")
-        .map((file) => file.trim())
-        .filter(Boolean)
-    : [];
-
-const hasTrackedWorktreeChanges = dirtyTrackedFiles.length > 0;
+// When the probe fails we cannot verify the worktree is clean. Tell the
+// message builder explicitly instead of letting an empty file list read as
+// "clean", which would recommend an unverified post-commit amend.
+const canInspectUnstagedFiles =
+  !dirtyTrackedResult.error && dirtyTrackedResult.status === 0;
+const dirtyTrackedFiles = canInspectUnstagedFiles
+  ? dirtyTrackedResult.stdout
+      .split("\n")
+      .map((file) => file.trim())
+      .filter(Boolean)
+  : [];
 
 if (issues.length === 0) {
   successBox([
@@ -324,9 +328,7 @@ warningBox(
     issues,
     tone: config.tone,
     commitCommand: runScript("commit:fix"),
-    autoFixableIssues,
-    manualIssues,
-    hasTrackedWorktreeChanges,
+    canInspectUnstagedFiles,
     dirtyTrackedFiles,
   }),
 );

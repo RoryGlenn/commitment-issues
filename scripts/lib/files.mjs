@@ -50,6 +50,14 @@ export function normalizeRepoPath(file) {
   return normalized;
 }
 
+/**
+ * @param {string} file - Repo-relative file path.
+ * @returns {boolean} True when the path is inside (or is) a node_modules dir.
+ */
+export function isThirdPartyPath(file) {
+  return /(^|\/)node_modules\//.test(`${normalizeRepoPath(file)}/`);
+}
+
 function repoBasename(file) {
   return path.posix.basename(normalizeRepoPath(file));
 }
@@ -204,7 +212,8 @@ export function findTestFile(file) {
 /**
  * Given a set of changed files, returns the test files worth running for them:
  * the changed test files themselves, plus any matching test discovered for a
- * changed source file. Shared by the commit hook and the pre-push gate.
+ * changed source file. Vendored node_modules paths are skipped — their tests
+ * are never ours to run. Shared by the commit hook and the pre-push gate.
  * @param {string[]} files - Changed/staged repo-relative paths.
  * @returns {string[]} De-duplicated list of test files to run.
  */
@@ -212,6 +221,9 @@ export function collectTestsForFiles(files) {
   const tests = new Set();
   for (const file of files) {
     const normalized = normalizeRepoPath(file);
+    if (isThirdPartyPath(normalized)) {
+      continue;
+    }
     if (isTestFile(normalized)) {
       tests.add(normalized);
     } else if (codeFilePattern.test(normalized)) {

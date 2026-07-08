@@ -28,18 +28,22 @@ export function summarizeEslintJson(stdout) {
 
 /**
  * @param {...string} outputs - Prettier `--list-different` output streams.
- * @returns {string[]} Trimmed, non-empty file paths or failure details.
+ * @returns {{failed: boolean, files: string[]}} Whether Prettier crashed before
+ * reporting, and the files needing formatting when it did not.
  */
 export function parsePrettierList(...outputs) {
   const combined = outputs.filter(Boolean).join("\n");
   if (/\[error\]|SyntaxError|ParserError/i.test(combined)) {
-    return ["Prettier failed to complete"];
+    return { failed: true, files: [] };
   }
 
-  return (outputs[0] || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return {
+    failed: false,
+    files: (outputs[0] || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  };
 }
 
 /**

@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// Lockfiles map a project to the package manager that produced them. Order does
-// not matter — each lockfile is unique to one manager. `npm` is the fallback.
+// Lockfiles map a project to the package manager that produced them. A repo
+// mid-migration can contain more than one, so insertion order is the tiebreak:
+// the first match below wins. `npm` is the fallback when none match.
 const LOCKFILES = {
   "pnpm-lock.yaml": "pnpm",
   "yarn.lock": "yarn",

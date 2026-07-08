@@ -103,6 +103,20 @@ test("refuses to amend a commit that has already been pushed", (t) => {
   assert.match(output, /already been pushed/);
 });
 
+test("refuses to amend when the pushed check cannot run", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Fail only `git branch -r --contains HEAD`; the command must fail closed
+  // rather than assume the commit is unpushed.
+  const env = fakeGitEnv(tempDir, "branch -r --contains");
+  const result = runCommitFix(tempDir, { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Unable to verify the latest commit is unpushed\./);
+});
+
 test("reports the latest commit is already clean when nothing changes", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

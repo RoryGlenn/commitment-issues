@@ -51,8 +51,18 @@ test("summarizeEslintJson defaults missing counts to zero", () => {
 });
 
 test("parsePrettierList returns trimmed, non-empty lines", () => {
-  assert.deepEqual(parsePrettierList("a.js\n  b.ts \n\n"), ["a.js", "b.ts"]);
-  assert.deepEqual(parsePrettierList(""), []);
+  assert.deepEqual(parsePrettierList("a.js\n  b.ts \n\n"), {
+    failed: false,
+    files: ["a.js", "b.ts"],
+  });
+  assert.deepEqual(parsePrettierList(""), { failed: false, files: [] });
+});
+
+test("parsePrettierList flags a Prettier crash instead of listing files", () => {
+  assert.deepEqual(parsePrettierList("", "[error] src/a.json: SyntaxError"), {
+    failed: true,
+    files: [],
+  });
 });
 
 test("eslintManualIssues returns only messages without an auto-fix", () => {

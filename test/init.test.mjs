@@ -326,9 +326,15 @@ test("init --dry-run previews changes without writing files", (t) => {
   fs.rmSync(path.join(tempDir, ".husky"), { recursive: true, force: true });
 
   const result = runInit(tempDir, ["--dry-run"]);
+  const output = `${result.stdout}${result.stderr}`;
   assert.equal(result.status, 0);
-  assert.match(`${result.stdout}${result.stderr}`, /dry run preview/i);
-  assert.match(`${result.stdout}${result.stderr}`, /Would add:/);
+  assert.match(output, /dry run preview/i);
+  assert.match(output, /Would add:/);
+  // The preview must cover everything a real run would add, including the
+  // hook files and .gitignore defaults that are only written outside dry-run.
+  assert.match(output, /\.husky\/pre-commit/);
+  assert.match(output, /\.husky\/pre-push/);
+  assert.match(output, /\.gitignore defaults/);
   assert.equal(fs.existsSync(path.join(tempDir, ".husky")), false);
   assert.equal(fs.existsSync(path.join(tempDir, ".gitignore")), false);
   assert.deepEqual(readPackage(tempDir), beforePackage);

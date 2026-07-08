@@ -26,10 +26,20 @@ if (headResult.error || headResult.status !== 0) {
 }
 
 const remoteContainsResult = run("git", ["branch", "-r", "--contains", "HEAD"]);
-const headIsPushed =
-  !remoteContainsResult.error &&
-  remoteContainsResult.status === 0 &&
-  remoteContainsResult.stdout.trim().length > 0;
+
+// Fail closed: if Git cannot answer, the commit cannot be proven unpushed, and
+// amending pushed history is the one thing this command must never do.
+if (remoteContainsResult.error || remoteContainsResult.status !== 0) {
+  errorBox([
+    pc.bold("Unable to verify the latest commit is unpushed."),
+    "",
+    pc.dim("Amending rewrites history, so nothing was changed. Check that"),
+    pc.dim("Git can list remote branches (git branch -r) and try again."),
+  ]);
+  process.exit(1);
+}
+
+const headIsPushed = remoteContainsResult.stdout.trim().length > 0;
 
 if (headIsPushed) {
   errorBox([

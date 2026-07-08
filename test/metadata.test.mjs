@@ -75,6 +75,14 @@ test("package-lock root metadata stays in sync with package.json", () => {
   assert.deepEqual(rootPackage.devDependencies, pkg.devDependencies);
 });
 
+test("lint-staged peer range supports the CLI flags fix-staged uses", () => {
+  const pkg = readJson("package.json");
+  // scripts/fix-staged.mjs passes --no-revert (added in lint-staged 16.1.0)
+  // and --continue-on-error (added in 16.2.0); older versions reject them as
+  // unknown options, so the peer floor must stay at or above 16.2.0.
+  assert.equal(pkg.peerDependencies["lint-staged"], ">=16.2.0");
+});
+
 test("README documents the package engine exactly", () => {
   const pkg = readJson("package.json");
   const readme = readText("README.md");
