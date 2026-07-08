@@ -11,10 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A Privacy section in the README documenting the no-telemetry, no-phone-home posture.
 - Maintainer adoption-metrics checklist in `docs/adoption-metrics.md`.
+- A CodeQL static-analysis (SAST) workflow that scans JavaScript/TypeScript on pushes, pull requests, and a weekly schedule.
 
 ### Changed
 
 - Expanded the FAQ removal guide with step-by-step manual removal steps, and added before/after examples (husky + lint-staged, lefthook, pre-commit) to the migration guide.
+
+### Security
+
+- Signed releases: publishing a `vX.Y.Z` tag now attaches the packed npm tarball and its SLSA build-provenance attestation to the matching GitHub release, so release artifacts can be verified with `slsa-verifier`.
+- Pinned every GitHub Actions dependency to a full commit SHA across the CI, publish, Scorecard, and CodeQL workflows (Dependabot keeps the pins current).
 
 ## [2.4.0] - 2026-07-07
 
