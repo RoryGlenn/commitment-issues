@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="737" height="394" viewBox="0 0 737 394" role="img" aria-labelledby="title desc">
+  <title id="title">Init already configured terminal output</title>
+  <desc id="desc">A green terminal-style box saying everything is already configured and nothing changed.</desc>
+  <rect width="737" height="394" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="697" height="350" rx="5" ry="5" fill="none" stroke="#2ee993" stroke-width="1.3"/>
+    <text x="34" y="44" fill="#ff8095" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" xml:space="preserve">  ▄██▄   ▄██▄</text>
+    <text x="34" y="74" fill="#ff5f7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" xml:space="preserve"> ██████ ██████</text>
+    <text x="34" y="104" fill="#ff5f7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" xml:space="preserve"> ▀█████ █████▀</text>
+    <text x="209" y="104" fill="#e8edf2" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">commitment-issues</text>
+    <text x="34" y="134" fill="#d16dff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" xml:space="preserve">   ▀███ ███▀</text>
+    <text x="209" y="134" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">For developers who overthink every commit.</text>
+    <text x="34" y="164" fill="#eb8cff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" xml:space="preserve">     ▀█ █▀</text>
+    <text x="34" y="208" fill="#e8edf2" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Commitment Issues is set up.</text>
+    <text x="34" y="252" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Already configured — nothing to change.</text>
+    <text x="34" y="296" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Your next commit runs advisory checks.</text>
+    <text x="34" y="326" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Your next push runs advisory tests when matching tests exist.</text>
+  </g>
+</svg>

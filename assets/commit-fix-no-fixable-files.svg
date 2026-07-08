@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="685" height="156" viewBox="0 0 685 156" role="img" aria-labelledby="title desc">
+  <title id="title">No fixable files in commit terminal output</title>
+  <desc id="desc">A terminal-style info box saying the latest commit has no staged-fixer targets.</desc>
+  <rect width="685" height="156" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="645" height="112" rx="5" ry="5" fill="none" stroke="#68d8ff" stroke-width="1.3"/>
+    <rect x="291" y="-10" width="63" height="20" fill="#181818"/>
+    <text x="322.5" y="5" fill="#68d8ff" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">info</text>
+    <text x="34" y="44" fill="#68d8ff" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">No fixable files in the latest commit.</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">The latest commit does not contain staged-fixer targets.</text>
+  </g>
+</svg>

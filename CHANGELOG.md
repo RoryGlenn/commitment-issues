@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `docs/external-interface.md`: a dedicated reference for the public interface (commands, scripts, hook entrypoints, configuration keys/defaults, and output/exit behavior).
 - `docs/openssf-best-practices.md`: an evidence map that links OpenSSF Best Practices criteria to concrete repository URLs for faster badge updates.
+- `docs/message-states.md` now catalogs every message state the commands can produce, each with a rendered SVG: the full `init` output set, the remaining pre-commit advisory variants (auto-fixable lint, failing staged tests, tool crash/unavailable, amend-withheld notes, fun tone, uninspectable staged files), every `commit:fix` outcome (partial amend, already clean, emptied commit, already-pushed and dirty-worktree refusals, and all failure boxes), the remaining `fix:staged` outcomes, the pre-push could-not-run-tests states and config-conflict warning, and the doctor missing-tools, not-a-repo, repair-failure, and quiet-mode states.
 
 ### Changed
 

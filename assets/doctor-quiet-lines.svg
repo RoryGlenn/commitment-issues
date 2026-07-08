@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="986" height="110" viewBox="0 0 986 110" role="img" aria-labelledby="title desc">
+  <title id="title">Doctor quiet mode one-line output</title>
+  <desc id="desc">Plain console lines from doctor --quiet: a yellow missing-tool warning and a dim repaired notice.</desc>
+  <rect width="986" height="110" rx="8" ry="8" fill="#181818"/>
+  <text x="24" y="40" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">commitment-issues: missing required tool(s): eslint — install with `npm install -D eslint`.</text>
+  <text x="24" y="70" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">commitment-issues: repaired git hooks (husky wiring (core.hooksPath + .husky/_)).</text>
+</svg>

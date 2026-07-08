@@ -2,6 +2,48 @@
 
 `commitment-issues` uses compact terminal boxes to keep Git hook output readable. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Every example is a rendered SVG of real box output.
 
+## Init
+
+### Setup complete
+
+<p>
+  <img src="../assets/init-success.svg" alt="Green output with the split-heart logo showing that Commitment Issues is set up" width="737">
+</p>
+
+Shown when `init` finishes wiring up hooks, scripts, lint-staged config, and gitignore defaults. Lists exactly what was added.
+
+### Dry-run preview
+
+<p>
+  <img src="../assets/init-dry-run.svg" alt="Info output previewing the changes init would make without writing files" width="716">
+</p>
+
+Shown for `init --dry-run`: the same change list, but nothing is written.
+
+### Already configured
+
+<p>
+  <img src="../assets/init-already-configured.svg" alt="Green output showing that everything is already configured and nothing changed" width="737">
+</p>
+
+Shown when `init` is re-run and finds nothing to change. Init is safe to re-run at any time.
+
+### No package.json
+
+<p>
+  <img src="../assets/no-package-json.svg" alt="Error output showing that no package.json was found" width="438">
+</p>
+
+Shown when `init` (or interactive `doctor`) runs outside a project root.
+
+### Invalid package.json
+
+<p>
+  <img src="../assets/init-invalid-package-json.svg" alt="Error output showing that package.json is not valid JSON" width="768">
+</p>
+
+Shown when package.json cannot be parsed; fix the JSON and run `init` again.
+
 ## Pre-commit
 
 ### All checks passed
@@ -36,6 +78,22 @@ Shown when a staged source file has no nearby matching test and is not exempt.
 
 Shown when ESLint reports issues that cannot be fixed automatically.
 
+### Auto-fixable lint issues
+
+<p>
+  <img src="../assets/precommit-autofixable-lint.svg" alt="Warning output showing auto-fixable ESLint issues and the commit fix command" width="479">
+</p>
+
+Shown when ESLint finds issues it can fix itself (such as `prefer-const`); `npm run commit:fix` applies them.
+
+### Failing staged tests
+
+<p>
+  <img src="../assets/precommit-staged-test-failure.svg" alt="Warning output showing that a staged test file is failing" width="561">
+</p>
+
+Shown when `runStagedTests` is enabled and a staged test file fails. The commit still continues.
+
 ### Tool timeout
 
 <p>
@@ -43,6 +101,54 @@ Shown when ESLint reports issues that cannot be fixed automatically.
 </p>
 
 Shown when a spawned tool exceeds the configured timeout.
+
+### Tool crash
+
+<p>
+  <img src="../assets/precommit-tool-crash.svg" alt="Warning output showing that ESLint failed to complete" width="561">
+</p>
+
+Shown when ESLint or Prettier exits with a crash (broken config, parse error) instead of reporting issues. A crash is never presented as auto-fixable.
+
+### Tool unavailable
+
+<p>
+  <img src="../assets/precommit-tool-unavailable.svg" alt="Warning output showing that ESLint could not be run" width="561">
+</p>
+
+Shown when a tool cannot be spawned at all (missing install). The commit still continues.
+
+### Amend blocked by other tracked changes
+
+<p>
+  <img src="../assets/precommit-amend-blocked.svg" alt="Warning output explaining that other tracked changes suppress the automatic amend command" width="786">
+</p>
+
+Shown when fixable issues exist but other tracked files have unstaged changes, so `npm run commit:fix` is withheld: an amend would not leave a clean worktree.
+
+### Amend withheld: worktree not inspectable
+
+<p>
+  <img src="../assets/precommit-amend-uninspectable.svg" alt="Warning output explaining that the working tree could not be inspected for a safe post-commit amend" width="786">
+</p>
+
+Shown when Git cannot report whether the worktree is clean; the amend recommendation is withheld rather than offered unverified.
+
+### Fun tone
+
+<p>
+  <img src="../assets/precommit-fun-tone.svg" alt="Warning output showing the fun tone wording for pre-commit suggestions" width="582">
+</p>
+
+Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps its structure but swaps in relationship-themed wording.
+
+### Unable to inspect staged files
+
+<p>
+  <img src="../assets/precommit-cannot-inspect-staged.svg" alt="Error output showing that staged files could not be inspected and the commit continues" width="665">
+</p>
+
+Shown when Git cannot list the staged files at all. True to the advisory philosophy, the commit still continues.
 
 ### No staged files
 
@@ -86,6 +192,106 @@ Shown when accidentally staged dependency files are ignored and no project files
 
 Shown after `npm run commit:fix` safely applies automatic fixes and amends the latest clean, unpushed commit.
 
+### Latest commit amended with available fixes
+
+<p>
+  <img src="../assets/commit-fix-partial.svg" alt="Warning output showing the commit was amended but manual issues remain" width="581">
+</p>
+
+Shown when `commit:fix` amends what it can but some issues still need manual attention; it exits non-zero so the remaining work is not missed.
+
+### Latest commit already clean
+
+<p>
+  <img src="../assets/commit-fix-already-clean.svg" alt="Success output showing the latest commit needed no automatic fixes" width="510">
+</p>
+
+Shown when `commit:fix` checks the latest commit's files and finds nothing to change.
+
+### No automatic fixes landed
+
+<p>
+  <img src="../assets/commit-fix-manual-only.svg" alt="Warning output showing that no automatic changes were added to the latest commit" width="786">
+</p>
+
+Shown when the fixers ran but produced no changes while issues remain (for example, a file Prettier cannot parse); fix manually, then amend.
+
+### Fixes emptied the commit
+
+<p>
+  <img src="../assets/commit-fix-emptied-commit.svg" alt="Warning output explaining that the fixes reverted the commit's only changes" width="716">
+</p>
+
+Shown when the automatic fixes reverted the only changes in the latest commit, so amending would create an empty commit; drop it with `git reset --soft HEAD^`.
+
+### Already-pushed refusal
+
+<p>
+  <img src="../assets/commit-fix-already-pushed.svg" alt="Error output refusing to amend a commit that has already been pushed" width="786">
+</p>
+
+Shown when the latest commit exists on a remote branch. `commit:fix` never rewrites published history.
+
+### Dirty worktree refusal
+
+<p>
+  <img src="../assets/commit-fix-dirty-worktree.svg" alt="Error output refusing to amend while tracked changes exist in the worktree" width="603">
+</p>
+
+Shown when tracked files have uncommitted changes; commit, stash, or discard them before amending.
+
+### Unpushed status unverifiable
+
+<p>
+  <img src="../assets/commit-fix-unverified.svg" alt="Error output refusing to amend because Git could not confirm the commit is unpushed" width="737">
+</p>
+
+Shown when Git cannot list remote branches. The command fails closed rather than assume the commit is safe to rewrite.
+
+### No commit to inspect
+
+<p>
+  <img src="../assets/commit-fix-no-commit.svg" alt="Error output showing that the latest commit could not be inspected" width="786">
+</p>
+
+Shown when the repository has no commit yet (or HEAD cannot be resolved).
+
+### No fixable files in the latest commit
+
+<p>
+  <img src="../assets/commit-fix-no-fixable-files.svg" alt="Info output showing that the latest commit has no staged-fixer targets" width="685">
+</p>
+
+Shown when the latest commit contains no files the staged fixers handle.
+
+### Fixes could not be staged or amended
+
+<p>
+  <img src="../assets/commit-fix-stage-failed.svg" alt="Error output showing fixes ran but the files could not be staged" width="675">
+</p>
+
+<p>
+  <img src="../assets/commit-fix-amend-failed.svg" alt="Error output showing the staged fixes could not be amended into the commit" width="786">
+</p>
+
+Shown when the fixes were produced but `git add` or `git commit --amend` failed; both boxes explain the manual recovery step.
+
+### Git state could not be inspected
+
+<p>
+  <img src="../assets/commit-fix-cannot-inspect.svg" alt="Error output showing the current working tree could not be inspected" width="786">
+</p>
+
+<p>
+  <img src="../assets/commit-fix-cannot-list-files.svg" alt="Error output showing the files from the latest commit could not be listed" width="706">
+</p>
+
+<p>
+  <img src="../assets/commit-fix-cannot-inspect-fixes.svg" alt="Error output showing the staged fixes could not be inspected" width="691">
+</p>
+
+Shown when a Git probe fails partway through `commit:fix` (worktree, commit file list, or staged-fix inspection); the command stops instead of guessing.
+
 ### Staged fixes applied
 
 <p>
@@ -94,6 +300,30 @@ Shown after `npm run commit:fix` safely applies automatic fixes and amends the l
 
 Shown when `npm run fix:staged` applies automatic fixes and refreshes the staged index.
 
+### Staged files already clean
+
+<p>
+  <img src="../assets/fix-staged-already-clean.svg" alt="Success output showing the staged files needed no automatic changes" width="696">
+</p>
+
+Shown when `fix:staged` runs but the staged files needed no automatic changes.
+
+### Staged fixes need manual attention
+
+<p>
+  <img src="../assets/fix-staged-manual.svg" alt="Warning output showing fixes were applied but lint issues remain" width="786">
+</p>
+
+Shown when the available fixes were applied but non-fixable lint issues remain; it exits non-zero.
+
+### No staged files to fix
+
+<p>
+  <img src="../assets/fix-staged-none.svg" alt="Info output showing there are no staged fixable files" width="786">
+</p>
+
+Shown when nothing fixable is staged.
+
 ### Partially staged safety refusal
 
 <p>
@@ -101,6 +331,26 @@ Shown when `npm run fix:staged` applies automatic fixes and refreshes the staged
 </p>
 
 Shown when `npm run fix:staged` finds a file that has both staged and unstaged changes; resolve them before retrying.
+
+### Staged file missing from the working tree
+
+<p>
+  <img src="../assets/fix-staged-missing-file.svg" alt="Error output refusing to fix staged files that are missing from the working tree" width="779">
+</p>
+
+Shown when a staged file no longer exists on disk (for example, a broken symlink); restore or unstage it first.
+
+### Staged or unstaged files could not be inspected
+
+<p>
+  <img src="../assets/fix-staged-cannot-inspect.svg" alt="Error output showing staged files could not be inspected" width="786">
+</p>
+
+<p>
+  <img src="../assets/fix-staged-cannot-inspect-unstaged.svg" alt="Error output showing unstaged files could not be inspected" width="786">
+</p>
+
+Shown when a Git probe fails before fixing starts; `fix:staged` stops rather than risk an unsafe index refresh.
 
 ## Pre-push
 
@@ -144,6 +394,30 @@ Shown when `advisePushTests` is enabled and pushed-file tests fail; the push is 
 
 Shown when `blockPushOnTestFailure` is enabled and pushed-file tests fail; the push is blocked.
 
+### Could not run tests (advisory)
+
+<p>
+  <img src="../assets/prepush-advisory-could-not-run.svg" alt="Warning output showing the test command could not run and the push was allowed" width="623">
+</p>
+
+Shown when `advisePushTests` is enabled but the test command itself fails to run (or times out); the push is allowed.
+
+### Push blocked: could not run tests
+
+<p>
+  <img src="../assets/prepush-blocked-could-not-run.svg" alt="Error output showing the push was blocked because the test command could not run" width="623">
+</p>
+
+Shown when `blockPushOnTestFailure` is enabled and the test command itself fails to run; the gate fails closed.
+
+### Config conflict warning
+
+<p>
+  <img src="../assets/prepush-config-conflict.svg" alt="A single yellow console warning saying both push-test modes are set and blocking wins" width="718">
+</p>
+
+Shown (as a one-line stderr warning, not a box) when both `blockPushOnTestFailure` and `advisePushTests` are set; blocking wins.
+
 ### Could not inspect pushed files (advisory)
 
 <p>
@@ -159,6 +433,10 @@ Shown when Git cannot list the pushed files in advisory mode; a warning prints a
 </p>
 
 Shown when Git cannot list the pushed files in blocking mode; the gate fails closed rather than skipping the check.
+
+### Silent by design
+
+A real `git push` with no push-test mode configured prints nothing at all — the hook stays out of the way. The [Checks disabled](#checks-disabled) box only appears when the hook is run by hand in a terminal.
 
 ## Doctor
 
@@ -185,6 +463,42 @@ Shown when `doctor` repairs missing or broken Husky wiring.
 </p>
 
 Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` reports it and leaves the hook untouched.
+
+### Missing peer tools
+
+<p>
+  <img src="../assets/doctor-missing-tools.svg" alt="Warning output listing required tools that are not installed" width="747">
+</p>
+
+Shown when husky, lint-staged, eslint, or prettier cannot be resolved. Advisory only: missing tools never fail an otherwise-healthy repo.
+
+### Not a git repository
+
+<p>
+  <img src="../assets/doctor-not-git-repo.svg" alt="Error output showing the current directory is not a git repository" width="500">
+</p>
+
+Shown when interactive `doctor` runs outside a Git worktree. (`doctor --quiet` exits silently instead, so installs never break.) Running without a package.json shows the same [No package.json](#no-packagejson) box as `init`.
+
+### Repair failed
+
+<p>
+  <img src="../assets/doctor-repair-failed.svg" alt="Error output showing the Husky wiring could not be repaired" width="685">
+</p>
+
+<p>
+  <img src="../assets/doctor-still-broken.svg" alt="Error output showing the hook wiring still looks broken after repair" width="685">
+</p>
+
+Shown when `npx husky` fails or the wiring still looks broken after a repair attempt; interactive mode exits non-zero, `--quiet` warns in one line and still exits 0.
+
+### Quiet mode one-liners
+
+<p>
+  <img src="../assets/doctor-quiet-lines.svg" alt="Plain console lines from doctor --quiet: a missing-tool warning and a repaired notice" width="786">
+</p>
+
+`doctor --quiet` (the `prepare` script) never prints boxes: it stays silent when healthy and prints a single line when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
 
 ## Adding more examples
 
