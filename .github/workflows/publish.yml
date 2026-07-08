@@ -6,17 +6,24 @@ on:
       - "v*"
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) + registry provenance
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+      tarball: ${{ steps.pack.outputs.tarball }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -36,4 +43,58 @@ jobs:
       - run: npm ci
       - run: npm run build --if-present
       - run: npm test
-      - run: npm publish --access public
+
+      - name: Pack tarball
+        id: pack
+        run: |
+          tarball="$(npm pack --silent | tail -n1)"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      - name: Generate provenance subject
+        id: hash
+        run: |
+          hashes="$(sha256sum "${{ steps.pack.outputs.tarball }}" | base64 -w0)"
+          echo "hashes=$hashes" >> "$GITHUB_OUTPUT"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+          retention-days: 5
+
+      - name: Publish to npm
+        run: npm publish --access public
+
+  # SLSA3 provenance for the packed tarball. The reusable workflow MUST be
+  # referenced by a semantic version tag (never a SHA) per SLSA's design so it
+  # can verify its own release; Dependabot keeps the tag current.
+  provenance:
+    needs: [publish]
+    permissions:
+      actions: read # detect the workflow path for provenance
+      id-token: write # sign the provenance
+      contents: write # upload provenance to the tagged release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.publish.outputs.hashes }}
+      upload-assets: true
+
+  attach-tarball:
+    needs: [publish, provenance]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # attach the tarball to the release the generator created
+    steps:
+      - name: Download tarball artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-tarball
+
+      - name: Attach tarball to release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: "*.tgz"
+          fail_on_unmatched_files: true
