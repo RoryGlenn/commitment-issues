@@ -25,7 +25,7 @@ export function updateReadmeCoverageBadge(readmeContent, branchCoverage) {
     throw new Error("Could not find README coverage badge line.");
   }
 
-  const color = existing[1] || "brightgreen";
+  const color = existing[1];
   const rounded = branchCoverage.toFixed(2);
   const replacement = `[![Coverage: ${rounded}%](https://img.shields.io/badge/coverage-${rounded}%25-${color}.svg)](docs/scenario-coverage.md)`;
   return readmeContent.replace(README_COVERAGE_BADGE_RE, replacement);

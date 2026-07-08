@@ -101,3 +101,78 @@ test("exits non-zero when test:coverage fails", (t) => {
   assert.match(`${result.stdout}${result.stderr}`, /coverage failed/);
   assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
 });
+
+test("reports when the badge is already up to date", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const readmePath = path.join(tempDir, "README.md");
+  const initialReadme =
+    "[![Coverage: 88.88%](https://img.shields.io/badge/coverage-88.88%25-brightgreen.svg)](docs/scenario-coverage.md)\n";
+  writeFile(readmePath, initialReadme);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "update-readme-coverage-badge.mjs")],
+    tempDir,
+    {
+      env: fakeNpmEnv(tempDir, {
+        output: "all files | 99.99 | 88.88 | 100.00 |\n",
+        status: 0,
+      }),
+    },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /README coverage badge already up to date \(88\.88%\)/,
+  );
+  assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
+});
+
+test("errors when coverage output cannot be parsed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const readmePath = path.join(tempDir, "README.md");
+  const initialReadme = fs.readFileSync(readmePath, "utf8");
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "update-readme-coverage-badge.mjs")],
+    tempDir,
+    {
+      env: fakeNpmEnv(tempDir, {
+        output: "tests passed but no coverage table\n",
+        status: 0,
+      }),
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Could not parse branch coverage from test output/,
+  );
+  assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
+});
+
+test("errors when npm cannot be spawned", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A PATH with no npm on it makes the spawn itself fail (ENOENT).
+  const emptyBinDir = path.join(tempDir, ".emptybin");
+  fs.mkdirSync(emptyBinDir, { recursive: true });
+
+  const result = run(
+    process.execPath,
+    [path.join(tempDir, "scripts", "update-readme-coverage-badge.mjs")],
+    tempDir,
+    { env: { ...process.env, PATH: emptyBinDir } },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /ENOENT/);
+});

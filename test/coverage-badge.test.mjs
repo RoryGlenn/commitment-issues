@@ -17,6 +17,22 @@ test("parseBranchCoverageFromNodeTestOutput reads all files branch coverage", ()
   assert.equal(parseBranchCoverageFromNodeTestOutput(output), 92.55);
 });
 
+test("parseBranchCoverageFromNodeTestOutput returns null for unrecognized output", () => {
+  assert.equal(
+    parseBranchCoverageFromNodeTestOutput("no coverage table"),
+    null,
+  );
+  assert.equal(parseBranchCoverageFromNodeTestOutput(""), null);
+  assert.equal(parseBranchCoverageFromNodeTestOutput(undefined), null);
+});
+
+test("parseBranchCoverageFromNodeTestOutput returns null for a malformed percentage", () => {
+  assert.equal(
+    parseBranchCoverageFromNodeTestOutput("all files | 1.00 | .... | 1.00 |"),
+    null,
+  );
+});
+
 test("updateReadmeCoverageBadge replaces alt text and badge URL percentage", () => {
   const readme =
     "[![Coverage: 93.13%](https://img.shields.io/badge/coverage-93.13%25-brightgreen.svg)](docs/scenario-coverage.md)\n";
