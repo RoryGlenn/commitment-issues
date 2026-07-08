@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-07-08
+
 ### Added
 
 - A Privacy section in the README documenting the no-telemetry, no-phone-home posture.
