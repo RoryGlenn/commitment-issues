@@ -1,15 +1,28 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import pc from "picocolors";
-import { errorBox, infoBox, printBox } from "./lib/ui.mjs";
+import { errorBox, infoBox, printBox, warningBox } from "./lib/ui.mjs";
+import {
+  BIN,
+  HOOK_NAMES,
+  classifyHook,
+  gitHooksDir,
+  hookCommand,
+  hooksPathConfig,
+  isHuskyHooksPath,
+  leftoverHuskyHooks,
+  legacyHuskyWiringPaths,
+  removeLegacyHuskyWiring,
+  writeHook,
+} from "./lib/hooks.mjs";
 import { run } from "./lib/process.mjs";
-import { BIN, HOOK_BODIES } from "./lib/hooks.mjs";
 import { logoLines } from "./lib/logo.mjs";
 
-// One-command setup for a consuming repo: wires up the Husky hooks, npm scripts,
-// lint-staged config, and gitignored caches without clobbering existing values.
-// Everything runs through the installed `commitment-issues` bin, so nothing is
-// vendored. Safe to re-run.
+// One-command setup for a consuming repo: wires up the git hooks, npm scripts,
+// and gitignored caches without clobbering existing values. Hooks are plain
+// `.git/hooks` files running the installed `commitment-issues` bin — no hook
+// manager, nothing vendored. Also migrates husky-era wiring from pre-3.0
+// setups. Safe to re-run.
 
 if (!fs.existsSync("package.json")) {
   errorBox([
@@ -40,12 +53,14 @@ const created = [];
 pkg.scripts = pkg.scripts || {};
 
 // `prepare` runs on every install and is our automatic self-heal entry point:
-// `doctor --quiet` re-establishes the hook wiring (and sets up husky the first
-// time). Upgrade older values from previous setups to it.
+// `doctor --quiet` re-establishes the hook wiring after every fresh clone or
+// reinstall. Upgrade older values from previous setups (including husky's own
+// prepare forms) to it.
 const desiredPrepare = `${BIN} doctor --quiet`;
 const legacyPrepare = [
   "husky",
   "husky || true",
+  "husky install",
   "node scripts/doctor.mjs --quiet",
 ];
 if (
@@ -77,43 +92,6 @@ for (const [name, value] of Object.entries(scripts)) {
   }
 }
 
-const jsGlob = "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}";
-const jsTask = [`${BIN} fix-staged-js`];
-const lintStaged = pkg["lint-staged"];
-// Only object-style lint-staged configs (glob → command map) are merged into.
-// Array and function configs (the latter only exist in JS config files, not
-// package.json) express custom behavior we must not second-guess, so preserve
-// them untouched.
-const isObjectConfig =
-  lintStaged !== null &&
-  typeof lintStaged === "object" &&
-  !Array.isArray(lintStaged);
-if (!lintStaged) {
-  pkg["lint-staged"] = {
-    [jsGlob]: jsTask,
-    "*.{json,css,scss,md,html,yml,yaml}": ["prettier --write --ignore-unknown"],
-  };
-  created.push("lint-staged config");
-} else if (isObjectConfig) {
-  const currentJsTask = lintStaged[jsGlob];
-  if (
-    Array.isArray(currentJsTask) &&
-    currentJsTask.length === 1 &&
-    currentJsTask[0] === "node scripts/fix-staged-js.mjs"
-  ) {
-    // Upgrade the legacy vendored task to the bin.
-    lintStaged[jsGlob] = jsTask;
-    created.push("lint-staged task");
-  } else if (currentJsTask === undefined) {
-    // The user has an object config but no JS task, so `npm run fix:staged`
-    // would never run our JS fixer. Add it alongside their existing globs
-    // without touching anything else.
-    lintStaged[jsGlob] = jsTask;
-    created.push("lint-staged JS task");
-  }
-  // A custom JS task is left exactly as the user wrote it.
-}
-
 if (!pkg.precommitChecks) {
   pkg.precommitChecks = {};
   created.push("precommitChecks config");
@@ -131,32 +109,92 @@ if (!dryRun) {
   fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
-// Activate Husky (sets git hooksPath) — ignore failure so init still finishes.
-if (!dryRun) {
-  run("npx", ["husky"]);
+// --- Hook wiring (native .git/hooks) ---
+
+const insideRepo = run("git", ["rev-parse", "--is-inside-work-tree"]);
+const isGitRepo = !insideRepo.error && insideRepo.status === 0;
+
+const configuredHooksPath = isGitRepo ? hooksPathConfig() : "";
+const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
+const foreignHooksPath = configuredHooksPath && !huskyEraHooksPath;
+const warnings = [];
+
+// Pre-3.0 setups pointed core.hooksPath at husky's shim dir; while that is
+// set, git ignores `.git/hooks` entirely. Unset it (it is our own wiring, not
+// the user's) so the native hooks below actually run.
+let hooksPathRetired = !huskyEraHooksPath;
+if (huskyEraHooksPath) {
+  if (!dryRun) {
+    const unset = run("git", ["config", "--unset", "core.hooksPath"]);
+    if (!unset.error && (unset.status || 0) === 0) {
+      hooksPathRetired = true;
+      created.push("retired husky-era core.hooksPath");
+    } else {
+      // Without the unset, git keeps ignoring .git/hooks — say so instead of
+      // printing a success box over dead hooks.
+      warnings.push(
+        `core.hooksPath is still set to ${configuredHooksPath}, so the hooks`,
+        "written to .git/hooks will not run. Unset it manually:",
+        "  git config --unset core.hooksPath",
+      );
+    }
+  } else {
+    hooksPathRetired = true;
+    created.push("retired husky-era core.hooksPath");
+  }
 }
 
-// Legacy 1.x hook bodies that ran vendored scripts; upgrade them to the bin.
-const legacyHookBodies = {
-  ".husky/pre-commit": "node scripts/precommit-unified.mjs\n",
-  ".husky/pre-push": "node scripts/prepush.mjs\n",
-};
-if (!dryRun) {
-  fs.mkdirSync(".husky", { recursive: true });
+// A foreign core.hooksPath belongs to another hook manager or the user's own
+// setup — never unset it or write hooks it would shadow. Explain instead.
+if (foreignHooksPath) {
+  warnings.push(
+    `core.hooksPath is set to ${configuredHooksPath}, so git ignores .git/hooks.`,
+    `Add \`${hookCommand("pre-commit")}\` and \`${hookCommand("pre-push")}\` to the`,
+    "hooks in that directory, or unset it: git config --unset core.hooksPath",
+  );
 }
-for (const [hookPath, body] of Object.entries(HOOK_BODIES)) {
-  const current = fs.existsSync(hookPath)
-    ? fs.readFileSync(hookPath, "utf8")
-    : null;
-  if (
-    (current === null || current === legacyHookBodies[hookPath]) &&
-    current !== body
-  ) {
-    if (!dryRun) {
-      fs.writeFileSync(hookPath, body);
-      fs.chmodSync(hookPath, 0o755);
+
+if (!isGitRepo) {
+  warnings.push(
+    "This directory is not a git repository, so no hooks were installed.",
+    `Run \`git init\`, then \`${BIN} doctor\` to wire up the hooks.`,
+  );
+}
+
+if (isGitRepo && !foreignHooksPath) {
+  const hooksDir = gitHooksDir();
+  for (const name of HOOK_NAMES) {
+    const status = classifyHook(hooksDir, name);
+    // Only ever create; a hook the user wrote (wired or not) is left exactly
+    // as-is — doctor reports unwired ones without overwriting them.
+    if (status === "missing") {
+      if (!dryRun) {
+        writeHook(hooksDir, name);
+      }
+      created.push(`.git/hooks/${name}`);
     }
-    created.push(hookPath);
+  }
+
+  // Clean up the husky-era artifacts this tool generated (exact-match hook
+  // files and husky's runtime dir). User-authored `.husky` hooks are never
+  // deleted — they are reported below so the logic can be moved. Skipped
+  // while core.hooksPath still points into `.husky` (failed unset above):
+  // deleting the files git currently runs would kill working hooks.
+  if (hooksPathRetired) {
+    const legacyWiring = dryRun
+      ? legacyHuskyWiringPaths()
+      : removeLegacyHuskyWiring();
+    if (legacyWiring.length > 0) {
+      created.push("removed legacy .husky wiring");
+    }
+
+    const stranded = leftoverHuskyHooks();
+    if (stranded.length > 0) {
+      warnings.push(
+        `Leftover .husky hooks no longer run: ${stranded.join(", ")}.`,
+        "Move the logic into .git/hooks, or delete the files.",
+      );
+    }
   }
 }
 
@@ -215,4 +253,12 @@ if (dryRun) {
   infoBox(body.split("\n"));
 } else {
   printBox(body, (value) => value, { borderColor: "green" });
+}
+
+if (warnings.length > 0) {
+  warningBox([
+    pc.bold("Hook wiring needs your attention."),
+    "",
+    ...warnings.map((line) => pc.dim(line)),
+  ]);
 }

@@ -75,12 +75,16 @@ test("package-lock root metadata stays in sync with package.json", () => {
   assert.deepEqual(rootPackage.devDependencies, pkg.devDependencies);
 });
 
-test("lint-staged peer range supports the CLI flags fix-staged uses", () => {
+test("husky and lint-staged stay out of the dependency tree", () => {
   const pkg = readJson("package.json");
-  // scripts/fix-staged.mjs passes --no-revert (added in lint-staged 16.1.0)
-  // and --continue-on-error (added in 16.2.0); older versions reject them as
-  // unknown options, so the peer floor must stay at or above 16.2.0.
-  assert.equal(pkg.peerDependencies["lint-staged"], ">=16.2.0");
+  // v3 owns the hook wiring (.git/hooks) and the staged-fix pipeline
+  // directly; reintroducing either package would be an architectural
+  // regression, not a routine dependency add.
+  for (const banned of ["husky", "lint-staged"]) {
+    assert.equal(banned in (pkg.dependencies ?? {}), false);
+    assert.equal(banned in (pkg.devDependencies ?? {}), false);
+    assert.equal(banned in (pkg.peerDependencies ?? {}), false);
+  }
 });
 
 test("README documents the package engine exactly", () => {
@@ -251,7 +255,7 @@ test("every terminal box title appears in the message-states gallery", () => {
 
   // Defensive boxes marked unreachable in practice (node:coverage-disabled)
   // stay undocumented on purpose.
-  const exemptTitles = new Set(["Unable to run staged fixes."]);
+  const exemptTitles = new Set(["Could not locate the git hooks directory."]);
 
   // Box titles are double-quoted pc.bold literals; inline emphasis uses
   // single quotes or dynamic values, so it is not captured here.

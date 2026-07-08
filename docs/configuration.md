@@ -11,12 +11,11 @@ For the short install path, start with the [README](../README.md). For terminal 
 - wires the pre-commit hook to `commitment-issues precommit`
 - wires the pre-push hook to `commitment-issues prepush`
 - adds npm scripts for `doctor`, `fix:staged`, `commit:fix`, and direct pre-commit checks
-- adds a `lint-staged` config for JavaScript, TypeScript, and common formatted files
 - enables advisory push tests through `precommitChecks.advisePushTests`
-- activates Husky
+- migrates pre-3.0 husky-era wiring (retires the old `core.hooksPath`, removes the generated `.husky` files)
 - gitignores `.eslintcache`, `.prettiercache`, and `node_modules/`
 
-Nothing is copied into your repo from the package source. The hooks call the installed `commitment-issues` bin.
+Nothing is copied into your repo from the package source. The hooks are plain `.git/hooks` files that call the installed `commitment-issues` bin — no hook manager is involved.
 
 ## What happens on commit and push?
 
@@ -33,7 +32,7 @@ Nothing is copied into your repo from the package source. The hooks call the ins
 - `scripts/prepush.mjs` runs tests associated with pushed files in advisory mode by default.
 - `blockPushOnTestFailure` turns pushed-file test failures into a hard gate.
 - When automatic fixes can still be applied safely after a commit, the hook suggests `npm run commit:fix`.
-- `npm run fix:staged` delegates staged-file fixing to `lint-staged`.
+- `npm run fix:staged` applies staged-only ESLint and Prettier fixes directly and restages the result.
 - `npm run commit:fix` applies automatic fixes to the latest clean commit and amends it in place.
 
 ## TypeScript and mixed projects
@@ -177,15 +176,15 @@ Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push
 - `scripts/init.mjs` — one-command setup for a consuming repo.
 - `scripts/prepush.mjs` — the advisory-by-default pre-push test runner; can become a blocking gate through configuration.
 - `scripts/doctor.mjs` — verifies and repairs the hook wiring.
-- `scripts/fix-staged.mjs` — runs lint-staged on staged files.
-- `scripts/fix-staged-js.mjs` — lint-staged task: ESLint fix followed by Prettier write.
+- `scripts/fix-staged.mjs` — applies staged-only ESLint/Prettier fixes and restages the result.
+- `scripts/fix-staged-js.mjs` — file-list fixer task: ESLint fix followed by Prettier write.
 - `scripts/commit-fix.mjs` — applies automatic fixes to the latest clean commit and amends it in place.
 - `scripts/lib/` — shared helpers for UI, spawning, file heuristics, output parsing, advisory messages, and config loading.
 
 ## Continuous integration
 
-These scripts are Git-hook tooling, so disable Husky in CI to avoid installing hooks during `npm ci`.
+These scripts are Git-hook tooling, so set `COMMITMENT_ISSUES=0` in CI to skip hook runs.
 
 This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
 
-For ready-to-use pipelines that disable Husky, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.
+For ready-to-use pipelines, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.

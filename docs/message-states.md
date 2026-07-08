@@ -10,7 +10,7 @@
   <img src="../assets/init-success.svg" alt="Green output with the split-heart logo showing that Commitment Issues is set up" width="737">
 </p>
 
-Shown when `init` finishes wiring up hooks, scripts, lint-staged config, and gitignore defaults. Lists exactly what was added.
+Shown when `init` finishes wiring up hooks, scripts, and gitignore defaults. Lists exactly what was added.
 
 ### Dry-run preview
 
@@ -43,6 +43,14 @@ Shown when `init` (or interactive `doctor`) runs outside a project root.
 </p>
 
 Shown when package.json cannot be parsed; fix the JSON and run `init` again.
+
+### Hook wiring needs attention
+
+<p>
+  <img src="../assets/init-hook-wiring-warning.svg" alt="Warning output printed after the init summary when hook wiring needs manual attention" width="675">
+</p>
+
+Shown after the summary when `init` cannot fully wire the hooks by itself: a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Each case lists the exact follow-up.
 
 ## Pre-commit
 
@@ -360,6 +368,14 @@ Shown when a staged file no longer exists on disk (for example, a broken symlink
 
 Shown when a Git probe fails before fixing starts; `fix:staged` stops rather than risk an unsafe index refresh.
 
+### Fixed files could not be restaged
+
+<p>
+  <img src="../assets/fix-staged-restage-failed.svg" alt="Error output showing fixes were applied to the working tree but git add failed" width="696">
+</p>
+
+Shown when the fixers ran but the final `git add` failed: the fixes are safe in the working tree, and the command explains how to stage them manually.
+
 ## Pre-push
 
 ### Tests passed
@@ -451,7 +467,7 @@ A real `git push` with no push-test mode configured prints nothing at all — th
 ### Already healthy
 
 <p>
-  <img src="../assets/doctor-healthy.svg" alt="Success output showing that doctor found Git hook wiring already healthy" width="617">
+  <img src="../assets/doctor-healthy.svg" alt="Success output showing that doctor found Git hook wiring already healthy" width="603">
 </p>
 
 Shown when `doctor` finds the hook wiring already correct.
@@ -459,15 +475,15 @@ Shown when `doctor` finds the hook wiring already correct.
 ### Repaired hooks
 
 <p>
-  <img src="../assets/doctor-repaired-hooks.svg" alt="Warning output showing that doctor repaired Git hook wiring" width="617">
+  <img src="../assets/doctor-repaired-hooks.svg" alt="Warning output showing that doctor repaired Git hook wiring" width="675">
 </p>
 
-Shown when `doctor` repairs missing or broken Husky wiring.
+Shown when `doctor` recreates missing `.git/hooks` files or retires dead husky-era wiring (a pre-3.0 `core.hooksPath` left behind after the husky package was removed).
 
 ### Hook not wired
 
 <p>
-  <img src="../assets/doctor-hook-not-wired.svg" alt="Warning output showing that a custom Git hook does not invoke commitment-issues" width="766">
+  <img src="../assets/doctor-hook-not-wired.svg" alt="Warning output showing that a custom Git hook does not invoke commitment-issues" width="757">
 </p>
 
 Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` reports it and leaves the hook untouched.
@@ -475,10 +491,26 @@ Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` 
 ### Missing peer tools
 
 <p>
-  <img src="../assets/doctor-missing-tools.svg" alt="Warning output listing required tools that are not installed" width="747">
+  <img src="../assets/doctor-missing-tools.svg" alt="Warning output listing required tools that are not installed" width="726">
 </p>
 
-Shown when husky, lint-staged, eslint, or prettier cannot be resolved. Advisory only: missing tools never fail an otherwise-healthy repo.
+Shown when eslint or prettier cannot be resolved. Advisory only: missing tools never fail an otherwise-healthy repo.
+
+### Foreign core.hooksPath
+
+<p>
+  <img src="../assets/doctor-hookspath-foreign.svg" alt="Warning output showing core.hooksPath points at a directory the tool does not manage" width="696">
+</p>
+
+Shown when `core.hooksPath` points at a directory this tool does not manage (another hook manager or a custom hooks dir) whose hooks never invoke `commitment-issues`. The configuration is never changed; the box lists the commands to add there (or how to unset it). When those hooks already invoke the tool, doctor reports healthy instead. Husky-era wiring gets the same respect while the husky package is still installed — doctor nudges toward `init` for the migration instead of rewiring automatically.
+
+### Leftover .husky hooks
+
+<p>
+  <img src="../assets/doctor-leftover-husky-hooks.svg" alt="Warning output listing user-authored .husky hooks that no longer run" width="716">
+</p>
+
+Shown when user-authored hooks are stranded in `.husky/` after the husky-era wiring is retired. Advisory only — the files are never deleted.
 
 ### Not a git repository
 
@@ -491,14 +523,14 @@ Shown when interactive `doctor` runs outside a Git worktree. (`doctor --quiet` e
 ### Repair failed
 
 <p>
-  <img src="../assets/doctor-repair-failed.svg" alt="Error output showing the Husky wiring could not be repaired" width="685">
+  <img src="../assets/doctor-repair-failed.svg" alt="Error output showing the git hook wiring could not be repaired" width="634">
 </p>
 
 <p>
-  <img src="../assets/doctor-still-broken.svg" alt="Error output showing the hook wiring still looks broken after repair" width="685">
+  <img src="../assets/doctor-still-broken.svg" alt="Error output showing the hook wiring still looks broken after repair" width="768">
 </p>
 
-Shown when `npx husky` fails or the wiring still looks broken after a repair attempt; interactive mode exits non-zero, `--quiet` warns in one line and still exits 0.
+Shown when a repair step fails (for example, the husky-era `core.hooksPath` cannot be unset or a hook file cannot be written) or the wiring still looks broken afterward; interactive mode exits non-zero, `--quiet` warns in one line and still exits 0.
 
 ### Quiet mode one-liners
 

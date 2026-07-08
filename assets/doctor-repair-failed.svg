@@ -1,12 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="685" height="156" viewBox="0 0 685 156" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="634" height="216" viewBox="0 0 634 216" role="img" aria-labelledby="title desc">
   <title id="title">Doctor repair failed terminal output</title>
-  <desc id="desc">A terminal-style error box saying the Husky wiring could not be repaired.</desc>
-  <rect width="685" height="156" rx="8" ry="8" fill="#181818"/>
+  <desc id="desc">A terminal-style error box saying the git hook wiring could not be repaired.</desc>
+  <rect width="634" height="216" rx="8" ry="8" fill="#181818"/>
   <g transform="translate(20 24)">
-    <rect x="0" y="0" width="645" height="112" rx="5" ry="5" fill="none" stroke="#ff5f7a" stroke-width="1.3"/>
-    <rect x="285.5" y="-10" width="74" height="20" fill="#181818"/>
-    <text x="322.5" y="5" fill="#ff5f7a" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">error</text>
-    <text x="34" y="44" fill="#ff5f7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Could not repair the Husky wiring.</text>
-    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Check that husky is installed (npm install), then retry.</text>
+    <rect x="0" y="0" width="594" height="172" rx="5" ry="5" fill="none" stroke="#ff5f7a" stroke-width="1.3"/>
+    <rect x="260" y="-10" width="74" height="20" fill="#181818"/>
+    <text x="297" y="5" fill="#ff5f7a" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">error</text>
+    <text x="34" y="44" fill="#ff5f7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Could not repair the git hook wiring.</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Unsetting the husky-era core.hooksPath failed. Run:</text>
+    <text x="34" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" xml:space="preserve">  git config --unset core.hooksPath</text>
+    <text x="34" y="148" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Then rerun npm run doctor.</text>
   </g>
 </svg>

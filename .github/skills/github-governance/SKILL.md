@@ -34,7 +34,7 @@ If you add a new root-level community file, verify it isn't shipped with `npm pa
 
 - The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [check, pm-smoke]`, `if: always()`, and it `exit 1`s if any needed job's result is `failure` or `cancelled`.
 - Requiring this **one** context keeps the required-checks list stable even as the test matrix changes. So: add/remove matrix legs freely, but do **not** rename the `CI Success` job (or add a new required job) without updating ruleset `18531369` to match.
-- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.22.1, 24}` with `HUSKY: 0`, running `lint`, `format:check`, `test`, `prepublishOnly` (packaging smoke), and `test:coverage` only on ubuntu + Node 24. `pm-smoke` runs the pnpm/yarn/bun lifecycle smokes. (`HUSKY: 0` is why tests must strip it from subprocess env — see the `testing-and-coverage` skill.)
+- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.22.1, 24}` with `COMMITMENT_ISSUES: 0`, running `lint`, `format:check`, `test`, `prepublishOnly` (packaging smoke), and `test:coverage` only on ubuntu + Node 24. `pm-smoke` runs the pnpm/yarn/bun lifecycle smokes. (`COMMITMENT_ISSUES: 0` skips the generated hooks — tests must strip it (and legacy `HUSKY`) from subprocess env; see the `testing-and-coverage` skill.)
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 

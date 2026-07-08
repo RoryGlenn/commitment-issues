@@ -131,30 +131,58 @@ if (missingWorkingTreeFiles.length > 0) {
 
 const indexSnapshotBefore = getIndexSnapshot(fixableFiles);
 
-const result = runTool(
-  "lint-staged",
-  ["--continue-on-error", "--no-revert", "--quiet"],
-  {
-    stdio: "inherit",
-  },
-);
+// Run the fixers directly. The guards above guarantee the working tree and
+// index agree for every target file, so fixing the working tree and re-adding
+// is exact — no stash/revert machinery needed. Tool failures don't stop the
+// pipeline (fix what can be fixed, report the rest), mirroring each tool's
+// own --fix semantics.
+let toolFailed = false;
 
-// Defensive: lint-staged runs through the resolved local Node binary, which
-// always spawns, so a spawn-level error is not reachable in practice.
-/* node:coverage disable */
-if (result.error) {
+if (stagedJsFiles.length > 0) {
+  const eslintResult = runTool(
+    "eslint",
+    ["--cache", "--cache-strategy", "content", "--fix", "--", ...stagedJsFiles],
+    { stdio: "inherit" },
+  );
+  if (eslintResult.error || (eslintResult.status ?? 1) !== 0) {
+    toolFailed = true;
+  }
+}
+
+const prettierResult = runTool(
+  "prettier",
+  [
+    "--cache",
+    "--cache-location",
+    ".prettiercache",
+    "--cache-strategy",
+    "content",
+    "--write",
+    "--ignore-unknown",
+    "--",
+    ...fixableFiles,
+  ],
+  { stdio: "inherit" },
+);
+if (prettierResult.error || (prettierResult.status ?? 1) !== 0) {
+  toolFailed = true;
+}
+
+// Stage whatever the fixers changed so the commit picks it up.
+const addResult = run("git", [...GIT_PATH_ARGS, "add", "--", ...fixableFiles]);
+if (addResult.error || addResult.status !== 0) {
   errorBox([
-    pc.bold("Unable to run staged fixes."),
+    pc.bold("Unable to restage fixed files."),
     "",
-    pc.dim("Check that lint-staged is installed and available."),
+    pc.dim("Automatic fixes were applied to the working tree, but"),
+    pc.dim("`git add` failed. Review `git status` and stage manually."),
   ]);
   process.exit(1);
 }
-/* node:coverage enable */
 
 console.log("");
 
-if ((result.status ?? 1) === 0) {
+if (!toolFailed) {
   const indexSnapshotAfter = getIndexSnapshot(fixableFiles);
   const indexChanged =
     indexSnapshotBefore !== null && indexSnapshotAfter !== null
@@ -188,4 +216,4 @@ warningBox([
   ),
 ]);
 
-process.exit(result.status ?? 1);
+process.exit(1);

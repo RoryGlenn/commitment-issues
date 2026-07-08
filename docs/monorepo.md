@@ -11,7 +11,7 @@ package using the root configuration.
 
 ```bash
 # from the repository root
-npm install -D commitment-issues husky lint-staged eslint prettier
+npm install -D commitment-issues eslint prettier
 npx commitment-issues init
 ```
 
@@ -20,8 +20,9 @@ npx commitment-issues init
 `commitment-issues` treats the repository as a single unit rooted at the Git
 root:
 
-- **Hooks live at the Git root.** Husky installs `.husky/pre-commit` and
-  `.husky/pre-push` at the root, so they run once per commit and push for the
+- **Hooks live at the Git root.** `init` writes `.git/hooks/pre-commit` and
+  `.git/hooks/pre-push` in the repository's git directory, so they run once per
+  commit and push for the
   whole repository.
 - **Staged files are checked across all packages.** The pre-commit check reads
   staged paths with `git diff --cached` relative to the repo root, so changes in
@@ -29,7 +30,8 @@ root:
 - **Configuration is read from the root `package.json`.** The `precommitChecks`
   options come from the root package, not from individual workspace packages.
 - **Tools resolve from the root `node_modules/.bin`.** In a typical workspace
-  setup the peer tools (`eslint`, `prettier`, `lint-staged`) are hoisted to the
+  setup the peer tools (`eslint`, `prettier`)
+  are hoisted to the
   root, which is where the hooks resolve them.
 
 ## Recommended setup

@@ -1,6 +1,6 @@
 # Copilot instructions for commitment-issues
 
-`commitment-issues` is an **advisory-first** Git hook toolkit for JS/TS projects (wraps Husky, lint-staged, ESLint, Prettier). It reports problems without discarding unstaged work, rewriting pushed history, or blocking — **blocking is opt-in** via `precommitChecks`. Preserve that philosophy in every change: warn and continue by default; gate enforcement behind explicit config.
+`commitment-issues` is an **advisory-first** Git hook toolkit for JS/TS projects (native `.git/hooks` wiring + direct ESLint/Prettier runs — no husky, no lint-staged). It reports problems without discarding unstaged work, rewriting pushed history, or blocking — **blocking is opt-in** via `precommitChecks`. Preserve that philosophy in every change: warn and continue by default; gate enforcement behind explicit config.
 
 ## Hard constraints
 
@@ -22,15 +22,16 @@ Add/adjust a test for every behavior change (bug fixes get a regression test). U
 ## Top traps
 
 - **Test coverage relies on symlinks.** `createTempRepo()` symlinks `scripts/` + `node_modules/`; never revert to `cpSync` or subprocess coverage silently drops.
-- **`HUSKY=0`** is set in CI and must stay stripped from test subprocess env. Reproduce CI-only failures with `HUSKY=0 npm test`.
-- **`isPackageInstalled` must stay fs-based** (husky v9's `exports` map hides `package.json`, so `require.resolve` throws on it).
+- **`COMMITMENT_ISSUES=0`** (and legacy `HUSKY=0`) skip the generated hooks; CI sets it and the test helpers must keep stripping both from subprocess env. Reproduce CI-only failures with `COMMITMENT_ISSUES=0 npm test`.
+- **`isPackageInstalled` must stay fs-based** (packages whose `exports` map hides `package.json` make `require.resolve` throw).
+- **Never reintroduce husky/lint-staged** — v3 owns hook wiring (`.git/hooks`) and the staged-fix pipeline; a metadata test enforces this.
 - **Don't weaken the `CI Success` gate** or force-merge breaking Dependabot majors.
 
 ## Detailed workflows — load the matching skill
 
 | Task                                                              | Skill                  |
 | ----------------------------------------------------------------- | ---------------------- |
-| Write/run/debug tests, coverage, temp repos, HUSKY=0              | `testing-and-coverage` |
+| Write/run/debug tests, coverage, temp repos, COMMITMENT_ISSUES=0  | `testing-and-coverage` |
 | Add/modify a command, hook check, or `scripts/lib` helper         | `authoring-checks`     |
 | Cut a release / publish to npm / debug a failed publish           | `release-and-publish`  |
 | Branch protection, CI gate, Dependabot, security, labels, roadmap | `github-governance`    |

@@ -241,11 +241,10 @@ const INIT_ADDED = [
   "- script fix:staged",
   "- script test:precommit",
   "- script doctor",
-  "- lint-staged config",
   "- precommitChecks config",
   "- pre-push advisory config",
-  "- .husky/pre-commit",
-  "- .husky/pre-push",
+  "- .git/hooks/pre-commit",
+  "- .git/hooks/pre-push",
   "- .gitignore defaults",
 ];
 
@@ -767,6 +766,58 @@ bareSvg({
 // ---------------- Doctor ----------------
 
 boxSvg({
+  file: "doctor-healthy.svg",
+  severity: "success",
+  title: "Doctor healthy terminal output",
+  desc: "A terminal-style success box saying git hooks are wired up and active.",
+  lines: [
+    { k: "t", text: "Git hooks are healthy." },
+    { k: "b" },
+    { k: "d", text: ".git/hooks is active — no hook manager needed." },
+    { k: "d", text: "pre-commit and pre-push are wired up and active." },
+  ],
+});
+
+boxSvg({
+  file: "doctor-repaired-hooks.svg",
+  severity: "warning",
+  title: "Doctor repaired hooks terminal output",
+  desc: "A terminal-style warning box saying doctor repaired the git hook wiring.",
+  lines: [
+    { k: "t", text: "Repaired the git hook wiring." },
+    { k: "b" },
+    { k: "d", text: "Was broken: missing hook file(s): pre-commit, pre-push." },
+    { k: "d", text: "Fixed: .git/hooks/pre-commit, .git/hooks/pre-push." },
+    { k: "b" },
+    { k: "d", text: "pre-commit and pre-push are active again." },
+  ],
+});
+
+boxSvg({
+  file: "doctor-hook-not-wired.svg",
+  severity: "warning",
+  title: "Doctor hook not wired terminal output",
+  desc: "A terminal-style warning box saying a custom git hook never invokes commitment-issues.",
+  lines: [
+    { k: "t", text: "A git hook does not invoke commitment-issues." },
+    { k: "b" },
+    {
+      k: "d",
+      text: ".git/hooks/pre-commit never runs `commitment-issues precommit`.",
+    },
+    { k: "b" },
+    {
+      k: "d",
+      text: "Add the command above to each hook, or delete the hook file so",
+    },
+    {
+      k: "d",
+      text: "doctor can recreate it. Existing hooks are never overwritten.",
+    },
+  ],
+});
+
+boxSvg({
   file: "doctor-missing-tools.svg",
   severity: "warning",
   title: "Doctor missing tools terminal output",
@@ -774,8 +825,6 @@ boxSvg({
   lines: [
     { k: "t", text: "Some required tools are not installed." },
     { k: "b" },
-    { k: "d", text: "• husky" },
-    { k: "d", text: "• lint-staged" },
     { k: "d", text: "• eslint" },
     { k: "d", text: "• prettier" },
     { k: "b" },
@@ -785,7 +834,7 @@ boxSvg({
     },
     {
       k: "d",
-      text: "Install them: npm install -D husky lint-staged eslint prettier",
+      text: "Install them: npm install -D eslint prettier",
     },
   ],
 });
@@ -806,14 +855,13 @@ boxSvg({
   file: "doctor-repair-failed.svg",
   severity: "error",
   title: "Doctor repair failed terminal output",
-  desc: "A terminal-style error box saying the Husky wiring could not be repaired.",
+  desc: "A terminal-style error box saying the git hook wiring could not be repaired.",
   lines: [
-    { k: "t", text: "Could not repair the Husky wiring." },
+    { k: "t", text: "Could not repair the git hook wiring." },
     { k: "b" },
-    {
-      k: "d",
-      text: "Check that husky is installed (npm install), then retry.",
-    },
+    { k: "d", text: "Unsetting the husky-era core.hooksPath failed. Run:" },
+    { k: "d", text: "  git config --unset core.hooksPath" },
+    { k: "d", text: "Then rerun npm run doctor." },
   ],
 });
 
@@ -825,11 +873,51 @@ boxSvg({
   lines: [
     { k: "t", text: "Hook wiring still looks broken after repair." },
     { k: "b" },
-    { k: "d", text: "Try running: npx husky" },
     {
       k: "d",
-      text: "Then confirm: git config --get core.hooksPath → .husky/_",
+      text: "Confirm core.hooksPath is unset: git config --get core.hooksPath",
     },
+    { k: "d", text: "Then confirm .git/hooks/pre-commit and pre-push exist." },
+  ],
+});
+
+boxSvg({
+  file: "doctor-hookspath-foreign.svg",
+  severity: "warning",
+  title: "Doctor foreign core.hooksPath terminal output",
+  desc: "A terminal-style warning box saying core.hooksPath points at a directory the tool does not manage, with the commands to add there.",
+  lines: [
+    { k: "t", text: "core.hooksPath points somewhere else." },
+    { k: "b" },
+    { k: "d", text: "git core.hooksPath is set to githooks, so git only" },
+    {
+      k: "d",
+      text: "runs hooks from that directory. Add these commands there:",
+    },
+    { k: "b" },
+    { k: "cmd", text: "commitment-issues precommit   (pre-commit)" },
+    { k: "cmd", text: "commitment-issues prepush   (pre-push)" },
+    { k: "b" },
+    { k: "d", text: "Or unset it to use native .git/hooks wiring:" },
+    { k: "d", text: "  git config --unset core.hooksPath" },
+  ],
+});
+
+boxSvg({
+  file: "doctor-leftover-husky-hooks.svg",
+  severity: "warning",
+  title: "Doctor leftover .husky hooks terminal output",
+  desc: "A terminal-style warning box listing user-authored .husky hooks that no longer run after the husky wiring was retired.",
+  lines: [
+    { k: "t", text: "Leftover .husky hooks no longer run." },
+    { k: "b" },
+    { k: "d", text: "• .husky/commit-msg" },
+    { k: "b" },
+    {
+      k: "d",
+      text: "Git hooks now live in .git/hooks, so these files are inert.",
+    },
+    { k: "d", text: "Move the logic into .git/hooks, or delete the files." },
   ],
 });
 
@@ -846,7 +934,7 @@ bareSvg({
     {
       k: "raw",
       color: "#858b91",
-      text: "commitment-issues: repaired git hooks (husky wiring (core.hooksPath + .husky/_)).",
+      text: "commitment-issues: repaired git hooks (.git/hooks/pre-commit, .git/hooks/pre-push).",
     },
   ],
 });
@@ -935,6 +1023,35 @@ boxSvg({
     {
       k: "d",
       text: "Fix package.json so it contains valid JSON, then run init again.",
+    },
+  ],
+});
+
+boxSvg({
+  file: "init-hook-wiring-warning.svg",
+  severity: "warning",
+  title: "Init hook wiring warning terminal output",
+  desc: "A terminal-style warning box printed after the init summary when the hook wiring needs manual attention.",
+  lines: [
+    { k: "t", text: "Hook wiring needs your attention." },
+    { k: "b" },
+    { k: "d", text: "Leftover .husky hooks no longer run: .husky/commit-msg." },
+    { k: "d", text: "Move the logic into .git/hooks, or delete the files." },
+  ],
+});
+
+boxSvg({
+  file: "fix-staged-restage-failed.svg",
+  severity: "error",
+  title: "Fix staged restage failed terminal output",
+  desc: "A terminal-style error box saying fixes were applied to the working tree but git add failed to restage them.",
+  lines: [
+    { k: "t", text: "Unable to restage fixed files." },
+    { k: "b" },
+    { k: "d", text: "Automatic fixes were applied to the working tree, but" },
+    {
+      k: "d",
+      text: "`git add` failed. Review `git status` and stage manually.",
     },
   ],
 });

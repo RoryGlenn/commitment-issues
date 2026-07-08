@@ -36,7 +36,7 @@ Type `git remote add origin "$REMOTE_DIR"` Enter
 Type "npm init -y >/dev/null 2>&1" Enter
 Type "printf 'node_modules/\n' > .gitignore" Enter
 # Install the local build (not the npm release) so the GIF reflects current code.
-Type `npm install -D "$REPO" husky lint-staged eslint prettier @eslint/js globals >/dev/null 2>&1` Enter
+Type `npm install -D "$REPO" eslint prettier @eslint/js globals >/dev/null 2>&1` Enter
 Type `printf 'import js from "@eslint/js";\nimport globals from "globals";\nexport default [js.configs.recommended, { languageOptions: { globals: globals.node } }];\n' > eslint.config.mjs` Enter
 Type "mkdir src" Enter
 Type `printf 'export const greet = () => "Hello, World!";\n' > src/hello.mjs` Enter

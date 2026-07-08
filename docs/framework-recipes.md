@@ -7,7 +7,7 @@ show the common wiring for a few popular stacks.
 Every recipe starts the same way — install at the project root and initialize:
 
 ```bash
-npm install -D commitment-issues husky lint-staged eslint prettier
+npm install -D commitment-issues eslint prettier
 npx commitment-issues init
 ```
 

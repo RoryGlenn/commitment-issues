@@ -172,7 +172,7 @@ test("tolerates an unreadable index snapshot and still reports clean", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  // Already-clean file so lint-staged makes no changes and exits 0.
+  // Already-clean file so the fixers make no changes and exit 0.
   writeFile(path.join(tempDir, "src", "clean.js"), 'console.log("x");\n');
   run("git", ["add", "src/clean.js"], tempDir);
 
@@ -206,7 +206,7 @@ test("reports already clean and pluralizes for multiple unchanged files", (t) =>
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  // Two already-clean files: lint-staged makes no change, so the index snapshot
+  // Two already-clean files: the fixers make no change, so the index snapshot
   // is unchanged (both snapshots non-null and equal).
   writeFile(path.join(tempDir, "src", "a.js"), "export const a = 1;\n");
   writeFile(path.join(tempDir, "src", "b.js"), "export const b = 2;\n");

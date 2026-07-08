@@ -79,13 +79,15 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-006** — init creates `.gitignore` when absent. Fixture: `test/init.test.mjs`.
 - **INIT-007** — init appends cache ignores with no trailing newline. Fixture: `test/init.test.mjs`.
 - **INIT-008** — init preserves an unrelated existing `prepare` script. Fixture: `test/init.test.mjs`.
-- **INIT-009** — init merges a missing JS lint-staged task into an existing object config while preserving other globs. Fixture: `test/init.test.mjs`.
-- **INIT-010** — init preserves existing lint-staged array config. Fixture: `test/init.test.mjs`.
+- **INIT-009** — init leaves an existing lint-staged config exactly as the user wrote it (no adoption, no edits). Fixture: `test/init.test.mjs`.
+- **INIT-010** — init migrates a husky-era 2.x setup: retires `core.hooksPath`, removes generated `.husky` wiring, writes native hooks. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 - **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
 - **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
 - **INIT-014** — init adds `node_modules/` to `.gitignore` defaults and avoids duplicate existing entries. Fixture: `test/init-gitignore.test.mjs`.
-- **INIT-015** — init preserves an existing custom JS lint-staged task instead of overwriting it. Fixture: `test/init.test.mjs`.
+- **INIT-015** — init keeps user-authored `.husky` hooks and warns they no longer run. Fixture: `test/init.test.mjs`.
+- **INIT-016** — init warns about a foreign `core.hooksPath` and leaves it alone. Fixture: `test/init.test.mjs`.
+- **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
 
 ### Pre-commit checks
 
@@ -126,9 +128,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Doctor and hook health
 
-- **HOOK-001** — doctor repairs missing Husky wiring (`core.hooksPath` + `.husky/_`). Fixture: `test/doctor.test.mjs`.
+- **HOOK-001** — doctor wires native `.git/hooks` files in a fresh repo. Fixture: `test/doctor.test.mjs`.
 - **HOOK-002** — doctor reports healthy when the wiring is intact. Fixture: `test/doctor.test.mjs`.
-- **HOOK-003** — doctor restores wiring after `.husky/_` is removed. Fixture: `test/doctor.test.mjs`.
+- **HOOK-003** — doctor migrates husky-era wiring (retires `core.hooksPath`, writes native hooks) and warns about stranded user `.husky` hooks. Fixture: `test/doctor.test.mjs`.
 - **HOOK-004** — doctor recreates a missing hook file without overwriting existing ones. Fixture: `test/doctor.test.mjs`.
 - **HOOK-005** — custom hooks that still invoke `commitment-issues` are accepted as healthy. Fixture: `test/doctor.test.mjs`.
 - **HOOK-006** — custom pre-commit/pre-push hooks that never invoke `commitment-issues` are reported and left untouched. Fixture: `test/doctor.test.mjs`.
@@ -136,6 +138,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **HOOK-008** — `doctor --quiet` stays silent when healthy and reports repairs in one line. Fixture: `test/doctor.test.mjs`.
 - **HOOK-009** — `doctor --quiet` never breaks an install (no git repo, or repair cannot complete). Fixture: `test/doctor.test.mjs`.
 - **HOOK-010** — interactive doctor errors clearly: no `package.json`, unrepairable wiring, or still broken after repair. Fixture: `test/doctor.test.mjs`.
+- **HOOK-011** — a foreign `core.hooksPath` is respected: healthy when its hooks invoke the tool, reported (never rewired) when they do not. Fixture: `test/doctor.test.mjs`.
 
 ### Pre-push modes
 
@@ -210,7 +213,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 - Read-only `package.json` / `.gitignore` where practical.
 - More custom hook variants if users report specific merge expectations.
-- More lint-staged merge variants if users report specific merge expectations.
 
 ### Safety path matrix
 

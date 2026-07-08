@@ -94,8 +94,8 @@ test("runScript and installCommand format for the detected manager", (t) => {
 test("devInstallCommand builds the dev-install form for each manager", (t) => {
   setUserAgent(t, "npm/10.2.0 node/v22.22.1");
   assert.equal(
-    devInstallCommand(["husky", "lint-staged"]),
-    "npm install -D husky lint-staged",
+    devInstallCommand(["eslint", "prettier"]),
+    "npm install -D eslint prettier",
   );
 
   process.env.npm_config_user_agent = "pnpm/8.15.0 node/v22.22.1";
@@ -105,5 +105,5 @@ test("devInstallCommand builds the dev-install form for each manager", (t) => {
   assert.equal(devInstallCommand(["prettier"]), "yarn add -D prettier");
 
   process.env.npm_config_user_agent = "bun/1.1.0 node/v22.22.1";
-  assert.equal(devInstallCommand(["husky"]), "bun add --dev husky");
+  assert.equal(devInstallCommand(["eslint"]), "bun add --dev eslint");
 });

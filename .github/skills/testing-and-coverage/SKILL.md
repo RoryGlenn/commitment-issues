@@ -1,6 +1,6 @@
 ---
 name: testing-and-coverage
-description: "How to write, run, and debug tests for commitment-issues (node:test + node:assert/strict, no external runner). USE WHEN: adding or fixing tests; a test fails only in CI; coverage attribution looks wrong or drops; working with temp git repos, subprocess entry-script tests, HUSKY=0, or node:coverage-ignore comments. Explains the subprocess-coverage-via-symlink model, the HUSKY=0 hermetic-env trap, the temp-repo helpers (fakeGitEnv/recordingGitEnv/stubBinEnv/addBareRemote), and how to inspect lcov branch gaps."
+description: "How to write, run, and debug tests for commitment-issues (node:test + node:assert/strict, no external runner). USE WHEN: adding or fixing tests; a test fails only in CI; coverage attribution looks wrong or drops; working with temp git repos, subprocess entry-script tests, COMMITMENT_ISSUES=0/HUSKY=0, or node:coverage-ignore comments. Explains the subprocess-coverage-via-symlink model, the hook-skip hermetic-env trap, the temp-repo helpers (fakeGitEnv/recordingGitEnv/addBareRemote), and how to inspect lcov branch gaps."
 ---
 
 # Testing & Coverage
@@ -14,7 +14,7 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 | Run everything             | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)           |
 | Run one file               | `node --test test/precommit.test.mjs`                                 |
 | Coverage report            | `npm run test:coverage` (reported, **not gated** — no threshold flag) |
-| Reproduce CI locally       | prefix any test command with `HUSKY=0` (see trap below)               |
+| Reproduce CI locally       | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below)   |
 | End-to-end packaging smoke | `npm run test:smoke` (also `:pnpm`, `:yarn`, `:bun`)                  |
 
 ## The two kinds of code, and how each is tested
@@ -60,11 +60,11 @@ test("describes the behavior", (t) => {
 
 **Do NOT change these symlinks back to `fs.cpSync`/copies.** A copy attributes coverage to the ephemeral temp path, so real entry-script coverage silently drops to ~0.
 
-### 2. `HUSKY=0` must be stripped from subprocess env (the CI trap)
+### 2. Hook-skip env vars must be stripped from subprocess env (the CI trap)
 
-CI (`.github/workflows/ci.yml`) sets job-level `HUSKY=0` so that `npm ci`'s `prepare` (`doctor --quiet`) is a no-op. But husky v9 treats `HUSKY=0` as "disabled", so `npx husky` does **nothing**. If that leaks into the test subprocess, every test that wires real husky (doctor wiring, cli→doctor dispatch) breaks — **in CI only**, which is confusing.
+CI (`.github/workflows/ci.yml`) sets job-level `COMMITMENT_ISSUES=0`, and the generated `.git/hooks` bodies honor both `COMMITMENT_ISSUES=0` and the legacy `HUSKY=0` as "skip this hook". If either leaks into the test subprocess, every test that relies on a wired hook actually firing goes green-but-vacuous or breaks — **in CI only**, which is confusing.
 
-The fix already lives in `run()` inside the helper: it deletes `HUSKY` from the subprocess env (inherited or caller-provided) so tests are hermetic. **Keep it.** Always reproduce CI failures locally with `HUSKY=0 npm test` before assuming a test is flaky.
+The fix already lives in `run()` inside the helper: it deletes `HUSKY` and `COMMITMENT_ISSUES` from the subprocess env (inherited or caller-provided) so tests are hermetic. **Keep it.** Always reproduce CI failures locally with `COMMITMENT_ISSUES=0 npm test` before assuming a test is flaky.
 
 ## Helpers available from `test/helpers/temp-repo.mjs`
 
@@ -72,13 +72,12 @@ The fix already lives in `run()` inside the helper: it deletes `HUSKY` from the 
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `createTempRepo({ commit = true })`       | Fresh temp git repo, symlinked scripts + node_modules, repo's real `package.json`/`eslint.config.js`/`README.md`. Drops the repo's own `precommitChecks.tone` so tests assert default wording. Pass `{ commit: false }` for an uncommitted tree. |
 | `cleanupTempRepo(dir)`                    | Remove the temp repo. Always register with `t.after(...)`.                                                                                                                                                                                       |
-| `run(cmd, args, cwd, options?)`           | `spawnSync` wrapper that strips `HUSKY` from env. Use for both git and node subprocess calls.                                                                                                                                                    |
+| `run(cmd, args, cwd, options?)`           | `spawnSync` wrapper that strips `HUSKY` and `COMMITMENT_ISSUES` from env. Use for both git and node subprocess calls.                                                                                                                            |
 | `writeFile` / `readFile` / `readHeadFile` | Write a file (mkdir -p), read a worktree file, read a path at `HEAD`.                                                                                                                                                                            |
 | `setPrecommitConfig(dir, obj)`            | Overwrite the temp repo's `precommitChecks` block (tone, timeoutMs, blockPushOnTestFailure, testExempt, runStagedTests, …).                                                                                                                      |
 | `addBareRemote(dir)`                      | Add a bare `origin` + `main` upstream so `@{u}` diffs have a target (needed for prepush tests).                                                                                                                                                  |
-| `fakeGitEnv(dir, substr)`                 | Env whose `git` exits 1 when argv contains `substr`, else delegates to `REAL_GIT`. Exercises "git command failed" defensive branches without corrupting a repo.                                                                                  |
+| `fakeGitEnv(dir, substr, exitCode = 1)`   | Env whose `git` exits `exitCode` when argv contains `substr` (0 = silent no-op), else delegates to `REAL_GIT`. Exercises "git command failed" defensive branches without corrupting a repo.                                                      |
 | `recordingGitEnv(dir, logPath)`           | Env whose `git` appends each argv line to `logPath` then delegates — assert exactly how a script called git (e.g. that it forced `core.quotePath=false`).                                                                                        |
-| `stubBinEnv(dir, name, exitCode)`         | Put a stub executable `name` first on PATH that just exits `exitCode`. Force a spawned helper (e.g. `npx husky`) to no-op or fail.                                                                                                               |
 | `REAL_GIT`, `repoRoot`                    | The real git path captured before any PATH override, and the repo root.                                                                                                                                                                          |
 
 All shim helpers are cross-platform (POSIX launcher + `.cmd`), so keep tests free of shell-specific and hard-coded-separator assumptions — CI runs on Ubuntu, macOS, and Windows.

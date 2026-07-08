@@ -19,7 +19,7 @@ _For developers who overthink every commit._
   <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />
 </p>
 
-Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using Husky, lint-staged, ESLint, and Prettier.
+Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using ESLint and Prettier — with zero hook-manager dependencies.
 
 **Advisory by default:** `commitment-issues` reports issues without discarding unstaged work, rewriting already-pushed history, or blocking pushes. Blocking behavior is opt-in.
 
@@ -49,7 +49,7 @@ Use this when you want the shortest path from install to the first checked commi
 Install `commitment-issues` with the peer tools it runs:
 
 ```bash
-npm install -D commitment-issues husky lint-staged eslint prettier
+npm install -D commitment-issues eslint prettier
 ```
 
 ### 2. Initialize
@@ -60,7 +60,7 @@ Run the setup command:
 npx commitment-issues init
 ```
 
-This wires the Git hooks, adds helper npm scripts, adds the `lint-staged` config, enables advisory push tests, activates Husky, and ignores the local ESLint/Prettier cache files and `node_modules/`.
+This wires the Git hooks (plain `.git/hooks` files — no hook manager), adds helper npm scripts, enables advisory push tests, and ignores the local ESLint/Prettier cache files and `node_modules/`. Upgrading from 2.x? `init` also migrates the old husky-era wiring automatically.
 
 The command is idempotent, so it is safe to re-run.
 
@@ -155,19 +155,18 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 
 ## How it compares
 
-`commitment-issues` builds on Husky and lint-staged, adding an advisory-first opinion and a one-command setup. Compared with wiring those tools together yourself or reaching for another hook manager:
+`commitment-issues` owns its Git hook wiring and staged-fix pipeline directly — no husky, no lint-staged — and adds an advisory-first opinion with a one-command setup. Compared with wiring those tools together yourself or reaching for another hook manager:
 
 | Capability                                  | commitment-issues  | husky + lint-staged (DIY) | lefthook            | pre-commit          |
 | ------------------------------------------- | ------------------ | ------------------------- | ------------------- | ------------------- |
 | Advisory (non-blocking) by default          | Yes                | You build it              | No (fails the hook) | No (fails the hook) |
 | One-command setup                           | Yes (`init`)       | Manual wiring             | Config file         | Config file         |
+| Extra runtime dependencies for hooks        | None               | husky + lint-staged       | lefthook binary     | Python + tool cache |
 | Self-heals broken hook wiring               | Yes (`doctor`)     | No                        | No                  | No                  |
 | Pushed-file test gate (advisory → blocking) | Yes                | You build it              | Manual              | Manual              |
 | Safe auto-fix + amend helper                | Yes (`commit:fix`) | No                        | No                  | No                  |
 | Refuses unsafe fixes on partial staging     | Yes                | No                        | No                  | No                  |
 | Primary ecosystem                           | JS / TS (npm)      | JS / TS (npm)             | Any                 | Any (Python)        |
-
-> Husky and lint-staged are complements, not competitors — `commitment-issues` uses them under the hood and wires them up for you.
 
 ## Package managers
 
@@ -219,7 +218,7 @@ There's no account and nothing to opt out of — the checks are just your own ES
 ## Requirements
 
 - **Node.js >= 22.22.1** — the scripts use modern ESM features and the built-in `node --test` runner.
-- Peer tools in your project: `husky`, `lint-staged`, `eslint`, and `prettier`.
+- Peer tools in your project: `eslint` and `prettier`.
 - An ESLint flat config, usually `eslint.config.js`.
 - For TypeScript, a TypeScript-aware ESLint config.
 
@@ -269,7 +268,7 @@ The npm scripts above are added by `init` and call the `commitment-issues` bin. 
 
 ### The hooks silently stopped running
 
-If commits and pushes suddenly skip all checks, the Husky wiring was probably knocked out by a stale checkout, a dependency reinstall that skipped `prepare`, or a cleanup that removed ignored hook support files.
+If commits and pushes suddenly skip all checks, the hook wiring was probably knocked out by a fresh clone, a stale checkout, or a reinstall that skipped `prepare` — `.git/hooks` is never committed, so it starts empty.
 
 Repair the hook wiring on demand with:
 
@@ -279,7 +278,7 @@ npm run doctor
 
 `doctor` checks hook wiring and rebuilds missing pieces without overwriting existing hooks. It is safe to run anytime; if everything is already healthy it just says so.
 
-Also check your environment has not disabled Husky hooks.
+Also check your environment has not disabled the hooks (`COMMITMENT_ISSUES=0` or the pre-3.0 `HUSKY=0` skip both hooks).
 
 ## More docs
 
@@ -290,7 +289,7 @@ Also check your environment has not disabled Husky hooks.
 - [Yarn Berry guide](docs/yarn-berry.md) — using `commitment-issues` with Yarn 2+ and the `node-modules` linker.
 - [Monorepo & workspaces guide](docs/monorepo.md) — running `commitment-issues` from the root of a workspaces repository.
 - [Framework recipes](docs/framework-recipes.md) — wiring for Next.js, Vite, and TypeScript libraries.
-- [CI provider recipes](docs/ci-recipes.md) — disabling Husky on GitHub Actions, GitLab CI, and CircleCI.
+- [CI provider recipes](docs/ci-recipes.md) — disabling hooks on GitHub Actions, GitLab CI, and CircleCI.
 - [Roadmap](ROADMAP.md) — public view of what the project is improving next.
 - [Message states](docs/message-states.md) — fuller gallery of common output states.
 - [Configuration and Behavior](docs/configuration.md) — full configuration reference, test heuristics, push behavior, TypeScript notes, CI notes, and project internals.

@@ -41,10 +41,13 @@ npx commitment-issues --version
 
 ## Git hook interface
 
-`init` wires Husky hooks to call the installed binary:
+`init` writes plain `.git/hooks` files that call the installed binary:
 
 - pre-commit hook -> `commitment-issues precommit`
 - pre-push hook -> `commitment-issues prepush`
+
+The hooks honor `COMMITMENT_ISSUES=0` (and the pre-3.0 `HUSKY=0`) as a skip,
+and exit silently when the binary is no longer installed.
 
 The package does not copy source files into a consumer repository.
 

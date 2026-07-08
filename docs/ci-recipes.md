@@ -1,15 +1,17 @@
 # CI Provider Recipes
 
 `commitment-issues` installs Git hooks for local development. In CI you should
-**disable Husky** and run your checks explicitly instead, so the install step
-never tries to wire hooks and your pipeline stays fast and predictable.
+**skip the hooks** and run your checks explicitly instead, so the pipeline
+stays fast and predictable.
 
-## Why disable Husky in CI
+## Why skip the hooks in CI
 
-Husky sets up Git hooks from its `prepare` script when dependencies are
-installed. In CI that is unnecessary work — there are no interactive commits or
-pushes to guard — and it can fail in minimal environments. Setting the `HUSKY=0`
-environment variable turns Husky installation into a no-op.
+The generated hooks guard interactive commits and pushes; in CI that is
+unnecessary work. Setting the `COMMITMENT_ISSUES=0` environment variable makes
+both hooks exit immediately. (The pre-3.0 `HUSKY=0` variable is still honored,
+so existing pipelines keep working.) Hook wiring itself is harmless in CI —
+`prepare` runs `doctor --quiet`, which never fails an install, even with no
+`.git` directory.
 
 Then run the same commands the hooks would run, directly:
 
@@ -22,14 +24,14 @@ npm test
 
 ## GitHub Actions
 
-Set `HUSKY: "0"` at the job (or workflow) level:
+Set `COMMITMENT_ISSUES: "0"` at the job (or workflow) level:
 
 ```yaml
 jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      HUSKY: "0"
+      COMMITMENT_ISSUES: "0"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -44,11 +46,11 @@ jobs:
 
 ## GitLab CI
 
-Set `HUSKY` as a pipeline variable:
+Set `COMMITMENT_ISSUES` as a pipeline variable:
 
 ```yaml
 variables:
-  HUSKY: "0"
+  COMMITMENT_ISSUES: "0"
 
 test:
   image: node:22
@@ -61,7 +63,7 @@ test:
 
 ## CircleCI
 
-Set `HUSKY` in the job environment:
+Set `COMMITMENT_ISSUES` in the job environment:
 
 ```yaml
 version: 2.1
@@ -71,7 +73,7 @@ jobs:
     docker:
       - image: cimg/node:22.22
     environment:
-      HUSKY: "0"
+      COMMITMENT_ISSUES: "0"
     steps:
       - checkout
       - run: npm ci
@@ -87,7 +89,7 @@ workflows:
 
 ## Notes
 
-- `HUSKY=0` only disables hook installation. It does not change how
+- `COMMITMENT_ISSUES=0` only makes the hooks exit early. It does not change how
   `commitment-issues` behaves when you invoke its commands directly.
 - The same approach works for pnpm, yarn, and bun — swap `npm ci` and
   `npm run` for the equivalent commands.

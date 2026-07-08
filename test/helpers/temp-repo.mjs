@@ -17,12 +17,14 @@ export const REAL_GIT = (() => {
 })();
 
 export function run(command, args, cwd, options = {}) {
-  // CI sets HUSKY=0 for the install step, which turns `npx husky` into a no-op.
-  // The doctor/cli tests need husky to actually wire up hooks, so strip HUSKY
-  // from the subprocess env (whether inherited or caller-provided) to keep the
-  // tests hermetic regardless of the outer environment.
+  // CI sets COMMITMENT_ISSUES=0 (hooks honor HUSKY=0 too, for pre-3.0 compat)
+  // to skip hook runs in the outer repo. The doctor/cli tests need hooks to
+  // actually wire up and fire, so strip the skip vars from the subprocess env
+  // (whether inherited or caller-provided) to keep the tests hermetic
+  // regardless of the outer environment.
   const env = { ...(options.env ?? process.env) };
   delete env.HUSKY;
+  delete env.COMMITMENT_ISSUES;
   return spawnSync(command, args, {
     cwd,
     encoding: "utf8",
@@ -135,12 +137,13 @@ function writeCrossPlatformShim(binDir, name, shimBody) {
   );
 }
 
-// Build an env that puts a fake `git` first on PATH. The shim exits 1 for any
-// invocation whose joined args contain `matchSubstring`, and delegates to the
-// real git otherwise — used to exercise the scripts' defensive "git command
-// failed" branches without corrupting a real repository. Cross-platform: a Node
-// shim behind `git`/`git.cmd` launchers.
-export function fakeGitEnv(tempDir, matchSubstring) {
+// Build an env that puts a fake `git` first on PATH. The shim exits with
+// `exitCode` (default 1) for any invocation whose joined args contain
+// `matchSubstring` — without running git, so exitCode 0 simulates a silent
+// no-op — and delegates to the real git otherwise. Used to exercise the
+// scripts' defensive "git command failed" branches without corrupting a real
+// repository. Cross-platform: a Node shim behind `git`/`git.cmd` launchers.
+export function fakeGitEnv(tempDir, matchSubstring, exitCode = 1) {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
   writeCrossPlatformShim(
@@ -150,7 +153,7 @@ export function fakeGitEnv(tempDir, matchSubstring) {
 const args = process.argv.slice(2);
 const match = process.env.FAKE_GIT_MATCH || "";
 if (match && args.join(" ").includes(match)) {
-  process.exit(1);
+  process.exit(Number(process.env.FAKE_GIT_EXIT ?? "1"));
 }
 const result = spawnSync(process.env.FAKE_GIT_REAL || "git", args, {
   stdio: "inherit",
@@ -162,6 +165,7 @@ process.exit(result.status == null ? 1 : result.status);
     ...process.env,
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
     FAKE_GIT_MATCH: matchSubstring,
+    FAKE_GIT_EXIT: String(exitCode),
     FAKE_GIT_REAL: REAL_GIT,
   };
 }
@@ -191,25 +195,5 @@ process.exit(result.status == null ? 1 : result.status);
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
     GIT_LOG_FILE: logPath,
     FAKE_GIT_REAL: REAL_GIT,
-  };
-}
-
-// Build an env that puts a stub executable named `name` first on PATH which
-// does nothing but exit with `exitCode`. Used to force a spawned helper (e.g.
-// `npx husky`) to succeed-as-a-no-op or fail on demand. Cross-platform: a shell
-// launcher plus a `.cmd`.
-export function stubBinEnv(tempDir, name, exitCode = 1) {
-  const binDir = path.join(tempDir, ".fakebin");
-  fs.mkdirSync(binDir, { recursive: true });
-  const unix = path.join(binDir, name);
-  fs.writeFileSync(unix, `#!/bin/sh\nexit ${exitCode}\n`);
-  fs.chmodSync(unix, 0o755);
-  fs.writeFileSync(
-    path.join(binDir, `${name}.cmd`),
-    `@exit /b ${exitCode}\r\n`,
-  );
-  return {
-    ...process.env,
-    PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
   };
 }

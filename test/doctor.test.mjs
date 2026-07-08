@@ -6,13 +6,18 @@ import path from "node:path";
 import {
   cleanupTempRepo,
   createTempRepo,
+  fakeGitEnv,
   repoRoot,
   run,
-  stubBinEnv,
 } from "./helpers/temp-repo.mjs";
 
-function runDoctor(tempDir) {
-  return run("node", [path.join(tempDir, "scripts", "doctor.mjs")], tempDir);
+function runDoctor(tempDir, args = [], options = {}) {
+  return run(
+    "node",
+    [path.join(tempDir, "scripts", "doctor.mjs"), ...args],
+    tempDir,
+    options,
+  );
 }
 
 function hooksPath(tempDir) {
@@ -23,7 +28,49 @@ function hooksPath(tempDir) {
   ).stdout.trim();
 }
 
-test("doctor repairs a repo with no husky wiring", (t) => {
+function gitHook(tempDir, name) {
+  return path.join(tempDir, ".git", "hooks", name);
+}
+
+// Simulate the wiring a pre-3.0 (husky-era) setup leaves behind: hooksPath
+// pointing at husky's shim dir plus our generated `.husky` hook files. With
+// `live: true` a husky package stub is installed (the "user deliberately
+// keeps husky" case); the default simulates the v3 upgrade path, where husky
+// is already pruned from node_modules and the wiring is a dead end.
+function wireHuskyEra(tempDir, { live = false } = {}) {
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  fs.mkdirSync(path.join(tempDir, ".husky", "_"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, ".husky", "_", "h"), "# husky shim\n");
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "commitment-issues precommit\n",
+  );
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-push"),
+    "commitment-issues prepush\n",
+  );
+  if (live) {
+    // Swap the node_modules symlink (which points at the real repo, where
+    // husky is no longer installed) for a real dir: a husky stub plus
+    // symlinks for the peer tools so the missing-tools advisory stays quiet.
+    fs.unlinkSync(path.join(tempDir, "node_modules"));
+    fs.mkdirSync(path.join(tempDir, "node_modules", "husky"), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(tempDir, "node_modules", "husky", "package.json"),
+      '{"name":"husky","version":"9.0.0"}\n',
+    );
+    for (const tool of ["eslint", "prettier"]) {
+      fs.symlinkSync(
+        path.join(repoRoot, "node_modules", tool),
+        path.join(tempDir, "node_modules", tool),
+      );
+    }
+  }
+}
+
+test("doctor wires up native hooks in a fresh repo", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -32,10 +79,15 @@ test("doctor repairs a repo with no husky wiring", (t) => {
 
   assert.equal(result.status, 0);
   assert.match(output, /Repaired the git hook wiring/);
-  assert.equal(hooksPath(tempDir), ".husky/_");
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "_", "pre-commit")));
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
+  assert.equal(hooksPath(tempDir), "");
+  assert.match(
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    /commitment-issues precommit/,
+  );
+  assert.match(
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
+    /commitment-issues prepush/,
+  );
 });
 
 test("doctor reports healthy once everything is wired", (t) => {
@@ -50,37 +102,119 @@ test("doctor reports healthy once everything is wired", (t) => {
   assert.match(output, /Git hooks are healthy/);
 });
 
-test("doctor restores wiring after .husky/_ is removed", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-
-  runDoctor(tempDir); // establish healthy wiring
-  fs.rmSync(path.join(tempDir, ".husky", "_"), {
-    recursive: true,
-    force: true,
-  });
-
-  const result = runDoctor(tempDir);
-  const output = `${result.stdout}${result.stderr}`;
-
-  assert.equal(result.status, 0);
-  assert.match(output, /Repaired the git hook wiring/);
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "_", "pre-push")));
-});
-
 test("doctor recreates a missing hook file", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring + hook files
-  fs.rmSync(path.join(tempDir, ".husky", "pre-push"), { force: true });
+  fs.rmSync(gitHook(tempDir, "pre-push"), { force: true });
 
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
   assert.match(output, /Repaired the git hook wiring/);
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
+  assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
+});
+
+test("doctor respects live husky-era wiring and only nudges", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  wireHuskyEra(tempDir, { live: true }); // husky still installed and wired
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  // The user may be keeping husky deliberately; a working setup is healthy.
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+  assert.match(output, /husky-era wiring/);
+  assert.match(output, /commitment-issues init/);
+  assert.equal(hooksPath(tempDir), ".husky/_");
+  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
+});
+
+test("doctor reports live husky-era hooks that never invoke commitment-issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  wireHuskyEra(tempDir, { live: true });
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "echo my own hook\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /core\.hooksPath points somewhere else/);
+  assert.match(output, /\.husky\/pre-commit/);
+  assert.match(output, /commitment-issues init/);
+  // Never rewired or deleted behind the user's back.
+  assert.equal(hooksPath(tempDir), ".husky/_");
+});
+
+test("doctor migrates dead husky-era wiring to native hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // The v3 upgrade path: hooksPath still points at husky's shim dir, but the
+  // husky package is gone, so nothing maintains that wiring anymore.
+  wireHuskyEra(tempDir);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Repaired the git hook wiring/);
+  assert.match(output, /husky-era core\.hooksPath/);
+  assert.equal(hooksPath(tempDir), "");
+  assert.ok(fs.existsSync(gitHook(tempDir, "pre-commit")));
+  assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
+  // Doctor migrates wiring but never deletes files; our exact-match legacy
+  // hooks are not the user's work, so they are not reported either.
+  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
+  assert.doesNotMatch(output, /Leftover \.husky hooks/);
+});
+
+test("doctor warns about user-authored .husky hooks that no longer run", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  wireHuskyEra(tempDir);
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "commit-msg"),
+    "echo custom message check\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Leftover \.husky hooks no longer run/);
+  assert.match(output, /\.husky\/commit-msg/);
+  // Advisory only: the user's file is never deleted.
+  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "commit-msg")));
+});
+
+test("doctor --quiet warns in one line about stranded .husky hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // healthy native wiring
+  fs.mkdirSync(path.join(tempDir, ".husky"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "commit-msg"),
+    "echo custom message check\n",
+  );
+
+  const result = runDoctor(tempDir, ["--quiet"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /\.husky\/commit-msg no longer run/);
 });
 
 test("doctor accepts a custom hook that still invokes commitment-issues", (t) => {
@@ -90,7 +224,7 @@ test("doctor accepts a custom hook that still invokes commitment-issues", (t) =>
   runDoctor(tempDir); // establish healthy wiring + exact hook bodies
   // A user adds their own line but keeps our subcommand — still healthy.
   fs.writeFileSync(
-    path.join(tempDir, ".husky", "pre-commit"),
+    gitHook(tempDir, "pre-commit"),
     "echo running my own lint step\ncommitment-issues precommit\n",
   );
 
@@ -106,21 +240,18 @@ test("doctor reports a pre-commit hook that never invokes commitment-issues", (t
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring
-  fs.writeFileSync(
-    path.join(tempDir, ".husky", "pre-commit"),
-    "echo my own unrelated hook\n",
-  );
+  fs.writeFileSync(gitHook(tempDir, "pre-commit"), "echo my own hook\n");
 
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 1);
   assert.match(output, /does not invoke commitment-issues/);
-  assert.match(output, /\.husky\/pre-commit/);
+  assert.match(output, /\.git\/hooks\/pre-commit/);
   // The user's own hook body must never be overwritten.
   assert.equal(
-    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
-    "echo my own unrelated hook\n",
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    "echo my own hook\n",
   );
 });
 
@@ -129,20 +260,17 @@ test("doctor reports a pre-push hook that never invokes commitment-issues", (t) 
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring
-  fs.writeFileSync(
-    path.join(tempDir, ".husky", "pre-push"),
-    "echo my own unrelated hook\n",
-  );
+  fs.writeFileSync(gitHook(tempDir, "pre-push"), "echo my own hook\n");
 
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 1);
   assert.match(output, /does not invoke commitment-issues/);
-  assert.match(output, /\.husky\/pre-push/);
+  assert.match(output, /\.git\/hooks\/pre-push/);
   assert.equal(
-    fs.readFileSync(path.join(tempDir, ".husky", "pre-push"), "utf8"),
-    "echo my own unrelated hook\n",
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
+    "echo my own hook\n",
   );
 });
 
@@ -151,24 +279,17 @@ test("doctor --quiet warns but exits 0 when a hook does not invoke commitment-is
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring
-  fs.writeFileSync(
-    path.join(tempDir, ".husky", "pre-commit"),
-    "echo my own unrelated hook\n",
-  );
+  fs.writeFileSync(gitHook(tempDir, "pre-commit"), "echo my own hook\n");
 
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
-    tempDir,
-  );
+  const result = runDoctor(tempDir, ["--quiet"]);
   const output = `${result.stdout}${result.stderr}`;
 
   // Never break an install, but do not silently claim health either.
   assert.equal(result.status, 0);
   assert.match(output, /do not invoke commitment-issues/);
   assert.equal(
-    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
-    "echo my own unrelated hook\n",
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    "echo my own hook\n",
   );
 });
 
@@ -177,20 +298,78 @@ test("doctor --quiet stays silent when the wiring is healthy", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
-    tempDir,
-  );
+  const result = runDoctor(tempDir, ["--quiet"]);
 
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
 });
 
+test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // The user manages their own hooks dir but invokes us from it.
+  fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempDir, "githooks", "pre-commit"),
+    "commitment-issues precommit\n",
+  );
+  fs.writeFileSync(
+    path.join(tempDir, "githooks", "pre-push"),
+    "commitment-issues prepush\n",
+  );
+  run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+  assert.match(output, /githooks/);
+  // The user's configuration is never rewired.
+  assert.equal(hooksPath(tempDir), "githooks");
+});
+
+test("doctor reports an unwired foreign core.hooksPath without touching it", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempDir, "githooks", "pre-commit"),
+    "echo my own hook\n",
+  );
+  run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /core\.hooksPath points somewhere else/);
+  assert.match(output, /commitment-issues precommit/);
+  assert.equal(hooksPath(tempDir), "githooks");
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("doctor --quiet warns but exits 0 for an unwired foreign core.hooksPath", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
+  run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+  const result = runDoctor(tempDir, ["--quiet"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /core\.hooksPath is set to githooks/);
+  assert.equal(hooksPath(tempDir), "githooks");
+});
+
 // Detach the node_modules symlink (createTempRepo points it at the real repo's,
 // where every peer tool resolves) and leave an empty directory in its place, so
 // the required tools no longer resolve. Wiring is already on disk from the first
-// run, so the next run stays healthy and performs no repair (no npx / network).
+// run, so the next run stays healthy and performs no repair.
 function hideNodeModules(tempDir) {
   fs.unlinkSync(path.join(tempDir, "node_modules"));
   fs.mkdirSync(path.join(tempDir, "node_modules"));
@@ -210,7 +389,7 @@ test("doctor warns (interactive) when required tools are not installed", (t) => 
   assert.equal(result.status, 0);
   assert.match(output, /Git hooks are healthy/);
   assert.match(output, /Some required tools are not installed/);
-  for (const tool of ["husky", "lint-staged", "eslint", "prettier"]) {
+  for (const tool of ["eslint", "prettier"]) {
     assert.match(output, new RegExp(tool));
   }
   assert.match(output, /npm install -D/);
@@ -223,11 +402,7 @@ test("doctor --quiet warns about missing tools in one line but exits 0", (t) => 
   runDoctor(tempDir); // establish healthy wiring first
   hideNodeModules(tempDir);
 
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
-    tempDir,
-  );
+  const result = runDoctor(tempDir, ["--quiet"]);
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
@@ -240,16 +415,12 @@ test("doctor --quiet repairs and reports in one line", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
-    tempDir,
-  );
+  const result = runDoctor(tempDir, ["--quiet"]);
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
   assert.match(output, /repaired git hooks/);
-  assert.equal(hooksPath(tempDir), ".husky/_");
+  assert.ok(fs.existsSync(gitHook(tempDir, "pre-commit")));
 });
 
 test("doctor --quiet never breaks an install outside a git repo", (t) => {
@@ -283,23 +454,20 @@ test("doctor errors (interactive) when there is no package.json", (t) => {
   assert.match(`${result.stdout}${result.stderr}`, /No package\.json found/);
 });
 
-test("doctor reports failure when husky wiring cannot be repaired", (t) => {
+test("doctor reports failure when the husky-era hooksPath cannot be unset", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  // Stub `npx` so `npx husky` fails; the wiring repair cannot complete.
-  const env = stubBinEnv(tempDir, "npx", 1);
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs")],
-    tempDir,
-    { env },
-  );
+  wireHuskyEra(tempDir);
+
+  // `git config --unset core.hooksPath` fails; the migration cannot complete.
+  const env = fakeGitEnv(tempDir, "config --unset");
+  const result = runDoctor(tempDir, [], { env });
 
   assert.equal(result.status, 1);
   assert.match(
     `${result.stdout}${result.stderr}`,
-    /Could not repair the Husky wiring/,
+    /Could not repair the git hook wiring/,
   );
 });
 
@@ -307,13 +475,10 @@ test("doctor --quiet warns but never fails when repair cannot complete", (t) => 
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  const env = stubBinEnv(tempDir, "npx", 1);
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs"), "--quiet"],
-    tempDir,
-    { env },
-  );
+  wireHuskyEra(tempDir);
+
+  const env = fakeGitEnv(tempDir, "config --unset");
+  const result = runDoctor(tempDir, ["--quiet"], { env });
 
   assert.equal(result.status, 0);
   assert.match(
@@ -326,19 +491,36 @@ test("doctor reports when the wiring is still broken after repair", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  // `npx husky` "succeeds" but does nothing, so hooksPath stays unset and the
-  // post-repair verification still finds the wiring broken.
-  const env = stubBinEnv(tempDir, "npx", 0);
-  const result = run(
-    "node",
-    [path.join(tempDir, "scripts", "doctor.mjs")],
-    tempDir,
-    { env },
-  );
+  wireHuskyEra(tempDir);
+
+  // `git config --unset` "succeeds" as a silent no-op, so hooksPath survives
+  // and the post-repair verification still finds the wiring broken.
+  const env = fakeGitEnv(tempDir, "config --unset", 0);
+  const result = runDoctor(tempDir, [], { env });
 
   assert.equal(result.status, 1);
   assert.match(
     `${result.stdout}${result.stderr}`,
     /still looks broken after repair/,
+  );
+});
+
+test("doctor reports failure when the hook files cannot be written", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // A file squatting on .git/hooks makes the hooks dir uncreatable.
+  fs.rmSync(path.join(tempDir, ".git", "hooks"), {
+    recursive: true,
+    force: true,
+  });
+  fs.writeFileSync(path.join(tempDir, ".git", "hooks"), "not a directory\n");
+
+  const result = runDoctor(tempDir);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Could not repair the git hook wiring/,
   );
 });

@@ -54,14 +54,6 @@
     "test:smoke:yarn": "node scripts/ci-lifecycle-smoke.mjs yarn",
     "test:smoke:bun": "node scripts/ci-lifecycle-smoke.mjs bun"
   },
-  "lint-staged": {
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
-      "node scripts/fix-staged-js.mjs"
-    ],
-    "*.{json,css,scss,md,html,yml,yaml}": [
-      "prettier --write --ignore-unknown"
-    ]
-  },
   "precommitChecks": {
     "testExempt": [
       "scripts/lib/**",
@@ -77,19 +69,16 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "commitment-issues": "file:",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "fast-check": "^4.8.0",
     "globals": "^17.7.0",
-    "husky": "^9.0.0",
-    "lint-staged": "^17.0.8",
     "prettier": "^3.9.4"
   },
   "peerDependencies": {
     "eslint": ">=9",
-    "husky": ">=9",
-    "lint-staged": ">=16.2.0",
     "prettier": ">=3"
   },
   "engines": {

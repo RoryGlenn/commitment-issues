@@ -81,11 +81,11 @@ export function runTool(name, args, options = {}) {
 /**
  * Whether a package is installed in a project, i.e. present in a node_modules
  * reachable from that project's root. commitment-issues orchestrates peer tools
- * (husky, lint-staged, eslint, prettier) it does not bundle; this lets `doctor`
+ * (eslint, prettier) it does not bundle; this lets `doctor`
  * advise when one is absent before {@link toolInvocation} silently degrades to a
  * slow npx fallback. It walks node_modules upward (as Node resolution does) and
  * checks for the package folder directly, so it stays correct for packages whose
- * `exports` map hides `package.json` (e.g. husky v9) and regardless of where
+ * `exports` map hides `package.json` and regardless of where
  * commitment-issues itself is installed.
  * @param {string} name - Package name (e.g. "eslint").
  * @param {string} [cwd] - Project root to resolve from (defaults to cwd).

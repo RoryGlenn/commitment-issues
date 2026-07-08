@@ -1,17 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="747" height="320" viewBox="0 0 747 320" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="726" height="260" viewBox="0 0 726 260" role="img" aria-labelledby="title desc">
   <title id="title">Doctor missing tools terminal output</title>
   <desc id="desc">A terminal-style warning box listing required tools that are not installed.</desc>
-  <rect width="747" height="320" rx="8" ry="8" fill="#181818"/>
+  <rect width="726" height="260" rx="8" ry="8" fill="#181818"/>
   <g transform="translate(20 24)">
-    <rect x="0" y="0" width="707" height="276" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
-    <rect x="305" y="-10" width="97" height="20" fill="#181818"/>
-    <text x="353.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
+    <rect x="0" y="0" width="686" height="216" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
+    <rect x="294.5" y="-10" width="97" height="20" fill="#181818"/>
+    <text x="343" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
     <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Some required tools are not installed.</text>
-    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">• husky</text>
-    <text x="34" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">• lint-staged</text>
-    <text x="34" y="148" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">• eslint</text>
-    <text x="34" y="178" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">• prettier</text>
-    <text x="34" y="222" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">commitment-issues runs these during pre-commit and pre-push.</text>
-    <text x="34" y="252" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Install them: npm install -D husky lint-staged eslint prettier</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">• eslint</text>
+    <text x="34" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">• prettier</text>
+    <text x="34" y="162" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">commitment-issues runs these during pre-commit and pre-push.</text>
+    <text x="34" y="192" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Install them: npm install -D eslint prettier</text>
   </g>
 </svg>

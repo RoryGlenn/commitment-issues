@@ -5,9 +5,12 @@ Answers to common questions about installing, adopting, and configuring
 
 ## Is `commitment-issues` a replacement for Husky or lint-staged?
 
-No. It uses Husky to run Git hooks and lint-staged to apply staged-file fixes.
-`commitment-issues` adds the opinionated setup, advisory-first output, safe fix
-helpers, pushed-file test checks, and `doctor` repair command around those tools.
+Yes, for the workflow it covers. `commitment-issues` writes plain `.git/hooks`
+files itself (no hook manager) and applies staged-file ESLint/Prettier fixes
+directly (no lint-staged), adding the opinionated setup, advisory-first
+output, safe fix helpers, pushed-file test checks, and `doctor` repair command
+on top. Versions before 3.0 wrapped husky and lint-staged; `init` migrates
+that wiring automatically.
 
 ## What does it do by default?
 
@@ -42,14 +45,14 @@ package can run from Git hooks. It can:
 
 - add or update npm scripts for `doctor`, `fix:staged`, `commit:fix`, and
   `test:precommit`
-- add a `lint-staged` config when one is missing
-- add the JavaScript/TypeScript lint-staged task when an object-style
-  `lint-staged` config exists but has no JavaScript task
 - add `precommitChecks.advisePushTests` when no push-test mode is configured
-- activate Husky through a `prepare` script (`commitment-issues doctor --quiet`),
-  which self-heals the hook wiring on install
-- create or upgrade `.husky/pre-commit` and `.husky/pre-push` when those hooks
-  are missing or still use older vendored script commands
+- point the `prepare` script at `commitment-issues doctor --quiet`, which
+  self-heals the hook wiring on install
+- create `.git/hooks/pre-commit` and `.git/hooks/pre-push` when they are
+  missing (existing hook files are never overwritten)
+- migrate a pre-3.0 setup: retire the husky-era `core.hooksPath` and remove
+  the `.husky` wiring this tool generated (user-authored `.husky` hooks are
+  kept and reported)
 - add cache and dependency ignores such as `.eslintcache`, `.prettiercache`, and
   `node_modules/`
 
@@ -73,7 +76,8 @@ npm run fix:staged
 npm run commit:fix
 ```
 
-`fix:staged` targets staged files through lint-staged. `commit:fix` fixes files
+`fix:staged` runs ESLint and Prettier fixes on staged files and restages the
+result. `commit:fix` fixes files
 from the latest commit and amends that commit only when the latest commit has not
 already been pushed and the working tree is safe.
 
@@ -213,8 +217,8 @@ TypeScript library setups.
 Use CI for the real enforcement path: run your normal lint, format, and test
 commands directly in the workflow.
 
-`commitment-issues` is Git-hook tooling. In CI, disable Husky during install when
-needed and run explicit commands such as:
+`commitment-issues` is Git-hook tooling. In CI, set `COMMITMENT_ISSUES=0` to
+skip the hooks when needed and run explicit commands such as:
 
 ```bash
 npm run lint
@@ -233,7 +237,7 @@ Run:
 npm run doctor
 ```
 
-`doctor` verifies the Husky hook wiring and repairs missing pieces without
+`doctor` verifies the git hook wiring and repairs missing pieces without
 overwriting custom hooks it cannot safely own.
 
 ## What if I already have custom Git hooks?
@@ -280,21 +284,21 @@ unwind the setup you no longer want:
    `commitment-issues doctor --quiet` so the hooks self-heal on install. If you
    leave it after removing the dev dependency, the next `npm install` runs a
    binary that no longer exists and **fails**. Reset `prepare` to your previous
-   value (for example `husky`, if you still use Husky), or delete the `prepare`
+   value, or delete the `prepare`
    script entirely if nothing else needs it.
 3. Remove the other generated npm scripts you no longer want: `doctor`,
    `fix:staged`, `commit:fix`, and `test:precommit`.
-4. Remove or edit the hook files `.husky/pre-commit` and `.husky/pre-push`. If a
+4. Remove or edit the hook files `.git/hooks/pre-commit` and
+   `.git/hooks/pre-push`. If a
    hook only calls `commitment-issues`, delete it; if you added other commands,
-   remove just the `commitment-issues` line.
+   remove just the `commitment-issues` line. (Even left alone, the generated
+   hooks skip themselves when the binary is gone — they never break commits.)
 5. Remove the `precommitChecks` section from `package.json`.
-6. Remove the generated `lint-staged` config **only** if it was added solely for
-   this tool. If you already used `lint-staged`, keep your config.
-7. Optionally drop the `.eslintcache` / `.prettiercache` entries from
+6. Optionally drop the `.eslintcache` / `.prettiercache` entries from
    `.gitignore` if nothing else needs them.
 
-Keep Husky, lint-staged, ESLint, or Prettier if your project uses them
-independently — `commitment-issues` only wires them together.
+Keep ESLint or Prettier if your project uses them
+independently — `commitment-issues` only runs them.
 
 There is no automated uninstaller yet, but `npx commitment-issues init --dry-run`
 prints exactly what `init` manages, which doubles as a checklist of what to undo.

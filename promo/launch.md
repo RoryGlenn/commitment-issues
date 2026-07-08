@@ -51,11 +51,11 @@ Nothing mutates your work behind your back.
 ### One command, and it heals itself
 
 ```bash
-npm install -D commitment-issues husky lint-staged eslint prettier
+npm install -D commitment-issues eslint prettier
 npx commitment-issues init
 ```
 
-That wires the hooks, npm scripts, and lint-staged config. Hooks are notorious for
+That wires the hooks and npm scripts — no hook manager needed. Hooks are notorious for
 silently breaking — a `git clean`, a stale checkout, a teammate who never ran
 `prepare`. `commitment-issues` ships a `doctor` that repairs the wiring and runs
 quietly on every install, so it self-heals.

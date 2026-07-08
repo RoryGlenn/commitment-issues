@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed (BREAKING)
+
+- **Dropped the `husky` and `lint-staged` dependencies.** They are no longer peer dependencies, are never invoked, and `commitment-issues` now has zero hook-manager dependencies:
+  - Git hooks are plain `.git/hooks/pre-commit` and `.git/hooks/pre-push` files written by `init`/`doctor` (git's default hooks location — no `core.hooksPath`, nothing extra committed to the repo). The generated hooks skip themselves when `COMMITMENT_ISSUES=0` (or the pre-3.0 `HUSKY=0`) is set and exit harmlessly when the bin is uninstalled.
+  - `fix:staged` now runs ESLint `--fix` and Prettier `--write` on the staged files directly and restages the result with `git add`. The existing safety guards (partial-staging refusal, missing-file refusal) already made lint-staged's stash/revert machinery redundant. Custom `lint-staged` configs are no longer read; keep running lint-staged yourself if you rely on custom tasks.
+  - `init` no longer writes a `lint-staged` config into `package.json` and never edits an existing one.
+
 ### Added
 
+- **Automatic husky-era migration.** `doctor` (including the `prepare`-time `doctor --quiet`) and `init` detect pre-3.0 wiring and migrate it: retire the husky `core.hooksPath` and write the native hooks; `init` also deletes the `.husky` hook files this tool generated (exact-content match — user-authored hooks are never touched). `doctor` only auto-migrates once the husky package is out of the dependency tree (the normal v3 upgrade); while husky remains installed, its live wiring is respected with a nudge toward `init`. Upgrading a consumer repo is: update the package, reinstall (or run `init` once).
+- New message states with gallery SVGs: `core.hooksPath points somewhere else.` (a foreign hooks dir is respected, never rewired — and counts as healthy when its hooks already invoke the tool), `Leftover .husky hooks no longer run.` (stranded user hooks are reported, never deleted), `Hook wiring needs your attention.` (init's post-summary warning), and `Unable to restage fixed files.` (fixes applied but `git add` failed).
+- `init` now warns when run outside a git repository instead of silently skipping hook setup.
+- A metadata regression test asserting `husky` and `lint-staged` stay out of `dependencies`, `devDependencies`, and `peerDependencies`.
+- A `file:` self-dependency so this repo's own hooks run the real `commitment-issues` bin from `node_modules/.bin`, exactly like a consumer install.
 - `docs/external-interface.md`: a dedicated reference for the public interface (commands, scripts, hook entrypoints, configuration keys/defaults, and output/exit behavior).
 - `docs/openssf-best-practices.md`: an evidence map that links OpenSSF Best Practices criteria to concrete repository URLs for faster badge updates.
 - `docs/message-states.md` now catalogs every message state the commands can produce, each with a rendered SVG: the full `init` output set, the remaining pre-commit advisory variants (auto-fixable lint, failing staged tests, tool crash/unavailable, amend-withheld notes, fun tone, uninspectable staged files), every `commit:fix` outcome (partial amend, already clean, emptied commit, already-pushed and dirty-worktree refusals, and all failure boxes), the remaining `fix:staged` outcomes, the pre-push could-not-run-tests states and config-conflict warning, and the doctor missing-tools, not-a-repo, repair-failure, and quiet-mode states.
@@ -20,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `doctor`'s required-tool advisory now checks only `eslint` and `prettier`.
+- CI recipes and this repo's own workflow use `COMMITMENT_ISSUES=0` to skip hooks in CI (the old `HUSKY=0` remains honored for existing pipelines).
+- `docs/migration.md` now leads with the 2.x → 3.0 upgrade path; README, FAQ, configuration, monorepo, Yarn Berry, framework, and CI docs no longer instruct installing husky or lint-staged.
 - The pre-commit `Unable to inspect staged files` box is now a warning instead of an error: the commit continues (advisory philosophy), matching the severity of the equivalent pre-push `Could not inspect pushed files (advisory)` state.
 - README now includes a `Project status and support` section with explicit links for interaction, contribution requirements, interface docs, maintenance status, and English-language support.
 - CONTRIBUTING now includes a dedicated `Contribution requirements` section.

@@ -35,7 +35,7 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
 - `toolInvocation(name, extraArgs)` — resolves a tool's CLI entry from the nearest `node_modules` `bin` and returns `{ command, args }` to run it with the current Node, skipping npx startup cost. Prefer this for eslint/prettier/etc.
 - `spawnAsync(command, args, options?)` — async spawn with the shared timeout.
 - `TOOL_TIMEOUT_MS` — default 120s ceiling so a hung tool can't wedge a commit; overridden by `precommitChecks.timeoutMs` (positive number).
-- `isPackageInstalled(name, cwd)` — **fs-based** walk up `node_modules/<name>/package.json`. Must stay fs-based: husky v9's `exports` map hides `package.json`, so `require.resolve('<name>/package.json')` throws on installed husky (false negative). Do not "simplify" it to `require.resolve`.
+- `isPackageInstalled(name, cwd)` — **fs-based** walk up `node_modules/<name>/package.json`. Must stay fs-based: a package whose `exports` map hides `package.json` makes `require.resolve('<name>/package.json')` throw (false negative). Do not "simplify" it to `require.resolve`.
 
 ### `ui.mjs` — terminal output
 

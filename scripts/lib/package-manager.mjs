@@ -68,7 +68,7 @@ export function installCommand(cwd) {
  * smoke test installs with, so a suggestion always matches the real manager.
  * @param {string[]} packages - Package names to install.
  * @param {string} [cwd] - Project root, forwarded to detectPackageManager.
- * @returns {string} e.g. "yarn add -D husky lint-staged".
+ * @returns {string} e.g. "yarn add -D eslint prettier".
  */
 export function devInstallCommand(packages, cwd) {
   const list = packages.join(" ");

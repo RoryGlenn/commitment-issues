@@ -19,14 +19,7 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
   );
 }
 
-const DEV_DEPS = [
-  "husky",
-  "lint-staged",
-  "eslint",
-  "prettier",
-  "@eslint/js",
-  "globals",
-];
+const DEV_DEPS = ["eslint", "prettier", "@eslint/js", "globals"];
 
 // Install the packed tarball plus the peer tools using the selected manager.
 function installDevDeps(tarball) {
@@ -58,7 +51,10 @@ function execBin(args) {
 
 function run(command, args, cwd) {
   const env = { ...process.env };
+  // CI disables hooks for the outer repo; the smoke repo's commits and pushes
+  // must actually exercise them, so strip the skip vars for subprocesses.
   delete env.HUSKY;
+  delete env.COMMITMENT_ISSUES;
 
   const result = crossSpawn.sync(command, args, {
     cwd,

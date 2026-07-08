@@ -6,17 +6,19 @@ import path from "node:path";
 import {
   cleanupTempRepo,
   createTempRepo,
+  fakeGitEnv,
   readFile,
   repoRoot,
   run,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function runInit(tempDir, args = []) {
+function runInit(tempDir, args = [], options = {}) {
   return run(
     "node",
     [path.join(tempDir, "scripts", "init.mjs"), ...args],
     tempDir,
+    options,
   );
 }
 
@@ -29,6 +31,18 @@ function writePackage(tempDir, pkg) {
 
 function readPackage(tempDir) {
   return JSON.parse(readFile(tempDir, "package.json"));
+}
+
+function hooksPath(tempDir) {
+  return run(
+    "git",
+    ["config", "--get", "core.hooksPath"],
+    tempDir,
+  ).stdout.trim();
+}
+
+function gitHook(tempDir, name) {
+  return path.join(tempDir, ".git", "hooks", name);
 }
 
 test("init wires up hooks, scripts, and config; is idempotent", (t) => {
@@ -57,22 +71,20 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
   assert.equal(pkg.scripts.prepare, "commitment-issues doctor --quiet");
-  assert.equal(
-    pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
-    "commitment-issues fix-staged-js",
-  );
+  // No hook-runner config is written: staged fixes run through the bin.
+  assert.equal("lint-staged" in pkg, false);
   assert.equal(pkg.precommitChecks.advisePushTests, true);
 
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
-  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-push")));
   assert.match(
-    readFile(tempDir, ".husky/pre-commit"),
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
     /commitment-issues precommit/,
   );
   assert.match(
-    readFile(tempDir, ".husky/pre-push"),
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
     /commitment-issues prepush/,
   );
+  // Native wiring: hooks live in .git/hooks with no core.hooksPath set.
+  assert.equal(hooksPath(tempDir), "");
   assert.match(readFile(tempDir, ".gitignore"), /\.prettiercache/);
 
   // Re-running changes nothing.
@@ -96,9 +108,6 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
       "test:precommit": "node scripts/precommit-unified.mjs",
       doctor: "node scripts/doctor.mjs",
     },
-    "lint-staged": {
-      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["node scripts/fix-staged-js.mjs"],
-    },
   });
   writeFile(
     path.join(tempDir, ".husky", "pre-commit"),
@@ -117,18 +126,112 @@ test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
   assert.equal(pkg.scripts["commit:fix"], "commitment-issues commit-fix");
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
   assert.equal(pkg.precommitChecks.advisePushTests, true);
-  assert.equal(
-    pkg["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"][0],
-    "commitment-issues fix-staged-js",
+
+  // The vendored-era .husky hook files are ours — cleaned up, replaced by
+  // native hooks.
+  assert.match(`${result.stdout}${result.stderr}`, /removed legacy \.husky/);
+  assert.equal(fs.existsSync(path.join(tempDir, ".husky")), false);
+  assert.ok(fs.existsSync(gitHook(tempDir, "pre-commit")));
+  assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
+});
+
+test("init migrates a husky-era 2.x setup to native hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    scripts: { prepare: "commitment-issues doctor --quiet" },
+  });
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  writeFile(path.join(tempDir, ".husky", "_", "h"), "# husky shim\n");
+  writeFile(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "commitment-issues precommit\n",
   );
+  writeFile(
+    path.join(tempDir, ".husky", "pre-push"),
+    "commitment-issues prepush\n",
+  );
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+
+  assert.match(output, /retired husky-era core\.hooksPath/);
+  assert.match(output, /removed legacy \.husky wiring/);
+  assert.equal(hooksPath(tempDir), "");
+  assert.equal(fs.existsSync(path.join(tempDir, ".husky")), false);
   assert.match(
-    readFile(tempDir, ".husky/pre-commit"),
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
     /commitment-issues precommit/,
   );
   assert.match(
-    readFile(tempDir, ".husky/pre-push"),
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
     /commitment-issues prepush/,
   );
+});
+
+test("init keeps user-authored .husky hooks and warns they no longer run", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  writeFile(path.join(tempDir, ".husky", "_", "h"), "# husky shim\n");
+  writeFile(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "commitment-issues precommit\n",
+  );
+  writeFile(
+    path.join(tempDir, ".husky", "commit-msg"),
+    "echo custom message check\n",
+  );
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+
+  // Our exact-match wiring is cleaned up; the user's hook is preserved and
+  // reported as stranded.
+  assert.equal(
+    fs.existsSync(path.join(tempDir, ".husky", "pre-commit")),
+    false,
+  );
+  assert.equal(
+    readFile(tempDir, ".husky/commit-msg"),
+    "echo custom message check\n",
+  );
+  assert.match(output, /Hook wiring needs your attention/);
+  assert.match(output, /\.husky\/commit-msg/);
+});
+
+test("init warns and keeps .husky when the hooksPath unset fails", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  writeFile(path.join(tempDir, ".husky", "_", "h"), "# husky shim\n");
+  writeFile(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "commitment-issues precommit\n",
+  );
+
+  // `git config --unset` fails, so git keeps running hooks from `.husky/_`.
+  const env = fakeGitEnv(tempDir, "config --unset");
+  const result = runInit(tempDir, [], { env });
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+
+  assert.match(output, /Hook wiring needs your attention/);
+  assert.match(output, /core\.hooksPath is still set/);
+  // The wiring git still runs must not be deleted out from under it.
+  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
+  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "_")));
+  assert.doesNotMatch(output, /removed legacy \.husky wiring/);
 });
 
 test("init preserves explicit push blocking config", (t) => {
@@ -173,10 +276,12 @@ test("init preserves an unrelated prepare script", (t) => {
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
 });
 
-test("init merges the JS task into an existing lint-staged object config", (t) => {
+test("init leaves an existing lint-staged config exactly as the user wrote it", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
+  // A user may keep running lint-staged themselves; init neither adopts nor
+  // edits their config.
   writePackage(tempDir, {
     name: "x",
     version: "1.0.0",
@@ -188,59 +293,9 @@ test("init merges the JS task into an existing lint-staged object config", (t) =
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
-  assert.match(`${result.stdout}${result.stderr}`, /- lint-staged JS task/);
 
   const pkg = readPackage(tempDir);
-  // The user's Markdown task is untouched, but the JS task is added so that
-  // `npm run fix:staged` actually runs the JS fixer.
-  assert.deepEqual(pkg["lint-staged"], {
-    "*.md": ["prettier --check"],
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["commitment-issues fix-staged-js"],
-  });
-  assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
-});
-
-test("init preserves a custom JS task in a lint-staged object config", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-
-  writePackage(tempDir, {
-    name: "x",
-    version: "1.0.0",
-    type: "module",
-    "lint-staged": {
-      "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["eslint --fix"],
-      "*.md": ["prettier --check"],
-    },
-  });
-
-  const result = runInit(tempDir);
-  assert.equal(result.status, 0);
-
-  const pkg = readPackage(tempDir);
-  // A user-defined JS task is never overwritten.
-  assert.deepEqual(pkg["lint-staged"], {
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": ["eslint --fix"],
-    "*.md": ["prettier --check"],
-  });
-});
-
-test("init preserves existing lint-staged array config", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-
-  writePackage(tempDir, {
-    name: "x",
-    version: "1.0.0",
-    type: "module",
-    "lint-staged": ["prettier --check"],
-  });
-
-  const result = runInit(tempDir);
-  assert.equal(result.status, 0);
-
-  const pkg = readPackage(tempDir);
-  assert.deepEqual(pkg["lint-staged"], ["prettier --check"]);
+  assert.deepEqual(pkg["lint-staged"], { "*.md": ["prettier --check"] });
   assert.equal(pkg.scripts["fix:staged"], "commitment-issues fix-staged");
 });
 
@@ -249,14 +304,59 @@ test("init leaves customized hooks untouched", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
-  writeFile(path.join(tempDir, ".husky", "pre-commit"), "echo custom commit\n");
-  writeFile(path.join(tempDir, ".husky", "pre-push"), "echo custom push\n");
+  fs.mkdirSync(path.join(tempDir, ".git", "hooks"), { recursive: true });
+  fs.writeFileSync(gitHook(tempDir, "pre-commit"), "echo custom commit\n");
+  fs.writeFileSync(gitHook(tempDir, "pre-push"), "echo custom push\n");
 
   const result = runInit(tempDir);
   assert.equal(result.status, 0);
-  // Non-legacy bodies are a user's own hooks — never clobber them.
-  assert.equal(readFile(tempDir, ".husky/pre-commit"), "echo custom commit\n");
-  assert.equal(readFile(tempDir, ".husky/pre-push"), "echo custom push\n");
+  // Existing hook bodies are the user's — never clobbered.
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    "echo custom commit\n",
+  );
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
+    "echo custom push\n",
+  );
+});
+
+test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
+  run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+
+  assert.match(output, /Hook wiring needs your attention/);
+  assert.match(output, /core\.hooksPath is set to githooks/);
+  // The user's configuration is untouched and no shadowed hooks are written.
+  assert.equal(hooksPath(tempDir), "githooks");
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("init warns when run outside a git repository", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "init-nongit-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  writeFile(
+    path.join(dir, "package.json"),
+    `${JSON.stringify({ name: "x", version: "1.0.0" }, null, 2)}\n`,
+  );
+
+  const result = run("node", [path.join(repoRoot, "scripts", "init.mjs")], dir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /not a git repository/);
+  // Scripts and config are still written so a later `git init` + doctor works.
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json")));
+  assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
 });
 
 test("init errors and exits when there is no package.json", (t) => {
@@ -323,19 +423,30 @@ test("init --dry-run previews changes without writing files", (t) => {
 
   const beforePackage = readPackage(tempDir);
   fs.rmSync(path.join(tempDir, ".gitignore"), { force: true });
-  fs.rmSync(path.join(tempDir, ".husky"), { recursive: true, force: true });
+  // A husky-era setup that a real run would migrate.
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  writeFile(path.join(tempDir, ".husky", "_", "h"), "# husky shim\n");
+  writeFile(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "commitment-issues precommit\n",
+  );
 
   const result = runInit(tempDir, ["--dry-run"]);
   const output = `${result.stdout}${result.stderr}`;
   assert.equal(result.status, 0);
   assert.match(output, /dry run preview/i);
   assert.match(output, /Would add:/);
-  // The preview must cover everything a real run would add, including the
-  // hook files and .gitignore defaults that are only written outside dry-run.
-  assert.match(output, /\.husky\/pre-commit/);
-  assert.match(output, /\.husky\/pre-push/);
+  // The preview must cover everything a real run would change, including the
+  // hook files, migration steps, and .gitignore defaults that are only
+  // written outside dry-run.
+  assert.match(output, /\.git\/hooks\/pre-commit/);
+  assert.match(output, /\.git\/hooks\/pre-push/);
+  assert.match(output, /retired husky-era core\.hooksPath/);
+  assert.match(output, /removed legacy \.husky wiring/);
   assert.match(output, /\.gitignore defaults/);
-  assert.equal(fs.existsSync(path.join(tempDir, ".husky")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(hooksPath(tempDir), ".husky/_");
+  assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
   assert.equal(fs.existsSync(path.join(tempDir, ".gitignore")), false);
   assert.deepEqual(readPackage(tempDir), beforePackage);
 });
