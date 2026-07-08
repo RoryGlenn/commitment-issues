@@ -23,6 +23,15 @@ Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript proj
 
 **Advisory by default:** `commitment-issues` reports issues without discarding unstaged work, rewriting already-pushed history, or blocking pushes. Blocking behavior is opt-in.
 
+## Project status and support
+
+- **Status:** actively maintained.
+- **Discussion and feedback:** use [GitHub Issues](https://github.com/RoryGlenn/commitment-issues/issues) for bugs, feature requests, and questions.
+- **How to contribute:** see [Contributing](.github/CONTRIBUTING.md).
+- **Contribution requirements:** see the requirements section in [Contributing](.github/CONTRIBUTING.md).
+- **Reference docs for the external interface:** see [External interface reference](docs/external-interface.md).
+- **Language:** project documentation and issue/PR discussion are in English.
+
 ## Why use it?
 
 - Warn before commits without blocking by default.
@@ -276,6 +285,8 @@ Also check your environment has not disabled Husky hooks.
 
 - [FAQ](docs/faq.md) — answers for adoption, safety, configuration, test runners, package managers, CI, and removal.
 - [Migration guide](docs/migration.md) — paths from raw husky + lint-staged, lefthook, and pre-commit setups.
+- [External interface reference](docs/external-interface.md) — commands, scripts, hooks, config keys, defaults, and outputs.
+- [OpenSSF Best Practices evidence](docs/openssf-best-practices.md) — criterion-to-URL mapping for badge questionnaire updates.
 - [Yarn Berry guide](docs/yarn-berry.md) — using `commitment-issues` with Yarn 2+ and the `node-modules` linker.
 - [Monorepo & workspaces guide](docs/monorepo.md) — running `commitment-issues` from the root of a workspaces repository.
 - [Framework recipes](docs/framework-recipes.md) — wiring for Next.js, Vite, and TypeScript libraries.

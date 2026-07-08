@@ -113,6 +113,17 @@ spawning subprocesses inside temporary git repos (see
 - Only add comments where intent is non-obvious. Avoid documenting code you did
   not change.
 
+## Contribution requirements
+
+To keep contributions reviewable and releasable, pull requests should meet these
+requirements:
+
+- Include tests for behavior changes and regression tests for bug fixes.
+- Keep changes focused and scoped to one logical update.
+- Pass local checks: `npm test`, `npm run lint`, and `npm run format:check`.
+- Update `CHANGELOG.md` (`## [Unreleased]`) and docs for user-visible changes.
+- Follow the project's advisory-first design philosophy.
+
 ## Commit messages
 
 - Write clear, imperative commit subjects (for example, "Add version flag to

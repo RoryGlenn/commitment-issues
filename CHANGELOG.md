@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `docs/external-interface.md`: a dedicated reference for the public interface (commands, scripts, hook entrypoints, configuration keys/defaults, and output/exit behavior).
+- `docs/openssf-best-practices.md`: an evidence map that links OpenSSF Best Practices criteria to concrete repository URLs for faster badge updates.
+
+### Changed
+
+- README now includes a `Project status and support` section with explicit links for interaction, contribution requirements, interface docs, maintenance status, and English-language support.
+- CONTRIBUTING now includes a dedicated `Contribution requirements` section.
+
 ## [2.5.0] - 2026-07-08
 
 ### Added
