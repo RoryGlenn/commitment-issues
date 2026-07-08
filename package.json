@@ -64,7 +64,8 @@
   },
   "precommitChecks": {
     "testExempt": [
-      "scripts/lib/**"
+      "scripts/lib/**",
+      "tools/**"
     ],
     "tone": "fun",
     "blockPushOnTestFailure": true

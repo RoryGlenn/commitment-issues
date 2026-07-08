@@ -7,7 +7,10 @@ import {
   spawnAsync,
   run,
 } from "./lib/process.mjs";
-import { loadPrecommitConfig } from "./lib/config.mjs";
+import {
+  loadPrecommitConfig,
+  unknownPrecommitConfigKeys,
+} from "./lib/config.mjs";
 import {
   eslintManualIssues,
   parsePrettierList,
@@ -152,6 +155,18 @@ if (stagedJsFiles.length === 0 && stagedFormatFiles.length === 0) {
 const issues = [];
 
 const config = loadPrecommitConfig();
+
+// A typo'd key (e.g. requireTest) silently falls back to the default, which
+// reads as "the tool ignored my config". One concise advisory line — never a
+// box, never blocking — mirroring the pre-push config-conflict warning.
+const unknownKeys = unknownPrecommitConfigKeys(config);
+if (unknownKeys.length > 0) {
+  console.warn(
+    pc.yellow(
+      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
+    ),
+  );
+}
 
 // Missing-test detection is pure and instant; opt out with requireTests: false.
 if (config.requireTests !== false && stagedJsFiles.length > 0) {

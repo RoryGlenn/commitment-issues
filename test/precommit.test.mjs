@@ -137,6 +137,38 @@ test("requireTests:false disables the missing-test check", (t) => {
   assert.doesNotMatch(output, /missing unit tests/);
 });
 
+test("warns about unknown precommitChecks keys but still runs", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // requireTest (singular) is a typo of requireTests: warn, then behave as if
+  // the key were absent (the missing-test check stays on).
+  setPrecommitConfig(tempDir, { requireTest: false });
+  writeFile(path.join(tempDir, "src", "widget.mjs"), "export const w = 1;\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /unknown precommitChecks key\(s\).*requireTest/);
+  assert.match(output, /missing unit tests/);
+});
+
+test("does not warn when only known precommitChecks keys are set", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false, tone: "fun" });
+  writeFile(path.join(tempDir, "src", "widget.mjs"), "export const w = 1;\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.doesNotMatch(output, /unknown precommitChecks key/);
+});
+
 test("treats staged TypeScript files as lintable code files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

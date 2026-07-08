@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="646" height="110" viewBox="0 0 646 110" role="img" aria-labelledby="title desc">
+  <title id="title">Unknown precommitChecks key warning line</title>
+  <desc id="desc">A single yellow console warning saying an unknown precommitChecks key is being ignored.</desc>
+  <rect width="646" height="110" rx="8" ry="8" fill="#181818"/>
+  <text x="24" y="40" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">⚠ Ignoring unknown precommitChecks key(s) in package.json:</text>
+  <text x="24" y="70" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">requireTest. Check for typos.</text>
+</svg>

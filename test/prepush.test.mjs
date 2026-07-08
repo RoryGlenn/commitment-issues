@@ -276,6 +276,23 @@ test("stays silent during a real push when no mode is set", (t) => {
   assert.equal(output.trim(), "");
 });
 
+test("warns about a typo'd push-mode key even when the push proceeds", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // advisePushTest (singular) silently disables the mode the user thinks is
+  // on — exactly the case the one-line typo warning exists for.
+  setConfig(tempDir, { advisePushTest: true });
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /unknown precommitChecks key\(s\).*advisePushTest/);
+  // The typo means no mode is enabled, so nothing else prints.
+  assert.doesNotMatch(output, /All tests passed|Tests failed/);
+});
+
 test("falls back to the upstream branch when run without piped refs", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

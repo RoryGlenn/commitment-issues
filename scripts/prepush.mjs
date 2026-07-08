@@ -4,7 +4,10 @@ import path from "node:path";
 import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
-import { loadPrecommitConfig } from "./lib/config.mjs";
+import {
+  loadPrecommitConfig,
+  unknownPrecommitConfigKeys,
+} from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles } from "./lib/files.mjs";
 
@@ -19,6 +22,17 @@ const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const config = loadPrecommitConfig();
+
+// A typo'd key (e.g. advisePushTest) silently disables the mode the user
+// thinks is on. One concise advisory line, matching the conflict warning below.
+const unknownKeys = unknownPrecommitConfigKeys(config);
+if (unknownKeys.length > 0) {
+  console.warn(
+    pc.yellow(
+      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
+    ),
+  );
+}
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is
 // never a TTY then. A developer running the script by hand in a terminal does

@@ -157,6 +157,8 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `timeoutMs`              | number                  | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
 | `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
 
+Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
+
 ```json
 {
   "precommitChecks": {

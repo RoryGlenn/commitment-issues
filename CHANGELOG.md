@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A metadata test that extracts every terminal box title from the entry scripts and fails if one is missing from the `docs/message-states.md` gallery (or its referenced SVGs), so new message states cannot ship undocumented.
 - Fun-tone rewrites for the exact tool-failure messages (`ESLint timed out`, `Prettier timed out`, `Staged tests timed out`, and the three `Unable to run …` variants), so a fun-toned advisory box no longer falls back to standard wording for those issues.
 - A pre-push regression test covering the test-command timeout (`timeoutMs`) branch of the `Push blocked: could not run tests` state.
+- The pre-commit and pre-push hooks now print a one-line advisory warning when `precommitChecks` contains an unrecognized key, so a typo (e.g. `requireTest`) can no longer silently fall back to default behavior.
+- `tools/gen-message-state-svgs.mjs`: the maintainer script that renders the `docs/message-states.md` gallery SVGs, so new message states can be documented by appending an entry instead of hand-drawing an SVG (kept out of the npm tarball).
 
 ### Changed
 

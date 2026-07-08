@@ -142,6 +142,14 @@ Shown when Git cannot report whether the worktree is clean; the amend recommenda
 
 Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps its structure but swaps in relationship-themed wording.
 
+### Unknown config key warning
+
+<p>
+  <img src="../assets/config-unknown-key-warning.svg" alt="A single yellow console warning saying an unknown precommitChecks key is being ignored" width="646">
+</p>
+
+Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when `precommitChecks` contains a key the tool does not recognize — usually a typo like `requireTest` that would otherwise silently fall back to the default behavior.
+
 ### Unable to inspect staged files
 
 <p>

@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { loadPrecommitConfig } from "../scripts/lib/config.mjs";
+import {
+  KNOWN_PRECOMMIT_CONFIG_KEYS,
+  loadPrecommitConfig,
+  unknownPrecommitConfigKeys,
+} from "../scripts/lib/config.mjs";
 
 const originalCwd = process.cwd();
 
@@ -30,6 +34,31 @@ test("loadPrecommitConfig reads precommitChecks from package.json", (t) => {
   withTempPackage(t, { precommitChecks: { runStagedTests: true } });
 
   assert.deepEqual(loadPrecommitConfig(), { runStagedTests: true });
+});
+
+test("unknownPrecommitConfigKeys flags typo'd keys and keeps their order", () => {
+  assert.deepEqual(
+    unknownPrecommitConfigKeys({
+      requireTest: false,
+      tone: "fun",
+      advisePushTest: true,
+    }),
+    ["requireTest", "advisePushTest"],
+  );
+});
+
+test("unknownPrecommitConfigKeys accepts every documented key", () => {
+  const allKnown = Object.fromEntries(
+    KNOWN_PRECOMMIT_CONFIG_KEYS.map((key) => [key, true]),
+  );
+  assert.deepEqual(unknownPrecommitConfigKeys(allKnown), []);
+});
+
+test("unknownPrecommitConfigKeys tolerates malformed config containers", () => {
+  assert.deepEqual(unknownPrecommitConfigKeys(undefined), []);
+  assert.deepEqual(unknownPrecommitConfigKeys(null), []);
+  assert.deepEqual(unknownPrecommitConfigKeys(["tone"]), []);
+  assert.deepEqual(unknownPrecommitConfigKeys("tone"), []);
 });
 
 test("loadPrecommitConfig returns {} when package.json is missing", (t) => {
