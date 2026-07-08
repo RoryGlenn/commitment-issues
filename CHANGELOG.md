@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-07-08
+
 ### Removed (BREAKING)
 
 - **Dropped the `husky` and `lint-staged` dependencies.** They are no longer peer dependencies, are never invoked, and `commitment-issues` now has zero hook-manager dependencies:
