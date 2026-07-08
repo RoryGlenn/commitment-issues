@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Signed releases: publishing a `vX.Y.Z` tag now attaches the packed npm tarball and its SLSA build-provenance attestation to the matching GitHub release, so release artifacts can be verified with `slsa-verifier`.
-- Pinned every GitHub Actions dependency to a full commit SHA across the CI, publish, Scorecard, and CodeQL workflows (Dependabot keeps the pins current).
+- Pinned GitHub Actions dependencies to full commit SHAs across the CI, publish, Scorecard, and CodeQL workflows (with the SLSA generator referenced by a semantic version tag per SLSA requirements; Dependabot keeps the pins current).
 
 ## [2.4.0] - 2026-07-07
 
