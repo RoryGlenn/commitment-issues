@@ -79,7 +79,7 @@ spawning subprocesses inside temporary git repos (see
 4. Run the full local check suite before pushing:
 
    ```bash
-   npm test              # node --test test/*.test.mjs
+   npm test              # node --test test/*.test.mjs test/*.test.js
    npm run lint          # eslint .
    npm run format:check  # prettier . --check (use `npm run format` to fix)
    ```

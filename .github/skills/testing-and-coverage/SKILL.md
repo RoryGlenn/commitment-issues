@@ -5,13 +5,13 @@ description: "How to write, run, and debug tests for commitment-issues (node:tes
 
 # Testing & Coverage
 
-This package uses the built-in Node test runner only — `node:test` + `node:assert/strict`. There is **no** Jest/Mocha/Vitest, no build step, and no transpile. Tests live in `test/*.test.mjs`; shared helpers live in [`test/helpers/temp-repo.mjs`](../../../test/helpers/temp-repo.mjs).
+This package uses the built-in Node test runner only — `node:test` + `node:assert/strict`. There is **no** Jest/Mocha/Vitest, no build step, and no transpile. Tests live in `test/*.test.mjs`; shared helpers live in [`test/helpers/temp-repo.mjs`](../../../test/helpers/temp-repo.mjs). The one extra test library is `fast-check`, powering the property-based tests in `test/property.test.js` — that file is deliberately **`.js`, not `.mjs`** (still ESM via `"type": "module"`): the OpenSSF Scorecard fuzzing check only scans `*.js`/`*.jsx` for the fast-check import, so renaming it to `.mjs` silently zeroes the Fuzzing score.
 
 ## Commands
 
 | Goal                       | Command                                                               |
 | -------------------------- | --------------------------------------------------------------------- |
-| Run everything             | `npm test` (= `node --test test/*.test.mjs`)                          |
+| Run everything             | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)           |
 | Run one file               | `node --test test/precommit.test.mjs`                                 |
 | Coverage report            | `npm run test:coverage` (reported, **not gated** — no threshold flag) |
 | Reproduce CI locally       | prefix any test command with `HUSKY=0` (see trap below)               |
@@ -64,7 +64,7 @@ test("describes the behavior", (t) => {
 
 CI (`.github/workflows/ci.yml`) sets job-level `HUSKY=0` so that `npm ci`'s `prepare` (`doctor --quiet`) is a no-op. But husky v9 treats `HUSKY=0` as "disabled", so `npx husky` does **nothing**. If that leaks into the test subprocess, every test that wires real husky (doctor wiring, cli→doctor dispatch) breaks — **in CI only**, which is confusing.
 
-The fix already lives in `run()` inside the helper: it deletes `HUSKY` from the subprocess env (inherited or caller-provided) so tests are hermetic. **Keep it.** Always reproduce CI failures locally with `HUSKY=0 node --test test/*.test.mjs` before assuming a test is flaky.
+The fix already lives in `run()` inside the helper: it deletes `HUSKY` from the subprocess env (inherited or caller-provided) so tests are hermetic. **Keep it.** Always reproduce CI failures locally with `HUSKY=0 npm test` before assuming a test is flaky.
 
 ## Helpers available from `test/helpers/temp-repo.mjs`
 
@@ -96,7 +96,7 @@ Coverage is reported, not gated, so don't chase 100%. To see _which_ branches ar
 
 ```bash
 node --test --experimental-test-coverage \
-  --test-reporter=lcov --test-reporter-destination=/tmp/cov.info test/*.test.mjs
+  --test-reporter=lcov --test-reporter-destination=/tmp/cov.info test/*.test.mjs test/*.test.js
 grep -E ",-$|,0$" /tmp/cov.info   # BRDA lines ending in ,- (never taken) or ,0 (taken 0x)
 ```
 
