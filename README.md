@@ -5,7 +5,7 @@
 # Commitment Issues
 
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Coverage: 93.13%](https://img.shields.io/badge/coverage-93.13%25-brightgreen.svg)](docs/scenario-coverage.md)
+[![Coverage: 91.54%](https://img.shields.io/badge/coverage-91.54%25-brightgreen.svg)](docs/scenario-coverage.md)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/RoryGlenn/commitment-issues/badge)](https://securityscorecards.dev/viewer/?uri=github.com/RoryGlenn/commitment-issues)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13528/badge)](https://www.bestpractices.dev/projects/13528)
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)

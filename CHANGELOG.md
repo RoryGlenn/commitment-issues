@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Maintainer adoption-metrics checklist in `docs/adoption-metrics.md`.
 - A CodeQL static-analysis (SAST) workflow that scans JavaScript/TypeScript on pushes, pull requests, and a weekly schedule.
 - Property-based tests (`fast-check`) fuzzing the pure path, glob, and tool-output parsing helpers with generated inputs; also satisfies the OpenSSF Scorecard fuzzing check.
+- `npm run coverage:badge` to refresh the README coverage badge from live `npm run test:coverage` output.
 
 ### Changed
 
