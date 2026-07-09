@@ -110,10 +110,17 @@ function assertHookWired(repoDir, name) {
   const hookPath = path.join(repoDir, ".git", "hooks", name);
   const subcommand = HOOK_SUBCOMMANDS[name];
   assertFileContains(hookPath, `commitment-issues ${subcommand}`);
-  assertSmoke(
-    Boolean(fs.statSync(hookPath).mode & 0o111),
-    `${hookPath} should be executable`,
-  );
+
+  // Git for Windows runs hook files through its bundled shell, but POSIX mode
+  // bits are not a reliable signal on that filesystem. Keep the executable-bit
+  // check where it is meaningful and rely on the real commit/push below on
+  // Windows to prove the hooks actually run.
+  if (process.platform !== "win32") {
+    assertSmoke(
+      Boolean(fs.statSync(hookPath).mode & 0o111),
+      `${hookPath} should be executable`,
+    );
+  }
 }
 
 function assertPackageJsonConfigured(repoDir) {
