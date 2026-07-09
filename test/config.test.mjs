@@ -7,8 +7,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  invalidPrecommitConfigMessages,
   KNOWN_PRECOMMIT_CONFIG_KEYS,
   loadPrecommitConfig,
+  sanitizePrecommitConfig,
   unknownPrecommitConfigKeys,
 } from "../scripts/lib/config.mjs";
 
@@ -33,7 +35,7 @@ function withTempPackage(t, packageJson) {
   process.chdir(dir);
 }
 
-test("loadPrecommitConfig reads precommitChecks from package.json", (t) => {
+test("loadPrecommitConfig reads valid precommitChecks from package.json", (t) => {
   withTempPackage(t, { precommitChecks: { runStagedTests: true } });
 
   assert.deepEqual(loadPrecommitConfig(), { runStagedTests: true });
@@ -62,6 +64,15 @@ test("unknownPrecommitConfigKeys tolerates malformed config containers", () => {
   assert.deepEqual(unknownPrecommitConfigKeys(null), []);
   assert.deepEqual(unknownPrecommitConfigKeys(["tone"]), []);
   assert.deepEqual(unknownPrecommitConfigKeys("tone"), []);
+});
+
+test("unknownPrecommitConfigKeys can diagnose sanitized config", () => {
+  const sanitized = sanitizePrecommitConfig({
+    runStagedTests: true,
+    requireTest: false,
+  });
+
+  assert.deepEqual(unknownPrecommitConfigKeys(sanitized), ["requireTest"]);
 });
 
 test("loadPrecommitConfig returns {} when package.json is missing", (t) => {
@@ -103,12 +114,13 @@ test("loadPrecommitConfig ignores malformed precommitChecks containers", (t) => 
   }
 });
 
-test("loadPrecommitConfig tolerates malformed option values inside an object", (t) => {
+test("loadPrecommitConfig rejects malformed option values inside an object", (t) => {
   const config = {
     requireTests: "yes",
     runStagedTests: "true",
     blockPushOnTestFailure: "false",
     advisePushTests: "true",
+    tone: "silly",
     testExempt: ["src/legacy/**", 123, null],
     testCommand: ["node", "--test", 42],
     timeoutMs: -1,
@@ -117,5 +129,53 @@ test("loadPrecommitConfig tolerates malformed option values inside an object", (
 
   withTempPackage(t, { precommitChecks: config });
 
-  assert.deepEqual(loadPrecommitConfig(), config);
+  assert.deepEqual(loadPrecommitConfig(), {});
+});
+
+test("loadPrecommitConfig keeps valid values and omits invalid values", (t) => {
+  withTempPackage(t, {
+    precommitChecks: {
+      requireTests: false,
+      runStagedTests: true,
+      blockPushOnTestFailure: "false",
+      tone: "fun",
+      testExempt: ["src/legacy/**"],
+      testCommand: ["node", "--test"],
+      timeoutMs: 30000,
+    },
+  });
+
+  assert.deepEqual(loadPrecommitConfig(), {
+    requireTests: false,
+    runStagedTests: true,
+    tone: "fun",
+    testExempt: ["src/legacy/**"],
+    testCommand: ["node", "--test"],
+    timeoutMs: 30000,
+  });
+});
+
+test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
+  assert.deepEqual(
+    invalidPrecommitConfigMessages({
+      requireTests: "yes",
+      runStagedTests: "true",
+      blockPushOnTestFailure: "false",
+      advisePushTests: "true",
+      tone: "silly",
+      testExempt: ["src/legacy/**", 123],
+      testCommand: [],
+      timeoutMs: 0,
+    }),
+    [
+      "advisePushTests must be a boolean",
+      "blockPushOnTestFailure must be a boolean",
+      "requireTests must be a boolean",
+      "runStagedTests must be a boolean",
+      'tone must be "standard" or "fun"',
+      "testExempt must be an array of strings",
+      "testCommand must be a non-empty array of non-empty strings",
+      "timeoutMs must be a positive finite number",
+    ],
+  );
 });
