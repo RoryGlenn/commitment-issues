@@ -11,6 +11,7 @@ import {
   run,
 } from "./lib/process.mjs";
 import {
+  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
   unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
@@ -167,6 +168,18 @@ if (unknownKeys.length > 0) {
   console.warn(
     pc.yellow(
       `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
+    ),
+  );
+}
+
+// A recognized key with a wrong-typed value is sanitized away and falls back to
+// the default — which also reads as "the tool ignored my config". Surface it on
+// one concise advisory line, never a box and never blocking.
+const invalidValueMessages = invalidPrecommitConfigMessages(config);
+if (invalidValueMessages.length > 0) {
+  console.warn(
+    pc.yellow(
+      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
     ),
   );
 }

@@ -3,7 +3,11 @@
 `commitment-issues` owns the Git hook workflow directly: setup writes plain `.git/hooks` files, commit checks stay advisory by default, push checks can warn or block depending on configuration, and fix commands only mutate work when the safety checks pass.
 
 <p align="center">
-  <img src="../assets/project-flowchart.webp" alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/project-flowchart-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="../assets/project-flowchart-light.svg">
+    <img src="../assets/project-flowchart-light.svg" alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" width="100%">
+  </picture>
 </p>
 
 ## Setup

@@ -296,6 +296,25 @@ test("warns about a typo'd push-mode key even when the push proceeds", (t) => {
   assert.doesNotMatch(output, /All tests passed|Tests failed/);
 });
 
+test("warns about an invalid recognized push-mode value", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // advisePushTests is recognized but the string value is invalid: it is
+  // sanitized away (no mode enabled) and surfaced on the one-line warning.
+  setConfig(tempDir, { advisePushTests: "yes" });
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(
+    output,
+    /invalid precommitChecks value\(s\).*advisePushTests must be a boolean/,
+  );
+  assert.doesNotMatch(output, /All tests passed|Tests failed/);
+});
+
 test("falls back to the upstream branch when run without piped refs", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

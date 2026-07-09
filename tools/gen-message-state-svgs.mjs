@@ -766,6 +766,20 @@ bareSvg({
   ],
 });
 
+bareSvg({
+  file: "config-invalid-value-warning.svg",
+  title: "Invalid precommitChecks value warning line",
+  desc: "A single yellow console warning saying an invalid precommitChecks value is being ignored.",
+  lines: [
+    {
+      k: "raw",
+      color: "#dfff00",
+      text: "⚠ Ignoring invalid precommitChecks value(s) in package.json:",
+    },
+    { k: "raw", color: "#dfff00", text: "advisePushTests must be a boolean." },
+  ],
+});
+
 // ---------------- Doctor ----------------
 
 boxSvg({

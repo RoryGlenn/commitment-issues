@@ -158,6 +158,8 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 
 Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
 
+Recognized keys with the wrong value type (for example a string where a boolean is expected, or an out-of-range `timeoutMs`) are likewise ignored and fall back to their defaults, and the hooks print a one-line warning naming each invalid value — so a mistyped value cannot silently change behavior either. Both warnings are advisory only: the commit or push still proceeds.
+
 ```json
 {
   "precommitChecks": {

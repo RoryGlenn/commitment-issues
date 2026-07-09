@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The pre-commit and pre-push hooks now print a one-line advisory warning when `precommitChecks` contains a recognized key with an invalid value (e.g. a string where a boolean is expected, or a non-positive `timeoutMs`). The invalid value is still ignored in favor of the default; the warning just makes the mistyped setting visible instead of silently falling back.
+- OpenSSF Silver-readiness governance and assurance artifacts: `GOVERNANCE.md`, `DCO`, `docs/project-roles.md`, `docs/dependency-management.md`, `docs/release-verification.md`, `docs/security/assurance-case.md`, and `docs/vulnerability-history.md`.
+- A dedicated DCO CI workflow (`.github/workflows/dco.yml`) that validates `Signed-off-by:` trailers on every pull request commit.
+
+### Changed
+
+- `scripts/ci-lifecycle-smoke.mjs` now asserts `init` side effects more thoroughly across npm/pnpm/yarn/bun (expected scripts, hook wiring, `.gitignore` defaults, and manager lockfiles), with platform-safe hook executability checks on Windows.
+- `scripts/lib/config.mjs` now sanitizes `precommitChecks` via an allowlist/type validation path before use, reducing malformed config-footgun behavior while preserving unknown-key diagnostics.
+- `.github/CONTRIBUTING.md` now codifies DCO sign-off requirements and stronger test expectations for major features and bug-fix regressions (when practical).
+- Redesigned the project flowchart images: new hand-authored dark and light SVGs (`assets/project-flowchart-dark.svg`, `assets/project-flowchart-light.svg`) used by both the README and `docs/how-it-works.md`, which now theme-switch instead of showing a fixed dark raster. The superseded `assets/project-flowchart.webp` was removed.
+
 ## [3.0.1] - 2026-07-08
 
 ### Added

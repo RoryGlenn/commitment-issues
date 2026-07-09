@@ -172,6 +172,27 @@ test("does not warn when only known precommitChecks keys are set", (t) => {
   assert.doesNotMatch(output, /unknown precommitChecks key/);
 });
 
+test("warns about invalid precommitChecks values but still runs", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // requireTests is a recognized key but the string value is invalid: warn,
+  // then behave as if it were absent (the missing-test check stays on).
+  setPrecommitConfig(tempDir, { requireTests: "nope" });
+  writeFile(path.join(tempDir, "src", "widget.mjs"), "export const w = 1;\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(
+    output,
+    /invalid precommitChecks value\(s\).*requireTests must be a boolean/,
+  );
+  assert.match(output, /missing unit tests/);
+});
+
 test("treats staged TypeScript files as lintable code files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

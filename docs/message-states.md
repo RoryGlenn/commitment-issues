@@ -158,6 +158,14 @@ Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps i
 
 Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when `precommitChecks` contains a key the tool does not recognize — usually a typo like `requireTest` that would otherwise silently fall back to the default behavior.
 
+### Invalid config value warning
+
+<p>
+  <img src="../assets/config-invalid-value-warning.svg" alt="A single yellow console warning saying an invalid precommitChecks value is being ignored" width="646">
+</p>
+
+Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when a recognized `precommitChecks` key has an invalid value — for example a string where a boolean is expected, or a non-positive `timeoutMs`. The invalid value is ignored in favor of the default, and the commit or push still proceeds.
+
 ### Unable to inspect staged files
 
 <p>
