@@ -13,7 +13,6 @@
     .label { fill: #24292f; font: 700 15px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .small { fill: #57606a; font: 13px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .mono { fill: #24292f; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; }
-    .muted { fill: #6e7781; font: 700 12px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .green { stroke: #2da44e; }
     .blue { stroke: #0969da; }
     .purple { stroke: #8250df; }
@@ -109,13 +108,12 @@
     <path class='diamond' d='M405 76 L480 123 L405 170 L330 123 Z' fill='#fbefff' stroke='#8250df' />
     <text class='small' x='405' y='118' text-anchor='middle'>Relevant</text>
     <text class='small' x='405' y='136' text-anchor='middle'>project files?</text>
-    <text class='muted' x='508' y='115' text-anchor='middle'>No</text>
     <path class='arrow' d='M480 123 H543' />
-    <rect class='card' x='555' y='95' width='130' height='56' rx='10' />
-    <text class='greenText' x='620' y='118' text-anchor='middle' font-size='22' font-weight='800'>✓</text>
-    <text class='small' x='620' y='139' text-anchor='middle'>Allow commit</text>
-    <text class='muted' x='422' y='191' text-anchor='middle'>Yes</text>
-    <path class='arrow' d='M405 170 V212 H335' />
+    <rect class='card' x='555' y='88' width='130' height='70' rx='10' />
+    <text class='greenText' x='620' y='112' text-anchor='middle' font-size='20' font-weight='800'>✓</text>
+    <text class='label' x='620' y='134' text-anchor='middle'>No relevant files</text>
+    <text class='small' x='620' y='151' text-anchor='middle'>allow commit</text>
+    <path class='arrow' d='M405 170 V215 H335 V218' />
     <rect class='card' x='225' y='230' width='220' height='60' rx='10' />
     <text class='label' x='335' y='254' text-anchor='middle'>Run checks</text>
     <text class='small' x='335' y='274' text-anchor='middle'>lint, format, missing tests</text>
@@ -123,15 +121,13 @@
     <path class='diamond' d='M545 215 L615 260 L545 305 L475 260 Z' fill='#fbefff' stroke='#8250df' />
     <text class='small' x='545' y='254' text-anchor='middle'>Issues</text>
     <text class='small' x='545' y='272' text-anchor='middle'>found?</text>
-    <text class='muted' x='626' y='252' text-anchor='middle'>No</text>
-    <path class='arrow' d='M615 260 H626' />
-    <rect class='card' x='638' y='232' width='54' height='56' rx='10' />
-    <text class='greenText' x='665' y='268' text-anchor='middle' font-size='24' font-weight='800'>✓</text>
-    <text class='muted' x='560' y='323' text-anchor='middle'>Yes</text>
-    <path class='arrow' d='M545 305 V322 H418' />
+    <path class='arrow' d='M615 242 H626' />
+    <rect class='card' x='638' y='213' width='62' height='58' rx='10' />
+    <text class='greenText' x='669' y='251' text-anchor='middle' font-size='24' font-weight='800'>✓</text>
+    <path class='arrow' d='M545 305 V323 H422' />
     <rect class='card orange' x='260' y='304' width='150' height='42' rx='10' />
     <text class='warn' x='335' y='324' text-anchor='middle' font-size='18' font-weight='800'>!</text>
-    <text class='small' x='335' y='340' text-anchor='middle'>Advisory warning</text>
+    <text class='small' x='335' y='340' text-anchor='middle'>Warn, allow commit</text>
   </g>
 
   <g transform='translate(768 330)'>
@@ -176,18 +172,18 @@
     <path class='diamond' d='M895 76 L948 117 L895 158 L842 117 Z' fill='#e7f9fb' stroke='#1b7f8c' />
     <text class='small' x='895' y='112' text-anchor='middle'>Test</text>
     <text class='small' x='895' y='130' text-anchor='middle'>results</text>
-    <text class='muted' x='970' y='75' text-anchor='middle'>pass</text>
-    <path class='arrowGreen' d='M948 88 H986' />
-    <rect class='card green' x='998' y='66' width='132' height='34' rx='10' />
-    <text class='greenText' x='1064' y='88' text-anchor='middle' font-size='13' font-weight='700'>Push allowed</text>
-    <text class='muted' x='976' y='112' text-anchor='middle'>fail + warn</text>
+    <path class='arrowGreen' d='M948 82 H986' />
+    <rect class='card green' x='998' y='62' width='132' height='40' rx='10' />
+    <text class='greenText' x='1064' y='78' text-anchor='middle' font-size='13' font-weight='700'>Tests pass</text>
+    <text class='small' x='1064' y='94' text-anchor='middle'>push allowed</text>
     <path class='arrow' d='M948 117 H986' />
-    <rect class='card orange' x='998' y='106' width='132' height='34' rx='10' />
-    <text class='warn' x='1064' y='128' text-anchor='middle' font-size='13' font-weight='700'>Advisory warning</text>
-    <text class='muted' x='976' y='150' text-anchor='middle'>fail + block</text>
-    <path d='M948 146 H986' stroke='#cf222e' stroke-width='2.5' fill='none' marker-end='url(#arrow)' />
-    <rect class='card' x='998' y='146' width='132' height='34' rx='10' stroke='#cf222e' />
-    <text class='danger' x='1064' y='168' text-anchor='middle' font-size='13' font-weight='700'>Push blocked</text>
+    <rect class='card orange' x='998' y='106' width='132' height='40' rx='10' />
+    <text class='warn' x='1064' y='122' text-anchor='middle' font-size='13' font-weight='700'>Fail advisory</text>
+    <text class='small' x='1064' y='138' text-anchor='middle'>warn, allow</text>
+    <path d='M948 152 H986' stroke='#cf222e' stroke-width='2.5' fill='none' marker-end='url(#arrow)' />
+    <rect class='card' x='998' y='150' width='132' height='40' rx='10' stroke='#cf222e' />
+    <text class='danger' x='1064' y='166' text-anchor='middle' font-size='13' font-weight='700'>Fail blocking</text>
+    <text class='small' x='1064' y='182' text-anchor='middle'>push blocked</text>
   </g>
 
   <rect class='footer' x='24' y='930' width='1152' height='36' rx='12' />
