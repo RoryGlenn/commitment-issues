@@ -26,7 +26,7 @@ test(`${packageManager} installs packed package and runs generated lifecycle hoo
     ["scripts/ci-lifecycle-smoke.mjs", packageManager],
     {
       cwd: repoRoot,
-      encoding: "utf8",
+      stdio: "inherit",
       env: process.env,
     },
   );
@@ -38,10 +38,6 @@ test(`${packageManager} installs packed package and runs generated lifecycle hoo
   assert.equal(
     result.status,
     0,
-    [
-      `lifecycle integration failed for ${packageManager}`,
-      result.stdout ? `\nstdout:\n${result.stdout}` : "",
-      result.stderr ? `\nstderr:\n${result.stderr}` : "",
-    ].join(""),
+    `lifecycle integration failed for ${packageManager}`,
   );
 });
