@@ -3,15 +3,16 @@
 // SPDX-License-Identifier: MIT
 
 import { spawnSync } from "node:child_process";
-import { SUPPORTED_LIFECYCLE_MANAGERS } from "./lib/lifecycle-fixture.mjs";
+import {
+  formatLifecycleManagers,
+  SUPPORTED_LIFECYCLE_MANAGERS,
+} from "./lib/lifecycle-fixture.mjs";
 
 const packageManager = process.argv[2] || "npm";
 
 if (!SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager)) {
   console.error(
-    `Unsupported package manager "${packageManager}" (expected: ${[
-      ...SUPPORTED_LIFECYCLE_MANAGERS,
-    ].join(", ")}).`,
+    `Unsupported package manager "${packageManager}" (expected: ${formatLifecycleManagers()}).`,
   );
   process.exit(1);
 }
