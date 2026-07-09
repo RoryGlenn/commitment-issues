@@ -36,7 +36,7 @@
   },
   "scripts": {
     "prepare": "node scripts/doctor.mjs --quiet",
-    "prepublishOnly": "npm test && npm run test:smoke",
+    "prepublishOnly": "npm test && npm run test:lifecycle:npm",
     "init": "node scripts/init.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -49,10 +49,15 @@
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs test/*.test.js",
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",
     "test:precommit": "node scripts/precommit.mjs",
-    "test:smoke": "node scripts/ci-lifecycle-smoke.mjs",
-    "test:smoke:pnpm": "node scripts/ci-lifecycle-smoke.mjs pnpm",
-    "test:smoke:yarn": "node scripts/ci-lifecycle-smoke.mjs yarn",
-    "test:smoke:bun": "node scripts/ci-lifecycle-smoke.mjs bun"
+    "test:lifecycle": "node scripts/run-lifecycle-test.mjs npm",
+    "test:lifecycle:npm": "node scripts/run-lifecycle-test.mjs npm",
+    "test:lifecycle:pnpm": "node scripts/run-lifecycle-test.mjs pnpm",
+    "test:lifecycle:yarn": "node scripts/run-lifecycle-test.mjs yarn",
+    "test:lifecycle:bun": "node scripts/run-lifecycle-test.mjs bun",
+    "test:smoke": "npm run test:lifecycle:npm",
+    "test:smoke:pnpm": "npm run test:lifecycle:pnpm",
+    "test:smoke:yarn": "npm run test:lifecycle:yarn",
+    "test:smoke:bun": "npm run test:lifecycle:bun"
   },
   "precommitChecks": {
     "testExempt": [

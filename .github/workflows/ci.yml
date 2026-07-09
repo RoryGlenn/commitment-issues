@@ -46,15 +46,15 @@ jobs:
 
       - run: npm test
 
-      - name: Package lifecycle smoke
-        run: npm run prepublishOnly
+      - name: Package lifecycle integration
+        run: npm run test:lifecycle:npm
 
       - name: Test coverage
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run test:coverage
 
-  pm-smoke:
-    name: ${{ matrix.pm }} lifecycle smoke
+  pm-lifecycle:
+    name: ${{ matrix.pm }} lifecycle integration
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -84,15 +84,15 @@ jobs:
 
       - run: npm ci
 
-      - name: ${{ matrix.pm }} lifecycle smoke
-        run: npm run test:smoke:${{ matrix.pm }}
+      - name: ${{ matrix.pm }} lifecycle integration
+        run: npm run test:lifecycle:${{ matrix.pm }}
 
   # Single aggregate gate for branch protection. Requiring this one context
   # keeps the required-checks list stable even as the matrix above changes.
   ci-success:
     name: CI Success
     if: always()
-    needs: [check, pm-smoke]
+    needs: [check, pm-lifecycle]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs succeeded
