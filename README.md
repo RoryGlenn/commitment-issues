@@ -16,19 +16,6 @@
 
 _For developers who overthink every commit._
 
-Advisory-first pre-commit and pre-push checks for JavaScript and TypeScript projects using ESLint and Prettier — with zero hook-manager dependencies.
-
-```bash
-npm install -D commitment-issues eslint prettier
-npx commitment-issues init
-```
-
-**Advisory by default** · **No Husky required** · **Safe staged-file handling** · **Optional blocking mode**
-
-Tested on Linux, macOS, and Windows with Node 22/24. Package-manager smoke tests cover npm, pnpm, yarn, and bun.
-
-[Security Policy](.github/SECURITY.md) · [Contributing](.github/CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Sponsor](https://github.com/sponsors/RoryGlenn)
-
 <p align="center">
   <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />
 </p>
