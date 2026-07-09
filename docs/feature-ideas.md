@@ -514,6 +514,32 @@ many checks → one report → one final decision
 }
 ```
 
+## Multi-language support strategy (future planning)
+
+If `commitment-issues` expands beyond JavaScript and TypeScript (for example Python, Java, and C#), there are several ways to structure the project.
+
+### Approach comparison
+
+| Approach | How it works | Pros | Cons | Fit for this project |
+| --- | --- | --- | --- | --- |
+| Single repo, single npm package + language adapters | Keep one Node-based core and add language adapters (Python, Java, C#) that call each ecosystem's tools. | Lowest maintenance overhead, one release flow, one governance model, maximum code reuse (hooks, reporting, config, message system). | Pure non-Node teams may see install/runtime friction. | Best near-term fit.
+| Single repo, monorepo with per-ecosystem wrappers | Keep a shared core repo, but publish wrappers to PyPI, Maven, NuGet, and npm. | Native install experience for each ecosystem, shared source of truth. | More release and CI complexity, more registry/auth/publishing overhead. | Good later-phase option if demand proves strong.
+| Multiple repos with native rewrites | Separate language-native implementations in separate repos. | Idiomatic per ecosystem, no cross-runtime dependency concerns. | Duplicated logic, high drift risk, multiplied governance and maintenance burden. | Poor fit for current team size and architecture.
+| Config-only generic command runner | Do not ship language adapters; users define commands per project. | Very flexible and fast to ship. | Weak out-of-box experience, more user setup, less opinionated value. | Useful as an escape hatch, not a primary strategy.
+
+### Recommended direction
+
+Recommended path: start with a single repo and a single npm package, then add language adapters incrementally.
+
+Why this is likely best for `commitment-issues`:
+
+- The project already acts as an orchestrator around Git hooks and external tools.
+- Existing architecture, tests, and governance are optimized for one codebase.
+- It preserves the advisory-first design while adding language-specific checks.
+- It keeps complexity proportional while validating demand.
+
+If adoption from pure non-Node teams grows later, revisit a second phase with thin ecosystem-specific wrappers from the same repo.
+
 ## Suggested review process
 
 When reviewing this list later, sort each idea into one of these buckets:
