@@ -1,192 +1,315 @@
-<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='980' viewBox='0 0 1200 980' role='img' aria-labelledby='title desc'>
-  <title id='title'>commitment-issues project flowchart</title>
-  <desc id='desc'>A dark theme flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks.</desc>
-  <style>
-    .bg { fill: #0d1117; }
-    .header { fill: #151b23; stroke: #30363d; stroke-width: 2; }
-    .panel { fill: #111820; stroke-width: 2; }
-    .card { fill: #1b222c; stroke: #3b4656; stroke-width: 1.5; }
-    .diamond { stroke-width: 1.5; }
-    .title { fill: #f0f6fc; font: 700 34px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .subtitle { fill: #8bbdff; font: italic 19px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .section { font: 700 20px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .label { fill: #f0f6fc; font: 700 15px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .small { fill: #c9d1d9; font: 13px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .mono { fill: #f0f6fc; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; }
-    .green { stroke: #3fb950; }
-    .blue { stroke: #2f81f7; }
-    .purple { stroke: #a371f7; }
-    .orange { stroke: #f7812f; }
-    .cyan { stroke: #39c5cf; }
-    .greenText { fill: #7ee787; }
-    .blueText { fill: #58a6ff; }
-    .purpleText { fill: #d2a8ff; }
-    .orangeText { fill: #ffab70; }
-    .cyanText { fill: #56d4dd; }
-    .warn { fill: #f2cc60; }
-    .danger { fill: #ff7b72; }
-    .arrow { stroke: #8b949e; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
-    .arrowGreen { stroke: #3fb950; stroke-width: 3; fill: none; marker-end: url(#arrowGreen); }
-    .num { fill: #ffffff; font: 800 22px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .footer { fill: #161b22; stroke: #30363d; stroke-width: 2; }
-  </style>
+<svg xmlns="http://www.w3.org/2000/svg" width="1448" height="1086" viewBox="0 0 1448 1086" role="img" aria-labelledby="title desc">
+  <title id="title">commitment-issues project flowchart</title>
+  <desc id="desc">Dark theme project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push outcomes.</desc>
   <defs>
-    <marker id='arrow' markerWidth='12' markerHeight='12' refX='10' refY='6' orient='auto'><path d='M2 2 L10 6 L2 10 Z' fill='#8b949e' /></marker>
-    <marker id='arrowGreen' markerWidth='12' markerHeight='12' refX='10' refY='6' orient='auto'><path d='M2 2 L10 6 L2 10 Z' fill='#3fb950' /></marker>
-    <filter id='shadow' x='-20%' y='-20%' width='140%' height='140%'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='#000000' flood-opacity='0.45' /></filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050a10"/>
+      <stop offset="0.45" stop-color="#07101a"/>
+      <stop offset="1" stop-color="#05080d"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1622"/>
+      <stop offset="1" stop-color="#0a1018"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#192331"/>
+      <stop offset="1" stop-color="#111923"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity="0.36"/>
+    </filter>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="currentColor" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#a9b4c0"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#4ce36a"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#ff8a2a"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#ff5757"/>
+    </marker>
   </defs>
+  <style>
+    .title{font:800 42px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#f4f7fb;letter-spacing:-1px}
+    .subtitle{font:italic 20px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#9fcfff}
+    .section{font:800 25px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+    .badge{font:800 28px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#fff}
+    .head{font:800 18px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#f2f6fb}
+    .body{font:500 16px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#d6dde7}
+    .tiny{font:500 13px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#cbd5e1}
+    .mono{font:500 15px ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;fill:#f1f5f9}
+    .monoSmall{font:500 13px ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;fill:#f1f5f9}
+    .panel{fill:url(#panel);stroke-width:2.2;filter:url(#shadow)}
+    .card{fill:url(#card);stroke:#415063;stroke-width:1.7;filter:url(#shadow)}
+    .arrow{stroke:#a9b4c0;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    .arrowGreen{stroke:#4ce36a;stroke-width:3;fill:none;marker-end:url(#arrowGreen)}
+    .arrowOrange{stroke:#ff8a2a;stroke-width:3;fill:none;marker-end:url(#arrowOrange)}
+    .arrowRed{stroke:#ff5757;stroke-width:3;fill:none;marker-end:url(#arrowRed)}
+    .green{stroke:#39d353}.blue{stroke:#2f81f7}.purple{stroke:#a371f7}.orange{stroke:#ff7b22}.cyan{stroke:#1dd6e8}.red{stroke:#ff5757}
+    .greenText{fill:#7ee787}.blueText{fill:#58a6ff}.purpleText{fill:#d2a8ff}.orangeText{fill:#ffab70}.cyanText{fill:#39dbe8}.redText{fill:#ff7b72}.warnText{fill:#ffd166}
+    .icon{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  </style>
 
-  <rect class='bg' width='1200' height='980' rx='24' />
-  <rect class='header' x='190' y='18' width='820' height='74' rx='20' filter='url(#shadow)' />
-  <text class='title' x='600' y='55' text-anchor='middle'>commitment-issues — Project Flowchart</text>
-  <text class='subtitle' x='600' y='80' text-anchor='middle'>Advisory-first Git hooks for developers who overthink every commit</text>
+  <rect width="1448" height="1086" fill="url(#bg)"/>
 
-  <g transform='translate(24 116)'>
-    <rect class='panel green' width='536' height='190' rx='16' />
-    <rect x='18' y='18' width='38' height='38' rx='9' fill='#238636' />
-    <text class='num' x='37' y='45' text-anchor='middle'>1</text>
-    <text class='section greenText' x='70' y='44'>Setup</text>
-    <rect class='card' x='24' y='76' width='150' height='84' rx='12' />
-    <text class='label' x='99' y='102' text-anchor='middle'>Install tools</text>
-    <text class='mono' x='99' y='126' text-anchor='middle'>npm install -D</text>
-    <text class='mono' x='99' y='144' text-anchor='middle'>commitment-issues</text>
-    <text class='mono' x='99' y='162' text-anchor='middle'>eslint prettier</text>
-    <path class='arrowGreen' d='M188 118 H220' />
-    <rect class='card' x='232' y='76' width='150' height='84' rx='12' />
-    <text class='label' x='307' y='108' text-anchor='middle'>Run init</text>
-    <text class='mono' x='307' y='132' text-anchor='middle'>npx</text>
-    <text class='mono' x='307' y='150' text-anchor='middle'>commitment-issues init</text>
-    <path class='arrowGreen' d='M396 118 H426' />
-    <rect class='card' x='438' y='58' width='74' height='120' rx='12' />
-    <text class='label' x='475' y='89' text-anchor='middle'>Wire</text>
-    <text class='label' x='475' y='109' text-anchor='middle'>hooks</text>
-    <text class='small' x='475' y='136' text-anchor='middle'>scripts</text>
-    <text class='small' x='475' y='154' text-anchor='middle'>.git/hooks</text>
-    <text class='small' x='475' y='172' text-anchor='middle'>defaults</text>
+  <rect x="220" y="10" width="970" height="100" rx="16" fill="#131b24" stroke="#303b49" stroke-width="2" filter="url(#shadow)"/>
+  <text class="title" x="724" y="52" text-anchor="middle">commitment-issues — Project Flowchart</text>
+  <text class="subtitle" x="724" y="86" text-anchor="middle">Advisory-first Git hooks for developers who overthink every commit</text>
+
+  <!-- 1 Setup -->
+  <g transform="translate(28 122)">
+    <rect class="panel green" width="660" height="230" rx="16"/>
+    <rect x="20" y="16" width="44" height="44" rx="9" fill="#238636"/>
+    <text class="badge" x="42" y="47" text-anchor="middle">1</text>
+    <text class="section greenText" x="80" y="49">Setup</text>
+
+    <g transform="translate(18 74)">
+      <rect class="card" width="200" height="136" rx="11"/>
+      <circle cx="34" cy="30" r="15" fill="none" stroke="#6ee86f" stroke-width="2.8"/>
+      <path class="icon" stroke="#6ee86f" d="M34 19v20M26 31l8 8 8-8"/>
+      <text class="head" x="116" y="39" text-anchor="middle">Install tools</text>
+      <text class="mono" x="100" y="78" text-anchor="middle">npm install -D</text>
+      <text class="mono" x="100" y="100" text-anchor="middle">commitment-issues</text>
+      <text class="mono" x="100" y="122" text-anchor="middle">eslint prettier</text>
+    </g>
+    <path class="arrowGreen" d="M248 237H282" transform="translate(0 -104)"/>
+    <g transform="translate(290 74)">
+      <rect class="card" width="180" height="136" rx="11"/>
+      <circle cx="31" cy="30" r="15" fill="none" stroke="#6ee86f" stroke-width="2.8"/>
+      <path class="icon" stroke="#6ee86f" d="M25 31h14M30 23l8 8-8 8"/>
+      <text class="head" x="103" y="39" text-anchor="middle">Run init</text>
+      <text class="mono" x="90" y="78" text-anchor="middle">npx</text>
+      <text class="monoSmall" x="90" y="101" text-anchor="middle">commitment-issues init</text>
+    </g>
+    <path class="arrowGreen" d="M478 133H514"/>
+    <g transform="translate(514 74)">
+      <rect class="card" width="126" height="136" rx="11"/>
+      <path class="icon" stroke="#6ee86f" d="M32 18h14l4 8-4 8H32l-4-8zM39 18v16M28 26h22"/>
+      <text class="head" x="82" y="39" text-anchor="middle">Wire hooks</text>
+      <text class="mono" x="63" y="78" text-anchor="middle">scripts</text>
+      <text class="mono" x="63" y="100" text-anchor="middle">.git/hooks</text>
+      <text class="mono" x="63" y="122" text-anchor="middle">defaults</text>
+    </g>
   </g>
 
-  <g transform='translate(586 116)'>
-    <rect class='panel blue' width='590' height='190' rx='16' />
-    <rect x='18' y='18' width='38' height='38' rx='9' fill='#1f6feb' />
-    <text class='num' x='37' y='45' text-anchor='middle'>2</text>
-    <text class='section blueText' x='70' y='44'>Core Hook Wiring</text>
-    <rect class='card' x='24' y='76' width='130' height='46' rx='10' />
-    <text class='label' x='89' y='105' text-anchor='middle'>git commit</text>
-    <path class='arrow' d='M166 99 H214' />
-    <rect class='card' x='226' y='76' width='136' height='46' rx='10' />
-    <text class='mono' x='294' y='96' text-anchor='middle'>.git/hooks/</text>
-    <text class='mono' x='294' y='114' text-anchor='middle'>pre-commit</text>
-    <path class='arrow' d='M374 99 H422' />
-    <rect class='card' x='434' y='76' width='132' height='46' rx='10' />
-    <text class='mono' x='500' y='96' text-anchor='middle'>commitment-issues</text>
-    <text class='mono' x='500' y='114' text-anchor='middle'>precommit</text>
-    <rect class='card' x='24' y='134' width='130' height='46' rx='10' />
-    <text class='label' x='89' y='163' text-anchor='middle'>git push</text>
-    <path class='arrow' d='M166 157 H214' />
-    <rect class='card' x='226' y='134' width='136' height='46' rx='10' />
-    <text class='mono' x='294' y='154' text-anchor='middle'>.git/hooks/</text>
-    <text class='mono' x='294' y='172' text-anchor='middle'>pre-push</text>
-    <path class='arrow' d='M374 157 H422' />
-    <rect class='card' x='434' y='134' width='132' height='46' rx='10' />
-    <text class='mono' x='500' y='154' text-anchor='middle'>commitment-issues</text>
-    <text class='mono' x='500' y='172' text-anchor='middle'>prepush</text>
+  <!-- 2 Core Hook Wiring -->
+  <g transform="translate(706 122)">
+    <rect class="panel blue" width="676" height="230" rx="16"/>
+    <rect x="20" y="16" width="44" height="44" rx="9" fill="#1f6feb"/>
+    <text class="badge" x="42" y="47" text-anchor="middle">2</text>
+    <text class="section blueText" x="80" y="49">Core Hook Wiring</text>
+
+    <g transform="translate(16 74)">
+      <rect class="card" width="164" height="64" rx="10"/>
+      <path class="icon" stroke="#58a6ff" d="M24 20v25M24 28c10 0 11-10 22-10M24 40c10 0 12 10 24 10"/>
+      <circle cx="24" cy="20" r="3" fill="#58a6ff"/><circle cx="46" cy="18" r="3" fill="#58a6ff"/><circle cx="48" cy="50" r="3" fill="#58a6ff"/>
+      <text class="head" x="100" y="38" text-anchor="middle">git commit</text>
+    </g>
+    <path class="arrow" d="M188 106H244"/>
+    <g transform="translate(250 74)">
+      <rect class="card" width="180" height="64" rx="10"/>
+      <path class="icon" stroke="#a9b4c0" d="M28 24h22l6 7h40v24H28zM28 31h68"/>
+      <text class="mono" x="112" y="31" text-anchor="middle">.git/hooks/</text>
+      <text class="mono" x="112" y="53" text-anchor="middle">pre-commit</text>
+    </g>
+    <path class="arrow" d="M438 106H494"/>
+    <g transform="translate(500 74)">
+      <rect class="card" width="158" height="64" rx="10"/>
+      <circle cx="29" cy="32" r="15" fill="none" stroke="#58a6ff" stroke-width="2.6"/>
+      <path class="icon" stroke="#58a6ff" d="M21 32l6 6 11-13"/>
+      <text class="monoSmall" x="102" y="28" text-anchor="middle">commitment-issues</text>
+      <text class="mono" x="102" y="50" text-anchor="middle">precommit</text>
+    </g>
+
+    <g transform="translate(16 156)">
+      <rect class="card" width="164" height="64" rx="10"/>
+      <path class="icon" stroke="#58a6ff" d="M28 50V20M17 32l11-12 11 12"/>
+      <text class="head" x="100" y="38" text-anchor="middle">git push</text>
+    </g>
+    <path class="arrow" d="M188 188H244"/>
+    <g transform="translate(250 156)">
+      <rect class="card" width="180" height="64" rx="10"/>
+      <path class="icon" stroke="#a9b4c0" d="M28 24h22l6 7h40v24H28zM28 31h68"/>
+      <text class="mono" x="112" y="31" text-anchor="middle">.git/hooks/</text>
+      <text class="mono" x="112" y="53" text-anchor="middle">pre-push</text>
+    </g>
+    <path class="arrow" d="M438 188H494"/>
+    <g transform="translate(500 156)">
+      <rect class="card" width="158" height="64" rx="10"/>
+      <circle cx="29" cy="32" r="15" fill="none" stroke="#58a6ff" stroke-width="2.6"/>
+      <path class="icon" stroke="#58a6ff" d="M21 32l6 6 11-13"/>
+      <text class="monoSmall" x="102" y="28" text-anchor="middle">commitment-issues</text>
+      <text class="mono" x="102" y="50" text-anchor="middle">prepush</text>
+    </g>
   </g>
 
-  <g transform='translate(24 330)'>
-    <rect class='panel purple' width='720' height='360' rx='16' />
-    <rect x='18' y='18' width='38' height='38' rx='9' fill='#8957e5' />
-    <text class='num' x='37' y='45' text-anchor='middle'>3</text>
-    <text class='section purpleText' x='70' y='44'>Pre-commit flow</text>
-    <rect class='card' x='30' y='95' width='125' height='56' rx='10' />
-    <text class='label' x='92' y='118' text-anchor='middle'>Stage files</text>
-    <text class='small' x='92' y='138' text-anchor='middle'>then git commit</text>
-    <path class='arrow' d='M170 123 H198' />
-    <rect class='card' x='210' y='95' width='135' height='56' rx='10' />
-    <text class='label' x='277' y='118' text-anchor='middle'>Inspect</text>
-    <text class='small' x='277' y='138' text-anchor='middle'>staged files</text>
-    <path class='arrow' d='M360 123 H386' />
-    <path class='diamond' d='M405 76 L480 123 L405 170 L330 123 Z' fill='#21172c' stroke='#a371f7' />
-    <text class='small' x='405' y='118' text-anchor='middle'>Relevant</text>
-    <text class='small' x='405' y='136' text-anchor='middle'>project files?</text>
-    <path class='arrow' d='M480 123 H543' />
-    <rect class='card' x='555' y='88' width='130' height='70' rx='10' />
-    <text class='greenText' x='620' y='112' text-anchor='middle' font-size='20' font-weight='800'>✓</text>
-    <text class='label' x='620' y='134' text-anchor='middle'>No relevant files</text>
-    <text class='small' x='620' y='151' text-anchor='middle'>allow commit</text>
-    <path class='arrow' d='M405 170 V215 H335 V218' />
-    <rect class='card' x='225' y='230' width='220' height='60' rx='10' />
-    <text class='label' x='335' y='254' text-anchor='middle'>Run checks</text>
-    <text class='small' x='335' y='274' text-anchor='middle'>lint, format, missing tests</text>
-    <path class='arrow' d='M458 260 H464' />
-    <path class='diamond' d='M545 215 L615 260 L545 305 L475 260 Z' fill='#21172c' stroke='#a371f7' />
-    <text class='small' x='545' y='254' text-anchor='middle'>Issues</text>
-    <text class='small' x='545' y='272' text-anchor='middle'>found?</text>
-    <path class='arrow' d='M615 242 H626' />
-    <rect class='card' x='638' y='213' width='62' height='58' rx='10' />
-    <text class='greenText' x='669' y='251' text-anchor='middle' font-size='24' font-weight='800'>✓</text>
-    <path class='arrow' d='M545 305 V323 H422' />
-    <rect class='card orange' x='260' y='304' width='150' height='42' rx='10' />
-    <text class='warn' x='335' y='324' text-anchor='middle' font-size='18' font-weight='800'>!</text>
-    <text class='small' x='335' y='340' text-anchor='middle'>Warn, allow commit</text>
+  <!-- 3 Pre-commit -->
+  <g transform="translate(28 370)">
+    <rect class="panel purple" width="775" height="388" rx="16"/>
+    <rect x="20" y="16" width="44" height="44" rx="9" fill="#8957e5"/>
+    <text class="badge" x="42" y="47" text-anchor="middle">3</text>
+    <text class="section purpleText" x="80" y="49">Pre-commit flow</text>
+
+    <g transform="translate(20 74)">
+      <rect class="card" width="156" height="64" rx="10"/>
+      <path class="icon" stroke="#a9b4c0" d="M22 15h22l14 14v31H22zM44 15v15h14"/>
+      <text class="head" x="100" y="30" text-anchor="middle">Stage files</text>
+      <text class="body" x="100" y="52" text-anchor="middle">then git commit</text>
+    </g>
+    <path class="arrow" d="M198 106H232"/>
+    <g transform="translate(242 74)">
+      <rect class="card" width="140" height="64" rx="10"/>
+      <circle cx="30" cy="29" r="12" fill="none" stroke="#a9b4c0" stroke-width="3"/>
+      <path class="icon" stroke="#a9b4c0" d="M39 39l15 15"/>
+      <text class="head" x="93" y="30" text-anchor="middle">Inspect</text>
+      <text class="body" x="93" y="52" text-anchor="middle">staged files</text>
+    </g>
+    <path class="arrow" d="M392 106H420"/>
+    <path d="M490 50L558 106L490 162L422 106Z" fill="#241834" stroke="#a371f7" stroke-width="2" filter="url(#shadow)"/>
+    <text class="body" x="490" y="99" text-anchor="middle">Relevant</text>
+    <text class="body" x="490" y="121" text-anchor="middle">project files?</text>
+    <text class="head" x="583" y="96" text-anchor="middle">No</text>
+    <path class="arrow" d="M558 106H606"/>
+    <g transform="translate(614 74)">
+      <rect class="card green" width="170" height="64" rx="10"/>
+      <path class="icon" stroke="#6ee86f" d="M29 14l17 7v17c0 14-10 22-17 25-7-3-17-11-17-25V21zM20 34l7 7 14-17"/>
+      <text class="head" x="109" y="30" text-anchor="middle">No relevant files</text>
+      <text class="body" x="109" y="52" text-anchor="middle">allow commit</text>
+    </g>
+    <text class="head" x="448" y="171" text-anchor="middle">Yes</text>
+    <path class="arrow" d="M490 162V186"/>
+    <g transform="translate(357 182)">
+      <rect class="card" width="192" height="74" rx="10"/>
+      <path class="icon" stroke="#a9b4c0" d="M22 18h30v42H22zM31 13h12M29 29h16M29 42h16M29 55h16"/>
+      <text class="head" x="120" y="29" text-anchor="middle">Run checks</text>
+      <text class="monoSmall" x="120" y="51" text-anchor="middle">lint, format,</text>
+      <text class="monoSmall" x="120" y="68" text-anchor="middle">missing tests</text>
+    </g>
+    <path class="arrow" d="M453 258V284"/>
+    <path d="M442 280L516 328L442 376L370 328Z" fill="#241834" stroke="#a371f7" stroke-width="2" filter="url(#shadow)"/>
+    <text class="body" x="442" y="321" text-anchor="middle">Issues</text>
+    <text class="body" x="442" y="343" text-anchor="middle">found?</text>
+    <text class="head" x="548" y="323" text-anchor="middle">No</text>
+    <path class="arrow" d="M516 328H584"/>
+    <g transform="translate(593 300)">
+      <rect class="card green" width="186" height="64" rx="10"/>
+      <circle cx="31" cy="32" r="17" fill="none" stroke="#6ee86f" stroke-width="2.8"/>
+      <path class="icon" stroke="#6ee86f" d="M22 32l7 7 14-17"/>
+      <text class="head" x="116" y="27" text-anchor="middle">All checks passed</text>
+      <text class="body" x="116" y="50" text-anchor="middle">allow commit</text>
+    </g>
+    <text class="head" x="316" y="323" text-anchor="middle">Yes</text>
+    <path class="arrow" d="M370 328H270"/>
+    <g transform="translate(24 300)">
+      <rect class="card orange" width="214" height="64" rx="10"/>
+      <path d="M31 14L55 55H7Z" fill="none" stroke="#ff8a2a" stroke-width="2.8" stroke-linejoin="round"/>
+      <text class="warnText" x="31" y="45" text-anchor="middle" font="800 26px ui-sans-serif,system-ui">!</text>
+      <text class="warnText" x="132" y="39" text-anchor="middle" font="800 15px ui-sans-serif,system-ui">Warn, allow commit</text>
+    </g>
   </g>
 
-  <g transform='translate(768 330)'>
-    <rect class='panel orange' width='408' height='360' rx='16' />
-    <rect x='18' y='18' width='38' height='38' rx='9' fill='#f7812f' />
-    <text class='num' x='37' y='45' text-anchor='middle'>4</text>
-    <text class='section orangeText' x='70' y='44'>Safe Fix Paths</text>
-    <rect class='card' x='30' y='92' width='160' height='120' rx='12' />
-    <text class='label' x='110' y='126' text-anchor='middle'>npm run fix:staged</text>
-    <text class='small' x='110' y='154' text-anchor='middle'>targets staged files</text>
-    <text class='small' x='110' y='176' text-anchor='middle'>refuses partial staging</text>
-    <text class='small' x='110' y='198' text-anchor='middle'>re-stages safe fixes</text>
-    <rect class='card' x='218' y='92' width='160' height='120' rx='12' />
-    <text class='label' x='298' y='126' text-anchor='middle'>npm run commit:fix</text>
-    <text class='small' x='298' y='154' text-anchor='middle'>latest unpushed commit</text>
-    <text class='small' x='298' y='176' text-anchor='middle'>requires clean tree</text>
-    <text class='small' x='298' y='198' text-anchor='middle'>amends safely</text>
-    <rect class='card orange' x='30' y='276' width='348' height='36' rx='10' />
-    <text class='orangeText' x='204' y='299' text-anchor='middle' font-size='14' font-weight='700'>Refuses unsafe mutations</text>
+  <!-- 4 Safe Fix Paths -->
+  <g transform="translate(820 370)">
+    <rect class="panel orange" width="562" height="388" rx="16"/>
+    <rect x="20" y="16" width="44" height="44" rx="9" fill="#f97316"/>
+    <text class="badge" x="42" y="47" text-anchor="middle">4</text>
+    <text class="section orangeText" x="80" y="49">Safe Fix Paths</text>
+
+    <g transform="translate(16 80)">
+      <rect class="card orange" width="250" height="210" rx="10"/>
+      <circle cx="125" cy="38" r="22" fill="none" stroke="#ff8a2a" stroke-width="2.6"/>
+      <path class="icon" stroke="#ff8a2a" d="M133 26l-11 11-7-3-5 5 13 13 5-5-3-7 11-11"/>
+      <text class="head" x="125" y="88" text-anchor="middle">npm run fix:staged</text>
+      <text class="body" x="125" y="124" text-anchor="middle">targets staged files</text>
+      <text class="body" x="125" y="151" text-anchor="middle">refuses partial staging</text>
+      <text class="body" x="125" y="178" text-anchor="middle">re-stages safe fixes</text>
+    </g>
+    <g transform="translate(290 80)">
+      <rect class="card orange" width="250" height="210" rx="10"/>
+      <circle cx="125" cy="38" r="22" fill="none" stroke="#ff8a2a" stroke-width="2.6"/>
+      <path class="icon" stroke="#ff8a2a" d="M133 26l-11 11-7-3-5 5 13 13 5-5-3-7 11-11"/>
+      <text class="head" x="125" y="88" text-anchor="middle">npm run commit:fix</text>
+      <text class="body" x="125" y="124" text-anchor="middle">latest unpushed commit</text>
+      <text class="body" x="125" y="151" text-anchor="middle">requires clean tree</text>
+      <text class="body" x="125" y="178" text-anchor="middle">amends safely</text>
+    </g>
+    <rect class="card orange" x="16" y="312" width="524" height="60" rx="9"/>
+    <path class="icon" stroke="#ff8a2a" d="M127 326l17 7v17c0 14-10 22-17 25-7-3-17-11-17-25v-17z"/>
+    <text class="orangeText" x="296" y="351" text-anchor="middle" font="800 22px ui-sans-serif,system-ui">Refuses unsafe mutations</text>
   </g>
 
-  <g transform='translate(24 720)'>
-    <rect class='panel cyan' width='1152' height='190' rx='16' />
-    <rect x='18' y='18' width='38' height='38' rx='9' fill='#1f9aaa' />
-    <text class='num' x='37' y='45' text-anchor='middle'>5</text>
-    <text class='section cyanText' x='70' y='44'>Pre-push flow</text>
-    <rect class='card' x='34' y='92' width='120' height='50' rx='10' />
-    <text class='label' x='94' y='123' text-anchor='middle'>git push</text>
-    <path class='arrow' d='M168 117 H216' />
-    <rect class='card' x='228' y='92' width='148' height='50' rx='10' />
-    <text class='label' x='302' y='112' text-anchor='middle'>Read pushed refs</text>
-    <text class='small' x='302' y='132' text-anchor='middle'>changed files</text>
-    <path class='arrow' d='M390 117 H438' />
-    <rect class='card' x='450' y='92' width='150' height='50' rx='10' />
-    <text class='label' x='525' y='112' text-anchor='middle'>Collect related</text>
-    <text class='small' x='525' y='132' text-anchor='middle'>tests</text>
-    <path class='arrow' d='M614 117 H662' />
-    <rect class='card' x='674' y='92' width='135' height='50' rx='10' />
-    <text class='label' x='741' y='112' text-anchor='middle'>Run tests</text>
-    <text class='mono' x='741' y='132' text-anchor='middle'>node --test</text>
-    <path class='arrow' d='M823 117 H852' />
-    <path class='diamond' d='M895 76 L948 117 L895 158 L842 117 Z' fill='#0c2530' stroke='#39c5cf' />
-    <text class='small' x='895' y='112' text-anchor='middle'>Test</text>
-    <text class='small' x='895' y='130' text-anchor='middle'>results</text>
-    <path class='arrowGreen' d='M948 82 H986' />
-    <rect class='card green' x='998' y='62' width='132' height='40' rx='10' />
-    <text class='greenText' x='1064' y='78' text-anchor='middle' font-size='13' font-weight='700'>Tests pass</text>
-    <text class='small' x='1064' y='94' text-anchor='middle'>push allowed</text>
-    <path class='arrow' d='M948 117 H986' />
-    <rect class='card orange' x='998' y='106' width='132' height='40' rx='10' />
-    <text class='warn' x='1064' y='122' text-anchor='middle' font-size='13' font-weight='700'>Fail advisory</text>
-    <text class='small' x='1064' y='138' text-anchor='middle'>warn, allow</text>
-    <path d='M948 152 H986' stroke='#ff7b72' stroke-width='2.5' fill='none' marker-end='url(#arrow)' />
-    <rect class='card' x='998' y='150' width='132' height='40' rx='10' stroke='#ff7b72' />
-    <text class='danger' x='1064' y='166' text-anchor='middle' font-size='13' font-weight='700'>Fail blocking</text>
-    <text class='small' x='1064' y='182' text-anchor='middle'>push blocked</text>
+  <!-- 5 Pre-push -->
+  <g transform="translate(28 775)">
+    <rect class="panel cyan" width="1354" height="200" rx="16"/>
+    <rect x="20" y="16" width="44" height="44" rx="9" fill="#0891b2"/>
+    <text class="badge" x="42" y="47" text-anchor="middle">5</text>
+    <text class="section cyanText" x="80" y="49">Pre-push flow</text>
+
+    <g transform="translate(20 74)">
+      <rect class="card" width="168" height="72" rx="10"/>
+      <path class="icon" stroke="#7cc7ff" d="M36 55V22M24 35l12-13 12 13"/>
+      <text class="head" x="104" y="42" text-anchor="middle">git push</text>
+    </g>
+    <path class="arrow" d="M206 110H258"/>
+    <g transform="translate(266 74)">
+      <rect class="card" width="198" height="72" rx="10"/>
+      <path class="icon" stroke="#a9b4c0" d="M25 18h22l14 14v31H25zM47 18v15h14M34 43h18M34 55h18"/>
+      <text class="head" x="122" y="35" text-anchor="middle">Read pushed refs</text>
+      <text class="body" x="122" y="58" text-anchor="middle">changed files</text>
+    </g>
+    <path class="arrow" d="M472 110H522"/>
+    <g transform="translate(532 74)">
+      <rect class="card" width="184" height="72" rx="10"/>
+      <path class="icon" stroke="#a9b4c0" d="M29 48l24-24a14 14 0 0 1 20 20l-8 8M45 32l-15 15a14 14 0 1 0 20 20l23-23"/>
+      <text class="head" x="118" y="35" text-anchor="middle">Collect related</text>
+      <text class="body" x="118" y="58" text-anchor="middle">tests</text>
+    </g>
+    <path class="arrow" d="M724 110H772"/>
+    <g transform="translate(784 74)">
+      <rect class="card" width="166" height="72" rx="10"/>
+      <path class="icon" stroke="#7cc7ff" d="M34 18v18L22 58h38L48 36V18M28 18h26"/>
+      <text class="head" x="110" y="35" text-anchor="middle">Run tests</text>
+      <text class="monoSmall" x="110" y="58" text-anchor="middle">node --test</text>
+    </g>
+    <path class="arrow" d="M958 110H992"/>
+    <path d="M1036 48L1104 110L1036 172L968 110Z" fill="#092833" stroke="#1dd6e8" stroke-width="2" filter="url(#shadow)"/>
+    <text class="body" x="1036" y="104" text-anchor="middle">Test</text>
+    <text class="body" x="1036" y="126" text-anchor="middle">results</text>
+
+    <path class="arrowGreen" d="M1104 80H1168"/>
+    <g transform="translate(1176 56)">
+      <rect class="card green" width="160" height="50" rx="9"/>
+      <circle cx="28" cy="25" r="16" fill="none" stroke="#6ee86f" stroke-width="2.6"/>
+      <path class="icon" stroke="#6ee86f" d="M20 25l7 7 13-16"/>
+      <text class="greenText" x="103" y="20" text-anchor="middle" font="800 15px ui-sans-serif,system-ui">Tests pass</text>
+      <text class="body" x="103" y="40" text-anchor="middle">push allowed</text>
+    </g>
+    <path class="arrowOrange" d="M1104 110H1168"/>
+    <g transform="translate(1176 110)">
+      <rect class="card orange" width="160" height="50" rx="9"/>
+      <path d="M28 9L47 42H9Z" fill="none" stroke="#ffb020" stroke-width="2.4" stroke-linejoin="round"/>
+      <text class="warnText" x="28" y="35" text-anchor="middle" font="800 20px ui-sans-serif,system-ui">!</text>
+      <text class="warnText" x="103" y="20" text-anchor="middle" font="800 15px ui-sans-serif,system-ui">Fail advisory</text>
+      <text class="body" x="103" y="40" text-anchor="middle">warn, allow</text>
+    </g>
+    <path class="arrowRed" d="M1104 140V164H1168"/>
+    <g transform="translate(1176 164)">
+      <rect class="card red" width="160" height="50" rx="9"/>
+      <circle cx="28" cy="25" r="16" fill="none" stroke="#ff5757" stroke-width="2.6"/>
+      <path class="icon" stroke="#ff5757" d="M22 19l12 12M34 19L22 31"/>
+      <text class="redText" x="103" y="20" text-anchor="middle" font="800 15px ui-sans-serif,system-ui">Fail blocking</text>
+      <text class="body" x="103" y="40" text-anchor="middle">push blocked</text>
+    </g>
   </g>
 
-  <rect class='footer' x='24' y='930' width='1152' height='36' rx='12' />
-  <text class='label' x='86' y='953'>Core idea:</text>
-  <text class='small' x='172' y='953'>Own the Git hook workflow directly, stay advisory-first by default, and only block or mutate when it is safe or explicitly configured.</text>
+  <!-- Footer -->
+  <rect x="28" y="987" width="1354" height="54" rx="10" fill="#151c25" stroke="#303b49" stroke-width="1.7" filter="url(#shadow)"/>
+  <path class="icon" stroke="#f2f7ff" d="M72 1001a13 13 0 0 0-8 23v7h16v-7a13 13 0 0 0-8-23zM64 1038h16M67 1045h10M72 993v-8M55 1001l-6-6M89 1001l6-6"/>
+  <text x="110" y="1022" class="head" font-size="18">Core idea:</text>
+  <text x="216" y="1022" class="body">Own the Git hook workflow directly, stay advisory-first by default, and only block or mutate when it is safe or explicitly configured.</text>
 </svg>
