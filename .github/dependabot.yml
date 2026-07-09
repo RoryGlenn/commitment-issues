@@ -6,9 +6,12 @@ updates:
     schedule:
       interval: weekly
       day: monday
+      time: "10:00"
+      timezone: America/New_York
     open-pull-requests-limit: 5
     labels:
       - dependencies
+      - maintenance
     commit-message:
       prefix: build
       include: scope
@@ -31,12 +34,16 @@ updates:
     schedule:
       interval: weekly
       day: monday
+      time: "10:30"
+      timezone: America/New_York
     open-pull-requests-limit: 5
     labels:
       - dependencies
+      - maintenance
       - ci
     commit-message:
       prefix: ci
+      include: scope
     groups:
       github-actions:
         patterns:
