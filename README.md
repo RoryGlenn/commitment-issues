@@ -8,6 +8,7 @@
 [![Coverage: 93.93%](https://img.shields.io/badge/coverage-93.93%25-brightgreen.svg)](docs/scenario-coverage.md)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/RoryGlenn/commitment-issues/badge)](https://securityscorecards.dev/viewer/?uri=github.com/RoryGlenn/commitment-issues)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13528/badge)](https://www.bestpractices.dev/projects/13528)
+[![OpenSSF Baseline](https://www.bestpractices.dev/projects/13528/baseline)](https://www.bestpractices.dev/projects/13528)
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
