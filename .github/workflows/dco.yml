@@ -1,0 +1,42 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify commit sign-offs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          failed=0
+
+          while IFS= read -r commit; do
+            subject="$(git log -1 --format=%s "$commit")"
+            if ! git log -1 --format=%B "$commit" | grep -Eq '^Signed-off-by: .+ <.+@.+>$'; then
+              echo "Missing DCO sign-off: $commit $subject"
+              failed=1
+            fi
+          done < <(git rev-list "${base}..${head}")
+
+          if [[ "$failed" -ne 0 ]]; then
+            echo
+            echo "Every commit must include a Developer Certificate of Origin sign-off."
+            echo "Use: git commit -s"
+            exit 1
+          fi

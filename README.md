@@ -37,6 +37,16 @@ _For developers who overthink every commit._
 - Suggest safe follow-up commands instead of mutating work unexpectedly.
 - Enable stricter behavior only when your repo wants it.
 
+## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/project-flowchart-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/project-flowchart-light.svg">
+  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" src="assets/project-flowchart-light.svg">
+</picture>
+
+`commitment-issues` wires native Git hooks, runs advisory checks by default, and only blocks or mutates work when it is safe or explicitly configured. See [How commitment-issues works](docs/how-it-works.md) for the full breakdown.
+
 ## Quickstart
 
 Use this when you want the shortest path from install to the first checked commit.
@@ -279,6 +289,7 @@ Also check your environment has not disabled the hooks (`COMMITMENT_ISSUES=0` or
 
 ## More docs
 
+- [How commitment-issues works](docs/how-it-works.md) — visual flowchart and text breakdown of setup, hooks, checks, fix paths, and push behavior.
 - [FAQ](docs/faq.md) — answers for adoption, safety, configuration, test runners, package managers, CI, and removal.
 - [Migration guide](docs/migration.md) — paths from raw husky + lint-staged, lefthook, and pre-commit setups.
 - [External interface reference](docs/external-interface.md) — commands, scripts, hooks, config keys, defaults, and outputs.

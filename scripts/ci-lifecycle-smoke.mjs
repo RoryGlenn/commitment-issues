@@ -23,6 +23,17 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
 }
 
 const DEV_DEPS = ["eslint", "prettier", "@eslint/js", "globals"];
+const EXPECTED_SCRIPTS = {
+  prepare: "commitment-issues doctor --quiet",
+  "commit:fix": "commitment-issues commit-fix",
+  "fix:staged": "commitment-issues fix-staged",
+  "test:precommit": "commitment-issues precommit",
+  doctor: "commitment-issues doctor",
+};
+const HOOK_SUBCOMMANDS = {
+  "pre-commit": "precommit",
+  "pre-push": "prepush",
+};
 
 // Install the packed tarball plus the peer tools using the selected manager.
 function installDevDeps(tarball) {
@@ -76,6 +87,82 @@ function run(command, args, cwd) {
   }
 }
 
+function assertSmoke(condition, message) {
+  if (!condition) {
+    throw new Error(`[lifecycle smoke] ${message}`);
+  }
+}
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function assertFileContains(filePath, expected) {
+  assertSmoke(fs.existsSync(filePath), `${filePath} should exist`);
+  const content = fs.readFileSync(filePath, "utf8");
+  assertSmoke(
+    content.includes(expected),
+    `${filePath} should include ${JSON.stringify(expected)}`,
+  );
+}
+
+function assertHookWired(repoDir, name) {
+  const hookPath = path.join(repoDir, ".git", "hooks", name);
+  const subcommand = HOOK_SUBCOMMANDS[name];
+  assertFileContains(hookPath, `commitment-issues ${subcommand}`);
+
+  // Git for Windows runs hook files through its bundled shell, but POSIX mode
+  // bits are not a reliable signal on that filesystem. Keep the executable-bit
+  // check where it is meaningful and rely on the real commit/push below on
+  // Windows to prove the hooks actually run.
+  if (process.platform !== "win32") {
+    assertSmoke(
+      Boolean(fs.statSync(hookPath).mode & 0o111),
+      `${hookPath} should be executable`,
+    );
+  }
+}
+
+function assertPackageJsonConfigured(repoDir) {
+  const pkg = readJson(path.join(repoDir, "package.json"));
+
+  for (const [name, value] of Object.entries(EXPECTED_SCRIPTS)) {
+    assertSmoke(
+      pkg.scripts?.[name] === value,
+      `package.json script ${name} should be ${JSON.stringify(value)}`,
+    );
+  }
+
+  assertSmoke(
+    pkg.precommitChecks?.advisePushTests === true,
+    "package.json should enable advisory pre-push tests by default",
+  );
+}
+
+function assertGitignoreConfigured(repoDir) {
+  const gitignore = fs.readFileSync(path.join(repoDir, ".gitignore"), "utf8");
+  for (const entry of [".eslintcache", ".prettiercache", "node_modules/"]) {
+    assertSmoke(
+      gitignore.split("\n").includes(entry),
+      `.gitignore should include ${entry}`,
+    );
+  }
+}
+
+function assertManagerLockfile(repoDir) {
+  const expectedLockfiles = {
+    npm: ["package-lock.json"],
+    pnpm: ["pnpm-lock.yaml"],
+    yarn: ["yarn.lock"],
+    bun: ["bun.lock", "bun.lockb"],
+  };
+  const candidates = expectedLockfiles[packageManager];
+  assertSmoke(
+    candidates.some((file) => fs.existsSync(path.join(repoDir, file))),
+    `${packageManager} should create one of: ${candidates.join(", ")}`,
+  );
+}
+
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content);
@@ -127,11 +214,17 @@ try {
 
   const [installCommand, installArgs] = installDevDeps(tarball);
   run(installCommand, installArgs, smokeDir);
+  assertManagerLockfile(smokeDir);
 
   const [helpCommand, helpArgs] = execBin(["--help"]);
   run(helpCommand, helpArgs, smokeDir);
   const [initCommand, initArgs] = execBin(["init"]);
   run(initCommand, initArgs, smokeDir);
+
+  assertPackageJsonConfigured(smokeDir);
+  assertGitignoreConfigured(smokeDir);
+  assertHookWired(smokeDir, "pre-commit");
+  assertHookWired(smokeDir, "pre-push");
 
   writeFile(
     path.join(smokeDir, "eslint.config.js"),
