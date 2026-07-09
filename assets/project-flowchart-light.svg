@@ -53,9 +53,10 @@
     <text class="num" x="37" y="45" text-anchor="middle">1</text>
     <text class="section greenText" x="70" y="44">Setup</text>
     <rect class="card" x="24" y="76" width="140" height="92" rx="12" />
-    <text class="label" x="94" y="108" text-anchor="middle">Install package</text>
-    <text class="mono" x="94" y="135" text-anchor="middle">npm install -D</text>
-    <text class="mono" x="94" y="153" text-anchor="middle">commitment-issues</text>
+    <text class="label" x="94" y="104" text-anchor="middle">Install tools</text>
+    <text class="mono" x="94" y="130" text-anchor="middle">npm install -D</text>
+    <text class="mono" x="94" y="148" text-anchor="middle">commitment-issues</text>
+    <text class="mono" x="94" y="166" text-anchor="middle">eslint prettier</text>
     <path class="arrowGreen" d="M174 122 H214" />
     <rect class="card" x="226" y="76" width="140" height="92" rx="12" />
     <text class="label" x="296" y="108" text-anchor="middle">Run init</text>
@@ -113,10 +114,12 @@
     <path d="M462 64 L524 109 L462 154 L400 109 Z" fill="#fbefff" stroke="#8250df" stroke-width="1.5" />
     <text class="small" x="462" y="104" text-anchor="middle">Relevant</text>
     <text class="small" x="462" y="122" text-anchor="middle">project files?</text>
+    <text class="muted" x="548" y="101" text-anchor="middle">No</text>
     <path class="arrow" d="M524 109 H572" />
     <rect class="card" x="584" y="80" width="100" height="58" rx="10" />
     <text class="greenText" x="634" y="104" text-anchor="middle" font-size="24" font-weight="800">✓</text>
     <text class="small" x="634" y="126" text-anchor="middle">Allow commit</text>
+    <text class="muted" x="474" y="176" text-anchor="middle">Yes</text>
     <path class="arrow" d="M462 154 V184 H250" />
     <rect class="card" x="210" y="164" width="210" height="50" rx="10" />
     <text class="label" x="315" y="187" text-anchor="middle">Run checks</text>
@@ -125,9 +128,11 @@
     <path d="M526 158 L584 189 L526 220 L468 189 Z" fill="#fbefff" stroke="#8250df" stroke-width="1.5" />
     <text class="small" x="526" y="186" text-anchor="middle">Issues</text>
     <text class="small" x="526" y="204" text-anchor="middle">found?</text>
+    <text class="muted" x="606" y="181" text-anchor="middle">No</text>
     <path class="arrow" d="M584 189 H626" />
     <rect class="card" x="638" y="164" width="50" height="50" rx="10" />
     <text class="greenText" x="663" y="197" text-anchor="middle" font-size="24" font-weight="800">✓</text>
+    <text class="muted" x="544" y="229" text-anchor="middle">Yes</text>
     <path class="arrow" d="M526 220 V226 H386" />
     <rect class="card orange" x="250" y="204" width="126" height="44" rx="10" />
     <text class="warn" x="313" y="226" text-anchor="middle" font-size="20" font-weight="800">!</text>
@@ -176,12 +181,15 @@
     <path d="M858 70 L906 102 L858 134 L810 102 Z" fill="#e7f9fb" stroke="#1b7f8c" stroke-width="1.5" />
     <text class="small" x="858" y="99" text-anchor="middle">Test</text>
     <text class="small" x="858" y="117" text-anchor="middle">results</text>
+    <text class="muted" x="934" y="77" text-anchor="middle">pass</text>
     <path class="arrowGreen" d="M906 82 H962" />
     <rect class="card green" x="974" y="60" width="142" height="34" rx="10" />
     <text class="greenText" x="1045" y="82" text-anchor="middle" font-size="13" font-weight="700">Push allowed</text>
+    <text class="muted" x="936" y="101" text-anchor="middle">fail + warn</text>
     <path class="arrow" d="M906 102 H962" />
     <rect class="card orange" x="974" y="96" width="142" height="34" rx="10" />
     <text class="warn" x="1045" y="118" text-anchor="middle" font-size="13" font-weight="700">Advisory warning</text>
+    <text class="muted" x="936" y="133" text-anchor="middle">fail + block</text>
     <path d="M906 122 H956 V136 H974" stroke="#cf222e" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
     <rect class="card" x="974" y="132" width="142" height="34" rx="10" stroke="#cf222e" />
     <text class="danger" x="1045" y="154" text-anchor="middle" font-size="13" font-weight="700">Push blocked</text>
