@@ -490,16 +490,8 @@ many checks → one report → one final decision
   "branchAwareness": {
     "enabled": true,
     "mode": "warn",
-    "protectedBranches": [
-      "main",
-      "master",
-      "release/*",
-      "production"
-    ],
-    "actions": [
-      "commit",
-      "push"
-    ]
+    "protectedBranches": ["main", "master", "release/*", "production"],
+    "actions": ["commit", "push"]
   },
   "secrets": {
     "enabled": true,
