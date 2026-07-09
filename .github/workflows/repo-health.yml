@@ -1,0 +1,89 @@
+name: Repository Health
+
+on:
+  schedule:
+    # Run weekly on Mondays at 9 AM New York time during daylight saving time.
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-health-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: Weekly repository health
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      COMMITMENT_ISSUES: 0
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: npm lifecycle integration
+        run: npm run test:lifecycle:npm
+
+      - name: Package dry run
+        run: npm pack --dry-run
+
+      - name: Security advisory report
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Stale branch report
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Branches with no commits in the last 90 days:"
+          echo
+
+          cutoff_epoch=$(date -u -d "90 days ago" +%s)
+          found=0
+
+          while IFS='|' read -r refname commit_epoch; do
+            branch=${refname#origin/}
+
+            case "$branch" in
+              HEAD|main)
+                continue
+                ;;
+            esac
+
+            if [[ "$commit_epoch" -lt "$cutoff_epoch" ]]; then
+              found=1
+              commit_date=$(date -u -d "@$commit_epoch" +%Y-%m-%d)
+              echo "- $branch last changed on $commit_date"
+            fi
+          done < <(git for-each-ref --format='%(refname:short)|%(committerdate:unix)' refs/remotes/origin)
+
+          if [[ "$found" -eq 0 ]]; then
+            echo "No stale branches found."
+          fi
+
+          echo
+          echo "This job only reports stale branches. It does not delete anything."
