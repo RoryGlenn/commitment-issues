@@ -350,6 +350,30 @@ const SCENARIOS = [
     },
   },
   {
+    name: "uninstall/success",
+    run(dir) {
+      script(dir, "init.mjs");
+      return script(dir, "uninstall.mjs");
+    },
+  },
+  {
+    name: "uninstall/dry-run",
+    run(dir) {
+      script(dir, "init.mjs");
+      return script(dir, "uninstall.mjs", { args: ["--dry-run"] });
+    },
+  },
+  {
+    name: "uninstall/custom-hook-warning",
+    run(dir) {
+      writeFile(
+        path.join(dir, ".git", "hooks", "pre-commit"),
+        "echo custom check\ncommitment-issues precommit\n",
+      );
+      return script(dir, "uninstall.mjs");
+    },
+  },
+  {
     name: "fix-staged/fixes-applied",
     run(dir) {
       writeFile(path.join(dir, "src", "messy.json"), '{"alpha":1}\n');

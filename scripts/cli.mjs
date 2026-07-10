@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const COMMANDS = {
   init: "init.mjs",
+  uninstall: "uninstall.mjs",
   doctor: "doctor.mjs",
   precommit: "precommit.mjs",
   prepush: "prepush.mjs",

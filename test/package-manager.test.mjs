@@ -10,6 +10,7 @@ import {
   detectPackageManager,
   devInstallCommand,
   installCommand,
+  removeCommand,
   runScript,
 } from "../scripts/lib/package-manager.mjs";
 
@@ -109,4 +110,15 @@ test("devInstallCommand builds the dev-install form for each manager", (t) => {
 
   process.env.npm_config_user_agent = "bun/1.1.0 node/v22.22.1";
   assert.equal(devInstallCommand(["eslint"]), "bun add --dev eslint");
+});
+
+test("removeCommand uses the detected package manager", (t) => {
+  setUserAgent(t, "pnpm/8.15.0 node/v22.22.1");
+  assert.equal(
+    removeCommand(["commitment-issues"]),
+    "pnpm remove commitment-issues",
+  );
+
+  process.env.npm_config_user_agent = "yarn/1.22.19 node/v22.22.1";
+  assert.equal(removeCommand(["a", "b"]), "yarn remove a b");
 });

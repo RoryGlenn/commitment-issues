@@ -63,6 +63,7 @@
   "precommitChecks": {
     "testExempt": [
       "scripts/lib/**",
+      "scripts/ci-lifecycle-smoke.mjs",
       "tools/**"
     ],
     "tone": "fun",
