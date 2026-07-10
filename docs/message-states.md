@@ -212,7 +212,47 @@ Shown when accidentally staged dependency files are ignored and no project files
   <img src="../assets/precommit-commit-guards.svg" alt="Warning output showing protected-branch, behind-upstream, and large-commit advisories" width="603">
 </p>
 
-Shown when the advisory commit guards notice something about the commit itself: committing directly to a protected branch, a branch behind its upstream, an unusually large commit, staged files over the size threshold, or staged generated files. The commit still continues; guards join the same consolidated suggestions box as lint and test advisories.
+Shown when the advisory commit guards notice something about the commit itself. All guards join the same consolidated suggestions box as lint and test advisories, and the commit still continues. The individual guard states follow.
+
+### Protected-branch commit
+
+<p>
+  <img src="../assets/precommit-protected-branch.svg" alt="Warning output advising against committing directly to a protected branch" width="603">
+</p>
+
+Shown when the current branch matches `protectedBranches` (default `["main", "master"]`, globs supported) and `blockProtectedBranches` is off. Set `protectedBranches: []` to disable for trunk-based repos.
+
+### Behind upstream
+
+<p>
+  <img src="../assets/precommit-behind-upstream.svg" alt="Warning output saying the branch is behind its upstream and suggesting a pull or rebase" width="582">
+</p>
+
+Shown when the branch is behind its upstream as of the last fetch. Disable with `adviseBehindUpstream: false`.
+
+### Large commit
+
+<p>
+  <img src="../assets/precommit-large-commit.svg" alt="Warning output saying the commit exceeds the file-count and changed-line limits" width="593">
+</p>
+
+Shown when a commit stages more than `maxCommitFiles` files or changes more than `maxCommitLines` lines. Each exceeded limit prints its own suggestion; `0` disables either limit.
+
+### Large staged file
+
+<p>
+  <img src="../assets/precommit-large-file.svg" alt="Warning output listing a staged file over the size threshold with a Git LFS pointer" width="541">
+</p>
+
+Shown when staged files exceed `maxFileSizeMb` (default 5). Each oversized file is listed with its size. `0` disables.
+
+### Generated files staged
+
+<p>
+  <img src="../assets/precommit-generated-files.svg" alt="Warning output flagging staged build artifacts that are usually ignored" width="551">
+</p>
+
+Shown when staged paths match `generatedPaths` (default: `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, `__pycache__` anywhere in the tree). Setting `generatedPaths` replaces the default list.
 
 ### Commit blocked: protected branch
 

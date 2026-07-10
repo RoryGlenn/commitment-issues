@@ -83,6 +83,16 @@ test("parseNumstat totals files and lines, counting binary as 0 lines", () => {
   assert.deepEqual(parseNumstat(undefined), { fileCount: 0, changedLines: 0 });
 });
 
+test("parseNumstat counts rename entries once and ignores malformed lines", () => {
+  const stdout = [
+    "5\t1\tsrc/{old => new}/mod.mjs",
+    "not a numstat line",
+    "\t\t",
+  ].join("\n");
+
+  assert.deepEqual(parseNumstat(stdout), { fileCount: 1, changedLines: 6 });
+});
+
 test("parseBatchCheckSizes zips sizes onto the piped file order", () => {
   const files = ["big.bin", "missing.txt", "small.txt"];
   const stdout = [
@@ -96,6 +106,16 @@ test("parseBatchCheckSizes zips sizes onto the piped file order", () => {
     { file: "small.txt", bytes: 10 },
   ]);
   assert.deepEqual(parseBatchCheckSizes("", files), []);
+});
+
+test("parseBatchCheckSizes ignores output lines beyond the piped file list", () => {
+  // Defensive: git should answer one line per object spec, but a surplus
+  // line must map to no file rather than throwing or inventing entries.
+  const stdout = ["abc blob 10", "def blob 20", "eee blob 30"].join("\n");
+
+  assert.deepEqual(parseBatchCheckSizes(stdout, ["only.txt"]), [
+    { file: "only.txt", bytes: 10 },
+  ]);
 });
 
 test("matchGeneratedPaths flags default build/dependency artifacts anywhere", () => {

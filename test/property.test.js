@@ -16,6 +16,11 @@ import {
   parsePrettierList,
   summarizeEslintJson,
 } from "../scripts/lib/checks.mjs";
+import {
+  isProtectedBranch,
+  parseBatchCheckSizes,
+  parseNumstat,
+} from "../scripts/lib/commit-guards.mjs";
 
 // Property-based tests (fast-check) for the pure parsing and path helpers —
 // the code that consumes arbitrary tool output and git paths. Each property
@@ -196,6 +201,91 @@ test("ESLint JSON parsers never throw on malformed output", () => {
       assert.equal(typeof fixableCount, "number");
       assert.ok(Array.isArray(eslintManualIssues(raw)));
     }),
+  );
+});
+
+test("parseNumstat never throws and always returns sane totals", () => {
+  fc.assert(
+    fc.property(fc.string({ unit: "binary", maxLength: 300 }), (raw) => {
+      const { fileCount, changedLines } = parseNumstat(raw);
+      assert.ok(Number.isInteger(fileCount) && fileCount >= 0);
+      assert.ok(Number.isInteger(changedLines) && changedLines >= 0);
+      // A file can contribute lines only if it was counted.
+      if (fileCount === 0) {
+        assert.equal(changedLines, 0);
+      }
+    }),
+  );
+});
+
+test("parseNumstat totals well-formed entries exactly", () => {
+  const entry = fc.record({
+    added: fc.integer({ min: 0, max: 5000 }),
+    deleted: fc.integer({ min: 0, max: 5000 }),
+    file: plainSegment,
+  });
+  fc.assert(
+    fc.property(fc.array(entry, { maxLength: 20 }), (entries) => {
+      const stdout = entries
+        .map((e) => `${e.added}\t${e.deleted}\t${e.file}`)
+        .join("\n");
+      const expected = entries.reduce((sum, e) => sum + e.added + e.deleted, 0);
+      assert.deepEqual(parseNumstat(stdout), {
+        fileCount: entries.length,
+        changedLines: expected,
+      });
+    }),
+  );
+});
+
+test("parseBatchCheckSizes never throws and only maps piped files", () => {
+  fc.assert(
+    fc.property(
+      fc.string({ unit: "binary", maxLength: 300 }),
+      fc.array(plainSegment, { maxLength: 8 }),
+      (raw, files) => {
+        const sizes = parseBatchCheckSizes(raw, files);
+        assert.ok(Array.isArray(sizes));
+        for (const entry of sizes) {
+          assert.ok(files.includes(entry.file));
+          assert.ok(Number.isInteger(entry.bytes) && entry.bytes >= 0);
+        }
+        assert.ok(sizes.length <= files.length);
+      },
+    ),
+  );
+});
+
+test("isProtectedBranch never throws on hostile branch names or globs", () => {
+  fc.assert(
+    fc.property(
+      fc.string({ unit: "binary", maxLength: 40 }),
+      fc.array(regexHostileSegment, { maxLength: 4 }),
+      (branch, patterns) => {
+        assert.equal(typeof isProtectedBranch(branch, patterns), "boolean");
+      },
+    ),
+  );
+});
+
+test("isProtectedBranch matches a literal branch used as its own pattern", () => {
+  // Git forbids ref components that start with "." (git check-ref-format),
+  // and globToRegExp path-normalizes the pattern side ("./x" -> "x"), so
+  // constrain segments to git-legal shapes instead of arbitrary strings.
+  const branchSegment = regexHostileSegment.map((segment) =>
+    segment.startsWith(".") ? `a${segment}` : segment,
+  );
+  fc.assert(
+    fc.property(
+      fc.array(branchSegment, { minLength: 1, maxLength: 3 }),
+      (segments) => {
+        const branch = segments.join("/");
+        if (branch === "HEAD") {
+          return;
+        }
+        assert.equal(isProtectedBranch(branch, [branch]), true);
+      },
+    ),
   );
 });
 

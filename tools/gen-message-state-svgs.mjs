@@ -414,6 +414,95 @@ boxSvg({
 });
 
 boxSvg({
+  file: "precommit-protected-branch.svg",
+  severity: "warning",
+  title: "Protected-branch commit advisory terminal output",
+  desc: "A terminal-style warning box advising against committing directly to a protected branch.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: '→ Committing directly to protected branch "main"' },
+    { k: "di", text: "Consider a branch: git switch -c <name>" },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
+  file: "precommit-behind-upstream.svg",
+  severity: "warning",
+  title: "Behind upstream advisory terminal output",
+  desc: "A terminal-style warning box saying the branch is behind its upstream and suggesting a pull or rebase.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: "→ Branch is 7 commits behind origin/main" },
+    { k: "di", text: "Pull or rebase before stacking more commits." },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
+  file: "precommit-large-commit.svg",
+  severity: "warning",
+  title: "Large commit advisory terminal output",
+  desc: "A terminal-style warning box saying the commit exceeds the file-count and changed-line limits.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: "→ Large commit: 47 staged files (limit 30)" },
+    { k: "di", text: "Consider splitting this into smaller commits." },
+    { k: "a", text: "→ Large commit: 3204 changed lines (limit 2000)" },
+    { k: "di", text: "Consider splitting this into smaller commits." },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
+  file: "precommit-large-file.svg",
+  severity: "warning",
+  title: "Large staged file advisory terminal output",
+  desc: "A terminal-style warning box listing a staged file over the size threshold with a Git LFS pointer.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: "→ 1 staged file over 5 MB" },
+    { k: "di", text: "42.0 MB  demo.mov" },
+    { k: "di", text: "Did you mean to use Git LFS?" },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
+  file: "precommit-generated-files.svg",
+  severity: "warning",
+  title: "Generated files staged advisory terminal output",
+  desc: "A terminal-style warning box flagging staged build artifacts that are usually ignored.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: "→ 2 generated files staged" },
+    { k: "di", text: "coverage/index.html, dist/bundle.js" },
+    { k: "di", text: "These are usually ignored, not committed." },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
   file: "precommit-blocked-protected-branch.svg",
   severity: "error",
   title: "Commit blocked on protected branch terminal output",

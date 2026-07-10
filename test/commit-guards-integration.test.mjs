@@ -12,6 +12,7 @@ import {
   addBareRemote,
   cleanupTempRepo,
   createTempRepo,
+  fakeGitEnv,
   run,
   setPrecommitConfig,
   writeFile,
@@ -303,4 +304,104 @@ test("prepush ignores non-branch refs and unprotected branches", (t) => {
 
   assert.equal(result.status, 0);
   assert.doesNotMatch(output, /protected branch/);
+});
+
+// ---- Guard resilience: a failing git probe must degrade to a skipped ----
+// ---- guard, never to a blocked or crashed commit.                    ----
+
+test("commit proceeds fail-open when the branch cannot be identified", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  // Even with blocking enabled: an unidentifiable branch must not wedge
+  // every commit — warn-and-continue is the failure-mode contract.
+  setPrecommitConfig(tempDir, {
+    protectedBranches: ["main"],
+    blockProtectedBranches: true,
+  });
+  run("git", ["branch", "-M", "main"], tempDir);
+  stageCleanFile(tempDir);
+
+  const env = fakeGitEnv(tempDir, "rev-parse --abbrev-ref HEAD");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+    { env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(output, /Commit blocked/);
+  assert.doesNotMatch(output, /protected branch/);
+});
+
+test("a failing numstat skips the size guard but keeps other guards", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { maxCommitFiles: 1 });
+  writeFile(path.join(tempDir, "dist", "bundle.js"), "var x=1;\n");
+  writeFile(path.join(tempDir, "extra.md"), "# extra\n");
+  run("git", ["add", "-f", "dist/bundle.js", "extra.md"], tempDir);
+
+  const env = fakeGitEnv(tempDir, "--numstat");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+    { env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(output, /Large commit/);
+  assert.match(output, /1 generated file staged/);
+});
+
+test("a failing cat-file skips the large-file guard without blocking", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { maxFileSizeMb: 1, protectedBranches: [] });
+  fs.writeFileSync(
+    path.join(tempDir, "huge.bin"),
+    Buffer.alloc(2 * 1024 * 1024, 1),
+  );
+  run("git", ["add", "huge.bin"], tempDir);
+
+  const env = fakeGitEnv(tempDir, "cat-file --batch-check");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+    { env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(output, /over 1 MB/);
+  assert.match(output, /No lintable or formattable files staged/);
+});
+
+test("a failing behind-count probe skips the upstream guard", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const remoteDir = addBareRemote(tempDir);
+  t.after(() => fs.rmSync(remoteDir, { recursive: true, force: true }));
+
+  stageCleanFile(tempDir);
+
+  const env = fakeGitEnv(tempDir, "rev-list --count");
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+    { env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(output, /behind/);
+  assert.match(output, /All pre-commit checks passed/);
 });
