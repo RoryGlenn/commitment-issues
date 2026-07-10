@@ -97,6 +97,30 @@ test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), beforeCommitHook);
 });
 
+test("uninstall removes an appended prepare repair and preserves prepare", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "consumer",
+    version: "1.0.0",
+    scripts: { prepare: "node build-assets.mjs" },
+  });
+  assert.equal(runScript(tempDir, "init").status, 0);
+  assert.equal(
+    readPackage(tempDir).scripts.prepare,
+    "node build-assets.mjs && commitment-issues doctor --quiet",
+  );
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+  const pkg = readPackage(tempDir);
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(pkg.scripts, { prepare: "node build-assets.mjs" });
+  assert.match(output, /package\.json prepare repair/);
+});
+
 test("uninstall preserves customized scripts and hooks", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

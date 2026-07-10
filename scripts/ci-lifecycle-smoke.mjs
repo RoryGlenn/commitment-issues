@@ -23,12 +23,16 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
 }
 
 const DEV_DEPS = ["eslint", "prettier", "@eslint/js", "globals"];
-const EXPECTED_SCRIPTS = {
-  prepare: "commitment-issues doctor --quiet",
+const EXISTING_PREPARE = "node scripts/existing-prepare.mjs";
+const MANAGED_EXPECTED_SCRIPTS = {
   "commit:fix": "commitment-issues commit-fix",
   "fix:staged": "commitment-issues fix-staged",
   "test:precommit": "commitment-issues precommit",
   doctor: "commitment-issues doctor",
+};
+const EXPECTED_SCRIPTS = {
+  prepare: `${EXISTING_PREPARE} && commitment-issues doctor --quiet`,
+  ...MANAGED_EXPECTED_SCRIPTS,
 };
 const HOOK_SUBCOMMANDS = {
   "pre-commit": "precommit",
@@ -46,6 +50,21 @@ function installDevDeps(tarball) {
       return ["bun", ["add", "--dev", tarball, ...DEV_DEPS]];
     default:
       return ["npm", ["install", "-D", tarball, ...DEV_DEPS]];
+  }
+}
+
+// Reinstall an already-configured checkout. This is the path that must invoke
+// composed prepare repair and recreate clone-local .git/hooks files.
+function installProject() {
+  switch (packageManager) {
+    case "pnpm":
+      return ["pnpm", ["install"]];
+    case "yarn":
+      return ["yarn", ["install"]];
+    case "bun":
+      return ["bun", ["install"]];
+    default:
+      return ["npm", ["install"]];
   }
 }
 
@@ -151,7 +170,11 @@ function assertGitignoreConfigured(repoDir) {
 
 function assertGeneratedSetupRemoved(repoDir) {
   const pkg = readJson(path.join(repoDir, "package.json"));
-  for (const name of Object.keys(EXPECTED_SCRIPTS)) {
+  assertSmoke(
+    pkg.scripts?.prepare === EXISTING_PREPARE,
+    "the project's original prepare script should be preserved",
+  );
+  for (const name of Object.keys(MANAGED_EXPECTED_SCRIPTS)) {
     assertSmoke(
       !Object.hasOwn(pkg.scripts ?? {}, name),
       `package.json script ${name} should be removed`,
@@ -197,6 +220,7 @@ const tempRoot = fs.mkdtempSync(
 );
 const packDir = path.join(tempRoot, "pack");
 const smokeDir = path.join(tempRoot, "repo");
+const cloneDir = path.join(tempRoot, "clone");
 const remoteDir = path.join(tempRoot, "remote.git");
 
 fs.mkdirSync(packDir, { recursive: true });
@@ -230,10 +254,15 @@ try {
         version: "1.0.0",
         type: "module",
         private: true,
+        scripts: { prepare: EXISTING_PREPARE },
       },
       null,
       2,
     )}\n`,
+  );
+  writeFile(
+    path.join(smokeDir, "scripts", "existing-prepare.mjs"),
+    'process.stdout.write("existing prepare ran\\n");\n',
   );
 
   const [installCommand, installArgs] = installDevDeps(tarball);
@@ -291,6 +320,22 @@ try {
   run("git", ["branch", "-M", "main"], smokeDir);
   run("git", ["remote", "add", "origin", remoteDir], smokeDir);
   run("git", ["push", "-u", "origin", "main"], smokeDir);
+
+  // .git/hooks is intentionally clone-local and is not present in a fresh
+  // checkout. A normal install must run the preserved prepare followed by the
+  // appended repair and recreate both hooks without another init call.
+  run("git", ["clone", "--branch", "main", remoteDir, cloneDir], tempRoot);
+  for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+    assertSmoke(
+      !fs.existsSync(path.join(cloneDir, ".git", "hooks", name)),
+      `fresh clone should start without .git/hooks/${name}`,
+    );
+  }
+  const [projectInstallCommand, projectInstallArgs] = installProject();
+  run(projectInstallCommand, projectInstallArgs, cloneDir);
+  assertPackageJsonConfigured(cloneDir);
+  assertHookWired(cloneDir, "pre-commit");
+  assertHookWired(cloneDir, "pre-push");
 
   const [uninstallPreviewCommand, uninstallPreviewArgs] = execBin([
     "uninstall",

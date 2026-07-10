@@ -193,7 +193,7 @@ Already using another tool? Follow the step-by-step [migration guide](docs/migra
 4. Let the repository run in advisory mode first. Teammates can learn the messages without having commits or pushes unexpectedly blocked.
 5. Once the warnings are trusted, enable only the enforcement modes the team wants.
 
-When `prepare` is empty or contains known legacy wiring, `init` sets it to `commitment-issues doctor --quiet`. A normal package install then recreates missing generated hooks after a fresh clone. If your project already has an unrelated `prepare` script, `init` preserves it; compose `commitment-issues doctor --quiet` into your lifecycle or ask teammates to run `npm run doctor` after installing.
+When `prepare` is available, `init` sets it to `commitment-issues doctor --quiet`. If the project already owns `prepare`, init preserves that command and appends the repair command with `&&`. A normal package install then runs project setup followed by fresh-clone hook repair across npm, pnpm, Yarn, and Bun.
 
 Existing custom hook files and foreign `core.hooksPath` configurations are also preserved. `init` and `doctor` report the exact commands that must be added manually.
 
@@ -239,7 +239,7 @@ See [Configuration and behavior](docs/configuration.md) for every key, default, 
 Depending on the repository's existing state, `init` can:
 
 - add `doctor`, `fix:staged`, `commit:fix`, and `test:precommit` package scripts;
-- add a self-healing `prepare` script when no unrelated one exists;
+- add a self-healing `prepare` script, preserving and composing after an existing project command;
 - add the `precommitChecks` configuration namespace and default advisory push mode;
 - create missing native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files;
 - add `.eslintcache`, `.prettiercache`, and `node_modules/` to `.gitignore` when absent;
