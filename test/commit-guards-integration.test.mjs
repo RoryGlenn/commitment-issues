@@ -91,6 +91,62 @@ test("precommit blocks protected-branch commits only when opted in", (t) => {
   assert.match(output, /git commit --no-verify/);
 });
 
+test("precommit blocks deletion-only commits on a protected branch", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    protectedBranches: ["main"],
+    blockProtectedBranches: true,
+  });
+  run("git", ["branch", "-M", "main"], tempDir);
+  run("git", ["rm", "README.md"], tempDir);
+
+  const result = runPrecommit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Commit blocked: protected branch\./);
+  assert.doesNotMatch(output, /Deletion-only commit/);
+});
+
+test("precommit blocks allow-empty commits on a protected branch", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    protectedBranches: ["main"],
+    blockProtectedBranches: true,
+  });
+  run("git", ["branch", "-M", "main"], tempDir);
+
+  const result = runPrecommit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Commit blocked: protected branch\./);
+  assert.doesNotMatch(output, /No staged files to check/);
+});
+
+test("precommit blocks the first commit on an unborn protected branch", (t) => {
+  const tempDir = createTempRepo({ commit: false });
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    protectedBranches: ["main"],
+    blockProtectedBranches: true,
+  });
+  run("git", ["symbolic-ref", "HEAD", "refs/heads/main"], tempDir);
+  stageCleanFile(tempDir);
+
+  const result = runPrecommit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Commit blocked: protected branch\./);
+  assert.match(output, /Committing to "main"/);
+});
+
 test("precommit warns when the branch is behind its upstream", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -322,7 +378,7 @@ test("commit proceeds fail-open when the branch cannot be identified", (t) => {
   run("git", ["branch", "-M", "main"], tempDir);
   stageCleanFile(tempDir);
 
-  const env = fakeGitEnv(tempDir, "rev-parse --abbrev-ref HEAD");
+  const env = fakeGitEnv(tempDir, "HEAD");
   const result = run(
     "node",
     [path.join(tempDir, "scripts", "precommit.mjs")],

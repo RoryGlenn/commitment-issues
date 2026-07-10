@@ -101,6 +101,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-008** — nothing staged, only non-checkable files, and deletion-only commits each show the correct info box. Fixture: `test/precommit.test.mjs`.
 - **PRE-009** — opt-in staged tests run and warn on failure or stay clean on success (pluralized). Fixture: `test/precommit.test.mjs`.
 - **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
+- **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
 
 ### Commit fix (amend)
 
