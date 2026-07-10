@@ -68,6 +68,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-014** — command runs from a subdirectory. Subprocess: `test/cli.test.mjs`.
 - **CLI-015** — CLI help and subcommand error reporting work outside a Git repo / Node project. Subprocess: `test/cli.test.mjs`.
 - **CLI-016** — shell-sensitive command tokens are not shell-expanded by the CLI wrapper. Subprocess: `test/cli.test.mjs`.
+- **CLI-017** — `uninstall` dispatches through the bin. Subprocess: `test/cli.test.mjs`.
 
 ### Init
 
@@ -88,6 +89,19 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-015** — init keeps user-authored `.husky` hooks and warns they no longer run. Fixture: `test/init.test.mjs`.
 - **INIT-016** — init warns about a foreign `core.hooksPath` and leaves it alone. Fixture: `test/init.test.mjs`.
 - **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
+
+## Uninstall
+
+- **UNINST-001** — uninstall removes exact generated scripts and native hook bodies plus the package-specific configuration block while preserving dependencies and shared `.gitignore` entries. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-002** — uninstall is idempotent. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-003** — `uninstall --dry-run` previews package and hook cleanup without writing. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-004** — customized scripts and hooks are preserved and reported for manual cleanup. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-005** — package cleanup still works outside a Git repository while uninspectable hooks are reported. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-006** — missing and invalid `package.json` states fail clearly. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-007** — an active foreign hooks directory is inspected; exact generated bodies are removed while customized commands are preserved. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-008** — legacy commands in an active Husky directory are reported and preserved. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-009** — a configured native hooks path is deduplicated during inspection. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-010** — an unreadable or malformed hook path is reported and left unchanged. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -197,6 +211,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 ### Package managers
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
+- **PM-002** — uninstall prints a package-removal command for the detected manager. Unit: `test/package-manager.test.mjs`. Fixture: `test/uninstall.test.mjs`.
 - **PM-002** — pnpm end-to-end lifecycle smoke (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
 - **PM-003** — yarn classic end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
 - **PM-005** — bun end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.

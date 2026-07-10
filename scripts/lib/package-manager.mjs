@@ -86,3 +86,14 @@ export function devInstallCommand(packages, cwd) {
       return `npm install -D ${list}`;
   }
 }
+
+/**
+ * The command to remove packages with the detected package manager.
+ *
+ * @param {string[]} packages - Package names to remove.
+ * @param {string} [cwd] - Project root, forwarded to detectPackageManager.
+ * @returns {string} e.g. "pnpm remove commitment-issues".
+ */
+export function removeCommand(packages, cwd) {
+  return `${detectPackageManager(cwd)} remove ${packages.join(" ")}`;
+}

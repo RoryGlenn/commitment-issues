@@ -149,6 +149,30 @@ function assertGitignoreConfigured(repoDir) {
   }
 }
 
+function assertGeneratedSetupRemoved(repoDir) {
+  const pkg = readJson(path.join(repoDir, "package.json"));
+  for (const name of Object.keys(EXPECTED_SCRIPTS)) {
+    assertSmoke(
+      !Object.hasOwn(pkg.scripts ?? {}, name),
+      `package.json script ${name} should be removed`,
+    );
+  }
+  assertSmoke(
+    !Object.hasOwn(pkg, "precommitChecks"),
+    "package.json precommitChecks should be removed",
+  );
+  assertSmoke(
+    Object.hasOwn(pkg.devDependencies ?? {}, "commitment-issues"),
+    "the package dependency should remain until the manager removes it",
+  );
+  for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+    assertSmoke(
+      !fs.existsSync(path.join(repoDir, ".git", "hooks", name)),
+      `.git/hooks/${name} should be removed`,
+    );
+  }
+}
+
 function assertManagerLockfile(repoDir) {
   const expectedLockfiles = {
     npm: ["package-lock.json"],
@@ -267,6 +291,20 @@ try {
   run("git", ["branch", "-M", "main"], smokeDir);
   run("git", ["remote", "add", "origin", remoteDir], smokeDir);
   run("git", ["push", "-u", "origin", "main"], smokeDir);
+
+  const [uninstallPreviewCommand, uninstallPreviewArgs] = execBin([
+    "uninstall",
+    "--dry-run",
+  ]);
+  run(uninstallPreviewCommand, uninstallPreviewArgs, smokeDir);
+  assertPackageJsonConfigured(smokeDir);
+  assertHookWired(smokeDir, "pre-commit");
+  assertHookWired(smokeDir, "pre-push");
+
+  const [uninstallCommand, uninstallArgs] = execBin(["uninstall"]);
+  run(uninstallCommand, uninstallArgs, smokeDir);
+  assertGeneratedSetupRemoved(smokeDir);
+  assertGitignoreConfigured(smokeDir);
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }

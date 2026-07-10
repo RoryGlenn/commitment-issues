@@ -9,8 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `commitment-issues uninstall` with a matching `--dry-run` preview. It removes
+  only exact generated scripts and native hook bodies plus the package-specific
+  configuration block; custom project wiring is preserved and reported for
+  manual cleanup.
 - Staged-secrets scan (`scanSecrets`, default on): the pre-commit hook checks lines _added_ by the staged diff against a curated high-precision credential set — AWS access key IDs, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, and URLs with embedded passwords — and flags staged dotenv files (template variants like `.env.example` are ignored). Findings join the consolidated advisory box with file:line detail and rotation guidance. `blockOnSecrets: true` turns findings into a hard block (bypass once with `git commit --no-verify`); `secretExempt` globs exempt fixture paths. Known documentation examples and placeholder passwords never fire, and deleting a secret is never flagged.
 - `npm run states` (repo-only, `tools/show-message-states.mjs`): renders the message-state gallery live in the terminal by driving the real entry scripts through throwaway git repos — the runnable counterpart of `docs/message-states.md`. Filter by substring (`npm run states -- secrets`) or list scenario names with `--list`.
+
+### Changed
+
+- Reorganized the README around a two-command trial, product fit, comparison,
+  team rollout, progressive enforcement, ownership boundaries, and reversible
+  removal. Detailed output and compliance evidence remain available lower in
+  the document without delaying the adoption path.
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 # Message States
 
-`commitment-issues` uses compact terminal boxes to keep Git hook output readable. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Every example is a rendered SVG of real box output.
+`commitment-issues` uses compact terminal boxes to keep Git hook output readable. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
 To watch the states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run:
 
@@ -59,6 +59,27 @@ Shown when package.json cannot be parsed; fix the JSON and run `init` again.
 </p>
 
 Shown after the summary when `init` cannot fully wire the hooks by itself: a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Each case lists the exact follow-up.
+
+## Uninstall
+
+### Uninstall preview
+
+`Commitment Issues uninstall preview.` is shown for `uninstall --dry-run`. It
+lists the exact generated scripts, configuration, and hook files that would be
+removed without writing anything.
+
+### Setup removed
+
+`Commitment Issues setup was removed.` confirms the cleanup and prints the
+detected package-manager command that removes the remaining dependency and
+updates its lockfile.
+
+### Manual cleanup may still be needed
+
+`Manual cleanup may still be needed.` is shown when a hook or script invokes
+`commitment-issues` but has been customized, or when the command cannot inspect
+local Git hooks. User-owned content is reported and preserved instead of being
+edited heuristically.
 
 ## Pre-commit
 

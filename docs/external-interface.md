@@ -11,6 +11,7 @@ For install and quick usage, see the [README](../README.md).
 `commitment-issues` exposes these subcommands:
 
 - `init`
+- `uninstall`
 - `doctor`
 - `precommit`
 - `prepush`
@@ -23,6 +24,8 @@ Examples:
 
 ```bash
 npx commitment-issues init
+npx commitment-issues uninstall --dry-run
+npx commitment-issues uninstall
 npx commitment-issues doctor
 npx commitment-issues precommit
 npx commitment-issues prepush
@@ -38,6 +41,19 @@ npx commitment-issues --version
 - `commit:fix` -> applies safe automatic fixes and amends the latest clean,
   unpushed commit
 - `test:precommit` -> runs pre-commit checks directly
+
+## Setup removed by `uninstall`
+
+`uninstall` removes only setup it can identify safely:
+
+- exact generated package scripts
+- the `precommitChecks` configuration block
+- exact generated native pre-commit and pre-push hook bodies
+
+Customized hooks and scripts are preserved and reported for manual cleanup.
+Shared `.gitignore` entries, ESLint/Prettier dependencies, the
+`commitment-issues` dependency, and lockfiles are preserved. Run the package
+manager's remove command after `uninstall` completes.
 
 ## Git hook interface
 

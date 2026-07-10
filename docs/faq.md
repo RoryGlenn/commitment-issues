@@ -271,40 +271,37 @@ fixer, pre-push, and `doctor` output examples.
 
 ## How do I remove it?
 
-Removal is manual today — there is no uninstall command. Remove the package and
-unwind the setup you no longer want:
+Preview the cleanup first:
 
-1. Remove the dev dependency:
+```bash
+npx commitment-issues uninstall --dry-run
+```
 
-   ```bash
-   npm remove commitment-issues
-   ```
+Then remove the generated setup while the package is still installed:
 
-2. **Reset the `prepare` script.** `init` points `prepare` at
-   `commitment-issues doctor --quiet` so the hooks self-heal on install. If you
-   leave it after removing the dev dependency, the next `npm install` runs a
-   binary that no longer exists and **fails**. Reset `prepare` to your previous
-   value, or delete the `prepare`
-   script entirely if nothing else needs it.
-3. Remove the other generated npm scripts you no longer want: `doctor`,
-   `fix:staged`, `commit:fix`, and `test:precommit`.
-4. Remove or edit the hook files `.git/hooks/pre-commit` and
-   `.git/hooks/pre-push`. If a
-   hook only calls `commitment-issues`, delete it; if you added other commands,
-   remove just the `commitment-issues` line. (Even left alone, the generated
-   hooks skip themselves when the binary is gone — they never break commits.)
-5. Remove the `precommitChecks` section from `package.json`.
-6. Optionally drop the `.eslintcache` / `.prettiercache` entries from
-   `.gitignore` if nothing else needs them.
+```bash
+npx commitment-issues uninstall
+```
 
-Keep ESLint or Prettier if your project uses them
-independently — `commitment-issues` only runs them.
+The uninstaller removes exact generated package scripts, the
+`precommitChecks` configuration block, and exact generated native hook bodies.
+It preserves customized scripts and hooks and reports any command that needs
+manual removal. It also preserves shared `.gitignore` entries, ESLint,
+Prettier, the package dependency, and the lockfile because the project may own
+those independently.
 
-There is no automated uninstaller yet, but `npx commitment-issues init --dry-run`
-prints exactly what `init` manages, which doubles as a checklist of what to undo.
+Finish by removing the dependency with your package manager:
+
+```bash
+npm remove commitment-issues
+```
+
+Run the commands in that order so the installed binary can clean the `prepare`
+script before the package is removed.
 
 ## Why does it require Node.js 22.22.1 or newer?
 
 The package uses modern ESM behavior and the built-in `node --test` runner by
-default. The Node requirement keeps the hook scripts and default test command on a
-known-supported runtime.
+default. Node.js 22.22.1 is the minimum Node 22 release exercised by the CI
+matrix; Node 24 is tested as well. Older runtimes are outside the supported and
+release-tested range.

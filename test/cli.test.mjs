@@ -50,6 +50,7 @@ test("cli prints usage and exits 0 for --help", (t) => {
 
   for (const command of [
     "init",
+    "uninstall",
     "doctor",
     "precommit",
     "prepush",
@@ -109,6 +110,15 @@ test("cli dispatches to init", (t) => {
   const result = cli(tempDir, ["init"]);
   assert.equal(result.status, 0);
   assert.match(combinedOutput(result), /Commitment Issues is set up/);
+});
+
+test("cli dispatches to uninstall", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = cli(tempDir, ["uninstall"]);
+  assert.equal(result.status, 0);
+  assert.match(combinedOutput(result), /Commitment Issues setup was removed/);
 });
 
 test("cli dispatches to doctor", (t) => {

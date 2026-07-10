@@ -180,8 +180,9 @@ test("README does not make unconditional non-blocking claims", () => {
 test("README documents both advisory and blocking push modes", () => {
   const prose = markdownProse(readText("README.md"));
 
-  assert.match(prose, /## Advisory push tests \(default\)/);
-  assert.match(prose, /## Blocking pushes on test failure \(opt-in\)/);
+  assert.match(prose, /## From advisory to enforced/);
+  assert.match(prose, /Runs related pushed-file tests in advisory mode/);
+  assert.match(prose, /Enable blockPushOnTestFailure/);
   assert.match(
     prose,
     /blockPushOnTestFailure and advisePushTests are both set/i,
@@ -269,6 +270,7 @@ test("every terminal box title appears in the message-states gallery", () => {
     "scripts/init.mjs",
     "scripts/precommit.mjs",
     "scripts/prepush.mjs",
+    "scripts/uninstall.mjs",
     "scripts/lib/message.mjs",
   ];
 
