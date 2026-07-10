@@ -58,7 +58,7 @@ Shown when package.json cannot be parsed; fix the JSON and run `init` again.
   <img src="../assets/init-hook-wiring-warning.svg" alt="Warning output printed after the init summary when hook wiring needs manual attention" width="675">
 </p>
 
-Shown after the summary when `init` cannot fully wire the hooks by itself: an existing native hook does not invoke `commitment-issues`, a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Existing hooks are preserved, each missing invocation lists the exact command to add, and setup-complete commit/push claims are withheld until both active hooks are verified.
+Shown after the summary when `init` cannot fully wire the hooks by itself: an existing native hook does not invoke `commitment-issues`, a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Existing hooks are preserved, and missing integration lists the exact command to add. When the active hooks themselves cannot be verified, setup-complete commit/push claims are also withheld.
 
 ## Uninstall
 
@@ -663,7 +663,7 @@ Shown when a repair step fails (for example, the husky-era `core.hooksPath` cann
   <img src="../assets/doctor-quiet-lines.svg" alt="Plain console lines from doctor --quiet: a missing-tool warning and a repaired notice" width="786">
 </p>
 
-`doctor --quiet` (the `prepare` script) never prints boxes: it stays silent when healthy and prints a single line when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
+`doctor --quiet` (the generated or composed `prepare` repair command) never prints boxes: it stays silent when healthy and prints a single line when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
 
 ## Adding more examples
 

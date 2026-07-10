@@ -10,8 +10,8 @@ The generated hooks guard interactive commits and pushes; in CI that is
 unnecessary work. Setting the `COMMITMENT_ISSUES=0` environment variable makes
 both hooks exit immediately. (The pre-3.0 `HUSKY=0` variable is still honored,
 so existing pipelines keep working.) Hook wiring itself is harmless in CI —
-`prepare` runs `doctor --quiet`, which never fails an install, even with no
-`.git` directory.
+The generated or composed `prepare` repair script runs `doctor --quiet`,
+which never fails an install, even with no `.git` directory.
 
 Then run the same commands the hooks would run, directly:
 
