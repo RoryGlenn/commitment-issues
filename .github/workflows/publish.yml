@@ -38,7 +38,19 @@ jobs:
           fi
 
       - name: Ensure npm supports trusted publishing
-        run: npm install -g npm@latest
+        # Trusted publishing (OIDC) needs npm >= 11.5.1. Node 24 bundles a
+        # capable npm; verify instead of running `npm install -g npm@latest`,
+        # which self-updates npm in place and has corrupted the install
+        # (MODULE_NOT_FOUND: sigstore) mid-publish before.
+        run: |
+          node -e "
+            const { execSync } = require('node:child_process');
+            const version = execSync('npm --version', { encoding: 'utf8' }).trim();
+            const [major, minor, patch] = version.split('.').map(Number);
+            const ok = major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)));
+            if (!ok) { console.error('npm >= 11.5.1 required for trusted publishing, found ' + version); process.exit(1); }
+            console.log('npm ' + version + ' supports trusted publishing');
+          "
 
       - run: npm ci
       - run: npm run build --if-present
