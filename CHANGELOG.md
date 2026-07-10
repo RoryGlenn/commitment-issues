@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-07-10
+
 ### Added
 
 - Advisory commit and push guards, all reported through the existing consolidated suggestions box and configurable under `precommitChecks`:
