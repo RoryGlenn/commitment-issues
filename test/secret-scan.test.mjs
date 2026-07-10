@@ -70,6 +70,16 @@ test("scanDiffForSecrets catches each curated pattern on added lines", () => {
   }
 });
 
+test("scanDiffForSecrets scans added content beginning with two plus signs", () => {
+  const findings = scanDiffForSecrets(
+    diffFor("src/config.txt", [`++ token=${AWS_KEY}`], 7),
+  );
+
+  assert.deepEqual(findings, [
+    { file: "src/config.txt", line: 7, label: "AWS access key ID" },
+  ]);
+});
+
 test("scanDiffForSecrets ignores removed and context lines", () => {
   const diff = [
     "diff --git a/src/a.ts b/src/a.ts",

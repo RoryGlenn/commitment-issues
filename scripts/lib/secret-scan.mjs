@@ -122,9 +122,22 @@ export function scanDiffForSecrets(diffText) {
   const findings = [];
   let currentFile = null;
   let newLine = 0;
+  let inHunk = false;
 
   for (const rawLine of (diffText || "").split("\n")) {
-    if (rawLine.startsWith("+++ ")) {
+    if (rawLine.startsWith("diff --git ")) {
+      currentFile = null;
+      newLine = 0;
+      inHunk = false;
+      continue;
+    }
+    const hunk = rawLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunk) {
+      newLine = Number(hunk[1]);
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk && rawLine.startsWith("+++ ")) {
       const target = rawLine.slice(4).trim();
       currentFile = target.startsWith("b/")
         ? normalizeRepoPath(target.slice(2))
@@ -133,9 +146,7 @@ export function scanDiffForSecrets(diffText) {
           : normalizeRepoPath(target);
       continue;
     }
-    const hunk = rawLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-    if (hunk) {
-      newLine = Number(hunk[1]);
+    if (!inHunk) {
       continue;
     }
     if (rawLine.startsWith("+")) {

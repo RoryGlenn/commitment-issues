@@ -81,6 +81,25 @@ test("blockOnSecrets refuses the commit and names the finding", (t) => {
   assert.match(output, /git commit --no-verify/);
 });
 
+test("blockOnSecrets catches added content beginning with two plus signs", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { blockOnSecrets: true });
+  writeFile(
+    path.join(tempDir, "src", "prefixed-secret.txt"),
+    `++ token=${AWS_KEY}\n`,
+  );
+  run("git", ["add", "src/prefixed-secret.txt"], tempDir);
+
+  const result = runPrecommit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Commit blocked: possible secret staged\./);
+  assert.match(output, /src\/prefixed-secret\.txt:1 \(AWS access key ID\)/);
+});
+
 test("scanSecrets: false disables the scan entirely", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
