@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -87,6 +88,21 @@ test("husky and lint-staged stay out of the dependency tree", () => {
     assert.equal(banned in (pkg.dependencies ?? {}), false);
     assert.equal(banned in (pkg.devDependencies ?? {}), false);
     assert.equal(banned in (pkg.peerDependencies ?? {}), false);
+  }
+});
+
+test("bin entries are tracked with the executable bit", () => {
+  const pkg = readJson("package.json");
+  // npm's fix-bin chmods bins for registry installs, but git clones and
+  // `file:` self-links (this repo's own hooks) use the tracked mode as-is.
+  // Without 100755 the generated hooks silently self-neutralize.
+  for (const binPath of Object.values(pkg.bin ?? {})) {
+    const output = execFileSync("git", ["ls-files", "-s", "--", binPath], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    const mode = output.trim().split(/\s+/)[0];
+    assert.equal(mode, "100755", `${binPath} must be tracked as 100755`);
   }
 });
 

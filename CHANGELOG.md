@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.github/CONTRIBUTING.md` now codifies DCO sign-off requirements and stronger test expectations for major features and bug-fix regressions (when practical).
 - Redesigned the project flowchart images: new hand-authored dark and light SVGs (`assets/project-flowchart-dark.svg`, `assets/project-flowchart-light.svg`) used by both the README and `docs/how-it-works.md`, which now theme-switch instead of showing a fixed dark raster. The superseded `assets/project-flowchart.webp` was removed.
 
+### Fixed
+
+- `scripts/cli.mjs` is now tracked with the executable bit (`100755`). Registry installs were unaffected (npm chmods bin entries itself), but git clones and `file:`-linked checkouts resolved a non-executable `node_modules/.bin/commitment-issues`, so the generated hooks silently skipped their checks with "command not found". A metadata test now guards the mode of every `bin` entry.
+
 ## [3.0.1] - 2026-07-08
 
 ### Added
