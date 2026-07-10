@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `blockProtectedBranches` now applies before deletion/no-file early exits and resolves the symbolic branch name before the first commit, so deletion-only and unborn-branch commits cannot bypass protected-branch blocking.
 - `init` now verifies that both active hooks invoke `commitment-issues` before claiming setup is complete. User-authored hooks remain untouched; unwired hooks suppress the green commit/push promises and list the exact commands to add.
 - `init` now preserves an unrelated `prepare` command and appends automatic fresh-clone hook repair to the same lifecycle script, including on Yarn Classic. `uninstall` removes only the generated repair suffix.
+- The staged-secret diff parser now treats `+++ ` as file metadata only outside a hunk, so added source lines beginning with `++ ` cannot evade secret detection.
 
 ## [3.2.0] - 2026-07-10
 
