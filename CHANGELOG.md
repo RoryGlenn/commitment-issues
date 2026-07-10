@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-09
+
 ### Added
 
 - The pre-commit and pre-push hooks now print a one-line advisory warning when `precommitChecks` contains a recognized key with an invalid value (e.g. a string where a boolean is expected, or a non-positive `timeoutMs`). The invalid value is still ignored in favor of the default; the warning just makes the mistyped setting visible instead of silently falling back.
