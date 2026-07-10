@@ -146,11 +146,11 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PUSH-002** — blocking mode runs only the pushed files' tests and blocks on failure; a pass shows a summary and allows. Fixture: `test/prepush.test.mjs`.
 - **PUSH-003** — advisory mode runs tests and warns without blocking; a pass shows a summary. Fixture: `test/prepush.test.mjs`.
 - **PUSH-004** — `blockPushOnTestFailure` takes precedence over `advisePushTests`, and the dual-mode conflict is surfaced. Fixture: `test/prepush.test.mjs`.
-- **PUSH-005** — no associated tests (including deleted test files) allows the push. Fixture: `test/prepush.test.mjs`.
+- **PUSH-005** — deleted test files are never executed; deleting or renaming a source file still runs any surviving related test and blocks when it fails. Fixture: `test/prepush.test.mjs`.
 - **PUSH-006** — falls back to the upstream branch when run without piped refs. Fixture: `test/prepush.test.mjs`.
 - **PUSH-007** — non-node test commands run through the tee/summary fallback. Fixture: `test/prepush.test.mjs`.
 - **PUSH-008** — test-command failure blocks in blocking mode and warns/allows in advisory mode; a missing summary blocks. Fixture: `test/prepush.test.mjs`.
-- **PUSH-009** — pushed-file diff failure fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
+- **PUSH-009** — pushed-file diff failure or malformed name/status output fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
 
 ### Advisory message and tone
 
@@ -166,7 +166,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIB-001** — ESLint JSON summarizing and manual-issue extraction (totals, fixables, empty/invalid, missing rule id). Unit: `test/checks.test.mjs`.
 - **LIB-002** — Prettier list parsing and Node test-summary parsing (TAP/spec, pass-only/fail-only, unrecognized → null). Unit: `test/checks.test.mjs`.
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
-- **LIB-004** — test discovery helpers: `findTestFile`/`collectTestsForFiles` and `shortFileList`. Unit: `test/lib-files.test.mjs`.
+- **LIB-004** — test discovery and Git-path helpers: `findTestFile`, `collectTestsForFiles`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
 - **LIB-005** — box rendering: `printBox` and severity boxes color the whole border. Unit: `test/ui.test.mjs`.
 
 ### Safety path matrix
@@ -179,7 +179,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-006** — glob-like filename characters are passed safely through a staged-file flow. Subprocess: `test/fix-staged.test.mjs`.
 - **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`, `scripts/prepush.mjs`.
 - **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
-- **SEC-009** — pre-push diff forces `core.quotePath=false`, so pushed files with spaces or Unicode names still match their associated tests. Unit: `test/prepush.test.mjs`.
+- **SEC-009** — pre-push diff uses NUL-delimited name/status output (plus `core.quotePath=false`), so deletions, renames, Unicode, whitespace, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
 
 ### Performance
 

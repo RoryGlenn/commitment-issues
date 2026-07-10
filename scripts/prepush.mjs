@@ -13,7 +13,7 @@ import {
   unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
-import { collectTestsForFiles } from "./lib/files.mjs";
+import { collectTestsForFiles, parseNameStatusPaths } from "./lib/files.mjs";
 import {
   branchFromRef,
   isProtectedBranch,
@@ -217,13 +217,15 @@ async function readPushRefs() {
 }
 
 function diffFiles(base, head) {
-  // Exclude deletions (--diff-filter=ACMRT): a deleted test file must not be
-  // re-run, or the gate would fail trying to load a file that no longer exists.
+  // Keep deletions so a removed source file can still map to its surviving
+  // related test. Name/status output also preserves both sides of a rename;
+  // `-z` makes every path unambiguous, including whitespace and newlines.
   const result = run("git", [
     ...GIT_PATH_ARGS,
     "diff",
-    "--name-only",
-    "--diff-filter=ACMRT",
+    "--name-status",
+    "-z",
+    "--find-renames",
     base,
     head,
   ]);
@@ -238,13 +240,14 @@ function diffFiles(base, head) {
         (result.stderr || "").trim() || `git diff ${base}..${head} failed`,
     };
   }
-  return {
-    ok: true,
-    files: result.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
-  };
+  const files = parseNameStatusPaths(result.stdout);
+  return files === null
+    ? {
+        ok: false,
+        files: [],
+        detail: "git diff returned malformed name-status output",
+      }
+    : { ok: true, files };
 }
 
 function getPushedFiles() {
@@ -313,7 +316,12 @@ if (diffErrors.length > 0) {
   process.exit(0);
 }
 
-const testFiles = collectTestsForFiles(pushedFiles);
+// Deleted/renamed test paths can appear in the diff so deleted source paths
+// remain useful for related-test discovery. Never pass a test that no longer
+// exists in the working tree to the runner.
+const testFiles = collectTestsForFiles(pushedFiles).filter((file) =>
+  fs.existsSync(file),
+);
 
 if (testFiles.length === 0) {
   infoBox([

@@ -112,6 +112,59 @@ test("ignores deleted test files in the push (no run for removed tests)", (t) =>
   assert.match(output, /No tests to run before push/);
 });
 
+test("runs a surviving related test when its source file is deleted", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+  run("git", ["rm", "src/widget.mjs"], tempDir);
+  run("git", ["commit", "-m", "remove widget source"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /widget\.test\.mjs/);
+  assert.match(output, /ERR_MODULE_NOT_FOUND|Cannot find module/);
+});
+
+test("does not try to execute a deleted test when its source remains", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+  run("git", ["rm", "src/widget.test.mjs"], tempDir);
+  run("git", ["commit", "-m", "remove widget test"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /No tests to run before push/);
+  assert.doesNotMatch(output, /Could not find|ERR_MODULE_NOT_FOUND/);
+});
+
+test("runs a test left behind by a renamed source file", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+  run("git", ["mv", "src/widget.mjs", "src/renamed-widget.mjs"], tempDir);
+  run("git", ["commit", "-m", "rename widget source"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /widget\.test\.mjs/);
+  assert.match(output, /ERR_MODULE_NOT_FOUND|Cannot find module/);
+});
+
 test("runs only the pushed files' tests and blocks on failure", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -383,7 +436,7 @@ test("blocks the push when the pushed-files diff cannot be computed", (t) => {
 
   // Fail the diff that lists pushed files. Blocking mode must fail closed
   // rather than treat an un-inspectable push as "no tests to run".
-  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const env = fakeGitEnv(tempDir, "--name-status -z");
   const result = run(
     "node",
     [path.join(tempDir, "scripts", "prepush.mjs")],
@@ -396,6 +449,28 @@ test("blocks the push when the pushed-files diff cannot be computed", (t) => {
   assert.match(output, /Push blocked: could not inspect pushed files/);
 });
 
+test("blocks the push when Git returns malformed name-status output", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  const malformedRename = "R100\0src/widget.mjs\0";
+  const env = fakeGitEnv(tempDir, "--name-status -z", 0, malformedRename);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: could not inspect pushed files/);
+  assert.match(output, /malformed name-status output/);
+});
+
 test("advisory mode warns but allows when the pushed-files diff cannot be computed", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -403,7 +478,7 @@ test("advisory mode warns but allows when the pushed-files diff cannot be comput
   setConfig(tempDir, { advisePushTests: true });
   commitWidget(tempDir, 1);
 
-  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const env = fakeGitEnv(tempDir, "--name-status -z");
   const result = run(
     "node",
     [path.join(tempDir, "scripts", "prepush.mjs")],
@@ -429,7 +504,7 @@ test("stays silent and allows when the diff fails but no mode is enabled", (t) =
   });
   commitWidget(tempDir, 1);
 
-  const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");
+  const env = fakeGitEnv(tempDir, "--name-status -z");
   const result = run(
     "node",
     [path.join(tempDir, "scripts", "prepush.mjs")],
@@ -442,7 +517,7 @@ test("stays silent and allows when the diff fails but no mode is enabled", (t) =
   assert.equal(output.trim(), "");
 });
 
-test("forces core.quotePath=false when diffing pushed files", (t) => {
+test("uses literal NUL-delimited name-status output for pushed files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -459,10 +534,13 @@ test("forces core.quotePath=false when diffing pushed files", (t) => {
   );
 
   assert.equal(result.status, 0);
-  // The pushed-file diff must run with core.quotePath=false, matching the
-  // pre-commit/fix flows so non-ASCII paths are not octal-escaped.
+  // The pushed-file diff must retain status and use NUL terminators so
+  // deletions, renames, Unicode, whitespace, and newlines remain unambiguous.
   const log = fs.readFileSync(logPath, "utf8");
-  assert.match(log, /-c core\.quotePath=false diff --name-only/);
+  assert.match(
+    log,
+    /-c core\.quotePath=false diff --name-status -z --find-renames/,
+  );
 });
 
 test("discovers associated tests for pushed files with Unicode paths", (t) => {

@@ -54,6 +54,46 @@ export function normalizeRepoPath(file) {
 }
 
 /**
+ * Parse NUL-delimited `git diff --name-status -z` output into paths that can
+ * affect related-test discovery. Deletions remain present; renames retain both
+ * sides; copies only contribute the new path because the source is unchanged.
+ *
+ * @param {string} output - Raw name-status output from Git.
+ * @returns {string[]|null} Paths, or null when the output is malformed.
+ */
+export function parseNameStatusPaths(output) {
+  const fields = output.split("\0");
+  if (fields.at(-1) === "") {
+    fields.pop();
+  }
+
+  const files = [];
+  for (let index = 0; index < fields.length;) {
+    const status = fields[index++];
+    const firstPath = fields[index++];
+    if (!status || firstPath === undefined) {
+      return null;
+    }
+
+    const changeType = status[0];
+    if (changeType === "R" || changeType === "C") {
+      const secondPath = fields[index++];
+      if (secondPath === undefined) {
+        return null;
+      }
+      if (changeType === "R") {
+        files.push(firstPath);
+      }
+      files.push(secondPath);
+    } else {
+      files.push(firstPath);
+    }
+  }
+
+  return files;
+}
+
+/**
  * @param {string} file - Repo-relative file path.
  * @returns {boolean} True when the path is inside (or is) a node_modules dir.
  */

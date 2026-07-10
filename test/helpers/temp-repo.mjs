@@ -142,11 +142,12 @@ function writeCrossPlatformShim(binDir, name, shimBody) {
 
 // Build an env that puts a fake `git` first on PATH. The shim exits with
 // `exitCode` (default 1) for any invocation whose joined args contain
-// `matchSubstring` — without running git, so exitCode 0 simulates a silent
-// no-op — and delegates to the real git otherwise. Used to exercise the
-// scripts' defensive "git command failed" branches without corrupting a real
-// repository. Cross-platform: a Node shim behind `git`/`git.cmd` launchers.
-export function fakeGitEnv(tempDir, matchSubstring, exitCode = 1) {
+// `matchSubstring` — without running git — and delegates to the real git
+// otherwise. Optional stdout is base64-encoded through the environment so test
+// fixtures can include NUL-delimited Git output. Used to exercise defensive Git
+// failure/malformed-output branches without corrupting a real repository.
+// Cross-platform: a Node shim behind `git`/`git.cmd` launchers.
+export function fakeGitEnv(tempDir, matchSubstring, exitCode = 1, stdout = "") {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
   writeCrossPlatformShim(
@@ -156,6 +157,10 @@ export function fakeGitEnv(tempDir, matchSubstring, exitCode = 1) {
 const args = process.argv.slice(2);
 const match = process.env.FAKE_GIT_MATCH || "";
 if (match && args.join(" ").includes(match)) {
+  const stdout = process.env.FAKE_GIT_STDOUT_BASE64 || "";
+  if (stdout) {
+    process.stdout.write(Buffer.from(stdout, "base64"));
+  }
   process.exit(Number(process.env.FAKE_GIT_EXIT ?? "1"));
 }
 const result = spawnSync(process.env.FAKE_GIT_REAL || "git", args, {
@@ -169,6 +174,7 @@ process.exit(result.status == null ? 1 : result.status);
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
     FAKE_GIT_MATCH: matchSubstring,
     FAKE_GIT_EXIT: String(exitCode),
+    FAKE_GIT_STDOUT_BASE64: Buffer.from(stdout).toString("base64"),
     FAKE_GIT_REAL: REAL_GIT,
   };
 }
