@@ -26,10 +26,10 @@ import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 // no hooks at all. This restores them without clobbering anything, migrates
 // husky-era wiring from pre-3.0 setups, and is safe to run anytime.
 //
-// With `--quiet` it runs from `prepare` on every install: it stays silent when
-// healthy, prints a one-line notice only when it repairs something, and never
-// exits non-zero (so it can never break `npm install`, including CI/Docker with
-// no `.git`).
+// With `--quiet` it runs from the generated or composed `prepare` script
+// on every install: it stays silent when healthy, prints a one-line notice only
+// when it repairs something, and never exits non-zero (so it can never break
+// `npm install`, including CI/Docker with no `.git`).
 
 const quiet = process.argv.includes("--quiet");
 

@@ -27,7 +27,7 @@ Version 3.0 dropped the husky and lint-staged dependencies: hooks are now plain 
    npx commitment-issues init
    ```
 
-   This retires the husky-era `core.hooksPath`, removes the `.husky` files this tool generated (never your own), and writes the native `.git/hooks` wiring. The next `npm install` self-heals automatically through the existing `prepare` script, so teammates only need to reinstall.
+   This retires the husky-era `core.hooksPath`, removes the `.husky` files this tool generated (never your own), and writes the native `.git/hooks` wiring. The next `npm install` self-heals automatically through the generated or composed `prepare` script, so teammates only need to reinstall.
 
 3. Commit the changes (`.husky/` removal) and try a normal commit / push.
 
@@ -82,7 +82,7 @@ commitment-issues precommit
 commitment-issues prepush
 ```
 
-Expect to review `package.json` (new helper scripts + `precommitChecks`) and `.gitignore` (cache and `node_modules/` ignores). `.git/hooks` is per-clone and self-heals on every install via the `prepare` script.
+Expect to review `package.json` (new helper scripts + `precommitChecks`) and `.gitignore` (cache and `node_modules/` ignores). `.git/hooks` is per-clone and self-heals on every install via the generated or composed `prepare` repair script.
 
 ## From `lefthook`
 

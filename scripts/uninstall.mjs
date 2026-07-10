@@ -48,11 +48,13 @@ try {
 
 const managedScripts = {
   prepare: [`${BIN} doctor --quiet`, "node scripts/doctor.mjs --quiet"],
+  postprepare: [`${BIN} doctor --quiet`, "node scripts/doctor.mjs --quiet"],
   "commit:fix": [`${BIN} commit-fix`, "node scripts/commit-fix.mjs"],
   "fix:staged": [`${BIN} fix-staged`, "node scripts/fix-staged.mjs"],
   "test:precommit": [`${BIN} precommit`, "node scripts/precommit-unified.mjs"],
   doctor: [`${BIN} doctor`, "node scripts/doctor.mjs"],
 };
+const repairSuffix = ` && ${BIN} doctor --quiet`;
 
 const plannedPackageChanges = [];
 for (const [name, values] of Object.entries(managedScripts)) {
@@ -60,6 +62,10 @@ for (const [name, values] of Object.entries(managedScripts)) {
     delete pkg.scripts[name];
     plannedPackageChanges.push(`package.json script ${name}`);
   }
+}
+if (pkg.scripts?.prepare?.endsWith(repairSuffix)) {
+  pkg.scripts.prepare = pkg.scripts.prepare.slice(0, -repairSuffix.length);
+  plannedPackageChanges.push("package.json prepare repair");
 }
 
 if (pkg.scripts && Object.keys(pkg.scripts).length === 0) {

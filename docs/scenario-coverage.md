@@ -79,7 +79,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-005** — init errors when `package.json` is missing. Fixture: `test/init.test.mjs`.
 - **INIT-006** — init creates `.gitignore` when absent. Fixture: `test/init.test.mjs`.
 - **INIT-007** — init appends cache ignores with no trailing newline. Fixture: `test/init.test.mjs`.
-- **INIT-008** — init preserves an unrelated existing `prepare` script. Fixture: `test/init.test.mjs`.
+- **INIT-008** — init preserves an unrelated existing `prepare` command and appends automatic repair. Fixture: `test/init.test.mjs`.
 - **INIT-009** — init leaves an existing lint-staged config exactly as the user wrote it (no adoption, no edits). Fixture: `test/init.test.mjs`.
 - **INIT-010** — init migrates a husky-era 2.x setup: retires `core.hooksPath`, removes generated `.husky` wiring, writes native hooks. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
@@ -90,6 +90,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-016** — init warns about a foreign `core.hooksPath` and leaves it alone. Fixture: `test/init.test.mjs`.
 - **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
 - **INIT-018** — init preserves custom native hooks, accepts those that invoke `commitment-issues`, and withholds setup-complete claims while listing exact commands for those that do not. Fixture: `test/init.test.mjs`.
+- **INIT-019** — init preserves an unrelated `postprepare` while composing repair into the project-owned `prepare`. Fixture: `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -103,6 +104,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **UNINST-008** — legacy commands in an active Husky directory are reported and preserved. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-009** — a configured native hooks path is deduplicated during inspection. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-010** — an unreadable or malformed hook path is reported and left unchanged. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-011** — uninstall removes the appended repair suffix while restoring the project's unrelated `prepare`. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -208,6 +210,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
 - **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
+- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
 
 ### Package managers
 

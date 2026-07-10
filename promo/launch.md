@@ -57,8 +57,10 @@ npx commitment-issues init
 
 That wires the hooks and npm scripts — no hook manager needed. Hooks are notorious for
 silently breaking — a `git clean`, a stale checkout, a teammate who never ran
-`prepare`. `commitment-issues` ships a `doctor` that repairs the wiring and runs
-quietly on every install, so it self-heals.
+the install lifecycle. `commitment-issues` ships a `doctor` that repairs the
+wiring through `prepare`, composing it after a project-owned command when
+needed, so it self-heals without overwriting project setup and works with Yarn
+Classic too.
 
 It works with npm, pnpm, yarn, and bun (each proven by an end-to-end CI smoke), on
 Linux, macOS, and Windows, on Node 22+.

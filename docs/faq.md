@@ -46,8 +46,8 @@ package can run from Git hooks. It can:
 - add or update npm scripts for `doctor`, `fix:staged`, `commit:fix`, and
   `test:precommit`
 - add `precommitChecks.advisePushTests` when no push-test mode is configured
-- point the `prepare` script at `commitment-issues doctor --quiet`, which
-  self-heals the hook wiring on install
+- add `commitment-issues doctor --quiet` as `prepare`, or append it after the
+  project-owned `prepare` command, so hook wiring self-heals on install
 - create `.git/hooks/pre-commit` and `.git/hooks/pre-push` when they are
   missing (existing hook files are never overwritten)
 - migrate a pre-3.0 setup: retire the husky-era `core.hooksPath` and remove
@@ -55,6 +55,10 @@ package can run from Git hooks. It can:
   kept and reported)
 - add cache and dependency ignores such as `.eslintcache`, `.prettiercache`, and
   `node_modules/`
+
+The composition uses `&&`, so repair runs only after the project's existing
+setup succeeds. This also works with Yarn Classic, which does not run an npm-style
+`postprepare` lifecycle.
 
 It does not vendor package source into your repo. The hooks call the installed
 `commitment-issues` binary from `node_modules/.bin`.
@@ -296,8 +300,8 @@ Finish by removing the dependency with your package manager:
 npm remove commitment-issues
 ```
 
-Run the commands in that order so the installed binary can clean the `prepare`
-script before the package is removed.
+Run the commands in that order so the installed binary can remove its generated
+`prepare` command or repair suffix before the package is removed.
 
 ## Why does it require Node.js 22.22.1 or newer?
 

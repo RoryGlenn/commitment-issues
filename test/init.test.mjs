@@ -267,7 +267,7 @@ test("init preserves explicit push blocking config", (t) => {
   assert.equal("advisePushTests" in pkg.precommitChecks, false);
 });
 
-test("init preserves an unrelated prepare script", (t) => {
+test("init preserves an unrelated prepare and appends repair", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -280,12 +280,56 @@ test("init preserves an unrelated prepare script", (t) => {
     },
   });
 
+  const preview = runInit(tempDir, ["--dry-run"]);
+  assert.equal(preview.status, 0);
+  assert.match(`${preview.stdout}${preview.stderr}`, /- script prepare repair/);
+  assert.equal(
+    readPackage(tempDir).scripts.prepare,
+    "node ./scripts/build-assets.mjs",
+  );
+
   const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
   assert.equal(result.status, 0);
 
   const pkg = readPackage(tempDir);
-  assert.equal(pkg.scripts.prepare, "node ./scripts/build-assets.mjs");
+  assert.equal(
+    pkg.scripts.prepare,
+    "node ./scripts/build-assets.mjs && commitment-issues doctor --quiet",
+  );
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");
+  assert.match(output, /- script prepare repair/);
+
+  const second = runInit(tempDir);
+  assert.equal(second.status, 0);
+  assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
+});
+
+test("init preserves postprepare while composing repair into prepare", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+    scripts: {
+      prepare: "node ./scripts/build-assets.mjs",
+      postprepare: "node ./scripts/announce-build.mjs",
+    },
+  });
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  const pkg = readPackage(tempDir);
+  assert.equal(
+    pkg.scripts.prepare,
+    "node ./scripts/build-assets.mjs && commitment-issues doctor --quiet",
+  );
+  assert.equal(pkg.scripts.postprepare, "node ./scripts/announce-build.mjs");
+  assert.match(output, /- script prepare repair/);
 });
 
 test("init leaves an existing lint-staged config exactly as the user wrote it", (t) => {

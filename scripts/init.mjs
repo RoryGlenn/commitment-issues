@@ -52,26 +52,33 @@ try {
 }
 
 const created = [];
+const warnings = [];
 
 pkg.scripts = pkg.scripts || {};
 
-// `prepare` runs on every install and is our automatic self-heal entry point:
-// `doctor --quiet` re-establishes the hook wiring after every fresh clone or
-// reinstall. Upgrade older values from previous setups (including husky's own
-// prepare forms) to it.
-const desiredPrepare = `${BIN} doctor --quiet`;
+// `doctor --quiet` re-establishes hook wiring after every fresh clone or
+// reinstall. Compose it after a project-owned `prepare` command because Yarn
+// Classic does not run `postprepare`. The exact suffix is idempotent and can be
+// removed safely by uninstall without disturbing the project command.
+const desiredRepair = `${BIN} doctor --quiet`;
+const repairSuffix = ` && ${desiredRepair}`;
 const legacyPrepare = [
   "husky",
   "husky || true",
   "husky install",
   "node scripts/doctor.mjs --quiet",
 ];
-if (
-  (!pkg.scripts.prepare || legacyPrepare.includes(pkg.scripts.prepare)) &&
-  pkg.scripts.prepare !== desiredPrepare
-) {
-  pkg.scripts.prepare = desiredPrepare;
+if (legacyPrepare.includes(pkg.scripts.prepare)) {
+  pkg.scripts.prepare = desiredRepair;
   created.push("script prepare");
+} else if (pkg.scripts.prepare !== desiredRepair) {
+  if (!pkg.scripts.prepare) {
+    pkg.scripts.prepare = desiredRepair;
+    created.push("script prepare");
+  } else if (!pkg.scripts.prepare.endsWith(repairSuffix)) {
+    pkg.scripts.prepare += repairSuffix;
+    created.push("script prepare repair");
+  }
 }
 
 const scripts = {
@@ -120,7 +127,6 @@ const isGitRepo = !insideRepo.error && insideRepo.status === 0;
 const configuredHooksPath = isGitRepo ? hooksPathConfig() : "";
 const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
 const foreignHooksPath = configuredHooksPath && !huskyEraHooksPath;
-const warnings = [];
 let hooksActive = false;
 
 // Pre-3.0 setups pointed core.hooksPath at husky's shim dir; while that is
