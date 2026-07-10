@@ -183,7 +183,7 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 
 ## Package managers
 
-`commitment-issues` works with **npm, pnpm, yarn, and bun**. It detects your package manager — from `npm_config_user_agent` and your lockfile — and tailors the command hints it prints (for example, a pnpm project sees `pnpm run commit:fix`). Hooks run through `node_modules/.bin`, so no extra configuration is required. Each manager is exercised by an end-to-end CI lifecycle smoke. Yarn Berry projects should set `nodeLinker: node-modules` — Plug'n'Play is not supported, since hooks resolve the bin from `node_modules/.bin`. See the [Yarn Berry guide](docs/yarn-berry.md) for setup details.
+`commitment-issues` works with **npm, pnpm, yarn, and bun**. It detects your package manager — from `npm_config_user_agent` and your lockfile — and tailors the command hints it prints (for example, a pnpm project sees `pnpm run commit:fix`). Hooks run through `node_modules/.bin`, so no extra configuration is required. Each manager is exercised by an end-to-end lifecycle integration test in CI. Yarn Berry projects should set `nodeLinker: node-modules` — Plug'n'Play is not supported, since hooks resolve the bin from `node_modules/.bin`. See the [Yarn Berry guide](docs/yarn-berry.md) for setup details.
 
 ## Advisory push tests (default)
 
