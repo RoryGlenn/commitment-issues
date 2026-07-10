@@ -15,6 +15,7 @@ import {
   isThirdPartyPath,
   findTestFile,
   collectTestsForFiles,
+  parseNameStatusPaths,
   shortFileList,
 } from "../scripts/lib/files.mjs";
 
@@ -52,6 +53,37 @@ test("collectTestsForFiles never runs vendored node_modules tests", () => {
     collectTestsForFiles(["vendor/node_modules/pkg/foo.test.js"]),
     [],
   );
+});
+
+test("parseNameStatusPaths preserves deletions and rename relationships", () => {
+  const output = [
+    "M",
+    "src/changed.mjs",
+    "D",
+    "src/deleted.mjs",
+    "R100",
+    "src/old name.mjs",
+    "src/new\nname.mjs",
+    "C100",
+    "src/original.mjs",
+    "src/copied.mjs",
+    "",
+  ].join("\0");
+
+  assert.deepEqual(parseNameStatusPaths(output), [
+    "src/changed.mjs",
+    "src/deleted.mjs",
+    "src/old name.mjs",
+    "src/new\nname.mjs",
+    "src/copied.mjs",
+  ]);
+});
+
+test("parseNameStatusPaths rejects malformed output", () => {
+  assert.deepEqual(parseNameStatusPaths(""), []);
+  assert.equal(parseNameStatusPaths("M"), null);
+  assert.equal(parseNameStatusPaths("R100\0src/old.mjs"), null);
+  assert.equal(parseNameStatusPaths("\0src/path.mjs"), null);
 });
 
 test("isTestExemptFile honors package.json testExempt globs", () => {
