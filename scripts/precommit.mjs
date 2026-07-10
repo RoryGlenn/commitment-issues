@@ -31,6 +31,14 @@ import {
   protectedBranchIssue,
   resolveGuardConfig,
 } from "./lib/commit-guards.mjs";
+import {
+  envFileFindings,
+  filterExemptFindings,
+  findingLines,
+  resolveSecretScanConfig,
+  scanDiffForSecrets,
+  secretsIssue,
+} from "./lib/secret-scan.mjs";
 import { buildAdvisoryMessage } from "./lib/message.mjs";
 import { runScript } from "./lib/package-manager.mjs";
 import {
@@ -178,9 +186,9 @@ function currentBranch() {
 
 const branch = currentBranch();
 
-// The only blocking guard, and it is opt-in: with blockProtectedBranches set,
-// refuse the commit before spending time on any other check. Everything else
-// below stays advisory.
+// Blocking guards are opt-in and run before any tool time is spent: with
+// blockProtectedBranches set, refuse the commit outright. The advisory
+// guards below never block.
 if (
   guardConfig.blockProtectedBranches &&
   isProtectedBranch(branch, guardConfig.protectedBranches)
@@ -196,11 +204,53 @@ if (
   process.exit(1);
 }
 
+// Staged-secrets scan: high-precision patterns against *added* lines only,
+// plus staged .env files. A failed diff probe skips the scan (fail-open, like
+// every commit-side guard) — blocking here is opt-in via blockOnSecrets.
+const secretScanConfig = resolveSecretScanConfig(config);
+
+function collectSecretFindings() {
+  if (!secretScanConfig.scanSecrets) {
+    return [];
+  }
+  const findings = [...envFileFindings(rawStagedFiles)];
+  const diff = run("git", [
+    ...GIT_PATH_ARGS,
+    "diff",
+    "--cached",
+    "-U0",
+    "--no-color",
+  ]);
+  if (!diff.error && diff.status === 0) {
+    findings.push(...scanDiffForSecrets(diff.stdout));
+  }
+  return filterExemptFindings(findings, secretScanConfig.secretExempt);
+}
+
+const secretFindings = collectSecretFindings();
+
+if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
+  errorBox([
+    pc.bold("Commit blocked: possible secret staged."),
+    "",
+    ...findingLines(secretFindings).map((line) => pc.dim(line)),
+    "",
+    pc.dim("Remove the secret and rotate anything already exposed."),
+    pc.dim("To bypass once: git commit --no-verify"),
+  ]);
+  process.exit(1);
+}
+
 // Advisory guards: instant git-only facts about the commit itself (branch,
 // shape, oversized or generated files, behind-upstream). Any git hiccup here
 // skips that guard — guards must never block or fail a commit.
 function collectGuardIssues() {
   const guardIssues = [];
+
+  const secretIssue = secretsIssue(secretFindings);
+  if (secretIssue) {
+    guardIssues.push(secretIssue);
+  }
 
   const branchIssue = protectedBranchIssue(branch, guardConfig);
   if (branchIssue) {

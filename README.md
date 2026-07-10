@@ -5,7 +5,7 @@
 # Commitment Issues
 
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Coverage: 94.63%](https://img.shields.io/badge/coverage-94.63%25-brightgreen.svg)](docs/scenario-coverage.md)
+[![Coverage: 95.02%](https://img.shields.io/badge/coverage-95.02%25-brightgreen.svg)](docs/scenario-coverage.md)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/RoryGlenn/commitment-issues/badge)](https://securityscorecards.dev/viewer/?uri=github.com/RoryGlenn/commitment-issues)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13528/badge)](https://www.bestpractices.dev/projects/13528)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/13528/baseline)](https://www.bestpractices.dev/projects/13528)
@@ -144,19 +144,20 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 
 ## What it catches
 
-| Check                | What happens                                        |
-| -------------------- | --------------------------------------------------- |
-| Lint issues          | Reports issues during commit                        |
-| Formatting drift     | Reports issues and suggests a safe fix              |
-| Missing tests        | Points out code without nearby tests                |
-| Failing staged tests | Optional commit-time warning or enforcement         |
-| Failing push tests   | Advisory warning by default; optional push blocker  |
-| Protected branches   | Warns on direct commits/pushes; optional blocker    |
-| Branch behind remote | Suggests pulling before stacking more commits       |
-| Oversized commits    | Nudges splitting when file/line counts spike        |
-| Large staged files   | Points at Git LFS before a huge blob lands          |
-| Generated files      | Flags staged build artifacts and dependency folders |
-| Broken hook wiring   | `doctor` can repair it                              |
+| Check                | What happens                                              |
+| -------------------- | --------------------------------------------------------- |
+| Lint issues          | Reports issues during commit                              |
+| Formatting drift     | Reports issues and suggests a safe fix                    |
+| Missing tests        | Points out code without nearby tests                      |
+| Failing staged tests | Optional commit-time warning or enforcement               |
+| Failing push tests   | Advisory warning by default; optional push blocker        |
+| Protected branches   | Warns on direct commits/pushes; optional blocker          |
+| Staged secrets       | Flags likely credentials and .env files; optional blocker |
+| Branch behind remote | Suggests pulling before stacking more commits             |
+| Oversized commits    | Nudges splitting when file/line counts spike              |
+| Large staged files   | Points at Git LFS before a huge blob lands                |
+| Generated files      | Flags staged build artifacts and dependency folders       |
+| Broken hook wiring   | `doctor` can repair it                                    |
 
 ## How commit and push checks behave
 

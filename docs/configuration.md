@@ -150,6 +150,7 @@ Beyond tool checks, the hooks run instant, git-only advisory guards. All of them
 - **Commit size** — commits staging more than `maxCommitFiles` files (default 30) or `maxCommitLines` changed lines (default 2000) get a split-it-up nudge. Set either to `0` to disable.
 - **Large files** — staged files over `maxFileSizeMb` (default 5) are listed with a Git LFS pointer. Set to `0` to disable.
 - **Generated files** — staged paths matching `generatedPaths` (default: `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, `__pycache__` anywhere in the tree) are flagged as usually-ignored artifacts. Setting `generatedPaths` replaces the default list.
+- **Staged secrets** — lines _added_ by the staged diff are scanned against a curated, high-precision credential set (AWS access keys, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, URLs with embedded passwords), and staged dotenv files are flagged (`.env.example`/`.env.sample`/`.env.template` are ignored). Known documentation examples and placeholder passwords (`${DB_PASS}`, `<password>`, `changeme`…) never fire. Opt into hard blocking with `blockOnSecrets: true`; exempt fixture paths with `secretExempt` globs; disable with `scanSecrets: false`. A secret that reached a commit should be rotated even if the commit is stopped.
 
 ```json
 {
@@ -183,6 +184,9 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `maxCommitLines`         | number                  | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                  |
 | `maxFileSizeMb`          | number                  | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                       |
 | `generatedPaths`         | string[]                | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                             |
+| `scanSecrets`            | boolean                 | `true`               | Scan added staged lines and dotenv files for likely credentials.                                     |
+| `blockOnSecrets`         | boolean                 | `false`              | Block the commit when the secrets scan finds something.                                              |
+| `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                   |
 
 Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
 

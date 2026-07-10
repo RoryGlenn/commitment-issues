@@ -28,6 +28,7 @@ function isStringArray(value) {
 export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "adviseBehindUpstream",
   "advisePushTests",
+  "blockOnSecrets",
   "blockProtectedBranches",
   "blockPushOnTestFailure",
   "generatedPaths",
@@ -37,6 +38,8 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "protectedBranches",
   "requireTests",
   "runStagedTests",
+  "scanSecrets",
+  "secretExempt",
   "testCommand",
   "testExempt",
   "timeoutMs",
@@ -46,16 +49,19 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
 const BOOLEAN_CONFIG_KEYS = [
   "adviseBehindUpstream",
   "advisePushTests",
+  "blockOnSecrets",
   "blockProtectedBranches",
   "blockPushOnTestFailure",
   "requireTests",
   "runStagedTests",
+  "scanSecrets",
 ];
 
 // String-array keys share one validation/sanitization shape.
 const STRING_ARRAY_CONFIG_KEYS = [
   "generatedPaths",
   "protectedBranches",
+  "secretExempt",
   "testExempt",
 ];
 

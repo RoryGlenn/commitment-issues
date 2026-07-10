@@ -197,6 +197,17 @@ test("fun tone rewrites the behind-upstream message", () => {
   );
 });
 
+test("fun tone rewrites the possible secrets message", () => {
+  assert.match(
+    funText("1 possible secret staged"),
+    /1 possible secret this commit can't keep/,
+  );
+  assert.match(
+    funText("2 possible secrets staged"),
+    /2 possible secrets this commit can't keep/,
+  );
+});
+
 test("fun tone passes unrecognized messages through unchanged", () => {
   assert.match(
     funText("something completely bespoke happened"),

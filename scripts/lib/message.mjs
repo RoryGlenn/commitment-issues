@@ -133,6 +133,14 @@ function funIssueMessage(issue, message) {
     return `${count} ${plural(count, "commit")} behind ${behindMatch[3]} — stacking more chaos on top`;
   }
 
+  const secretsMatch = issue.message.match(
+    /^(\d+) possible secret(s)? staged$/,
+  );
+  if (secretsMatch) {
+    const count = Number(secretsMatch[1]);
+    return `${count} possible ${plural(count, "secret")} this commit can't keep`;
+  }
+
   return message;
 }
 

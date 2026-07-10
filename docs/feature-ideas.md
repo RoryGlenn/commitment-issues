@@ -26,37 +26,11 @@ Implemented as advisory commit/push guards (see [configuration](configuration.md
 - **Generated files warning** — `generatedPaths`.
 - **Forgot to pull warning** — `adviseBehindUpstream`.
 - **No matching tests warning** — shipped earlier as `requireTests` + `testExempt`.
+- **Secrets staged check** — `scanSecrets` + `blockOnSecrets` + `secretExempt` (curated high-precision patterns on added lines, plus dotenv files).
 
 ## Recommended next features
 
-### 1. Secrets staged check
-
-Scan staged files for likely secrets before commit.
-
-Examples:
-
-- API keys
-- Tokens
-- Private keys
-- `.env` files
-- Cloud credentials
-- Password-looking assignments
-
-Example output:
-
-```text
-❌ Commit blocked
-
-Possible secret found:
-  src/config.ts
-
-This looks like a token or credential.
-Remove it before committing.
-```
-
-This is likely one of the highest-value features because it prevents real security incidents.
-
-### 2. Mixed concern detection
+### 1. Mixed concern detection
 
 Warn when a commit appears to combine unrelated changes.
 
@@ -82,7 +56,7 @@ Detected areas:
 Consider splitting this into separate commits.
 ```
 
-### 3. Debug junk check
+### 2. Debug junk check
 
 Warn when staged code contains temporary debugging artifacts.
 

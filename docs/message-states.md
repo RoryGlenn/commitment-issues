@@ -254,6 +254,22 @@ Shown when staged files exceed `maxFileSizeMb` (default 5). Each oversized file 
 
 Shown when staged paths match `generatedPaths` (default: `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, `__pycache__` anywhere in the tree). Setting `generatedPaths` replaces the default list.
 
+### Possible secrets staged
+
+<p>
+  <img src="../assets/precommit-secrets-advisory.svg" alt="Warning output listing a staged .env file and an AWS key finding with rotation guidance" width="788">
+</p>
+
+Shown when the staged diff adds a line matching a curated credential pattern (AWS keys, private-key headers, GitHub/Slack/npm/Stripe/Google tokens, URLs with embedded passwords) or a real dotenv file is staged (`.env.example`-style templates are ignored). Only added lines are scanned, so pre-existing strings and deletions never fire. Exempt fixture paths with `secretExempt`; disable with `scanSecrets: false`.
+
+### Commit blocked: possible secret staged
+
+<p>
+  <img src="../assets/precommit-blocked-secrets.svg" alt="Error output showing a commit refused because a possible secret is staged" width="665">
+</p>
+
+Shown only when `blockOnSecrets` is enabled and the scan found something. The commit is refused; `git commit --no-verify` bypasses it once. Rotate anything already exposed — a secret that reached a commit should be treated as leaked.
+
 ### Commit blocked: protected branch
 
 <p>

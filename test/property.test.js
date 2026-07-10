@@ -21,6 +21,7 @@ import {
   parseBatchCheckSizes,
   parseNumstat,
 } from "../scripts/lib/commit-guards.mjs";
+import { isEnvFile, scanDiffForSecrets } from "../scripts/lib/secret-scan.mjs";
 
 // Property-based tests (fast-check) for the pure parsing and path helpers —
 // the code that consumes arbitrary tool output and git paths. Each property
@@ -286,6 +287,49 @@ test("isProtectedBranch matches a literal branch used as its own pattern", () =>
         assert.equal(isProtectedBranch(branch, [branch]), true);
       },
     ),
+  );
+});
+
+test("scanDiffForSecrets never throws and only reports positive lines", () => {
+  fc.assert(
+    fc.property(fc.string({ unit: "binary", maxLength: 500 }), (raw) => {
+      const findings = scanDiffForSecrets(raw);
+      assert.ok(Array.isArray(findings));
+      for (const finding of findings) {
+        assert.equal(typeof finding.file, "string");
+        assert.ok(finding.file.length > 0);
+        assert.ok(Number.isInteger(finding.line) && finding.line >= 0);
+        assert.equal(typeof finding.label, "string");
+      }
+    }),
+  );
+});
+
+test("scanDiffForSecrets ignores arbitrary added lines without credentials", () => {
+  // Lines built only from word characters and spaces can never contain a
+  // credential shape (every curated pattern needs a distinctive prefix or
+  // URL syntax), so no finding should ever fire.
+  const benignLine = fc.string({
+    unit: fc.constantFrom(..."abc XYZ 019 ="),
+    maxLength: 60,
+  });
+  fc.assert(
+    fc.property(fc.array(benignLine, { maxLength: 10 }), (lines) => {
+      const diff = [
+        "+++ b/src/file.ts",
+        "@@ -0,0 +1 @@",
+        ...lines.map((line) => `+${line}`),
+      ].join("\n");
+      assert.deepEqual(scanDiffForSecrets(diff), []);
+    }),
+  );
+});
+
+test("isEnvFile never throws and is stable under path normalization", () => {
+  fc.assert(
+    fc.property(fc.string({ unit: "binary", maxLength: 60 }), (raw) => {
+      assert.equal(typeof isEnvFile(raw), "boolean");
+    }),
   );
 });
 

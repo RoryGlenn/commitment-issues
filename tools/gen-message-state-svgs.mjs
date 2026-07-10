@@ -503,6 +503,43 @@ boxSvg({
 });
 
 boxSvg({
+  file: "precommit-secrets-advisory.svg",
+  severity: "warning",
+  title: "Possible secrets staged advisory terminal output",
+  desc: "A terminal-style warning box listing a staged .env file and an AWS key finding with rotation guidance.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: "→ 2 possible secrets staged" },
+    { k: "di", text: ".env (.env file)" },
+    { k: "di", text: "src/auth.ts:12 (AWS access key ID)" },
+    {
+      k: "di",
+      text: "Never commit real credentials — rotate anything already exposed.",
+    },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
+  file: "precommit-blocked-secrets.svg",
+  severity: "error",
+  title: "Commit blocked on staged secret terminal output",
+  desc: "A terminal-style error box showing a commit refused because a possible secret is staged.",
+  lines: [
+    { k: "t", text: "Commit blocked: possible secret staged." },
+    { k: "b" },
+    { k: "d", text: "src/auth.ts:12 (AWS access key ID)" },
+    { k: "b" },
+    { k: "d", text: "Remove the secret and rotate anything already exposed." },
+    { k: "d", text: "To bypass once: git commit --no-verify" },
+  ],
+});
+
+boxSvg({
   file: "precommit-blocked-protected-branch.svg",
   severity: "error",
   title: "Commit blocked on protected branch terminal output",

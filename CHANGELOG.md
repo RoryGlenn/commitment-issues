@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Staged-secrets scan (`scanSecrets`, default on): the pre-commit hook checks lines _added_ by the staged diff against a curated high-precision credential set — AWS access key IDs, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, and URLs with embedded passwords — and flags staged dotenv files (template variants like `.env.example` are ignored). Findings join the consolidated advisory box with file:line detail and rotation guidance. `blockOnSecrets: true` turns findings into a hard block (bypass once with `git commit --no-verify`); `secretExempt` globs exempt fixture paths. Known documentation examples and placeholder passwords never fire, and deleting a secret is never flagged.
+
 ## [3.2.0] - 2026-07-10
 
 ### Added
