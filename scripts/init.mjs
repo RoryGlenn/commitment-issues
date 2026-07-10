@@ -121,6 +121,7 @@ const configuredHooksPath = isGitRepo ? hooksPathConfig() : "";
 const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
 const foreignHooksPath = configuredHooksPath && !huskyEraHooksPath;
 const warnings = [];
+let hooksActive = false;
 
 // Pre-3.0 setups pointed core.hooksPath at husky's shim dir; while that is
 // set, git ignores `.git/hooks` entirely. Unset it (it is our own wiring, not
@@ -166,17 +167,37 @@ if (!isGitRepo) {
 
 if (isGitRepo && !foreignHooksPath) {
   const hooksDir = gitHooksDir();
+  const unwiredHooks = [];
   for (const name of HOOK_NAMES) {
     const status = classifyHook(hooksDir, name);
-    // Only ever create; a hook the user wrote (wired or not) is left exactly
-    // as-is — doctor reports unwired ones without overwriting them.
+    // Only ever create; a hook the user wrote is left exactly as-is. A custom
+    // hook that invokes commitment-issues is healthy, while one that does not
+    // is reported below with the exact command the user needs to add.
     if (status === "missing") {
       if (!dryRun) {
         writeHook(hooksDir, name);
       }
       created.push(`.git/hooks/${name}`);
+    } else if (status === "custom-without-command") {
+      unwiredHooks.push(name);
     }
   }
+
+  if (unwiredHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks were left unchanged but do not run commitment-issues.",
+      "Add each command without removing your existing hook logic:",
+      ...unwiredHooks.map(
+        (name) => `  .git/hooks/${name}: ${hookCommand(name)}`,
+      ),
+    );
+  }
+
+  // Missing hooks are written above (or would be written by a dry run), and
+  // wired/custom-with-command hooks are already active. Native hooks remain
+  // inactive when a custom hook omits the command or a husky hooksPath could
+  // not be retired and still shadows .git/hooks.
+  hooksActive = hooksPathRetired && unwiredHooks.length === 0;
 
   // Clean up the husky-era artifacts this tool generated (exact-match hook
   // files and husky's runtime dir). User-authored `.husky` hooks are never
@@ -226,17 +247,28 @@ const setupSummary =
         pc.dim(dryRun ? "Would add:" : "Added:"),
         ...created.map((item) => pc.dim(`- ${item}`)),
       ]
-    : [pc.dim("Already configured — nothing to change.")];
+    : [
+        pc.dim(
+          hooksActive
+            ? "Already configured — nothing to change."
+            : "Package settings are configured; hook wiring still needs attention.",
+        ),
+      ];
 
 const footer = dryRun
   ? [
       pc.dim("No files were written."),
       pc.dim("Run again without --dry-run to apply these changes."),
     ]
-  : [
-      pc.dim("Your next commit runs advisory checks."),
-      pc.dim("Your next push runs advisory tests when matching tests exist."),
-    ];
+  : hooksActive
+    ? [
+        pc.dim("Your next commit runs advisory checks."),
+        pc.dim("Your next push runs advisory tests when matching tests exist."),
+      ]
+    : [
+        pc.dim("Pre-commit and pre-push checks are not active yet."),
+        pc.dim("Complete the hook wiring steps below."),
+      ];
 
 const body = [
   ...logoLines(),
@@ -244,7 +276,9 @@ const body = [
   pc.bold(
     dryRun
       ? "Commitment Issues dry run preview."
-      : "Commitment Issues is set up.",
+      : hooksActive
+        ? "Commitment Issues is set up."
+        : "Commitment Issues needs hook wiring.",
   ),
   "",
   ...setupSummary,
@@ -253,6 +287,8 @@ const body = [
 ].join("\n");
 
 if (dryRun) {
+  infoBox(body.split("\n"));
+} else if (!hooksActive) {
   infoBox(body.split("\n"));
 } else {
   printBox(body, (value) => value, { borderColor: "green" });
