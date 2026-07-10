@@ -206,6 +206,22 @@ Shown when staged files are outside the JavaScript, TypeScript, and formatted-fi
 
 Shown when accidentally staged dependency files are ignored and no project files remain to check.
 
+### Commit guard suggestions
+
+<p>
+  <img src="../assets/precommit-commit-guards.svg" alt="Warning output showing protected-branch, behind-upstream, and large-commit advisories" width="603">
+</p>
+
+Shown when the advisory commit guards notice something about the commit itself: committing directly to a protected branch, a branch behind its upstream, an unusually large commit, staged files over the size threshold, or staged generated files. The commit still continues; guards join the same consolidated suggestions box as lint and test advisories.
+
+### Commit blocked: protected branch
+
+<p>
+  <img src="../assets/precommit-blocked-protected-branch.svg" alt="Error output showing a commit refused on a protected branch" width="706">
+</p>
+
+Shown only when `blockProtectedBranches` is enabled and the current branch matches `protectedBranches`. The commit is refused; `git commit --no-verify` bypasses it once.
+
 ## Commit fix and staged fixes
 
 ### Latest commit amended
@@ -465,6 +481,22 @@ Shown when Git cannot list the pushed files in advisory mode; a warning prints a
 </p>
 
 Shown when Git cannot list the pushed files in blocking mode; the gate fails closed rather than skipping the check.
+
+### Pushing to a protected branch
+
+<p>
+  <img src="../assets/prepush-protected-branch-advisory.svg" alt="Warning output showing an advisory that the push updates a protected branch directly" width="459">
+</p>
+
+Shown when the push updates a branch matching `protectedBranches` and `blockProtectedBranches` is off. The push continues.
+
+### Push blocked: protected branch
+
+<p>
+  <img src="../assets/prepush-blocked-protected-branch.svg" alt="Error output showing a push refused to a protected branch" width="675">
+</p>
+
+Shown when `blockProtectedBranches` is enabled and the push targets a protected branch. The push is refused; `git push --no-verify` bypasses it once.
 
 ### Silent by design
 

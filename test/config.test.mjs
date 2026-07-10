@@ -179,3 +179,62 @@ test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
     ],
   );
 });
+
+test("invalidPrecommitConfigMessages reports invalid guard values", () => {
+  assert.deepEqual(
+    invalidPrecommitConfigMessages({
+      adviseBehindUpstream: "no",
+      blockProtectedBranches: 1,
+      protectedBranches: "main",
+      generatedPaths: [42],
+      maxCommitFiles: -1,
+      maxCommitLines: "many",
+      maxFileSizeMb: Infinity,
+    }),
+    [
+      "adviseBehindUpstream must be a boolean",
+      "blockProtectedBranches must be a boolean",
+      "generatedPaths must be an array of strings",
+      "protectedBranches must be an array of strings",
+      "maxCommitFiles must be a non-negative finite number",
+      "maxCommitLines must be a non-negative finite number",
+      "maxFileSizeMb must be a non-negative finite number",
+    ],
+  );
+});
+
+test("sanitizePrecommitConfig keeps valid guard values including disables", () => {
+  assert.deepEqual(
+    sanitizePrecommitConfig({
+      adviseBehindUpstream: false,
+      blockProtectedBranches: true,
+      protectedBranches: ["main", "release/*"],
+      generatedPaths: [],
+      maxCommitFiles: 0,
+      maxCommitLines: 500,
+      maxFileSizeMb: 2.5,
+    }),
+    {
+      adviseBehindUpstream: false,
+      blockProtectedBranches: true,
+      protectedBranches: ["main", "release/*"],
+      generatedPaths: [],
+      maxCommitFiles: 0,
+      maxCommitLines: 500,
+      maxFileSizeMb: 2.5,
+    },
+  );
+});
+
+test("sanitizePrecommitConfig omits invalid guard values", () => {
+  assert.deepEqual(
+    sanitizePrecommitConfig({
+      protectedBranches: "main",
+      generatedPaths: ["dist/**", 7],
+      maxCommitFiles: -3,
+      maxFileSizeMb: NaN,
+      adviseBehindUpstream: "yes",
+    }),
+    {},
+  );
+});

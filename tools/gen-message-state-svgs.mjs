@@ -392,6 +392,45 @@ boxSvg({
   ],
 });
 
+boxSvg({
+  file: "precommit-commit-guards.svg",
+  severity: "warning",
+  title: "Commit guard suggestions terminal output",
+  desc: "A terminal-style warning box showing protected-branch, behind-upstream, and commit-shape advisories.",
+  lines: [
+    { k: "t", text: "Pre-commit suggestions found" },
+    { k: "b" },
+    { k: "d", text: "Commit will continue. Suggestions:" },
+    { k: "b" },
+    { k: "a", text: '→ Committing directly to protected branch "main"' },
+    { k: "di", text: "Consider a branch: git switch -c <name>" },
+    { k: "a", text: "→ Branch is 7 commits behind origin/main" },
+    { k: "di", text: "Pull or rebase before stacking more commits." },
+    { k: "a", text: "→ Large commit: 47 staged files (limit 30)" },
+    { k: "di", text: "Consider splitting this into smaller commits." },
+    { k: "b" },
+    { k: "d", text: "No automatic fix command for these issues." },
+  ],
+});
+
+boxSvg({
+  file: "precommit-blocked-protected-branch.svg",
+  severity: "error",
+  title: "Commit blocked on protected branch terminal output",
+  desc: "A terminal-style error box showing a commit refused on a protected branch with bypass instructions.",
+  lines: [
+    { k: "t", text: "Commit blocked: protected branch." },
+    { k: "b" },
+    {
+      k: "d",
+      text: 'Committing to "main" is blocked by blockProtectedBranches.',
+    },
+    { k: "b" },
+    { k: "d", text: "Create a branch: git switch -c <name>" },
+    { k: "d", text: "To bypass once: git commit --no-verify" },
+  ],
+});
+
 // ---------------- Commit fix ----------------
 
 boxSvg({
@@ -777,6 +816,35 @@ bareSvg({
       text: "⚠ Ignoring invalid precommitChecks value(s) in package.json:",
     },
     { k: "raw", color: "#dfff00", text: "advisePushTests must be a boolean." },
+  ],
+});
+
+boxSvg({
+  file: "prepush-protected-branch-advisory.svg",
+  severity: "warning",
+  title: "Protected-branch push advisory terminal output",
+  desc: "A terminal-style warning box saying the push updates a protected branch directly but will continue.",
+  lines: [
+    { k: "t", text: "Pushing to a protected branch." },
+    { k: "b" },
+    { k: "d", text: 'This push updates "main" directly.' },
+    { k: "b" },
+    { k: "d", text: "Push will continue." },
+  ],
+});
+
+boxSvg({
+  file: "prepush-blocked-protected-branch.svg",
+  severity: "error",
+  title: "Push blocked on protected branch terminal output",
+  desc: "A terminal-style error box showing a push refused to a protected branch with bypass instructions.",
+  lines: [
+    { k: "t", text: "Push blocked: protected branch." },
+    { k: "b" },
+    { k: "d", text: 'Pushing to "main" is blocked by blockProtectedBranches.' },
+    { k: "b" },
+    { k: "d", text: "Push a feature branch and open a pull request instead." },
+    { k: "d", text: "To bypass once: git push --no-verify" },
   ],
 });
 

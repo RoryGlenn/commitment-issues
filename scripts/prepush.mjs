@@ -14,6 +14,11 @@ import {
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles } from "./lib/files.mjs";
+import {
+  branchFromRef,
+  isProtectedBranch,
+  resolveGuardConfig,
+} from "./lib/commit-guards.mjs";
 
 const ZERO_SHA = "0".repeat(40);
 // Git's well-known empty-tree object, used as the diff base for a brand-new
@@ -82,6 +87,42 @@ if (blocking && config.advisePushTests === true) {
         "from package.json to silence this.",
     ),
   );
+}
+
+// Read the pushed refs once, before any mode decision: the protected-branch
+// guard applies even when both test modes are off. Interactive manual runs
+// resolve to no refs instantly, so this never blocks a terminal session.
+const pushRefs = await readPushRefs();
+
+const guardConfig = resolveGuardConfig(config);
+const protectedTargets = [
+  ...new Set(
+    pushRefs
+      .map((ref) => branchFromRef(ref.remoteRef))
+      .filter((name) => isProtectedBranch(name, guardConfig.protectedBranches)),
+  ),
+];
+
+if (protectedTargets.length > 0) {
+  const named = protectedTargets.map((name) => `"${name}"`).join(", ");
+  if (guardConfig.blockProtectedBranches) {
+    errorBox([
+      pc.bold("Push blocked: protected branch."),
+      "",
+      pc.dim(`Pushing to ${named} is blocked by blockProtectedBranches.`),
+      "",
+      pc.dim("Push a feature branch and open a pull request instead."),
+      pc.dim("To bypass once: git push --no-verify"),
+    ]);
+    process.exit(1);
+  }
+  warningBox([
+    pc.bold("Pushing to a protected branch."),
+    "",
+    pc.dim(`This push updates ${named} directly.`),
+    "",
+    pc.dim("Push will continue."),
+  ]);
 }
 
 if (!blocking && !advisory) {
@@ -167,7 +208,11 @@ async function readPushRefs() {
     .filter(Boolean)
     .map((line) => line.split(/\s+/))
     .filter((parts) => parts.length >= 4)
-    .map(([, localSha, , remoteSha]) => ({ localSha, remoteSha }))
+    .map(([, localSha, remoteRef, remoteSha]) => ({
+      localSha,
+      remoteRef,
+      remoteSha,
+    }))
     .filter((ref) => ref.localSha && ref.localSha !== ZERO_SHA);
 }
 
@@ -202,8 +247,8 @@ function diffFiles(base, head) {
   };
 }
 
-async function getPushedFiles() {
-  const refs = await readPushRefs();
+function getPushedFiles() {
+  const refs = pushRefs;
   const files = new Set();
   const diffErrors = [];
 
@@ -234,7 +279,7 @@ async function getPushedFiles() {
   return { files: [...files], diffErrors };
 }
 
-const { files: pushedFiles, diffErrors } = await getPushedFiles();
+const { files: pushedFiles, diffErrors } = getPushedFiles();
 
 // A failed diff means we don't know what is being pushed, so we can't know
 // which tests to run. Advisory mode stays out of the way (warn, then allow);

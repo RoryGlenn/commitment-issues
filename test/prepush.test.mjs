@@ -270,7 +270,12 @@ test("stays silent during a real push when no mode is set", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   // Git invocation (refs piped on stdin) must stay completely silent.
-  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+  // protectedBranches: [] keeps the branch guard out of this mode test
+  // (the push input targets refs/heads/main).
+  setConfig(tempDir, {
+    testExempt: ["scripts/lib/**"],
+    protectedBranches: [],
+  });
 
   const result = runPrePush(tempDir, pushInput(tempDir));
   const output = `${result.stdout}${result.stderr}`;
@@ -417,7 +422,11 @@ test("stays silent and allows when the diff fails but no mode is enabled", (t) =
   t.after(() => cleanupTempRepo(tempDir));
 
   // Disabled mode exits before any diff, so a broken diff is irrelevant.
-  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+  // protectedBranches: [] keeps the branch guard out of this mode test.
+  setConfig(tempDir, {
+    testExempt: ["scripts/lib/**"],
+    protectedBranches: [],
+  });
   commitWidget(tempDir, 1);
 
   const env = fakeGitEnv(tempDir, "--diff-filter=ACMRT");

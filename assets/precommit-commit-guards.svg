@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="603" height="394" viewBox="0 0 603 394" role="img" aria-labelledby="title desc">
+  <title id="title">Commit guard suggestions terminal output</title>
+  <desc id="desc">A terminal-style warning box showing protected-branch, behind-upstream, and commit-shape advisories.</desc>
+  <rect width="603" height="394" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="563" height="350" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
+    <rect x="233" y="-10" width="97" height="20" fill="#181818"/>
+    <text x="281.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
+    <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Pre-commit suggestions found</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Commit will continue. Suggestions:</text>
+    <text x="34" y="132" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">→ Committing directly to protected branch "main"</text>
+    <text x="54" y="162" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Consider a branch: git switch -c &lt;name&gt;</text>
+    <text x="34" y="192" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">→ Branch is 7 commits behind origin/main</text>
+    <text x="54" y="222" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Pull or rebase before stacking more commits.</text>
+    <text x="34" y="252" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">→ Large commit: 47 staged files (limit 30)</text>
+    <text x="54" y="282" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Consider splitting this into smaller commits.</text>
+    <text x="34" y="326" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">No automatic fix command for these issues.</text>
+  </g>
+</svg>

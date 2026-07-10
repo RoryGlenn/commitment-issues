@@ -34,7 +34,10 @@ test("precommit ignores accidentally staged node_modules files", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
-  assert.match(output, /No project files to check/);
+  // node_modules files are exempt from lint/test checks, but the generated-
+  // files guard still warns that they are staged at all.
+  assert.match(output, /1 generated file staged/);
+  assert.match(output, /node_modules\/package-a\/index\.js/);
   assert.doesNotMatch(output, /missing unit tests/);
   assert.doesNotMatch(output, /ESLint issue/);
 });
@@ -62,7 +65,10 @@ test("precommit checks project files while ignoring staged node_modules files", 
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
+  // Exactly one file is flagged for missing tests: the node_modules file is
+  // never treated as project source, but the generated-files guard names it.
   assert.match(output, /1 staged source file missing unit tests/);
   assert.match(output, /src\/needs-test\.js/);
-  assert.doesNotMatch(output, /node_modules\/package-a\/index\.js/);
+  assert.match(output, /1 generated file staged/);
+  assert.match(output, /node_modules\/package-a\/index\.js/);
 });

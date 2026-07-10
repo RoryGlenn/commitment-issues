@@ -16,47 +16,20 @@ The best features should be:
 - Configurable by project
 - Helpful to beginners without annoying experienced users
 
+## Shipped
+
+Implemented as advisory commit/push guards (see [configuration](configuration.md#commit-and-push-guards)):
+
+- **Branch awareness** — `protectedBranches` + `blockProtectedBranches` (pre-commit and pre-push).
+- **Huge commit warning** — `maxCommitFiles` / `maxCommitLines`.
+- **Large file warning** — `maxFileSizeMb`.
+- **Generated files warning** — `generatedPaths`.
+- **Forgot to pull warning** — `adviseBehindUpstream`.
+- **No matching tests warning** — shipped earlier as `requireTests` + `testExempt`.
+
 ## Recommended next features
 
-### 1. Branch awareness
-
-Warn or block risky actions on protected branches.
-
-Examples:
-
-- Committing directly to `main`
-- Pushing from or to `main`
-- Pulling on the wrong branch
-- Merging or rebasing while on a protected branch
-
-Default protected branches could include:
-
-- `main`
-- `master`
-- `release/*`
-- `production`
-
-Example output:
-
-```text
-⚠ Commitment Issues detected.
-
-You're trying to commit directly to main.
-
-That's usually how "just one quick fix" becomes a production incident.
-
-Create a branch instead:
-  git switch -c my-change
-```
-
-Suggested MVP:
-
-- Support `pre-commit`
-- Support `pre-push`
-- Default to warning on `main` and `master`
-- Allow `block` mode through config
-
-### 2. Secrets staged check
+### 1. Secrets staged check
 
 Scan staged files for likely secrets before commit.
 
@@ -83,26 +56,7 @@ Remove it before committing.
 
 This is likely one of the highest-value features because it prevents real security incidents.
 
-### 3. Huge commit warning
-
-Warn when a commit is unusually large.
-
-Possible signals:
-
-- Too many files changed
-- Too many lines changed
-- Too many unrelated directories touched
-
-Example output:
-
-```text
-⚠ This commit changes 47 files.
-
-That is less of a commit and more of a lifestyle choice.
-Consider splitting it into smaller commits.
-```
-
-### 4. Mixed concern detection
+### 2. Mixed concern detection
 
 Warn when a commit appears to combine unrelated changes.
 
@@ -128,7 +82,7 @@ Detected areas:
 Consider splitting this into separate commits.
 ```
 
-### 5. Debug junk check
+### 3. Debug junk check
 
 Warn when staged code contains temporary debugging artifacts.
 
@@ -155,61 +109,6 @@ Remove it or commit intentionally.
 
 ## Additional practical ideas
 
-### Forgot to pull warning
-
-Before committing or pushing, warn if the current branch is behind its upstream branch.
-
-Example output:
-
-```text
-⚠ Your branch is 7 commits behind origin/main.
-
-Pull or rebase before stacking more chaos?
-```
-
-Possible modes:
-
-- `off`
-- `warn`
-- `block`
-
-### Generated files warning
-
-Warn when generated or usually-ignored files are staged.
-
-Examples:
-
-- `dist/`
-- `build/`
-- `coverage/`
-- `.DS_Store`
-- `__pycache__/`
-- `node_modules/`
-
-Example output:
-
-```text
-⚠ Generated files appear to be staged.
-
-These files are usually not committed:
-- coverage/index.html
-- dist/bundle.js
-```
-
-### Large file warning
-
-Warn before committing unusually large files.
-
-Example output:
-
-```text
-⚠ Large staged file detected
-
-42 MB: demo.mov
-
-Did you mean to use Git LFS?
-```
-
 ### Dependency risk warning
 
 Warn when dependency files change.
@@ -235,23 +134,6 @@ Review carefully before committing:
 - package.json
 - package-lock.json
 ```
-
-### No matching tests warning
-
-Warn when source files changed but no matching tests changed.
-
-Example output:
-
-```text
-⚠ Source changed without nearby tests.
-
-Changed source:
-- src/parser.ts
-
-No related test file was staged.
-```
-
-This should probably be configurable because not every change requires tests.
 
 ### PR readiness check
 

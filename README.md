@@ -144,21 +144,26 @@ The boxes are intentionally advisory-first: they explain what happened, what is 
 
 ## What it catches
 
-| Check                | What happens                                       |
-| -------------------- | -------------------------------------------------- |
-| Lint issues          | Reports issues during commit                       |
-| Formatting drift     | Reports issues and suggests a safe fix             |
-| Missing tests        | Points out code without nearby tests               |
-| Failing staged tests | Optional commit-time warning or enforcement        |
-| Failing push tests   | Advisory warning by default; optional push blocker |
-| Broken hook wiring   | `doctor` can repair it                             |
+| Check                | What happens                                        |
+| -------------------- | --------------------------------------------------- |
+| Lint issues          | Reports issues during commit                        |
+| Formatting drift     | Reports issues and suggests a safe fix              |
+| Missing tests        | Points out code without nearby tests                |
+| Failing staged tests | Optional commit-time warning or enforcement         |
+| Failing push tests   | Advisory warning by default; optional push blocker  |
+| Protected branches   | Warns on direct commits/pushes; optional blocker    |
+| Branch behind remote | Suggests pulling before stacking more commits       |
+| Oversized commits    | Nudges splitting when file/line counts spike        |
+| Large staged files   | Points at Git LFS before a huge blob lands          |
+| Generated files      | Flags staged build artifacts and dependency folders |
+| Broken hook wiring   | `doctor` can repair it                              |
 
 ## How commit and push checks behave
 
-| Action       | Default behavior                                        | Stricter option                                                |
-| ------------ | ------------------------------------------------------- | -------------------------------------------------------------- |
-| `git commit` | Reports lint, formatting, missing-test, and test issues | Enable `runStagedTests` to run staged-related tests            |
-| `git push`   | Runs pushed-file tests in advisory mode after `init`    | Enable `blockPushOnTestFailure` to stop pushes on test failure |
+| Action       | Default behavior                                                                            | Stricter option                                                |
+| ------------ | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `git commit` | Reports lint, formatting, missing-test, test, branch, and commit-shape issues               | Enable `runStagedTests` to run staged-related tests            |
+| `git push`   | Runs pushed-file tests in advisory mode after `init`; warns when pushing a protected branch | Enable `blockPushOnTestFailure` to stop pushes on test failure |
 
 ## How it compares
 

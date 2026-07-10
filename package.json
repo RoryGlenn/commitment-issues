@@ -65,7 +65,8 @@
       "tools/**"
     ],
     "tone": "fun",
-    "blockPushOnTestFailure": true
+    "blockPushOnTestFailure": true,
+    "protectedBranches": []
   },
   "dependencies": {
     "boxen": "^8.0.1",

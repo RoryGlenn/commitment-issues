@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Advisory commit and push guards, all reported through the existing consolidated suggestions box and configurable under `precommitChecks`:
+  - **Protected-branch awareness** (`protectedBranches`, default `["main", "master"]`, globs supported): warns on direct commits to and pushes of matching branches; `blockProtectedBranches: true` upgrades the warning to a hard block with a `--no-verify` bypass hint. `protectedBranches: []` disables.
+  - **Behind-upstream nudge** (`adviseBehindUpstream`, default on): commit-time warning when the branch is behind its upstream as of the last fetch.
+  - **Commit-size warnings** (`maxCommitFiles` default 30, `maxCommitLines` default 2000, `0` disables): suggests splitting unusually large commits.
+  - **Large-file warning** (`maxFileSizeMb`, default 5, `0` disables): lists staged files over the threshold with a Git LFS pointer.
+  - **Generated-file warning** (`generatedPaths`, default covers `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, and `__pycache__`): flags staged build artifacts — including accidentally staged `node_modules` files, which were previously ignored silently.
+
+### Changed
+
+- The pre-commit hook now loads `precommitChecks` (and prints its unknown-key/invalid-value warnings) before the early-exit states, so config feedback and commit guards also appear for commits with no lintable files.
+
+### Fixed
+
+- `publish.yml` no longer runs `npm install -g npm@latest` before publishing. npm self-updating in place corrupted the workflow's npm installation (`Cannot find module 'sigstore'`) and failed the v3.1.0 publish; the workflow now verifies the bundled npm supports trusted publishing instead of mutating it.
+
 ## [3.1.0] - 2026-07-09
 
 ### Added

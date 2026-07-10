@@ -131,6 +131,72 @@ test("standard tone keeps the exact tool timeout and unavailable messages", () =
   assert.match(standard, /ESLint timed out/);
 });
 
+test("fun tone rewrites the protected-branch message", () => {
+  assert.match(
+    funText('Committing directly to protected branch "main"'),
+    /"main" deserves a feature branch, not surprise commits/,
+  );
+  assert.match(
+    funText('Committing directly to protected branch "release/1.2"'),
+    /"release\/1\.2" deserves a feature branch, not surprise commits/,
+  );
+});
+
+test("fun tone rewrites the large-commit file-count message", () => {
+  assert.match(
+    funText("Large commit: 1 staged file (limit 0)"),
+    /1 staged file — less a commit, more a lifestyle choice/,
+  );
+  assert.match(
+    funText("Large commit: 47 staged files (limit 30)"),
+    /47 staged files — less a commit, more a lifestyle choice/,
+  );
+});
+
+test("fun tone rewrites the large-commit line-count message", () => {
+  assert.match(
+    funText("Large commit: 1 changed line (limit 0)"),
+    /1 changed line — that's not a commit, that's a memoir/,
+  );
+  assert.match(
+    funText("Large commit: 2500 changed lines (limit 2000)"),
+    /2500 changed lines — that's not a commit, that's a memoir/,
+  );
+});
+
+test("fun tone rewrites the oversized staged file message", () => {
+  assert.match(
+    funText("1 staged file over 5 MB"),
+    /1 staged file that should really be seeing Git LFS/,
+  );
+  assert.match(
+    funText("3 staged files over 5 MB"),
+    /3 staged files that should really be seeing Git LFS/,
+  );
+});
+
+test("fun tone rewrites the generated files message", () => {
+  assert.match(
+    funText("1 generated file staged"),
+    /1 generated file trying to sneak into the commit/,
+  );
+  assert.match(
+    funText("4 generated files staged"),
+    /4 generated files trying to sneak into the commit/,
+  );
+});
+
+test("fun tone rewrites the behind-upstream message", () => {
+  assert.match(
+    funText("Branch is 1 commit behind origin/main"),
+    /1 commit behind origin\/main — stacking more chaos on top/,
+  );
+  assert.match(
+    funText("Branch is 7 commits behind origin/main"),
+    /7 commits behind origin\/main — stacking more chaos on top/,
+  );
+});
+
 test("fun tone passes unrecognized messages through unchanged", () => {
   assert.match(
     funText("something completely bespoke happened"),

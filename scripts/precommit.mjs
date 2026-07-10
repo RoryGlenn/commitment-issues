@@ -3,7 +3,7 @@
 
 import path from "node:path";
 import pc from "picocolors";
-import { infoBox, successBox, warningBox } from "./lib/ui.mjs";
+import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import {
   TOOL_TIMEOUT_MS,
   toolInvocation,
@@ -20,6 +20,17 @@ import {
   parsePrettierList,
   summarizeEslintJson,
 } from "./lib/checks.mjs";
+import {
+  behindUpstreamIssue,
+  generatedFilesIssue,
+  isProtectedBranch,
+  largeCommitIssues,
+  largeFileIssue,
+  parseBatchCheckSizes,
+  parseNumstat,
+  protectedBranchIssue,
+  resolveGuardConfig,
+} from "./lib/commit-guards.mjs";
 import { buildAdvisoryMessage } from "./lib/message.mjs";
 import { runScript } from "./lib/package-manager.mjs";
 import {
@@ -129,35 +140,6 @@ if (rawStagedFiles.length === 0) {
 
 const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
 
-if (stagedFiles.length === 0) {
-  infoBox([
-    pc.bold("No project files to check."),
-    "",
-    pc.dim("Only package dependency files are staged."),
-  ]);
-
-  process.exit(0);
-}
-
-const stagedJsFiles = stagedFiles.filter((file) => codeFilePattern.test(file));
-const stagedFormatFiles = stagedFiles.filter((file) =>
-  formatFilePattern.test(file),
-);
-
-if (stagedJsFiles.length === 0 && stagedFormatFiles.length === 0) {
-  infoBox([
-    pc.bold("No lintable or formattable files staged."),
-    "",
-    pc.dim(
-      `${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} will be committed without checks.`,
-    ),
-  ]);
-
-  process.exit(0);
-}
-
-const issues = [];
-
 const config = loadPrecommitConfig();
 
 // A typo'd key (e.g. requireTest) silently falls back to the default, which
@@ -182,6 +164,145 @@ if (invalidValueMessages.length > 0) {
       `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
     ),
   );
+}
+
+const guardConfig = resolveGuardConfig(config);
+
+function currentBranch() {
+  const result = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+  return result.stdout.trim() || null;
+}
+
+const branch = currentBranch();
+
+// The only blocking guard, and it is opt-in: with blockProtectedBranches set,
+// refuse the commit before spending time on any other check. Everything else
+// below stays advisory.
+if (
+  guardConfig.blockProtectedBranches &&
+  isProtectedBranch(branch, guardConfig.protectedBranches)
+) {
+  errorBox([
+    pc.bold("Commit blocked: protected branch."),
+    "",
+    pc.dim(`Committing to "${branch}" is blocked by blockProtectedBranches.`),
+    "",
+    pc.dim("Create a branch: git switch -c <name>"),
+    pc.dim("To bypass once: git commit --no-verify"),
+  ]);
+  process.exit(1);
+}
+
+// Advisory guards: instant git-only facts about the commit itself (branch,
+// shape, oversized or generated files, behind-upstream). Any git hiccup here
+// skips that guard — guards must never block or fail a commit.
+function collectGuardIssues() {
+  const guardIssues = [];
+
+  const branchIssue = protectedBranchIssue(branch, guardConfig);
+  if (branchIssue) {
+    guardIssues.push(branchIssue);
+  }
+
+  if (guardConfig.adviseBehindUpstream) {
+    const upstream = run("git", ["rev-parse", "--abbrev-ref", "@{u}"]);
+    if (!upstream.error && upstream.status === 0) {
+      const behind = run("git", ["rev-list", "--count", "HEAD..@{u}"]);
+      if (!behind.error && behind.status === 0) {
+        guardIssues.push(
+          ...[
+            behindUpstreamIssue(
+              {
+                behindCount: Number(behind.stdout.trim()),
+                upstream: upstream.stdout.trim(),
+              },
+              guardConfig,
+            ),
+          ].filter(Boolean),
+        );
+      }
+    }
+  }
+
+  const numstat = run("git", [
+    ...GIT_PATH_ARGS,
+    "diff",
+    "--cached",
+    "--numstat",
+  ]);
+  if (!numstat.error && numstat.status === 0) {
+    guardIssues.push(
+      ...largeCommitIssues(parseNumstat(numstat.stdout), guardConfig),
+    );
+  }
+
+  if (guardConfig.maxFileSizeMb > 0) {
+    const batch = run("git", [...GIT_PATH_ARGS, "cat-file", "--batch-check"], {
+      input: rawStagedFiles.map((file) => `:0:${file}`).join("\n"),
+    });
+    if (!batch.error && batch.status === 0) {
+      const sizeIssue = largeFileIssue(
+        parseBatchCheckSizes(batch.stdout, rawStagedFiles),
+        guardConfig,
+      );
+      if (sizeIssue) {
+        guardIssues.push(sizeIssue);
+      }
+    }
+  }
+
+  const generatedIssue = generatedFilesIssue(rawStagedFiles, guardConfig);
+  if (generatedIssue) {
+    guardIssues.push(generatedIssue);
+  }
+
+  return guardIssues;
+}
+
+const issues = collectGuardIssues();
+
+// Early-exit states below still surface any guard findings: a commit made of
+// only node_modules files or only unlintable files can still be on the wrong
+// branch or staging build artifacts.
+function exitWithGuardSummary(infoLines) {
+  if (issues.length > 0) {
+    warningBox(
+      buildAdvisoryMessage({
+        issues,
+        tone: config.tone,
+        commitCommand: runScript("commit:fix"),
+      }),
+    );
+  } else {
+    infoBox(infoLines);
+  }
+  process.exit(0);
+}
+
+if (stagedFiles.length === 0) {
+  exitWithGuardSummary([
+    pc.bold("No project files to check."),
+    "",
+    pc.dim("Only package dependency files are staged."),
+  ]);
+}
+
+const stagedJsFiles = stagedFiles.filter((file) => codeFilePattern.test(file));
+const stagedFormatFiles = stagedFiles.filter((file) =>
+  formatFilePattern.test(file),
+);
+
+if (stagedJsFiles.length === 0 && stagedFormatFiles.length === 0) {
+  exitWithGuardSummary([
+    pc.bold("No lintable or formattable files staged."),
+    "",
+    pc.dim(
+      `${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} will be committed without checks.`,
+    ),
+  ]);
 }
 
 // Missing-test detection is pure and instant; opt out with requireTests: false.

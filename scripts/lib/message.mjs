@@ -86,6 +86,53 @@ function funIssueMessage(issue, message) {
     return `${count} staged test ${plural(count, "file")} just said "we need to talk"`;
   }
 
+  const protectedBranchMatch = issue.message.match(
+    /^Committing directly to protected branch "(.+)"$/,
+  );
+  if (protectedBranchMatch) {
+    return `"${protectedBranchMatch[1]}" deserves a feature branch, not surprise commits`;
+  }
+
+  const largeFilesCommitMatch = issue.message.match(
+    /^Large commit: (\d+) staged file(s)? \(limit \d+\)$/,
+  );
+  if (largeFilesCommitMatch) {
+    const count = Number(largeFilesCommitMatch[1]);
+    return `${count} staged ${plural(count, "file")} — less a commit, more a lifestyle choice`;
+  }
+
+  const largeLinesCommitMatch = issue.message.match(
+    /^Large commit: (\d+) changed line(s)? \(limit \d+\)$/,
+  );
+  if (largeLinesCommitMatch) {
+    const count = Number(largeLinesCommitMatch[1]);
+    return `${count} changed ${plural(count, "line")} — that's not a commit, that's a memoir`;
+  }
+
+  const largeFileMatch = issue.message.match(
+    /^(\d+) staged file(s)? over (\d+) MB$/,
+  );
+  if (largeFileMatch) {
+    const count = Number(largeFileMatch[1]);
+    return `${count} staged ${plural(count, "file")} that should really be seeing Git LFS`;
+  }
+
+  const generatedMatch = issue.message.match(
+    /^(\d+) generated file(s)? staged$/,
+  );
+  if (generatedMatch) {
+    const count = Number(generatedMatch[1]);
+    return `${count} generated ${plural(count, "file")} trying to sneak into the commit`;
+  }
+
+  const behindMatch = issue.message.match(
+    /^Branch is (\d+) commit(s)? behind (.+)$/,
+  );
+  if (behindMatch) {
+    const count = Number(behindMatch[1]);
+    return `${count} ${plural(count, "commit")} behind ${behindMatch[3]} — stacking more chaos on top`;
+  }
+
   return message;
 }
 

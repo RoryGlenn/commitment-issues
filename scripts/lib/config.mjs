@@ -26,8 +26,15 @@ function isStringArray(value) {
 // Every key the hooks and commands read. Kept in sync with the configuration
 // reference table in docs/configuration.md.
 export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
+  "adviseBehindUpstream",
   "advisePushTests",
+  "blockProtectedBranches",
   "blockPushOnTestFailure",
+  "generatedPaths",
+  "maxCommitFiles",
+  "maxCommitLines",
+  "maxFileSizeMb",
+  "protectedBranches",
   "requireTests",
   "runStagedTests",
   "testCommand",
@@ -37,11 +44,23 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
 ];
 
 const BOOLEAN_CONFIG_KEYS = [
+  "adviseBehindUpstream",
   "advisePushTests",
+  "blockProtectedBranches",
   "blockPushOnTestFailure",
   "requireTests",
   "runStagedTests",
 ];
+
+// String-array keys share one validation/sanitization shape.
+const STRING_ARRAY_CONFIG_KEYS = [
+  "generatedPaths",
+  "protectedBranches",
+  "testExempt",
+];
+
+// Non-negative numeric limits where 0 means "disable this guard".
+const LIMIT_CONFIG_KEYS = ["maxCommitFiles", "maxCommitLines", "maxFileSizeMb"];
 
 /**
  * Names of `precommitChecks` keys the tool does not recognize — usually typos
@@ -83,8 +102,16 @@ export function invalidPrecommitConfigMessages(config) {
     messages.push('tone must be "standard" or "fun"');
   }
 
-  if ("testExempt" in target && !isStringArray(target.testExempt)) {
-    messages.push("testExempt must be an array of strings");
+  for (const key of STRING_ARRAY_CONFIG_KEYS) {
+    if (key in target && !isStringArray(target[key])) {
+      messages.push(`${key} must be an array of strings`);
+    }
+  }
+
+  for (const key of LIMIT_CONFIG_KEYS) {
+    if (key in target && (!Number.isFinite(target[key]) || target[key] < 0)) {
+      messages.push(`${key} must be a non-negative finite number`);
+    }
   }
 
   if (
@@ -130,8 +157,16 @@ export function sanitizePrecommitConfig(config) {
     sanitized.tone = config.tone;
   }
 
-  if (isStringArray(config.testExempt)) {
-    sanitized.testExempt = config.testExempt;
+  for (const key of STRING_ARRAY_CONFIG_KEYS) {
+    if (isStringArray(config[key])) {
+      sanitized[key] = config[key];
+    }
+  }
+
+  for (const key of LIMIT_CONFIG_KEYS) {
+    if (Number.isFinite(config[key]) && config[key] >= 0) {
+      sanitized[key] = config[key];
+    }
   }
 
   if (

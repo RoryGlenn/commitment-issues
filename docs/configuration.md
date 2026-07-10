@@ -19,10 +19,10 @@ Nothing is copied into your repo from the package source. The hooks are plain `.
 
 ## What happens on commit and push?
 
-| Action       | Default behavior                                        | Stricter option                                                |
-| ------------ | ------------------------------------------------------- | -------------------------------------------------------------- |
-| `git commit` | Reports lint, formatting, missing-test, and test issues | Enable `runStagedTests` to run staged-related tests            |
-| `git push`   | Runs pushed-file tests in advisory mode after `init`    | Enable `blockPushOnTestFailure` to stop pushes on test failure |
+| Action       | Default behavior                                                                            | Stricter option                                                |
+| ------------ | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `git commit` | Reports lint, formatting, missing-test, test, branch, and commit-shape issues               | Enable `runStagedTests` to run staged-related tests            |
+| `git push`   | Runs pushed-file tests in advisory mode after `init`; warns when pushing a protected branch | Enable `blockPushOnTestFailure` to stop pushes on test failure |
 
 ## Active flow
 
@@ -141,6 +141,27 @@ When enabled, the same pushed-files test run blocks the push if any tests fail. 
 
 The gate is capped by a timeout.
 
+## Commit and push guards
+
+Beyond tool checks, the hooks run instant, git-only advisory guards. All of them join the same consolidated suggestions box, never block by default, and skip themselves silently if git cannot answer:
+
+- **Protected branches** — committing to or pushing a branch matching `protectedBranches` (names or globs, default `["main", "master"]`) prints an advisory. Opt into hard blocking with `blockProtectedBranches: true`; bypass a block once with `--no-verify`. Set `protectedBranches: []` to disable entirely (e.g. trunk-based repos).
+- **Behind upstream** — committing while the branch is behind its upstream (as of the last fetch) suggests pulling or rebasing first. Disable with `adviseBehindUpstream: false`.
+- **Commit size** — commits staging more than `maxCommitFiles` files (default 30) or `maxCommitLines` changed lines (default 2000) get a split-it-up nudge. Set either to `0` to disable.
+- **Large files** — staged files over `maxFileSizeMb` (default 5) are listed with a Git LFS pointer. Set to `0` to disable.
+- **Generated files** — staged paths matching `generatedPaths` (default: `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, `__pycache__` anywhere in the tree) are flagged as usually-ignored artifacts. Setting `generatedPaths` replaces the default list.
+
+```json
+{
+  "precommitChecks": {
+    "protectedBranches": ["main", "release/*"],
+    "blockProtectedBranches": true,
+    "maxCommitFiles": 20,
+    "maxFileSizeMb": 2
+  }
+}
+```
+
 ## Configuration reference
 
 All options live under `precommitChecks` in `package.json`; all are optional:
@@ -155,6 +176,13 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
 | `timeoutMs`              | number                  | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
 | `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
+| `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.  |
+| `blockProtectedBranches` | boolean                 | `false`              | Block (instead of warn about) commits and pushes to protected branches.                              |
+| `adviseBehindUpstream`   | boolean                 | `true`               | Warn at commit time when the branch is behind its upstream (as of the last fetch).                   |
+| `maxCommitFiles`         | number                  | `30`                 | Warn when a commit stages more than this many files. `0` disables.                                   |
+| `maxCommitLines`         | number                  | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                  |
+| `maxFileSizeMb`          | number                  | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                       |
+| `generatedPaths`         | string[]                | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                             |
 
 Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
 
