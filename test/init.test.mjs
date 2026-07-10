@@ -48,6 +48,14 @@ function gitHook(tempDir, name) {
   return path.join(tempDir, ".git", "hooks", name);
 }
 
+function assertHookClaimsWithheld(output) {
+  assert.match(output, /Commitment Issues needs hook wiring/);
+  assert.match(output, /Pre-commit and pre-push checks are not active yet/);
+  assert.doesNotMatch(output, /Commitment Issues is set up/);
+  assert.doesNotMatch(output, /Your next commit runs advisory checks/);
+  assert.doesNotMatch(output, /Your next push runs advisory tests/);
+}
+
 test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -231,6 +239,7 @@ test("init warns and keeps .husky when the hooksPath unset fails", (t) => {
 
   assert.match(output, /Hook wiring needs your attention/);
   assert.match(output, /core\.hooksPath is still set/);
+  assertHookClaimsWithheld(output);
   // The wiring git still runs must not be deleted out from under it.
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "_")));
@@ -312,6 +321,7 @@ test("init leaves customized hooks untouched", (t) => {
   fs.writeFileSync(gitHook(tempDir, "pre-push"), "echo custom push\n");
 
   const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
   assert.equal(result.status, 0);
   // Existing hook bodies are the user's — never clobbered.
   assert.equal(
@@ -322,6 +332,37 @@ test("init leaves customized hooks untouched", (t) => {
     fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
     "echo custom push\n",
   );
+  assertHookClaimsWithheld(output);
+  assert.match(output, /Existing git hooks were left unchanged/);
+  assert.match(output, /pre-commit: commitment-issues precommit/);
+  assert.match(output, /pre-push: commitment-issues prepush/);
+});
+
+test("init accepts customized hooks that invoke commitment-issues", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  fs.mkdirSync(path.join(tempDir, ".git", "hooks"), { recursive: true });
+  const preCommit =
+    "#!/bin/sh\necho custom commit\ncommitment-issues precommit\n";
+  const prePush = "#!/bin/sh\necho custom push\ncommitment-issues prepush\n";
+  fs.writeFileSync(gitHook(tempDir, "pre-commit"), preCommit);
+  fs.writeFileSync(gitHook(tempDir, "pre-push"), prePush);
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Commitment Issues is set up/);
+  assert.match(output, /Your next commit runs advisory checks/);
+  assert.match(output, /Your next push runs advisory tests/);
+  assert.doesNotMatch(output, /Hook wiring needs your attention/);
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    preCommit,
+  );
+  assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
 });
 
 test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
@@ -338,6 +379,7 @@ test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
 
   assert.match(output, /Hook wiring needs your attention/);
   assert.match(output, /core\.hooksPath is set to githooks/);
+  assertHookClaimsWithheld(output);
   // The user's configuration is untouched and no shadowed hooks are written.
   assert.equal(hooksPath(tempDir), "githooks");
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
@@ -357,6 +399,7 @@ test("init warns when run outside a git repository", (t) => {
 
   assert.equal(result.status, 0);
   assert.match(output, /not a git repository/);
+  assertHookClaimsWithheld(output);
   // Scripts and config are still written so a later `git init` + doctor works.
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json")));
   assert.equal(pkg.scripts.doctor, "commitment-issues doctor");

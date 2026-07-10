@@ -89,6 +89,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-015** — init keeps user-authored `.husky` hooks and warns they no longer run. Fixture: `test/init.test.mjs`.
 - **INIT-016** — init warns about a foreign `core.hooksPath` and leaves it alone. Fixture: `test/init.test.mjs`.
 - **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
+- **INIT-018** — init preserves custom native hooks, accepts those that invoke `commitment-issues`, and withholds setup-complete claims while listing exact commands for those that do not. Fixture: `test/init.test.mjs`.
 
 ## Uninstall
 

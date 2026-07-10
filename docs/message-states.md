@@ -18,7 +18,7 @@ npm run states -- --list    # list state names
   <img src="../assets/init-success.svg" alt="Green output with the split-heart logo showing that Commitment Issues is set up" width="737">
 </p>
 
-Shown when `init` finishes wiring up hooks, scripts, and gitignore defaults. Lists exactly what was added.
+Shown only when `init` finishes wiring up both active hooks along with the scripts, configuration, and gitignore defaults. Lists exactly what was added.
 
 ### Dry-run preview
 
@@ -34,7 +34,7 @@ Shown for `init --dry-run`: the same change list, but nothing is written.
   <img src="../assets/init-already-configured.svg" alt="Green output showing that everything is already configured and nothing changed" width="737">
 </p>
 
-Shown when `init` is re-run and finds nothing to change. Init is safe to re-run at any time.
+Shown when `init` is re-run, finds nothing to change, and verifies that both hooks invoke `commitment-issues`. Init is safe to re-run at any time.
 
 ### No package.json
 
@@ -58,7 +58,7 @@ Shown when package.json cannot be parsed; fix the JSON and run `init` again.
   <img src="../assets/init-hook-wiring-warning.svg" alt="Warning output printed after the init summary when hook wiring needs manual attention" width="675">
 </p>
 
-Shown after the summary when `init` cannot fully wire the hooks by itself: a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Each case lists the exact follow-up.
+Shown after the summary when `init` cannot fully wire the hooks by itself: an existing native hook does not invoke `commitment-issues`, a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Existing hooks are preserved, each missing invocation lists the exact command to add, and setup-complete commit/push claims are withheld until both active hooks are verified.
 
 ## Uninstall
 
