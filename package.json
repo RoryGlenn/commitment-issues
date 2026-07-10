@@ -45,6 +45,7 @@
     "commit:fix": "node scripts/commit-fix.mjs",
     "fix:staged": "node scripts/fix-staged.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "states": "node tools/show-message-states.mjs",
     "test": "node --test test/*.test.mjs test/*.test.js",
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs test/*.test.js",
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",

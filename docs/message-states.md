@@ -2,6 +2,14 @@
 
 `commitment-issues` uses compact terminal boxes to keep Git hook output readable. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Every example is a rendered SVG of real box output.
 
+To watch the states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run:
+
+```bash
+npm run states              # every state
+npm run states -- secrets   # only states matching "secrets"
+npm run states -- --list    # list state names
+```
+
 ## Init
 
 ### Setup complete
