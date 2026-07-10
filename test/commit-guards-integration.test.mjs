@@ -378,7 +378,7 @@ test("commit proceeds fail-open when the branch cannot be identified", (t) => {
   run("git", ["branch", "-M", "main"], tempDir);
   stageCleanFile(tempDir);
 
-  const env = fakeGitEnv(tempDir, "HEAD");
+  const env = fakeGitEnv(tempDir, "rev-parse --abbrev-ref HEAD", 0, "HEAD\n");
   const result = run(
     "node",
     [path.join(tempDir, "scripts", "precommit.mjs")],
