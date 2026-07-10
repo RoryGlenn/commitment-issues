@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The blocking pre-push gate now retains deleted source paths and both sides of renames when discovering related tests, while filtering test files that no longer exist before invoking the runner. Git name/status output is NUL-delimited so path whitespace and newlines remain unambiguous.
+- `blockProtectedBranches` now applies before deletion/no-file early exits and resolves the symbolic branch name before the first commit, so deletion-only and unborn-branch commits cannot bypass protected-branch blocking.
 
 ## [3.2.0] - 2026-07-10
 

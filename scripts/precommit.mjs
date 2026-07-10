@@ -91,6 +91,69 @@ function runStagedTestCommand(testCommand, tests) {
   });
 }
 
+const config = loadPrecommitConfig();
+
+// A typo'd key (e.g. requireTest) silently falls back to the default, which
+// reads as "the tool ignored my config". One concise advisory line — never a
+// box, never blocking — mirroring the pre-push config-conflict warning.
+const unknownKeys = unknownPrecommitConfigKeys(config);
+if (unknownKeys.length > 0) {
+  console.warn(
+    pc.yellow(
+      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
+    ),
+  );
+}
+
+// A recognized key with a wrong-typed value is sanitized away and falls back to
+// the default — which also reads as "the tool ignored my config". Surface it on
+// one concise advisory line, never a box and never blocking.
+const invalidValueMessages = invalidPrecommitConfigMessages(config);
+if (invalidValueMessages.length > 0) {
+  console.warn(
+    pc.yellow(
+      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
+    ),
+  );
+}
+
+const guardConfig = resolveGuardConfig(config);
+
+function branchName(args) {
+  const result = run("git", args);
+  return result.status === 0 ? result.stdout.trim() : "";
+}
+
+function currentBranch() {
+  // HEAD has no commit in a freshly initialized repository, so rev-parse
+  // fails even though the symbolic branch name already exists. Resolve that
+  // name directly before treating the branch as unidentifiable.
+  return (
+    branchName(["rev-parse", "--abbrev-ref", "HEAD"]) ||
+    branchName(["symbolic-ref", "--quiet", "--short", "HEAD"]) ||
+    null
+  );
+}
+
+const branch = currentBranch();
+
+// Blocking guards must run before staged-file early exits. Deletion-only,
+// allow-empty, and first commits are still commits to the protected branch.
+if (
+  guardConfig.blockProtectedBranches &&
+  isProtectedBranch(branch, guardConfig.protectedBranches)
+) {
+  errorBox([
+    pc.bold("Commit blocked: protected branch."),
+    "",
+    pc.dim(`Committing to "${branch}" is blocked by blockProtectedBranches.`),
+    "",
+    pc.dim("Create a branch: git switch -c <name>"),
+    pc.dim("To bypass once: git commit --no-verify"),
+  ]);
+  process.exit(1);
+}
+
 const gitFiles = run("git", [
   ...GIT_PATH_ARGS,
   "diff",
@@ -147,62 +210,6 @@ if (rawStagedFiles.length === 0) {
 }
 
 const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
-
-const config = loadPrecommitConfig();
-
-// A typo'd key (e.g. requireTest) silently falls back to the default, which
-// reads as "the tool ignored my config". One concise advisory line — never a
-// box, never blocking — mirroring the pre-push config-conflict warning.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
-}
-
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default — which also reads as "the tool ignored my config". Surface it on
-// one concise advisory line, never a box and never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
-}
-
-const guardConfig = resolveGuardConfig(config);
-
-function currentBranch() {
-  const result = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
-  if (result.error || result.status !== 0) {
-    return null;
-  }
-  return result.stdout.trim() || null;
-}
-
-const branch = currentBranch();
-
-// Blocking guards are opt-in and run before any tool time is spent: with
-// blockProtectedBranches set, refuse the commit outright. The advisory
-// guards below never block.
-if (
-  guardConfig.blockProtectedBranches &&
-  isProtectedBranch(branch, guardConfig.protectedBranches)
-) {
-  errorBox([
-    pc.bold("Commit blocked: protected branch."),
-    "",
-    pc.dim(`Committing to "${branch}" is blocked by blockProtectedBranches.`),
-    "",
-    pc.dim("Create a branch: git switch -c <name>"),
-    pc.dim("To bypass once: git commit --no-verify"),
-  ]);
-  process.exit(1);
-}
 
 // Staged-secrets scan: high-precision patterns against *added* lines only,
 // plus staged .env files. A failed diff probe skips the scan (fail-open, like
