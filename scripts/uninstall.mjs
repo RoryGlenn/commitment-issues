@@ -101,7 +101,7 @@ function inspectHookDirectory(directory) {
       );
       continue;
     }
-    if (status === "wired") {
+    if (status === "wired" || status === "stale-wired") {
       hookCandidates.push(hookPath);
     } else if (status === "custom-with-command") {
       manualCleanup.push(

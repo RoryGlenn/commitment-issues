@@ -55,6 +55,32 @@ Because configuration is root-level, use the tools' own path scoping:
 - **`precommitChecks.testCommand`** sets the runner used for staged and pushed
   tests across the repository.
 
+## Related-test selection
+
+Each workspace should have its own `package.json`; the closest parent
+`package.json` defines the package boundary for a changed source file. Test
+lookup uses the first non-empty tier below:
+
+1. sibling tests and the source directory's `__tests__/` directory;
+2. the source path mirrored under the package's `test/` or `tests/` directory
+   (for example, `packages/a/src/api.mjs` →
+   `packages/a/test/src/api.test.mjs`);
+3. the same package-local path with a leading `src/` or `lib/` removed (for
+   example, `packages/a/src/api.mjs` →
+   `packages/a/test/api.test.mjs`);
+4. only for the root package, the legacy `test/<basename>` or
+   `tests/<basename>` fallback.
+
+All existing `.test.*` and `.spec.*` candidates in the winning tier run in a
+stable order. Lower tiers are ignored once a more specific tier matches. This
+means `packages/a/src/index.mjs` and `packages/b/src/index.mjs` cannot silently
+select each other's test, and a root `test/index.test.mjs` cannot steal the
+selection from either workspace.
+
+This is focused related-test isolation, not per-package configuration or a full
+package-manager/workspace compatibility matrix. Those broader boundaries below
+are unchanged.
+
 ## Boundary: what is not supported
 
 The following are outside the current design:
@@ -75,6 +101,8 @@ root-level advisory hooks.
 - If a peer tool is not hoisted to the root (some strict workspace layouts avoid
   hoisting), install it at the repository root so the hooks can resolve it.
 - Run `npx commitment-issues doctor` from the root to verify the hook wiring.
+- Keep a `package.json` at every workspace root so related-test lookup can stop
+  at the intended package boundary.
 
 See the [FAQ](faq.md) and [Configuration and Behavior](configuration.md) docs for
 more detail on the check behavior and CI enforcement.

@@ -30,10 +30,10 @@ The init command is idempotent. It wires plain Git hooks, adds helper npm script
 
 `commitment-issues` does not require a hook manager.
 
-| Git action   | Native hook path        | Command invoked               |
-| ------------ | ----------------------- | ----------------------------- |
-| `git commit` | `.git/hooks/pre-commit` | `commitment-issues precommit` |
-| `git push`   | `.git/hooks/pre-push`   | `commitment-issues prepush`   |
+| Git action   | Native hook path        | Command invoked                  |
+| ------------ | ----------------------- | -------------------------------- |
+| `git commit` | `.git/hooks/pre-commit` | `commitment-issues precommit`    |
+| `git push`   | `.git/hooks/pre-push`   | `commitment-issues prepush "$@"` |
 
 The hook files call the package binary from `node_modules/.bin`, so the behavior stays local to the project.
 
@@ -41,6 +41,9 @@ The hook files call the package binary from `node_modules/.bin`, so the behavior
 
 On commit, the pre-commit hook inspects staged files first.
 
+- Git pathname lists are requested with NUL delimiters. Leading/trailing
+  whitespace, tabs, newlines, and Unicode are preserved exactly when paths are
+  passed to checks or fixers.
 - If there are no relevant project files, the commit continues.
 - If relevant files are staged, the hook runs configured checks.
 - Default checks can report lint issues, formatting drift, missing tests, and optional staged-related test failures.
@@ -63,7 +66,23 @@ The tool prefers refusing a risky mutation over hiding or rewriting work unexpec
 
 After `init`, push-time tests run in advisory mode by default.
 
-The pre-push hook reads pushed refs, detects changed files, collects related tests, and runs the configured test command. The default runner is `node --test`.
+The pre-push hook reads pushed refs, detects changed files, collects related
+tests, and runs the configured test command. The default runner is
+`node --test`.
+
+For an existing remote branch, its advertised SHA is the diff base. On the
+first push of a new branch, the hook chooses the closest unambiguous merge base
+from its upstream or remote-tracking branches, so files inherited from `main`
+do not trigger a whole-repository test snapshot. If the history is orphaned,
+unrelated, or no safe base can be identified, it conservatively diffs from the
+repository's empty tree. That fallback may run more tests, but cannot omit a
+test because base discovery failed.
+
+Related-test lookup is package-aware. Colocated tests win first, followed by
+paths mirrored below the nearest package's `test/` or `tests/` directory. A
+nested package never falls through to the root package's basename-only test.
+See [Monorepo & Workspaces Guide](monorepo.md#related-test-selection) for the
+full deterministic lookup order.
 
 | Result                     | Default advisory mode     | Blocking mode |
 | -------------------------- | ------------------------- | ------------- |

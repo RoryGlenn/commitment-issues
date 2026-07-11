@@ -8,6 +8,7 @@ import { run, runTool } from "./lib/process.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
+  parseNulPaths,
   shortFileList,
 } from "./lib/files.mjs";
 import { runScript } from "./lib/package-manager.mjs";
@@ -27,6 +28,7 @@ function getIndexSnapshot(files) {
     ...GIT_PATH_ARGS,
     "ls-files",
     "--stage",
+    "-z",
     "--",
     ...files,
   ]);
@@ -35,7 +37,7 @@ function getIndexSnapshot(files) {
     return null;
   }
 
-  return snapshotResult.stdout.trimEnd();
+  return snapshotResult.stdout;
 }
 
 const stagedResult = run("git", [
@@ -43,10 +45,13 @@ const stagedResult = run("git", [
   "diff",
   "--cached",
   "--name-only",
+  "-z",
   "--diff-filter=ACMRT",
 ]);
 
-if (stagedResult.error || stagedResult.status !== 0) {
+const stagedFiles = parseNulPaths(stagedResult.stdout);
+
+if (stagedResult.error || stagedResult.status !== 0 || stagedFiles === null) {
   errorBox([
     pc.bold("Unable to inspect staged files."),
     "",
@@ -56,11 +61,6 @@ if (stagedResult.error || stagedResult.status !== 0) {
   ]);
   process.exit(1);
 }
-
-const stagedFiles = stagedResult.stdout
-  .split("\n")
-  .map((file) => file.trim())
-  .filter(Boolean);
 
 const stagedJsFiles = stagedFiles.filter((file) => codeFilePattern.test(file));
 const stagedFormatFiles = stagedFiles.filter((file) =>
@@ -81,9 +81,20 @@ if (fixableFiles.length === 0) {
   process.exit(0);
 }
 
-const unstagedResult = run("git", [...GIT_PATH_ARGS, "diff", "--name-only"]);
+const unstagedResult = run("git", [
+  ...GIT_PATH_ARGS,
+  "diff",
+  "--name-only",
+  "-z",
+]);
 
-if (unstagedResult.error || unstagedResult.status !== 0) {
+const rawUnstagedFiles = parseNulPaths(unstagedResult.stdout);
+
+if (
+  unstagedResult.error ||
+  unstagedResult.status !== 0 ||
+  rawUnstagedFiles === null
+) {
   errorBox([
     pc.bold("Unable to inspect unstaged files."),
     "",
@@ -94,12 +105,7 @@ if (unstagedResult.error || unstagedResult.status !== 0) {
   process.exit(1);
 }
 
-const unstagedFiles = new Set(
-  unstagedResult.stdout
-    .split("\n")
-    .map((file) => file.trim())
-    .filter(Boolean),
-);
+const unstagedFiles = new Set(rawUnstagedFiles);
 
 const partiallyStagedFiles = fixableFiles.filter((file) =>
   unstagedFiles.has(file),

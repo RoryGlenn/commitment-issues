@@ -25,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Pre-commit, `fix:staged`, and `commit:fix` now consume NUL-delimited Git
+  pathname records (including numstat and index metadata), preserving legal
+  leading/trailing whitespace, tabs, newlines, and Unicode without trimming.
+- A new branch's first push now diffs from its closest unambiguous upstream or
+  destination-remote merge base instead of treating the entire inherited
+  repository as new. Orphan, ambiguous, and unrelated histories conservatively
+  fall back to the empty tree, and generated pre-push hooks forward the remote
+  arguments needed to keep multi-remote selection safe. Exact older generated
+  hook bodies are refreshed automatically on upgrade; customized hooks remain
+  untouched. SHA-1 and SHA-256 zero object IDs are recognized.
+- Related-test lookup now respects the nearest workspace package boundary and
+  preserves package-relative source paths. Same-basename sources cannot claim
+  another workspace's or the root package's fallback test; every candidate in
+  the first matching specificity tier runs deterministically.
 - The blocking pre-push gate now retains deleted source paths and both sides of renames when discovering related tests, while filtering test files that no longer exist before invoking the runner. Git name/status output is NUL-delimited so path whitespace and newlines remain unambiguous.
 - `blockProtectedBranches` now applies before deletion/no-file early exits and resolves the symbolic branch name before the first commit, so deletion-only and unborn-branch commits cannot bypass protected-branch blocking.
 - `init` now verifies that both active hooks invoke `commitment-issues` before claiming setup is complete. User-authored hooks remain untouched; unwired hooks suppress the green commit/push promises and list the exact commands to add.

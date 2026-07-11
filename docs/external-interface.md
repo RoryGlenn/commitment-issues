@@ -60,10 +60,12 @@ manager's remove command after `uninstall` completes.
 `init` writes plain `.git/hooks` files that call the installed binary:
 
 - pre-commit hook -> `commitment-issues precommit`
-- pre-push hook -> `commitment-issues prepush`
+- pre-push hook -> `commitment-issues prepush "$@"`
 
 The hooks honor `COMMITMENT_ISSUES=0` (and the pre-3.0 `HUSKY=0`) as a skip,
-and exit silently when the binary is no longer installed.
+and exit silently when the binary is no longer installed. The pre-push hook
+forwards Git's remote name and URL arguments for remote-specific first-push
+base selection.
 
 The package does not copy source files into a consumer repository.
 

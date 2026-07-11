@@ -9,7 +9,7 @@ For the short install path, start with the [README](../README.md). For terminal 
 `npx commitment-issues init` updates the consuming repo so the installed package can run from Git hooks:
 
 - wires the pre-commit hook to `commitment-issues precommit`
-- wires the pre-push hook to `commitment-issues prepush`
+- wires the pre-push hook to `commitment-issues prepush "$@"`
 - adds npm scripts for `doctor`, `fix:staged`, `commit:fix`, and direct pre-commit checks
 - enables advisory push tests through `precommitChecks.advisePushTests`
 - migrates pre-3.0 husky-era wiring (retires the old `core.hooksPath`, removes the generated `.husky` files)
@@ -28,7 +28,8 @@ Nothing is copied into your repo from the package source. The hooks are plain `.
 
 - The pre-commit hook runs `commitment-issues precommit`.
 - `scripts/precommit.mjs` inspects staged files and prints one consolidated summary box.
-- The pre-push hook runs `commitment-issues prepush`.
+- The pre-push hook runs `commitment-issues prepush "$@"` so Git's remote
+  arguments reach first-push base selection.
 - `scripts/prepush.mjs` runs tests associated with pushed files in advisory mode by default.
 - `blockPushOnTestFailure` turns pushed-file test failures into a hard gate.
 - When automatic fixes can still be applied safely after a commit, the hook suggests `npm run commit:fix`.

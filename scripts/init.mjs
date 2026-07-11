@@ -10,7 +10,7 @@ import {
   HOOK_NAMES,
   classifyHook,
   gitHooksDir,
-  hookCommand,
+  hookInvocation,
   hooksPathConfig,
   isHuskyHooksPath,
   leftoverHuskyHooks,
@@ -159,7 +159,7 @@ if (huskyEraHooksPath) {
 if (foreignHooksPath) {
   warnings.push(
     `core.hooksPath is set to ${configuredHooksPath}, so git ignores .git/hooks.`,
-    `Add \`${hookCommand("pre-commit")}\` and \`${hookCommand("pre-push")}\` to the`,
+    `Add \`${hookInvocation("pre-commit")}\` and \`${hookInvocation("pre-push")}\` to the`,
     "hooks in that directory, or unset it: git config --unset core.hooksPath",
   );
 }
@@ -176,14 +176,19 @@ if (isGitRepo && !foreignHooksPath) {
   const unwiredHooks = [];
   for (const name of HOOK_NAMES) {
     const status = classifyHook(hooksDir, name);
-    // Only ever create; a hook the user wrote is left exactly as-is. A custom
-    // hook that invokes commitment-issues is healthy, while one that does not
-    // is reported below with the exact command the user needs to add.
-    if (status === "missing") {
+    // Create missing hooks and refresh exact older generated bodies. A hook the
+    // user wrote is left exactly as-is. A custom hook that invokes
+    // commitment-issues is healthy, while one that does not is reported below
+    // with the exact command the user needs to add.
+    if (status === "missing" || status === "stale-wired") {
       if (!dryRun) {
         writeHook(hooksDir, name);
       }
-      created.push(`.git/hooks/${name}`);
+      created.push(
+        status === "stale-wired"
+          ? `updated .git/hooks/${name}`
+          : `.git/hooks/${name}`,
+      );
     } else if (status === "custom-without-command") {
       unwiredHooks.push(name);
     }
@@ -194,7 +199,7 @@ if (isGitRepo && !foreignHooksPath) {
       "Existing git hooks were left unchanged but do not run commitment-issues.",
       "Add each command without removing your existing hook logic:",
       ...unwiredHooks.map(
-        (name) => `  .git/hooks/${name}: ${hookCommand(name)}`,
+        (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
       ),
     );
   }
