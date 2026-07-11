@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Governance and maintainer guidance now match the live strict `main` ruleset:
+  one approval, stale/last-push review controls, resolved threads, DCO inside
+  the aggregate CI gate, a prospective signed-history baseline, and a narrow,
+  auditable single-maintainer exception with a continuity plan. Maintainer
+  references also enumerate the full guard/secret configuration surface and
+  current lifecycle job names.
 - Reorganized the README around a two-command trial, product fit, comparison,
   team rollout, progressive enforcement, ownership boundaries, and reversible
   removal. Detailed output and compliance evidence remain available lower in

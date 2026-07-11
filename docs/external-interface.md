@@ -71,16 +71,30 @@ The package does not copy source files into a consumer repository.
 
 All configuration lives under `precommitChecks` in `package.json`.
 
-| Key                      | Type                    | Default              | Effect                                                     |
-| ------------------------ | ----------------------- | -------------------- | ---------------------------------------------------------- |
-| `testExempt`             | string[]                | `[]`                 | Extra glob exemptions for missing-test checks.             |
-| `requireTests`           | boolean                 | `true`               | Turns missing-test advisories on or off.                   |
-| `runStagedTests`         | boolean                 | `false`              | Runs related tests during `git commit`.                    |
-| `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.     |
-| `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.         |
-| `testCommand`            | string[]                | `["node", "--test"]` | Command used to run related tests. Must accept file paths. |
-| `timeoutMs`              | number                  | `120000`             | Timeout for spawned tools.                                 |
-| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                     |
+| Key                      | Type                    | Default              | Effect                                                                            |
+| ------------------------ | ----------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                | `[]`                 | Extra glob exemptions for missing-test checks.                                    |
+| `requireTests`           | boolean                 | `true`               | Turns missing-test advisories on or off.                                          |
+| `runStagedTests`         | boolean                 | `false`              | Runs related tests during `git commit`.                                           |
+| `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.                            |
+| `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.                                |
+| `testCommand`            | string[]                | `["node", "--test"]` | Command used to run related tests. Must accept file paths.                        |
+| `timeoutMs`              | number                  | `120000`             | Timeout for spawned tools.                                                        |
+| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                                            |
+| `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger commit/push advisories; `[]` disables them.    |
+| `blockProtectedBranches` | boolean                 | `false`              | Blocks commits and pushes to protected branches instead of warning.               |
+| `adviseBehindUpstream`   | boolean                 | `true`               | Warns at commit time when the branch is behind its upstream as of the last fetch. |
+| `maxCommitFiles`         | number                  | `30`                 | Warns when more files are staged; `0` disables the guard.                         |
+| `maxCommitLines`         | number                  | `2000`               | Warns when more changed lines are staged; `0` disables the guard.                 |
+| `maxFileSizeMb`          | number                  | `5`                  | Warns when a staged file exceeds the size in MB; `0` disables the guard.          |
+| `generatedPaths`         | string[]                | build-artifact globs | Replaces the glob list used to flag generated files.                              |
+| `scanSecrets`            | boolean                 | `true`               | Scans added staged lines and dotenv files for likely credentials.                 |
+| `blockOnSecrets`         | boolean                 | `false`              | Blocks commits when the secret scan finds a likely credential.                    |
+| `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secret scan, such as fixture paths.               |
+
+Unknown keys and invalid values are ignored with an advisory naming the
+problem. The complete behavior and validation rules are in
+[Configuration and behavior](configuration.md).
 
 Example:
 

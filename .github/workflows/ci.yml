@@ -14,6 +14,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify prospective DCO enforcement
+        shell: bash
+        env:
+          DCO_BASE: ${{ github.event.pull_request.base.sha || '81a9e412bc347f01300df62505ee378284646d15' }}
+          DCO_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            # The base branch can advance after a PR opens. Audit commits that
+            # are unique to the PR from the true merge base; the default
+            # checkout keeps both parents of a fork PR's merge ref available.
+            node tools/check-dco-range.mjs --merge-base "$DCO_BASE" "$DCO_HEAD"
+          else
+            # Pushes to main and manual audits must retain the immutable
+            # prospective baseline as an ancestor.
+            node tools/check-dco-range.mjs "$DCO_BASE" "$DCO_HEAD"
+          fi
+
   check:
     name: ${{ matrix.os }} / Node ${{ matrix.node-version }}
     runs-on: ${{ matrix.os }}
@@ -92,7 +117,7 @@ jobs:
   ci-success:
     name: CI Success
     if: always()
-    needs: [check, pm-lifecycle]
+    needs: [dco, check, pm-lifecycle]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs succeeded

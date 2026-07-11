@@ -9,13 +9,13 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 
 ## Commands
 
-| Goal                       | Command                                                               |
-| -------------------------- | --------------------------------------------------------------------- |
-| Run everything             | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)           |
-| Run one file               | `node --test test/precommit.test.mjs`                                 |
-| Coverage report            | `npm run test:coverage` (reported, **not gated** — no threshold flag) |
-| Reproduce CI locally       | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below)   |
-| End-to-end packaging smoke | `npm run test:smoke` (also `:pnpm`, `:yarn`, `:bun`)                  |
+| Goal                          | Command                                                               |
+| ----------------------------- | --------------------------------------------------------------------- |
+| Run everything                | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)           |
+| Run one file                  | `node --test test/precommit.test.mjs`                                 |
+| Coverage report               | `npm run test:coverage` (reported, **not gated** — no threshold flag) |
+| Reproduce CI locally          | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below)   |
+| Package lifecycle integration | `npm run test:lifecycle:npm` (also `:pnpm`, `:yarn`, `:bun`)          |
 
 ## The two kinds of code, and how each is tested
 

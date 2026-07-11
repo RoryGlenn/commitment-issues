@@ -22,19 +22,39 @@ If you add a new root-level community file, verify it isn't shipped with `npm pa
 ## Branch protection = a **ruleset**, not legacy branch protection
 
 - Protection for `main` is **ruleset id `18531369`** (name `"main"`, targets `~DEFAULT_BRANCH`). It is **not** legacy branch protection — edit the ruleset, not the old settings page.
-- Rules: `deletion`, `non_fast_forward`, `required_linear_history`, `pull_request` (0 required approvals; `allowed_merge_methods` = squash + rebase only, to preserve linear history), and `required_status_checks` (single context `CI Success`, non-strict).
+- Rules: `deletion`, `non_fast_forward`, `required_linear_history`,
+  `pull_request`, and `required_status_checks`.
+- Pull requests require **1 approval**, dismiss stale approvals after a push,
+  require approval of the most recent push by someone other than the pusher,
+  require all review threads to be resolved, and allow squash + rebase only.
+- Required status checks are **strict** and use the single context
+  `CI Success`, so the branch must be current with `main` before merge.
 - Bypass: `{ actor_type: "RepositoryRole", actor_id: 5, bypass_mode: "always" }` = repo **Admin** (owner). Base role IDs: Read=1, Triage=2, Write=3, Maintain=4, Admin=5.
 - Update by PUTting a full ruleset JSON:
   ```bash
   gh api --method PUT repos/RoryGlenn/commitment-issues/rulesets/18531369 --input ruleset.json
   ```
-  Then read it back and confirm `current_user_can_bypass == "always"` for the owner.
+  Then read it back and verify every rule, bypass actor, and required status
+  context. Do not copy an older checked-in snapshot over live settings.
+
+The sole-maintainer admin bypass is governed by [`GOVERNANCE.md`](../../../GOVERNANCE.md):
+normal changes still use a pull request; the temporary exception requires a
+green, signed, auditable PR; and direct pushes are reserved for incidents where
+the normal path cannot safely be used.
 
 ## The single required check: `CI Success`
 
-- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [check, pm-smoke]`, `if: always()`, and it `exit 1`s if any needed job's result is `failure` or `cancelled`.
+- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [dco, check, pm-lifecycle]`, `if: always()`, and it exits non-zero if any needed job's result is `failure` or `cancelled`.
 - Requiring this **one** context keeps the required-checks list stable even as the test matrix changes. So: add/remove matrix legs freely, but do **not** rename the `CI Success` job (or add a new required job) without updating ruleset `18531369` to match.
-- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.22.1, 24}` with `COMMITMENT_ISSUES: 0`, running `lint`, `format:check`, `test`, `prepublishOnly` (packaging smoke), and `test:coverage` only on ubuntu + Node 24. `pm-smoke` runs the pnpm/yarn/bun lifecycle smokes. (`COMMITMENT_ISSUES: 0` skips the generated hooks — tests must strip it (and legacy `HUSKY`) from subprocess env; see the `testing-and-coverage` skill.)
+- `dco` checks every pull-request commit and every commit on `main` after the
+  prospective baseline `81a9e412bc347f01300df62505ee378284646d15`.
+  [`tools/check-dco-range.mjs`](../../../tools/check-dco-range.mjs) is the
+  shared checker. Pull requests use the true merge base so fork PRs and
+  branches behind the latest `main` tip audit only their unique commits;
+  `main` pushes and manual audits require the immutable baseline to remain an
+  ancestor. The focused DCO workflow provides an additional visible report.
+  Never advance the baseline to silence a failure.
+- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.22.1, 24}` with `COMMITMENT_ISSUES: 0`, running `lint`, `format:check`, `test`, the npm package lifecycle integration, and `test:coverage` only on ubuntu + Node 24. `pm-lifecycle` runs the pnpm/yarn/bun lifecycle integrations. (`COMMITMENT_ISSUES: 0` skips the generated hooks — tests must strip it (and legacy `HUSKY`) from subprocess env; see the `testing-and-coverage` skill.)
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 
@@ -55,6 +75,10 @@ gh api --method PUT repos/RoryGlenn/commitment-issues/{private-vulnerability-rep
 - Non-default labels in use: `dependencies`, `ci`, `security`, `roadmap`.
 - Roadmap is **user Project #3** "commitment-issues roadmap" (public, linked to the repo). `gh project` needs the `project` token scope: `gh auth refresh -s project` (answer **N** to the git-credential reconfigure prompt). `gh project edit` uses `--description` (not `--short-description`).
 
-## gh CLI gotcha
+## GitHub CLI gotcha
 
-`gh run view --json ... --jq` (and other read commands) can still spawn a pager and hang a non-interactive terminal on the alternate screen buffer. **`export GH_PAGER=cat`** before gh read commands in a scripted/agent session. `gh` is already authenticated here.
+When `gh` is available, `gh run view --json ... --jq` (and other read commands)
+can still spawn a pager and hang a non-interactive terminal on the alternate
+screen buffer. Set `GH_PAGER=cat` before scripted reads and verify
+authentication instead of assuming it. Prefer the connected GitHub app when
+it covers the operation.
