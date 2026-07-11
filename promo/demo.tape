@@ -41,7 +41,7 @@ Type `git init --bare "$REMOTE_DIR" >/dev/null 2>&1` Enter
 Wait+Line /READY>$/
 Type `cd "$WORKDIR"` Enter
 Wait+Line /READY>$/
-Type "export LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC GIT_AUTHOR_DATE=2026-07-11T12:00:00Z GIT_COMMITTER_DATE=2026-07-11T12:00:00Z" Enter
+Type "export LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC GIT_AUTHOR_DATE=2026-07-11T12:00:00Z GIT_COMMITTER_DATE=2026-07-11T12:00:00Z NPM_CONFIG_UPDATE_NOTIFIER=false" Enter
 Wait+Line /READY>$/
 Type "git init -q --initial-branch=main && git config user.name demo && git config user.email demo@example.com && git config commit.gpgsign false" Enter
 Wait+Line /READY>$/

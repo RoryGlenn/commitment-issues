@@ -176,6 +176,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set CursorBlink false/);
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
+  assert.match(tape, /NPM_CONFIG_UPDATE_NOTIFIER=false/);
   assert.match(tape, /npx --no-install commitment-issues init/);
   assert.match(tape, /npm run commit:fix && git push/);
   assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
