@@ -8,6 +8,7 @@ import { devInstallCommand } from "./lib/package-manager.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
+  parseNulPaths,
   shortFileList,
 } from "./lib/files.mjs";
 
@@ -58,18 +59,25 @@ const stagedDirtyResult = run("git", [
   "diff",
   "--cached",
   "--name-only",
+  "-z",
 ]);
 const unstagedDirtyResult = run("git", [
   ...GIT_PATH_ARGS,
   "diff",
   "--name-only",
+  "-z",
 ]);
+
+const stagedDirtyFiles = parseNulPaths(stagedDirtyResult.stdout);
+const unstagedDirtyFiles = parseNulPaths(unstagedDirtyResult.stdout);
 
 if (
   stagedDirtyResult.error ||
   stagedDirtyResult.status !== 0 ||
   unstagedDirtyResult.error ||
-  unstagedDirtyResult.status !== 0
+  unstagedDirtyResult.status !== 0 ||
+  stagedDirtyFiles === null ||
+  unstagedDirtyFiles === null
 ) {
   errorBox([
     pc.bold("Unable to inspect the current working tree."),
@@ -82,12 +90,7 @@ if (
 }
 
 const dirtyTrackedFiles = Array.from(
-  new Set(
-    `${stagedDirtyResult.stdout}\n${unstagedDirtyResult.stdout}`
-      .split("\n")
-      .map((file) => file.trim())
-      .filter(Boolean),
-  ),
+  new Set([...stagedDirtyFiles, ...unstagedDirtyFiles]),
 );
 
 if (dirtyTrackedFiles.length > 0) {
@@ -107,12 +110,19 @@ const committedFilesResult = run("git", [
   "--root",
   "--no-commit-id",
   "--name-only",
+  "-z",
   "-r",
   "--diff-filter=ACMRT",
   "HEAD",
 ]);
 
-if (committedFilesResult.error || committedFilesResult.status !== 0) {
+const committedFiles = parseNulPaths(committedFilesResult.stdout);
+
+if (
+  committedFilesResult.error ||
+  committedFilesResult.status !== 0 ||
+  committedFiles === null
+) {
   errorBox([
     pc.bold("Unable to inspect files from the latest commit."),
     "",
@@ -120,11 +130,6 @@ if (committedFilesResult.error || committedFilesResult.status !== 0) {
   ]);
   process.exit(1);
 }
-
-const committedFiles = committedFilesResult.stdout
-  .split("\n")
-  .map((file) => file.trim())
-  .filter(Boolean);
 
 const committedJsFiles = committedFiles.filter((file) =>
   codeFilePattern.test(file),
@@ -244,11 +249,18 @@ const stagedFixResult = run("git", [
   "diff",
   "--cached",
   "--name-only",
+  "-z",
   "--",
   ...fixableFiles,
 ]);
 
-if (stagedFixResult.error || stagedFixResult.status !== 0) {
+const changedFiles = parseNulPaths(stagedFixResult.stdout);
+
+if (
+  stagedFixResult.error ||
+  stagedFixResult.status !== 0 ||
+  changedFiles === null
+) {
   errorBox([
     pc.bold("Unable to inspect staged fixes for the latest commit."),
     "",
@@ -256,11 +268,6 @@ if (stagedFixResult.error || stagedFixResult.status !== 0) {
   ]);
   process.exit(1);
 }
-
-const changedFiles = stagedFixResult.stdout
-  .split("\n")
-  .map((file) => file.trim())
-  .filter(Boolean);
 
 console.log("");
 

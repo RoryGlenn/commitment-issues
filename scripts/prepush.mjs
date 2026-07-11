@@ -9,6 +9,7 @@ import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
+  precommitConfigDiagnostics,
   precommitConfigWarningMessages,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
@@ -18,23 +19,79 @@ import {
   isProtectedBranch,
   resolveGuardConfig,
 } from "./lib/commit-guards.mjs";
+import {
+  createJsonOutput,
+  emitJsonArgumentError,
+  issueToJsonFinding,
+  normalizeProcessOutcome,
+  parseJsonOutputArgs,
+} from "./lib/json-output.mjs";
 
-const ZERO_SHA = "0".repeat(40);
-// Git's well-known empty-tree object, used as the diff base for a brand-new
-// branch (no remote sha yet) so every file in the pushed history counts.
-const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+// Git's well-known empty-tree object, used as the conservative fallback for a
+// genuinely unrelated/new history (or when no safe existing base is known).
+const SHA1_EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 // Force literal, unquoted paths (as the pre-commit/fix flows already do) so
 // pushed files with spaces or non-ASCII names still match their associated
 // tests instead of arriving octal-escaped from git.
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
-const config = loadPrecommitConfig();
+// Git invokes pre-push hooks with the remote name and URL as two positional
+// arguments. Accept those on either side of --json, but reject any additional
+// JSON-mode arguments so a typo cannot silently change a machine-readable run.
+const outputArgs = parseJsonOutputArgs(process.argv.slice(2), 2);
+if (outputArgs.error) {
+  emitJsonArgumentError("prepush", outputArgs.error);
+  process.exit(1);
+}
+const jsonMode = outputArgs.enabled;
 
-// Typo'd keys and invalid values fall back safely. Surface each diagnostic on
-// one concise advisory line without turning pre-push checks into a blocker.
-for (const message of precommitConfigWarningMessages(config)) {
-  console.warn(pc.yellow(`⚠ ${message}`));
+const config = loadPrecommitConfig();
+const guardConfig = resolveGuardConfig(config);
+
+// Two opt-in modes for running the suite before a push:
+//   blockPushOnTestFailure: run tests and block the push if any fail.
+//   advisePushTests:        run tests and report results, but never block.
+// `blockPushOnTestFailure` wins if both are set. With neither, stay out of the
+// way entirely — preserving the tool's non-blocking-by-default philosophy.
+const blocking = config.blockPushOnTestFailure === true;
+const advisory = !blocking && config.advisePushTests === true;
+const protectedBranchPosture = guardConfig.protectedBranches.length > 0;
+const jsonOutput = createJsonOutput({
+  command: "prepush",
+  mode:
+    blocking || (guardConfig.blockProtectedBranches && protectedBranchPosture)
+      ? "blocking"
+      : advisory || protectedBranchPosture
+        ? "advisory"
+        : "disabled",
+});
+const pushFindings = [];
+
+function emitJsonResult({
+  status,
+  exitCode = 0,
+  summary,
+  findings = pushFindings,
+  suggestions = [],
+}) {
+  jsonOutput.emit({ status, exitCode, summary, findings, suggestions });
+  process.exit(exitCode);
+}
+
+const configWarnings = precommitConfigWarningMessages(config);
+if (jsonMode) {
+  for (const { code, message } of precommitConfigDiagnostics(config)) {
+    jsonOutput.addDiagnostic({
+      severity: "warning",
+      code,
+      message,
+    });
+  }
+} else {
+  for (const message of configWarnings) {
+    console.warn(pc.yellow(`⚠ ${message}`));
+  }
 }
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is
@@ -50,25 +107,29 @@ const interactive =
   process.stdin.isTTY === true ||
   process.env.COMMITMENT_ISSUES_ASSUME_TTY === "1";
 
-// Two opt-in modes for running the suite before a push:
-//   blockPushOnTestFailure: run tests and block the push if any fail.
-//   advisePushTests:        run tests and report results, but never block.
-// `blockPushOnTestFailure` wins if both are set. With neither, stay out of the
-// way entirely — preserving the tool's non-blocking-by-default philosophy.
-const blocking = config.blockPushOnTestFailure === true;
-const advisory = !blocking && config.advisePushTests === true;
+// Git represents an absent object with an all-zero object ID whose length
+// follows the repository hash format (40 for SHA-1, 64 for SHA-256).
+function isZeroObjectId(value) {
+  return typeof value === "string" && /^0{40,}$/.test(value);
+}
 
 // The two modes are mutually exclusive; if a repo sets both, surface the
 // conflict (one concise line on stderr) so it's clearly a config mistake rather
 // than silently ignored — without shoving a full box in front of every push.
 if (blocking && config.advisePushTests === true) {
-  console.warn(
-    pc.yellow(
-      "⚠ Both blockPushOnTestFailure and advisePushTests are set; using " +
-        "blockPushOnTestFailure (block on failure). Remove advisePushTests " +
-        "from package.json to silence this.",
-    ),
-  );
+  const message =
+    "Both blockPushOnTestFailure and advisePushTests are set; using " +
+    "blockPushOnTestFailure (block on failure). Remove advisePushTests " +
+    "from .commitmentrc.json or package.json to silence this.";
+  if (jsonMode) {
+    jsonOutput.addDiagnostic({
+      severity: "warning",
+      code: "config.push-mode-conflict",
+      message,
+    });
+  } else {
+    console.warn(pc.yellow(`⚠ ${message}`));
+  }
 }
 
 // Read the pushed refs once, before any mode decision: the protected-branch
@@ -76,7 +137,6 @@ if (blocking && config.advisePushTests === true) {
 // resolve to no refs instantly, so this never blocks a terminal session.
 const pushRefs = await readPushRefs();
 
-const guardConfig = resolveGuardConfig(config);
 const protectedTargets = [
   ...new Set(
     pushRefs
@@ -88,6 +148,26 @@ const protectedTargets = [
 if (protectedTargets.length > 0) {
   const named = protectedTargets.map((name) => `"${name}"`).join(", ");
   if (guardConfig.blockProtectedBranches) {
+    const issue = {
+      autoFixable: false,
+      type: "branch",
+      message: `Push blocked on protected branch${protectedTargets.length === 1 ? "" : "es"}: ${named}`,
+      detail: "Push a feature branch and open a pull request instead.",
+    };
+    jsonOutput.addCheck({
+      id: "protected-branch",
+      status: "failed",
+      summary: `Protected push target${protectedTargets.length === 1 ? " is" : "s are"} blocked`,
+      details: { branches: protectedTargets },
+    });
+    if (jsonMode) {
+      emitJsonResult({
+        status: "blocked",
+        exitCode: 1,
+        summary: "Push blocked by protected-branch policy",
+        findings: [issueToJsonFinding(issue, "error")],
+      });
+    }
     errorBox([
       pc.bold("Push blocked: protected branch."),
       "",
@@ -98,25 +178,59 @@ if (protectedTargets.length > 0) {
     ]);
     process.exit(1);
   }
-  warningBox([
-    pc.bold("Pushing to a protected branch."),
-    "",
-    pc.dim(`This push updates ${named} directly.`),
-    "",
-    pc.dim("Push will continue."),
-  ]);
+  const issue = {
+    autoFixable: false,
+    type: "branch",
+    message: `Pushing directly to protected branch${protectedTargets.length === 1 ? "" : "es"}: ${named}`,
+    detail: "Push will continue.",
+  };
+  pushFindings.push(issueToJsonFinding(issue));
+  jsonOutput.addCheck({
+    id: "protected-branch",
+    status: "advisory",
+    summary: `Push updates ${protectedTargets.length} protected branch${protectedTargets.length === 1 ? "" : "es"}`,
+    details: { branches: protectedTargets },
+  });
+  if (!jsonMode) {
+    warningBox([
+      pc.bold("Pushing to a protected branch."),
+      "",
+      pc.dim(`This push updates ${named} directly.`),
+      "",
+      pc.dim("Push will continue."),
+    ]);
+  }
+} else {
+  jsonOutput.addCheck({
+    id: "protected-branch",
+    status: "passed",
+    summary: "No protected push targets",
+    details: { branches: [] },
+  });
 }
 
 if (!blocking && !advisory) {
   // Silent during a real `git push` (the documented non-blocking default), but
   // when a human runs this by hand it would otherwise exit with no output and
   // look broken — so explain why nothing ran and how to turn a mode on.
+  jsonOutput.addCheck({
+    id: "push-tests",
+    status: "skipped",
+    summary: "Pre-push test checks are disabled",
+    details: { command: [], files: [] },
+  });
+  if (jsonMode) {
+    emitJsonResult({
+      status: pushFindings.length > 0 ? "advisory" : "skipped",
+      summary: "Pre-push test checks are disabled",
+    });
+  }
   if (interactive) {
     infoBox([
       pc.bold("Pre-push test checks are disabled."),
       "",
       pc.dim("Nothing ran because no pre-push test mode is enabled in"),
-      pc.dim("package.json. Enable one under precommitChecks:"),
+      pc.dim(".commitmentrc.json or package.json precommitChecks. Enable one:"),
       "",
       `  ${pc.bold('"blockPushOnTestFailure": true')} ${pc.dim("— run tests and block on failure")}`,
       `  ${pc.bold('"advisePushTests": true')} ${pc.dim("— run tests but only warn")}`,
@@ -190,12 +304,13 @@ async function readPushRefs() {
     .filter(Boolean)
     .map((line) => line.split(/\s+/))
     .filter((parts) => parts.length >= 4)
-    .map(([, localSha, remoteRef, remoteSha]) => ({
+    .map(([localRef, localSha, remoteRef, remoteSha]) => ({
+      localRef,
       localSha,
       remoteRef,
       remoteSha,
     }))
-    .filter((ref) => ref.localSha && ref.localSha !== ZERO_SHA);
+    .filter((ref) => ref.localSha && !isZeroObjectId(ref.localSha));
 }
 
 function diffFiles(base, head) {
@@ -232,6 +347,145 @@ function diffFiles(base, head) {
     : { ok: true, files };
 }
 
+function outputLines(output) {
+  return (output || "").split("\n").filter(Boolean);
+}
+
+let emptyTreeObject;
+function emptyTree() {
+  if (emptyTreeObject) {
+    return emptyTreeObject;
+  }
+  const result = run("git", ["hash-object", "-t", "tree", "--stdin"], {
+    input: "",
+  });
+  emptyTreeObject =
+    !result.error && result.status === 0
+      ? outputLines(result.stdout)[0]
+      : SHA1_EMPTY_TREE;
+  return emptyTreeObject || SHA1_EMPTY_TREE;
+}
+
+function remoteBaseRefs(localRef) {
+  const candidates = new Map();
+  let upstreamRef = null;
+  const add = (ref, priority) => {
+    if (ref && !candidates.has(ref)) {
+      candidates.set(ref, priority);
+    }
+  };
+
+  // An explicitly configured upstream is the strongest signal for the branch
+  // point, even when the destination branch itself does not exist yet.
+  if (localRef?.startsWith("refs/heads/")) {
+    const localBranch = localRef.slice("refs/heads/".length);
+    const upstream = run("git", [
+      "rev-parse",
+      "--verify",
+      "--symbolic-full-name",
+      `${localBranch}@{upstream}`,
+    ]);
+    if (!upstream.error && upstream.status === 0) {
+      [upstreamRef] = outputLines(upstream.stdout);
+    }
+  }
+
+  // New generated hooks forward Git's destination remote as argv[2]. Older
+  // hooks and manual/test runs may not, so infer it only when exactly one remote
+  // is configured. A destination-ambiguous repository falls back to the empty
+  // tree rather than borrowing a base from the wrong remote.
+  let remoteName = process.argv[2];
+  if (!remoteName) {
+    const remotes = run("git", ["remote"]);
+    if (remotes.error || remotes.status !== 0) {
+      return [];
+    }
+    const names = outputLines(remotes.stdout);
+    if (names.length > 1) {
+      return [];
+    }
+    [remoteName] = names;
+  }
+  if (
+    upstreamRef?.startsWith("refs/heads/") ||
+    (remoteName && upstreamRef?.startsWith(`refs/remotes/${remoteName}/`))
+  ) {
+    add(upstreamRef, 0);
+  }
+  const prefix = remoteName ? `refs/remotes/${remoteName}/` : "refs/remotes/";
+  const refs = run("git", ["for-each-ref", "--format=%(refname)", prefix]);
+  if (!refs.error && refs.status === 0) {
+    const remoteRefs = outputLines(refs.stdout);
+    for (const ref of remoteRefs) {
+      add(ref, ref.endsWith("/HEAD") ? 1 : 2);
+    }
+  }
+
+  return [...candidates].map(([ref, priority]) => ({ ref, priority }));
+}
+
+function firstPushBase(localRef, localSha) {
+  const viable = [];
+
+  for (const candidate of remoteBaseRefs(localRef)) {
+    const mergeBase = run("git", [
+      "merge-base",
+      "--all",
+      localSha,
+      candidate.ref,
+    ]);
+    if (mergeBase.error || mergeBase.status !== 0) {
+      continue;
+    }
+
+    // Multiple merge bases (possible after criss-cross merges) do not identify
+    // one unambiguous diff boundary. Falling back to the empty tree is more
+    // expensive but cannot skip tests.
+    const bases = outputLines(mergeBase.stdout);
+    if (bases.length !== 1) {
+      continue;
+    }
+
+    const distance = run("git", [
+      "rev-list",
+      "--count",
+      `${bases[0]}..${localSha}`,
+    ]);
+    const count = Number(outputLines(distance.stdout)[0]);
+    if (
+      distance.error ||
+      distance.status !== 0 ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      continue;
+    }
+
+    viable.push({
+      base: bases[0],
+      distance: count,
+      priority: candidate.priority,
+      ref: candidate.ref,
+    });
+  }
+
+  viable.sort(
+    (left, right) =>
+      left.distance - right.distance ||
+      left.priority - right.priority ||
+      (left.ref < right.ref ? -1 : left.ref > right.ref ? 1 : 0),
+  );
+  if (viable.length === 0) {
+    return emptyTree();
+  }
+  const closestBases = new Set(
+    viable
+      .filter((candidate) => candidate.distance === viable[0].distance)
+      .map((candidate) => candidate.base),
+  );
+  return closestBases.size === 1 ? viable[0].base : emptyTree();
+}
+
 function getPushedFiles() {
   const refs = pushRefs;
   const files = new Set();
@@ -248,8 +502,11 @@ function getPushedFiles() {
   };
 
   if (refs.length > 0) {
-    for (const { localSha, remoteSha } of refs) {
-      const base = remoteSha && remoteSha !== ZERO_SHA ? remoteSha : EMPTY_TREE;
+    for (const { localRef, localSha, remoteSha } of refs) {
+      const base =
+        remoteSha && !isZeroObjectId(remoteSha)
+          ? remoteSha
+          : firstPushBase(localRef, localSha);
       collect(diffFiles(base, localSha));
     }
     return { files: [...files], diffErrors };
@@ -271,7 +528,29 @@ const { files: pushedFiles, diffErrors } = getPushedFiles();
 // blocking mode fails closed rather than waving through an un-inspectable push.
 if (diffErrors.length > 0) {
   const detailLines = [...new Set(diffErrors)].map((detail) => pc.dim(detail));
+  const issue = {
+    autoFixable: false,
+    type: "git",
+    message: blocking
+      ? "Could not inspect pushed files"
+      : "Could not inspect pushed files (advisory)",
+    detail: [...new Set(diffErrors)].join("\n"),
+  };
+  jsonOutput.addCheck({
+    id: "pushed-files",
+    status: blocking ? "failed" : "advisory",
+    summary: "Git could not inspect pushed files",
+    details: { errors: [...new Set(diffErrors)] },
+  });
   if (blocking) {
+    if (jsonMode) {
+      emitJsonResult({
+        status: "blocked",
+        exitCode: 1,
+        summary: "Push blocked because pushed files could not be inspected",
+        findings: [...pushFindings, issueToJsonFinding(issue, "error")],
+      });
+    }
     errorBox([
       pc.bold("Push blocked: could not inspect pushed files"),
       "",
@@ -284,6 +563,13 @@ if (diffErrors.length > 0) {
       pc.dim("To bypass this gate once: git push --no-verify"),
     ]);
     process.exit(1);
+  }
+  pushFindings.push(issueToJsonFinding(issue));
+  if (jsonMode) {
+    emitJsonResult({
+      status: "advisory",
+      summary: "Push allowed, but pushed files could not be inspected",
+    });
   }
   warningBox([
     pc.bold("Could not inspect pushed files (advisory)"),
@@ -298,6 +584,13 @@ if (diffErrors.length > 0) {
   process.exit(0);
 }
 
+jsonOutput.addCheck({
+  id: "pushed-files",
+  status: "passed",
+  summary: `${pushedFiles.length} pushed file${pushedFiles.length === 1 ? "" : "s"} inspected`,
+  details: { files: pushedFiles },
+});
+
 // Deleted/renamed test paths can appear in the diff so deleted source paths
 // remain useful for related-test discovery. Never pass a test that no longer
 // exists in the working tree to the runner.
@@ -306,6 +599,18 @@ const testFiles = collectTestsForFiles(pushedFiles).filter((file) =>
 );
 
 if (testFiles.length === 0) {
+  jsonOutput.addCheck({
+    id: "push-tests",
+    status: "skipped",
+    summary: "No related tests found",
+    details: { command: [], files: [] },
+  });
+  if (jsonMode) {
+    emitJsonResult({
+      status: pushFindings.length > 0 ? "advisory" : "skipped",
+      summary: "No tests to run before push",
+    });
+  }
   infoBox([
     pc.bold("No tests to run before push"),
     "",
@@ -316,19 +621,21 @@ if (testFiles.length === 0) {
 
 const fullCommand = [...testCommand, ...testFiles];
 
-console.log("");
-console.log(pc.dim(`Running tests for pushed files: ${fullCommand.join(" ")}`));
-console.log("");
+if (!jsonMode) {
+  console.log("");
+  console.log(
+    pc.dim(`Running tests for pushed files: ${fullCommand.join(" ")}`),
+  );
+  console.log("");
+}
 
 // Avoid leaking this process's test-runner context into the spawned suite.
 const env = { ...process.env };
 delete env.NODE_TEST_CONTEXT;
 
-// When the runner is `node --test`, keep this terminal attached so its colored
-// spec reporter streams through unchanged, and capture the pass/fail counts via
-// a second TAP reporter written to a temp file. For any other (custom) runner we
-// fall back to a tee: stream its output live while capturing it for a best-effort
-// summary.
+// Human mode keeps the test runner attached/teed as before. JSON mode captures
+// the same subprocess output and relays it to stderr after completion; stdout
+// remains exactly one parseable JSON document.
 const isNodeTest =
   /(^|[/\\])node(\.exe)?$/i.test(testCommand[0]) &&
   testCommand.includes("--test");
@@ -348,7 +655,7 @@ if (isNodeTest) {
   ];
   result = await spawnAsync(testCommand[0], args, {
     env,
-    stdio: "inherit",
+    stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
   });
   try {
     summary = parseNodeTestSummary(fs.readFileSync(tapFile, "utf8"));
@@ -360,36 +667,93 @@ if (isNodeTest) {
 } else {
   result = await spawnAsync(fullCommand[0], fullCommand.slice(1), {
     env,
-    echo: true,
+    echo: !jsonMode,
   });
   summary = parseNodeTestSummary(`${result.stdout}\n${result.stderr}`);
 }
 
-console.log("");
+if (jsonMode) {
+  // Test output is intentionally not embedded in the stable payload: it can be
+  // arbitrarily large and tool-specific. stderr remains available for humans
+  // and CI logs without corrupting stdout JSON.
+  if (result.stdout) {
+    fs.writeSync(process.stderr.fd, result.stdout);
+  }
+  if (result.stderr) {
+    fs.writeSync(process.stderr.fd, result.stderr);
+  }
+} else {
+  console.log("");
+}
 
 const summaryLines = summary
   ? ["", pc.dim(`${summary.passed} passed, ${summary.failed} failed`)]
   : [];
 
-if (
-  result.outcome === "timeout" ||
-  result.outcome === "spawn-error" ||
-  result.outcome === "signal"
-) {
+const testOutcome = normalizeProcessOutcome(result);
+const testDidNotComplete = [
+  "timeout",
+  "spawn-error",
+  "signal",
+  "missing-tool",
+].includes(testOutcome);
+
+if (testDidNotComplete) {
   const timeoutCleanup =
     result.cleanup === "direct-child"
       ? "the direct child was stopped, but descendant cleanup was unavailable"
-      : "attached process-tree cleanup completed";
-  const reason = pc.dim(
-    result.outcome === "timeout"
-      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s; ${timeoutCleanup}.`
-      : result.outcome === "signal"
-        ? `The test command stopped after ${result.signal || "an unknown signal"}.`
-        : "Check precommitChecks.testCommand in package.json.",
-  );
+      : result.cleanup
+        ? "attached process-tree cleanup completed"
+        : null;
+  const reasonText =
+    testOutcome === "timeout"
+      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s${timeoutCleanup ? `; ${timeoutCleanup}` : ""}.`
+      : testOutcome === "signal"
+        ? `The test command stopped after ${
+            result.signal || "an unknown signal"
+          }.`
+        : "Check testCommand in .commitmentrc.json or package.json precommitChecks.";
+  const reason = pc.dim(reasonText);
+  const issue = {
+    autoFixable: false,
+    type: "tests",
+    message: blocking
+      ? "Could not run pre-push tests"
+      : "Could not run pre-push tests (advisory)",
+    detail: reasonText,
+  };
+  jsonOutput.addCheck({
+    id: "push-tests",
+    status: blocking ? "failed" : "advisory",
+    summary: "Pre-push test command could not complete",
+    details: {
+      command: fullCommand,
+      files: testFiles,
+      status: result.status,
+      signal: result.signal,
+      error: result.error?.message || null,
+      outcome: testOutcome,
+      summary,
+    },
+  });
   if (blocking) {
+    if (jsonMode) {
+      emitJsonResult({
+        status: "blocked",
+        exitCode: 1,
+        summary: "Push blocked because tests could not run",
+        findings: [...pushFindings, issueToJsonFinding(issue, "error")],
+      });
+    }
     errorBox([pc.bold("Push blocked: could not run tests"), "", reason]);
     process.exit(1);
+  }
+  pushFindings.push(issueToJsonFinding(issue));
+  if (jsonMode) {
+    emitJsonResult({
+      status: "advisory",
+      summary: "Push allowed, but tests could not run",
+    });
   }
   warningBox([
     pc.bold("Could not run tests (advisory)"),
@@ -400,8 +764,39 @@ if (
   process.exit(0);
 }
 
-if (result.outcome === "nonzero") {
+if (testOutcome === "nonzero") {
+  const issue = {
+    autoFixable: false,
+    type: "tests",
+    message: blocking
+      ? "Pre-push tests failed"
+      : "Pre-push tests failed (advisory)",
+    detail: summary
+      ? `${summary.passed} passed, ${summary.failed} failed`
+      : undefined,
+  };
+  jsonOutput.addCheck({
+    id: "push-tests",
+    status: blocking ? "failed" : "advisory",
+    summary: "Pre-push tests failed",
+    details: {
+      command: fullCommand,
+      files: testFiles,
+      status: result.status,
+      signal: result.signal,
+      outcome: testOutcome,
+      summary,
+    },
+  });
   if (blocking) {
+    if (jsonMode) {
+      emitJsonResult({
+        status: "blocked",
+        exitCode: 1,
+        summary: "Push blocked because tests failed",
+        findings: [...pushFindings, issueToJsonFinding(issue, "error")],
+      });
+    }
     errorBox([
       pc.bold("Push blocked: tests failed"),
       ...summaryLines,
@@ -411,6 +806,13 @@ if (result.outcome === "nonzero") {
     ]);
     process.exit(1);
   }
+  pushFindings.push(issueToJsonFinding(issue));
+  if (jsonMode) {
+    emitJsonResult({
+      status: "advisory",
+      summary: "Push allowed, but pre-push tests failed",
+    });
+  }
   warningBox([
     pc.bold("Tests failed (advisory)"),
     ...summaryLines,
@@ -418,6 +820,30 @@ if (result.outcome === "nonzero") {
     pc.dim("Push allowed, but the failing tests above need attention."),
   ]);
   process.exit(0);
+}
+
+jsonOutput.addCheck({
+  id: "push-tests",
+  status: "passed",
+  summary: "All related pre-push tests passed",
+  details: {
+    command: fullCommand,
+    files: testFiles,
+    status: result.status,
+    signal: result.signal,
+    outcome: testOutcome,
+    summary,
+  },
+});
+
+if (jsonMode) {
+  emitJsonResult({
+    status: pushFindings.length > 0 ? "advisory" : "clean",
+    summary:
+      pushFindings.length > 0
+        ? "All tests passed; push allowed with advisory findings"
+        : "All pre-push tests passed; push allowed",
+  });
 }
 
 successBox([

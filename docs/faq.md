@@ -52,7 +52,9 @@ package can run from Git hooks. It can:
 
 - add or update npm scripts for `doctor`, `fix:staged`, `commit:fix`, and
   `test:precommit`
-- add `precommitChecks.advisePushTests` when no push-test mode is configured
+- add `advisePushTests` to an existing `.commitmentrc.json`, or add
+  `precommitChecks.advisePushTests` to `package.json` when no standalone file
+  exists and no push-test mode is configured
 - add `commitment-issues doctor --quiet` as `prepare`, or append it after the
   project-owned `prepare` command, so hook wiring self-heals on install
 - create `.git/hooks/pre-commit` and `.git/hooks/pre-push` when they are
@@ -71,6 +73,15 @@ setup succeeds. This also works with Yarn Classic, which does not run an npm-sty
 
 It does not vendor package source into your repo. The hooks call the installed
 `commitment-issues` binary from `node_modules/.bin`.
+
+## Can configuration live outside package.json?
+
+Yes. Put the same option names directly in a repository-root
+`.commitmentrc.json`. It is parsed as JSON only—JavaScript config files are not
+executed. When both sources exist, standalone keys override matching
+`package.json` `precommitChecks` keys and unmatched package keys remain active.
+See [Configuration files and precedence](configuration.md#configuration-files-and-precedence)
+for malformed-file fallback and validation details.
 
 ## How do I enable commit-message linting?
 
@@ -264,6 +275,11 @@ Yes. Install and initialize `commitment-issues` once at the repository root. The
 Git hooks run from the root and check staged files across every workspace
 package using the root `precommitChecks` configuration and the tools hoisted to
 the root `node_modules/.bin`.
+
+The lifecycle matrix covers npm, pnpm, Yarn, and Bun with both shallow and
+nested packages, plus fresh clones and linked Git worktrees. Install
+dependencies separately in each linked worktree; the worktrees share the
+repository's native hooks.
 
 Per-package `precommitChecks` configuration and per-package tool versions are not
 supported. See the [Monorepo & workspaces guide](monorepo.md) for setup, scoping,

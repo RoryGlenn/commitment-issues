@@ -76,21 +76,22 @@ test("branchFromRef extracts branch names and rejects non-branch refs", () => {
 });
 
 test("parseNumstat totals files and lines, counting binary as 0 lines", () => {
-  const stdout = "10\t2\tsrc/a.mjs\n-\t-\tassets/logo.png\n3\t0\tdocs/b.md\n";
+  const stdout =
+    "10\t2\tsrc/a.mjs\0-\t-\tassets/logo.png\0" + "3\t0\tdocs/b.md\0";
 
   assert.deepEqual(parseNumstat(stdout), { fileCount: 3, changedLines: 15 });
   assert.deepEqual(parseNumstat(""), { fileCount: 0, changedLines: 0 });
-  assert.deepEqual(parseNumstat(undefined), { fileCount: 0, changedLines: 0 });
+  assert.equal(parseNumstat(undefined), null);
 });
 
-test("parseNumstat counts rename entries once and ignores malformed lines", () => {
-  const stdout = [
-    "5\t1\tsrc/{old => new}/mod.mjs",
-    "not a numstat line",
-    "\t\t",
-  ].join("\n");
+test("parseNumstat counts NUL-delimited rename entries once", () => {
+  const stdout =
+    "5\t1\t\0src/old\tname.mjs\0src/new\nname.mjs\0" +
+    "2\t3\t trailing /file.mjs\0";
 
-  assert.deepEqual(parseNumstat(stdout), { fileCount: 1, changedLines: 6 });
+  assert.deepEqual(parseNumstat(stdout), { fileCount: 2, changedLines: 11 });
+  assert.equal(parseNumstat("not a numstat record\0"), null);
+  assert.equal(parseNumstat("1\t0\t\0only-old.mjs\0"), null);
 });
 
 test("parseBatchCheckSizes zips sizes onto the piped file order", () => {

@@ -163,6 +163,24 @@ test("errors when the latest commit's files cannot be listed", (t) => {
   assert.match(output, /Unable to inspect files from the latest commit\./);
 });
 
+test("errors when the latest commit pathname output is malformed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "x.json"), '{"x":1}\n');
+  run("git", ["add", "src/x.json"], tempDir);
+  run("git", ["commit", "-m", "x"], tempDir);
+  const env = fakeGitEnv(tempDir, "diff-tree", 0, "src/x.json");
+
+  const result = runCommitFix(tempDir, { env });
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Unable to inspect files from the latest commit/,
+  );
+});
+
 test("errors when fixed files cannot be staged", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -189,7 +207,7 @@ test("errors when staged fixes cannot be inspected", (t) => {
   run("git", ["commit", "-m", "amend"], tempDir);
 
   // `git add` succeeds, but the follow-up `git diff --cached ... --` fails.
-  const env = fakeGitEnv(tempDir, "--cached --name-only --");
+  const env = fakeGitEnv(tempDir, "--cached --name-only -z --");
   const result = runCommitFix(tempDir, { env });
   const output = `${result.stdout}${result.stderr}`;
 
@@ -370,3 +388,22 @@ test("guides the user when the fixes would empty the commit", (t) => {
   assert.match(output, /emptied the latest commit/);
   assert.match(output, /git reset --soft HEAD\^/);
 });
+
+test(
+  "amends the exact committed path containing legal whitespace and Unicode",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const file = "src/ leading\t猫\ntrailing /data.json";
+    writeFile(path.join(tempDir, ...file.split("/")), '{"alpha":1}\n');
+    run("git", ["add", "--", file], tempDir);
+    run("git", ["commit", "-m", "pathological path"], tempDir);
+
+    const result = runCommitFix(tempDir);
+
+    assert.equal(result.status, 0);
+    assert.equal(readHeadFile(tempDir, file), '{ "alpha": 1 }\n');
+  },
+);

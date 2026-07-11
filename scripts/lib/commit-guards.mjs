@@ -88,18 +88,38 @@ export function branchFromRef(ref) {
 }
 
 /**
- * Totals a `git diff --cached --numstat` listing. Binary entries report "-"
- * counts and contribute 0 changed lines but still count as a file.
- * @param {string} stdout - numstat output.
- * @returns {{fileCount: number, changedLines: number}} Commit shape totals.
+ * Totals a NUL-delimited `git diff --cached --numstat -z` listing. Binary
+ * entries report "-" counts and contribute 0 changed lines but still count as
+ * a file. Rename/copy records contain an empty header path followed by old and
+ * new pathname fields; those count as one file without parsing pathname bytes.
+ *
+ * @param {string} stdout - NUL-delimited numstat output.
+ * @returns {{fileCount: number, changedLines: number}|null} Commit shape totals,
+ *   or null when the structured output is malformed.
  */
 export function parseNumstat(stdout) {
+  if (stdout === "") {
+    return { fileCount: 0, changedLines: 0 };
+  }
+  if (typeof stdout !== "string" || !stdout.endsWith("\0")) {
+    return null;
+  }
+
+  const fields = stdout.slice(0, -1).split("\0");
   let fileCount = 0;
   let changedLines = 0;
-  for (const line of (stdout || "").split("\n")) {
-    const match = line.match(/^(\d+|-)\t(\d+|-)\t\S/);
+  for (let index = 0; index < fields.length;) {
+    const header = fields[index++];
+    const match = header.match(/^(\d+|-)\t(\d+|-)\t([\s\S]*)$/);
     if (!match) {
-      continue;
+      return null;
+    }
+    if (match[3] === "") {
+      const oldPath = fields[index++];
+      const newPath = fields[index++];
+      if (!oldPath || !newPath) {
+        return null;
+      }
     }
     fileCount += 1;
     if (match[1] !== "-") {

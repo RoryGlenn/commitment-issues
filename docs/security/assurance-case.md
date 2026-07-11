@@ -6,7 +6,10 @@ This assurance case explains why the security requirements for `commitment-issue
 
 `commitment-issues` is local Git-hook tooling for JavaScript and TypeScript projects. It reads local Git state and project files, runs local tools such as ESLint, Prettier, optional consumer-provided commitlint, and test runners, and prints advisory or blocking terminal output depending on configuration.
 
-The project does not provide a network service, store user credentials, transmit repository contents, or manage cryptographic keys for users.
+The project does not provide a network service, add telemetry, store user
+credentials, transmit repository contents, or manage cryptographic keys for
+users. Explicit repository-configured commands execute within that repository's
+trust boundary and may have behavior of their own.
 
 ## Assets
 
@@ -24,7 +27,8 @@ The assets the project is intended to protect include:
 Relevant attackers or failure modes include:
 
 - a malicious or compromised dependency;
-- a malicious repository configuration value in `package.json`;
+- a malicious repository configuration value in `package.json` or
+  `.commitmentrc.json`;
 - file paths containing spaces, shell metacharacters, or unusual Unicode;
 - generated or malformed Git output;
 - a compromised GitHub Action or release workflow dependency;
@@ -43,8 +47,8 @@ Out of scope:
 
 Important trust boundaries are:
 
-1. **User repository boundary** — project files, `package.json`, staged files, branch state, and test files are controlled by the repository and may be untrusted when running in an unfamiliar project.
-2. **Configuration boundary** — `precommitChecks` in `package.json` is user-controlled input and must be validated before use.
+1. **User repository boundary** — project files, `package.json`, `.commitmentrc.json`, staged files, branch state, and test files are controlled by the repository and may be untrusted when running in an unfamiliar project.
+2. **Configuration boundary** — standalone and package-embedded configuration are user-controlled input and must be validated before use.
 3. **Git boundary** — Git output is external process output and must be parsed defensively.
 4. **Process boundary** — ESLint, Prettier, optional project-local commitlint, test runners, and package-manager commands are spawned as external tools.
 5. **Shell boundary** — file paths and command arguments must not be interpolated into a shell command.
@@ -79,8 +83,10 @@ The package is pure ESM JavaScript with no build step, no native binaries, no ne
 ### Complete mediation
 
 Git state and configuration are checked at the point of hook execution.
-Configuration values are validated before being used by the hooks and process
-helpers. Before `init` mutates a consumer repository, it also requires the
+Configuration is parsed only as JSON, shallowly merged using documented
+precedence, and allowlisted by key and value before hooks or process helpers use
+it. Project JavaScript is never imported to discover configuration. Before
+`init` mutates a consumer repository, it also requires the
 `package.json` root, `scripts`, and `precommitChecks` containers to be JSON
 objects. Hook activation uses the same shared classifier in `init` and `doctor`:
 only executable command lines count, and POSIX hooks must have an executable
@@ -106,7 +112,7 @@ The project avoids shell interpolation for tool execution. Commands are spawned 
 
 ### Path handling and path traversal
 
-The project treats Git file lists as data, normalizes paths where needed, and includes cross-platform path tests for spaces, Windows-style separators, and unusual path cases.
+The project treats Git file lists as data, normalizes paths where needed, and includes cross-platform path tests for spaces, Windows-style separators, and unusual path cases. The staged-secret parser tracks diff hunks separately from file headers so source lines that resemble diff metadata are still scanned.
 
 ### Unsafe working-tree mutation
 
@@ -114,7 +120,11 @@ Automatic fixes are guarded. The tool refuses risky mutation when staged and uns
 
 ### Malformed or untrusted configuration
 
-The `precommitChecks` object is allowlisted by key and value. Unknown keys are reported as likely typos. Invalid values are rejected by omission so the rest of the tool receives only validated configuration.
+The effective configuration from `.commitmentrc.json` and `package.json` is
+allowlisted by key and value. Unknown keys are reported as likely typos.
+Invalid values are rejected by omission so the rest of the tool receives only
+validated configuration. Hook-time parse failures warn and use the package
+fallback; mutating setup/removal commands stop before writing.
 
 ### Dependency vulnerabilities
 
@@ -127,7 +137,7 @@ trusts both the tool and its executable configuration.
 
 ### CI/CD risks
 
-Workflows use explicit permissions and pinned actions where practical. CI runs linting, formatting, tests, coverage, package lifecycle smoke tests, and package-manager smoke tests.
+Workflows use explicit permissions and pinned actions where practical. CI runs DCO validation, linting, formatting, tests, coverage, npm package lifecycle integration, and the pnpm/Yarn/bun lifecycle matrix. The single strict `CI Success` context aggregates those required jobs.
 
 ### Release integrity risks
 
@@ -147,9 +157,15 @@ Relevant evidence includes:
 - [Dependency management](../dependency-management.md)
 - [Release verification](../release-verification.md)
 - [Vulnerability history](../vulnerability-history.md)
+- [Governance and prospective DCO baseline](../../GOVERNANCE.md)
 - [CI workflow](../../.github/workflows/ci.yml)
 - [CodeQL workflow](../../.github/workflows/codeql.yml)
 - [Dependabot configuration](../../.github/dependabot.yml)
+- Guard integration evidence: `test/commit-guards-integration.test.mjs`
+- Secret scanner evidence: `test/secret-scan.test.mjs` and
+  `test/secret-scan-integration.test.mjs`
+- Configuration allowlist evidence: `scripts/lib/config.mjs` and
+  `test/config.test.mjs`
 
 ## Maintenance
 

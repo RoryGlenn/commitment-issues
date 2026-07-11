@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="848" viewBox="0 0 1024 848" role="img" aria-labelledby="title desc">
   <title id="title">commitment-issues project flowchart</title>
-  <desc id="desc">Project flowchart showing setup, core Git hook wiring, the pre-commit flow, safe fix paths, and the pre-push flow with advisory and blocking outcomes.</desc>
+  <desc id="desc">Project flowchart showing setup, core Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests with advisory and blocking outcomes.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#060b13"/>
@@ -45,7 +45,7 @@
     .icon{fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   </style>
 
-  <rect width="1024" height="768" fill="url(#bg)"/>
+  <rect width="1024" height="848" fill="url(#bg)"/>
 
   <!-- Title -->
   <rect x="160" y="8" width="704" height="68" rx="10" fill="#0f151e" stroke="#2c3644" stroke-width="1.4" filter="url(#shadow)"/>
@@ -143,7 +143,7 @@
 
   <!-- 3 Pre-commit flow -->
   <g transform="translate(20 270)">
-    <rect class="panel purple" width="565" height="280" rx="12"/>
+    <rect class="panel purple" width="565" height="352" rx="12"/>
     <rect x="16" y="14" width="30" height="30" rx="7" fill="#8957e5"/>
     <text class="badge" x="31" y="35" text-anchor="middle">3</text>
     <text class="sec purpleText" x="58" y="35">Pre-commit flow</text>
@@ -176,31 +176,39 @@
       <text class="bd" x="34" y="36">allow commit</text>
     </g>
     <text class="lbl" x="328" y="130" text-anchor="end">Yes</text>
-    <path class="arrow" d="M336 115v16"/>
-    <g transform="translate(264 137)">
-      <rect class="card" width="144" height="54" rx="8"/>
+    <path class="arrow" d="M336 115v12"/>
+    <g transform="translate(246 133)">
+      <rect class="card" width="180" height="54" rx="8"/>
       <rect class="icon" x="13" y="14" width="16" height="26" rx="2" stroke="#9aa4b2"/>
       <path class="icon" stroke="#9aa4b2" d="M17 14v-3h8v3M17 23h8M17 30h8"/>
-      <text class="hd" x="40" y="22">Run checks</text>
-      <text class="monoSm" x="40" y="37">lint, format,</text>
-      <text class="monoSm" x="40" y="49">missing tests</text>
+      <text class="hd" x="40" y="22">Code checks</text>
+      <text class="monoSm" x="40" y="39">lint • format • tests</text>
     </g>
-    <path class="arrow" d="M336 191v14"/>
-    <path d="M336 207L388 239L336 271L284 239Z" fill="#170f26" stroke="#a371f7" stroke-width="1.6" filter="url(#shadow)"/>
-    <text class="bd" x="336" y="236" text-anchor="middle">Issues</text>
-    <text class="bd" x="336" y="250" text-anchor="middle">found?</text>
-    <text class="lbl" x="400" y="229" text-anchor="middle">No</text>
-    <path class="arrow" d="M388 239h16"/>
-    <g transform="translate(408 216)">
+    <path class="arrow" d="M336 187v10"/>
+    <g transform="translate(180 203)">
+      <rect class="card" width="312" height="64" rx="8"/>
+      <path class="icon" stroke="#a371f7" d="M20 12l10 4v8c0 8-6 12-10 14-4-2-10-6-10-14v-8z"/>
+      <path class="icon" stroke="#a371f7" d="M15.5 24l3.5 3.5 6-7.5"/>
+      <text class="hd" x="42" y="20">Guard checks</text>
+      <text class="monoSm" x="42" y="37">branch • upstream • secrets</text>
+      <text class="monoSm" x="42" y="52">commit shape • large/generated files</text>
+    </g>
+    <path class="arrow" d="M336 267v10"/>
+    <path d="M336 279L388 311L336 343L284 311Z" fill="#170f26" stroke="#a371f7" stroke-width="1.6" filter="url(#shadow)"/>
+    <text class="bd" x="336" y="308" text-anchor="middle">Issues</text>
+    <text class="bd" x="336" y="322" text-anchor="middle">found?</text>
+    <text class="lbl" x="400" y="301" text-anchor="middle">No</text>
+    <path class="arrow" d="M388 311h16"/>
+    <g transform="translate(408 288)">
       <rect class="card green" width="140" height="46" rx="8"/>
       <circle class="icon" cx="18" cy="23" r="10" stroke="#56d364"/>
       <path class="icon" stroke="#56d364" d="M13.5 23l3.5 3.5 6.5-8"/>
       <text class="hdSm" x="34" y="21">All checks passed</text>
       <text class="bd" x="34" y="36">allow commit</text>
     </g>
-    <text class="lbl" x="240" y="229" text-anchor="middle">Yes</text>
-    <path class="arrow" d="M284 239H180"/>
-    <g transform="translate(16 216)">
+    <text class="lbl" x="240" y="301" text-anchor="middle">Yes</text>
+    <path class="arrow" d="M284 311H180"/>
+    <g transform="translate(16 288)">
       <rect class="card orange" width="158" height="46" rx="8"/>
       <path class="icon" stroke="#ffb224" d="M20 11l10.5 18H9.5zM20 18v6"/>
       <circle cx="20" cy="26.5" r="1.2" fill="#ffb224"/>
@@ -210,12 +218,12 @@
 
   <!-- 4 Safe Fix Paths -->
   <g transform="translate(597 270)">
-    <rect class="panel orange" width="407" height="280" rx="12"/>
+    <rect class="panel orange" width="407" height="352" rx="12"/>
     <rect x="16" y="14" width="30" height="30" rx="7" fill="#ee7211"/>
     <text class="badge" x="31" y="35" text-anchor="middle">4</text>
     <text class="sec orangeText" x="58" y="35">Safe Fix Paths</text>
 
-    <g transform="translate(16 52)">
+    <g transform="translate(16 76)">
       <rect class="card orange" width="182" height="152" rx="10"/>
       <circle class="icon" cx="91" cy="30" r="16" stroke="#f0883e"/>
       <path class="icon" stroke="#f0883e" d="M98 22a6 6 0 0 0-8 6l-7 7 3.5 3.5 7-7a6 6 0 0 0 6-8l-3.5 3.5-3-3z"/>
@@ -224,7 +232,7 @@
       <text class="bd" x="91" y="116" text-anchor="middle">refuses partial staging</text>
       <text class="bd" x="91" y="138" text-anchor="middle">re-stages safe fixes</text>
     </g>
-    <g transform="translate(209 52)">
+    <g transform="translate(209 76)">
       <rect class="card orange" width="182" height="152" rx="10"/>
       <circle class="icon" cx="91" cy="30" r="16" stroke="#f0883e"/>
       <path class="icon" stroke="#f0883e" d="M98 22a6 6 0 0 0-8 6l-7 7 3.5 3.5 7-7a6 6 0 0 0 6-8l-3.5 3.5-3-3z"/>
@@ -233,13 +241,13 @@
       <text class="bd" x="91" y="116" text-anchor="middle">requires clean tree</text>
       <text class="bd" x="91" y="138" text-anchor="middle">amends safely</text>
     </g>
-    <rect class="card orange" x="16" y="228" width="375" height="40" rx="8"/>
-    <path class="icon" stroke="#f0883e" d="M114 236l8 3v6c0 6-5 9.5-8 11-3-1.5-8-5-8-11v-6z"/>
-    <text class="orangeText" x="216" y="252" text-anchor="middle" font-weight="700" font-size="13" font-family="ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif">Refuses unsafe mutations</text>
+    <rect class="card orange" x="16" y="268" width="375" height="40" rx="8"/>
+    <path class="icon" stroke="#f0883e" d="M114 276l8 3v6c0 6-5 9.5-8 11-3-1.5-8-5-8-11v-6z"/>
+    <text class="orangeText" x="216" y="292" text-anchor="middle" font-weight="700" font-size="13" font-family="ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif">Refuses unsafe mutations</text>
   </g>
 
   <!-- 5 Pre-push flow -->
-  <g transform="translate(20 565)">
+  <g transform="translate(20 637)">
     <rect class="panel cyan" width="984" height="140" rx="12"/>
     <rect x="16" y="14" width="30" height="30" rx="7" fill="#0e7490"/>
     <text class="badge" x="31" y="35" text-anchor="middle">5</text>
@@ -303,8 +311,8 @@
   </g>
 
   <!-- Core idea footer -->
-  <rect x="20" y="718" width="984" height="40" rx="8" fill="#0d1219" stroke="#2a3340" stroke-width="1.4" filter="url(#shadow)"/>
-  <path class="icon" stroke="#f2f7ff" d="M42 727a7 7 0 0 0-4 12.5v3.5h8v-3.5A7 7 0 0 0 42 727zM38.5 746.5h7M42 723.5v-2.5M32.5 727l-2-2M51.5 727l2-2"/>
-  <text class="hd" x="60" y="742">Core idea:</text>
-  <text class="bd" x="128" y="742" font-size="11">Own the Git hook workflow directly, stay advisory-first by default, and only block or mutate when it is safe or explicitly configured.</text>
+  <rect x="20" y="790" width="984" height="40" rx="8" fill="#0d1219" stroke="#2a3340" stroke-width="1.4" filter="url(#shadow)"/>
+  <path class="icon" stroke="#f2f7ff" d="M42 799a7 7 0 0 0-4 12.5v3.5h8v-3.5A7 7 0 0 0 42 799zM38.5 818.5h7M42 795.5V793M32.5 799l-2-2M51.5 799l2-2"/>
+  <text class="hd" x="60" y="814">Core idea:</text>
+  <text class="bd" x="128" y="814" font-size="11">Own the Git hook workflow directly, stay advisory-first by default, and only block or mutate when it is safe or explicitly configured.</text>
 </svg>

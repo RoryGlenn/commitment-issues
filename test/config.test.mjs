@@ -12,9 +12,13 @@ import {
   KNOWN_PRECOMMIT_CONFIG_KEYS,
   MAX_TIMEOUT_MS,
   loadPrecommitConfig,
+  loadPrecommitConfigState,
+  precommitConfigSourceLabel,
   precommitConfigWarningMessages,
+  readStandalonePrecommitConfig,
   resolveCommitMessageConfig,
   sanitizePrecommitConfig,
+  STANDALONE_CONFIG_FILE,
   unknownPrecommitConfigKeys,
 } from "../scripts/lib/config.mjs";
 
@@ -39,10 +43,128 @@ function withTempPackage(t, packageJson) {
   process.chdir(dir);
 }
 
+function writeStandaloneConfig(value, { raw = false } = {}) {
+  const content = raw ? value : JSON.stringify(value);
+  fs.writeFileSync(path.join(process.cwd(), STANDALONE_CONFIG_FILE), content);
+}
+
 test("loadPrecommitConfig reads valid precommitChecks from package.json", (t) => {
   withTempPackage(t, { precommitChecks: { runStagedTests: true } });
 
   assert.deepEqual(loadPrecommitConfig(), { runStagedTests: true });
+});
+
+test("loadPrecommitConfig reads top-level keys from .commitmentrc.json", (t) => {
+  withTempPackage(t, { name: "x" });
+  writeStandaloneConfig({ runStagedTests: true, tone: "fun" });
+
+  assert.deepEqual(loadPrecommitConfig(), {
+    runStagedTests: true,
+    tone: "fun",
+  });
+});
+
+test("valid standalone config still loads when package.json is malformed", (t) => {
+  withTempPackage(t, "{ invalid package json");
+  writeStandaloneConfig({ requireTests: false });
+
+  assert.deepEqual(loadPrecommitConfig(), { requireTests: false });
+});
+
+test("configuration discovery never executes JavaScript files", (t) => {
+  withTempPackage(t, { precommitChecks: { requireTests: false } });
+  fs.writeFileSync(
+    path.join(process.cwd(), "commitment.config.js"),
+    'throw new Error("must not execute");\n',
+  );
+
+  assert.deepEqual(loadPrecommitConfig(), { requireTests: false });
+});
+
+test("standalone keys shallowly override package.json and keep other keys", (t) => {
+  withTempPackage(t, {
+    precommitChecks: {
+      requireTests: true,
+      testExempt: ["package/**"],
+      timeoutMs: 1000,
+    },
+  });
+  writeStandaloneConfig({
+    requireTests: false,
+    testExempt: ["standalone/**"],
+  });
+
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, {
+    requireTests: false,
+    testExempt: ["standalone/**"],
+    timeoutMs: 1000,
+  });
+  assert.equal(
+    precommitConfigSourceLabel(config),
+    ".commitmentrc.json and package.json",
+  );
+});
+
+test("an invalid standalone value overrides rather than reviving package.json", (t) => {
+  withTempPackage(t, {
+    precommitChecks: { requireTests: true, tone: "standard" },
+  });
+  writeStandaloneConfig({ requireTests: "no" });
+
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, { tone: "standard" });
+  assert.deepEqual(precommitConfigWarningMessages(config), [
+    "Ignoring invalid precommitChecks value(s) in .commitmentrc.json: requireTests must be a boolean.",
+  ]);
+});
+
+test("malformed standalone JSON warns and falls back to package.json", (t) => {
+  withTempPackage(t, { precommitChecks: { runStagedTests: true } });
+  writeStandaloneConfig("{ invalid", { raw: true });
+
+  const state = loadPrecommitConfigState();
+  assert.deepEqual(state.config, { runStagedTests: true });
+  assert.equal(state.standalone.error, "contains invalid JSON");
+  assert.deepEqual(precommitConfigWarningMessages(state.config), [
+    "Ignoring .commitmentrc.json because it contains invalid JSON. Using package.json precommitChecks or defaults instead.",
+  ]);
+});
+
+test("non-object standalone roots warn and fall back to package.json", (t) => {
+  const malformedRoots = [null, false, true, "enabled", 123, []];
+
+  for (const value of malformedRoots) {
+    withTempPackage(t, { precommitChecks: { requireTests: false } });
+    writeStandaloneConfig(value);
+
+    const state = loadPrecommitConfigState();
+    assert.deepEqual(
+      state.config,
+      { requireTests: false },
+      `${JSON.stringify(value)} should fall back`,
+    );
+    assert.equal(
+      state.standalone.error,
+      "must contain a JSON object at the top level",
+    );
+  }
+});
+
+test("standalone reader reports absent and valid files explicitly", (t) => {
+  withTempPackage(t, { name: "x" });
+  assert.deepEqual(readStandalonePrecommitConfig(), {
+    exists: false,
+    config: {},
+    error: null,
+  });
+
+  writeStandaloneConfig({ advisePushTests: true });
+  assert.deepEqual(readStandalonePrecommitConfig(), {
+    exists: true,
+    config: { advisePushTests: true },
+    error: null,
+  });
 });
 
 test("unknownPrecommitConfigKeys flags typo'd keys and keeps their order", () => {
