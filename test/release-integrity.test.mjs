@@ -54,7 +54,9 @@ test("publish workflow gates and publishes the packed provenance subject", () =>
 test("manual exact-tarball publishing runs gates before packing", () => {
   const guide = readText(".github/skills/release-and-publish/SKILL.md");
   const lifecycleGate = guide.indexOf("npm run test:lifecycle:npm");
-  const packCommand = guide.indexOf('tarball="$(npm pack --silent | tail -n1)"');
+  const packCommand = guide.indexOf(
+    'tarball="$(npm pack --silent | tail -n1)"',
+  );
   const publishCommand = guide.indexOf('npm publish "./$tarball"');
 
   assert.match(
