@@ -56,6 +56,11 @@ jobs:
       - run: npm run build --if-present
       - run: npm test
 
+      - name: Verify npm package lifecycle
+        # Publishing a tarball skips this package's prepublishOnly lifecycle.
+        # Run the packaging smoke before creating the exact release artifact.
+        run: npm run test:lifecycle:npm
+
       - name: Pack tarball
         id: pack
         run: |

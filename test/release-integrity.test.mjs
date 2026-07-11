@@ -22,8 +22,19 @@ function availableGit(args) {
   return { status: 0, stdout: "", stderr: "" };
 }
 
-test("publish workflow publishes the packed subject and uploads provenance", () => {
+test("publish workflow gates and publishes the packed provenance subject", () => {
   const workflow = readText(".github/workflows/publish.yml");
+  const lifecycleGate = workflow.indexOf("run: npm run test:lifecycle:npm");
+  const packStep = workflow.indexOf("- name: Pack tarball");
+  const publishStep = workflow.indexOf("- name: Publish to npm");
+
+  assert.notEqual(lifecycleGate, -1);
+  assert.notEqual(packStep, -1);
+  assert.notEqual(publishStep, -1);
+  assert.ok(
+    lifecycleGate < packStep && packStep < publishStep,
+    "npm lifecycle smoke must finish before the release tarball is packed and published",
+  );
 
   assert.match(
     workflow,
@@ -38,6 +49,25 @@ test("publish workflow publishes the packed subject and uploads provenance", () 
   assert.match(workflow, /upload-tag-name:\s+\$\{\{ github\.ref_name \}\}/);
   assert.match(workflow, /needs:\s+\[publish, provenance\]/);
   assert.match(workflow, /files:\s+"\*\.tgz"/);
+});
+
+test("manual exact-tarball publishing runs gates before packing", () => {
+  const guide = readText(".github/skills/release-and-publish/SKILL.md");
+  const lifecycleGate = guide.indexOf("npm run test:lifecycle:npm");
+  const packCommand = guide.indexOf('tarball="$(npm pack --silent | tail -n1)"');
+  const publishCommand = guide.indexOf('npm publish "./$tarball"');
+
+  assert.match(
+    guide,
+    /Publishing a tarball does not run this root package's `prepublishOnly`/,
+  );
+  assert.notEqual(lifecycleGate, -1);
+  assert.notEqual(packCommand, -1);
+  assert.notEqual(publishCommand, -1);
+  assert.ok(
+    lifecycleGate < packCommand && packCommand < publishCommand,
+    "manual gates must finish before the release tarball is packed and published",
+  );
 });
 
 test("release verification uses supported npm provenance surfaces", () => {

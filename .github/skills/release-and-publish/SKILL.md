@@ -26,7 +26,7 @@ Automated publishing uses **npm Trusted Publishing** (OIDC), so CI publishes wit
 
 - On npmjs.com → package `commitment-issues` → **Settings → Trusted Publishing** → add a GitHub Actions publisher: user `RoryGlenn`, repository `commitment-issues`, workflow `publish.yml` (leave environment blank unless one is added).
 
-The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for it: it triggers on `v*` tags, sets `permissions: id-token: write`, verifies the bundled npm supports trusted publishing, checks the tag matches `package.json`, packs once, and publishes that exact tarball (npm provenance is generated automatically). It also attaches the tarball and SLSA provenance to the GitHub Release. Until the trusted publisher is registered, use the **manual fallback** below.
+The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for it: it triggers on `v*` tags, sets `permissions: id-token: write`, verifies the bundled npm supports trusted publishing, checks the tag matches `package.json`, runs the full suite and explicit npm lifecycle smoke, then packs the release artifact once and publishes that exact tarball (npm provenance is generated automatically). It also attaches the tarball and SLSA provenance to the GitHub Release. Until the trusted publisher is registered, use the **manual fallback** below.
 
 ## Release flow (in order)
 
@@ -68,8 +68,10 @@ Use this only before trusted publishing is registered, or as break-glass if the 
    npm login
    npm whoami        # verify: should print roryglenn
    ```
-6. **Pack once, then publish that tarball.** `prepublishOnly` runs `npm test && npm run test:smoke` automatically as a gate:
+6. **Run the gates explicitly, pack once, then publish that tarball.** Publishing a tarball does not run this root package's `prepublishOnly`, so repeat both gates immediately before creating the release artifact:
    ```bash
+   npm test
+   npm run test:lifecycle:npm
    tarball="$(npm pack --silent | tail -n1)"
    npm publish "./$tarball"
    ```
@@ -88,7 +90,7 @@ Use this only before trusted publishing is registered, or as break-glass if the 
   Release or npm version exists.
 - **Trusted publishing requires npm ≥ 11.5.1 and `id-token: write`.** Both are handled in `publish.yml` (it upgrades npm and sets the permission). If a publish job errors with an OIDC/authentication message, confirm the trusted publisher is registered on npm for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`.
 - **Manual `npm publish` → `E404 Not Found - PUT ... or you do not have permission`** is almost always an **auth** problem, not a bad package name — npm masks 403/permission errors as 404. Check `npm whoami` (an `E401` there means not logged in). Fix by logging in as `roryglenn`; do **not** rename the package or fabricate a scope.
-- **`prepublishOnly` failing** blocks publish by design — it runs the full test suite and the packaging smoke. Fix the failure; do not bypass it.
+- **Publishing a tarball does not run this root package's `prepublishOnly`.** The automated and manual exact-tarball flows explicitly run `npm test` and `npm run test:lifecycle:npm` before packing. Keep both gates; `prepublishOnly` remains defense in depth for a direct root-directory publish.
 - **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/`, `docs/`, `README.md`, `CHANGELOG.md`, `LICENSE`. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
 
 ## CI / required checks
