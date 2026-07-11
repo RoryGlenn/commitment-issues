@@ -105,6 +105,10 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const visibleCommitIndex = tape.indexOf(
     "git commit -q -am 'print hello world'",
   );
+  const fixIndex = tape.indexOf(
+    "./node_modules/.bin/commitment-issues commit-fix",
+  );
+  const pushIndex = tape.indexOf('Type "git push -q" Enter');
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const metadataIndex = workflow.indexOf(
     "name: Verify rendered demo dimensions and timing",
@@ -176,6 +180,8 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
   assert.match(tape, /\.\/node_modules\/\.bin\/commitment-issues commit-fix/);
+  assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
+  assert.match(tape, /Wait\+Screen@30s \/__BASELINE_READY__\//);
   assert.match(tape, /PROMPT='READY> '/);
   assert.match(tape, /Wait\+Line@30s \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
@@ -184,6 +190,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     tape,
     /Wait\+Screen@30s \/Latest commit amended with automatic fixes\//,
   );
+  assert.match(tape, /Wait\+Screen@30s \/Push allowed\\\.\//);
   assert.ok(switchIndex >= 0, "demo should create a named feature branch");
   assert.ok(
     tape.lastIndexOf("Show", initIndex) > tape.lastIndexOf("Hide", initIndex),
@@ -196,5 +203,9 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.ok(
     visibleCommitIndex > switchIndex,
     "the demonstrated commit should happen after switching off main",
+  );
+  assert.ok(
+    pushIndex > fixIndex,
+    "the demonstrated push should happen after the safe automatic amend",
   );
 });

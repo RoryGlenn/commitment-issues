@@ -87,8 +87,8 @@ Sleep 4s
 # screen and the next commit shows a single file. --no-verify skips its hook box.
 Hide
 Set TypingSpeed 1ms
-Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
-Sleep 2s
+Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
+Wait+Screen@30s /__BASELINE_READY__/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
@@ -106,5 +106,10 @@ Show
 # --- 3. Run command to fix changes ---
 Type "./node_modules/.bin/commitment-issues commit-fix" Enter
 Wait+Screen@30s /Latest commit amended with automatic fixes/
+Sleep 4s
+
+# --- 4. Push changes ---
+Type "git push -q" Enter
+Wait+Screen@30s /Push allowed\./
 Sleep 4s
 Show
