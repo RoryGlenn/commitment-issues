@@ -52,6 +52,13 @@ Shown when `init` (or interactive `doctor`) runs outside a project root.
 
 Shown when package.json cannot be parsed; fix the JSON and run `init` again.
 
+### Invalid package.json structure
+
+`Invalid package.json structure.` is shown when the JSON parses but its root,
+`scripts`, or `precommitChecks` value is not an object. The message names the
+invalid container, exits before any write, and tells the user to fix
+`package.json` before rerunning `init`.
+
 ### Invalid .commitmentrc.json
 
 `Invalid .commitmentrc.json.` is shown by `init` or `uninstall` when the
@@ -684,6 +691,12 @@ Shown when `doctor` recreates missing `.git/hooks` files or retires dead husky-e
 </p>
 
 Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` reports it and leaves the hook untouched.
+
+### Hook inactive
+
+`A git hook is inactive.` is shown on POSIX when a custom hook contains the
+expected command but the file is not executable. `doctor` leaves the file and
+its mode untouched and prints the exact `chmod +x` command to run.
 
 ### Missing peer tools
 

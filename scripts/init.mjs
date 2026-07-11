@@ -60,6 +60,33 @@ try {
   process.exit(1);
 }
 
+function isJsonObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function rejectInvalidContainer(property) {
+  const location = property ? `property \`${property}\`` : "root value";
+  errorBox([
+    pc.bold("Invalid package.json structure."),
+    "",
+    pc.dim(`The ${location} must be a non-null, non-array JSON object.`),
+    pc.dim("Fix package.json, then run init again. No files were changed."),
+  ]);
+  process.exit(1);
+}
+
+// Validate every package container before mutating anything. JSON syntax alone
+// is not enough: arrays, primitives, and null cannot safely hold the values
+// init adds.
+if (!isJsonObject(pkg)) {
+  rejectInvalidContainer();
+}
+for (const property of ["scripts", "precommitChecks"]) {
+  if (Object.hasOwn(pkg, property) && !isJsonObject(pkg[property])) {
+    rejectInvalidContainer(property);
+  }
+}
+
 // Explicit setup must not write around a malformed higher-precedence config.
 // Hook-time readers only warn and fall back because commits/pushes are
 // advisory boundaries; init can stop safely before it mutates anything.
@@ -73,11 +100,10 @@ if (standalone.error) {
   ]);
   process.exit(1);
 }
-
 const created = [];
 const warnings = [];
 
-pkg.scripts = pkg.scripts || {};
+pkg.scripts ??= {};
 
 // `doctor --quiet` re-establishes hook wiring after every fresh clone or
 // reinstall. Compose it after a project-owned `prepare` command because Yarn
@@ -224,6 +250,7 @@ if (!isGitRepo) {
 if (isGitRepo && !foreignHooksPath) {
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
+  const nonExecutableHooks = [];
   for (const name of hookNames) {
     const status = classifyHook(hooksDir, name);
     // Create missing hooks and refresh exact older generated bodies. A hook the
@@ -241,6 +268,8 @@ if (isGitRepo && !foreignHooksPath) {
       );
     } else if (status === "custom-without-command") {
       unwiredHooks.push(name);
+    } else if (status === "non-executable") {
+      nonExecutableHooks.push(name);
     }
   }
 
@@ -254,11 +283,22 @@ if (isGitRepo && !foreignHooksPath) {
     );
   }
 
+  if (nonExecutableHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks were left unchanged but are not executable.",
+      "Make each hook executable so Git can run it:",
+      ...nonExecutableHooks.map((name) => `  chmod +x .git/hooks/${name}`),
+    );
+  }
+
   // Missing hooks are written above (or would be written by a dry run), and
   // wired/custom-with-command hooks are already active. Native hooks remain
-  // inactive when a custom hook omits the command or a husky hooksPath could
-  // not be retired and still shadows .git/hooks.
-  hooksActive = hooksPathRetired && unwiredHooks.length === 0;
+  // inactive when a custom hook omits the command, lacks an executable bit on
+  // POSIX, or a husky hooksPath could not be retired and shadows .git/hooks.
+  hooksActive =
+    hooksPathRetired &&
+    unwiredHooks.length === 0 &&
+    nonExecutableHooks.length === 0;
 
   // Clean up the husky-era artifacts this tool generated (exact-match hook
   // files and husky's runtime dir). User-authored `.husky` hooks are never

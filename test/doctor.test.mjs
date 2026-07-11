@@ -54,6 +54,8 @@ function wireHuskyEra(tempDir, { live = false } = {}) {
     path.join(tempDir, ".husky", "pre-push"),
     "commitment-issues prepush\n",
   );
+  fs.chmodSync(path.join(tempDir, ".husky", "pre-commit"), 0o755);
+  fs.chmodSync(path.join(tempDir, ".husky", "pre-push"), 0o755);
   if (live) {
     // Swap the node_modules symlink (which points at the real repo, where
     // husky is no longer installed) for a real dir: a husky stub plus
@@ -345,6 +347,86 @@ test("doctor accepts a custom hook that still invokes commitment-issues", (t) =>
   assert.match(output, /Git hooks are healthy/);
 });
 
+test("doctor rejects inert command mentions without changing custom hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish executable hook files
+  const bodies = {
+    "pre-commit": "#!/bin/sh\necho 'commitment-issues precommit'\n",
+    "pre-push": '#!/bin/sh\nexample="commitment-issues prepush"\n',
+  };
+  for (const [name, body] of Object.entries(bodies)) {
+    fs.writeFileSync(gitHook(tempDir, name), body);
+  }
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /does not invoke commitment-issues/);
+  for (const [name, body] of Object.entries(bodies)) {
+    assert.equal(fs.readFileSync(gitHook(tempDir, name), "utf8"), body);
+  }
+});
+
+test(
+  "doctor reports a non-executable custom hook without changing it",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    runDoctor(tempDir);
+    const hookPath = gitHook(tempDir, "pre-commit");
+    const body = "#!/bin/sh\ncommitment-issues precommit\n";
+    fs.writeFileSync(hookPath, body);
+    fs.chmodSync(hookPath, 0o644);
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.match(output, /not executable/);
+    assert.match(output, /Run: chmod \+x '\.git\/hooks\/pre-commit'/);
+    assert.match(output, /\.git\/hooks\/pre-commit/);
+    assert.equal(fs.readFileSync(hookPath, "utf8"), body);
+    assert.equal(fs.statSync(hookPath).mode & 0o111, 0);
+  },
+);
+
+test(
+  "doctor shell-quotes a non-executable foreign hook path",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const configuredHooksPath = "-hooks with spaces;$(touch injected)'quoted";
+    const hookPath = path.join(tempDir, configuredHooksPath, "pre-commit");
+    const hookBody = "#!/bin/sh\ncommitment-issues precommit\n";
+    writeFile(hookPath, hookBody);
+    fs.chmodSync(hookPath, 0o644);
+    run("git", ["config", "core.hooksPath", configuredHooksPath], tempDir);
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+    const quotedPath = `'./-hooks with spaces;$(touch injected)'"'"'quoted/pre-commit'`;
+    const fixCommand = `chmod +x ${quotedPath}`;
+
+    assert.equal(result.status, 1);
+    assert.ok(output.includes(fixCommand));
+    assert.equal(fs.readFileSync(hookPath, "utf8"), hookBody);
+    assert.equal(fs.statSync(hookPath).mode & 0o111, 0);
+    assert.equal(fs.existsSync(path.join(tempDir, "injected")), false);
+
+    const fixed = run("sh", ["-c", fixCommand], tempDir);
+    assert.equal(fixed.status, 0, fixed.stderr);
+    assert.notEqual(fs.statSync(hookPath).mode & 0o111, 0);
+    assert.equal(fs.existsSync(path.join(tempDir, "injected")), false);
+  },
+);
+
 test("doctor reports a pre-commit hook that never invokes commitment-issues", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -467,6 +549,8 @@ test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
     path.join(tempDir, "githooks", "pre-push"),
     "commitment-issues prepush\n",
   );
+  fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
+  fs.chmodSync(path.join(tempDir, "githooks", "pre-push"), 0o755);
   run("git", ["config", "core.hooksPath", "githooks"], tempDir);
 
   const result = runDoctor(tempDir);
@@ -488,6 +572,7 @@ test("doctor reports an unwired foreign core.hooksPath without touching it", (t)
     path.join(tempDir, "githooks", "pre-commit"),
     "echo my own hook\n",
   );
+  fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
   run("git", ["config", "core.hooksPath", "githooks"], tempDir);
 
   const result = runDoctor(tempDir);
