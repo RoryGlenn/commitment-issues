@@ -110,9 +110,18 @@ Show
 # --- 3. Fix the latest commit, then push it ---
 Type "npm run commit:fix" Enter
 Wait+Screen@30s /Latest commit amended with automatic fixes/
+Wait+Line@30s /git:\(feature.greeting\) *$/
 Sleep 4s
 
+# Reset the full viewport off-camera so the push result remains visible.
+Hide
+Set TypingSpeed 1ms
+Type "clear" Enter
+Wait+Line@30s /git:\(feature.greeting\) *$/
+Sleep 500ms
+Set TypingSpeed 100ms
+Show
 Type "git push -q" Enter
-Wait+Screen@30s /Push allowed\./
+Wait+Screen@30s /Push allowed/
 Sleep 4s
 Show

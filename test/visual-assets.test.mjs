@@ -107,6 +107,11 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   );
   const fixIndex = tape.indexOf("npm run commit:fix");
   const pushIndex = tape.indexOf('Type "git push -q" Enter', fixIndex);
+  const resetIndex = tape.indexOf('Type "clear" Enter', fixIndex);
+  const resetPromptIndex = tape.indexOf(
+    "Wait+Line@30s /git:\\(feature.greeting\\) *$/",
+    resetIndex,
+  );
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const metadataIndex = workflow.indexOf(
     "name: Verify rendered demo dimensions and timing",
@@ -193,7 +198,8 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     tape,
     /Wait\+Screen@30s \/Latest commit amended with automatic fixes\//,
   );
-  assert.match(tape, /Wait\+Screen@30s \/Push allowed\\\.\//);
+  assert.match(tape, /Wait\+Line@30s \/git:\\\(feature.greeting\\\) \*\$\//);
+  assert.match(tape, /Wait\+Screen@30s \/Push allowed\//);
   assert.ok(switchIndex >= 0, "demo should create a named feature branch");
   assert.ok(
     tape.lastIndexOf("Show", initIndex) > tape.lastIndexOf("Hide", initIndex),
@@ -210,5 +216,11 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.ok(
     pushIndex > fixIndex,
     "the demonstrated push should happen after the safe amend",
+  );
+  assert.ok(
+    resetIndex > fixIndex &&
+      resetPromptIndex > resetIndex &&
+      pushIndex > resetPromptIndex,
+    "the demo should reset its full viewport before showing the push result",
   );
 });
