@@ -5,6 +5,9 @@ import fs from "node:fs";
 
 const RAW_CONFIG = Symbol("commitment-issues.rawPrecommitConfig");
 
+// Largest delay Node's setTimeout accepts without coercing it to 1 ms.
+export const MAX_TIMEOUT_MS = 2_147_483_647;
+
 function isPlainConfig(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -131,9 +134,13 @@ export function invalidPrecommitConfigMessages(config) {
 
   if (
     "timeoutMs" in target &&
-    (!Number.isFinite(target.timeoutMs) || target.timeoutMs <= 0)
+    (!Number.isFinite(target.timeoutMs) ||
+      target.timeoutMs <= 0 ||
+      target.timeoutMs > MAX_TIMEOUT_MS)
   ) {
-    messages.push("timeoutMs must be a positive finite number");
+    messages.push(
+      `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
+    );
   }
 
   return messages;
@@ -183,7 +190,11 @@ export function sanitizePrecommitConfig(config) {
     sanitized.testCommand = config.testCommand;
   }
 
-  if (Number.isFinite(config.timeoutMs) && config.timeoutMs > 0) {
+  if (
+    Number.isFinite(config.timeoutMs) &&
+    config.timeoutMs > 0 &&
+    config.timeoutMs <= MAX_TIMEOUT_MS
+  ) {
     sanitized.timeoutMs = config.timeoutMs;
   }
 
