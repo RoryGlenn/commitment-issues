@@ -164,4 +164,13 @@ test("commit-message failures have complete fun-tone variants", () => {
     assert.match(text, /relationship|stood|space|left|missing/i);
     assert.match(text, /relationship note/);
   }
+
+  const blocking = buildCommitMessageCheckMessage({
+    outcome: "unavailable",
+    tone: "fun",
+    blocking: true,
+  });
+  assert.equal(blocking.severity, "error");
+  assert.match(blocking.lines.join("\n"), /blocking mode is official/);
+  assert.match(blocking.lines.join("\n"), /git commit --no-verify/);
 });
