@@ -79,7 +79,7 @@ All configuration lives under `precommitChecks` in `package.json`.
 | `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.              |
 | `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.                  |
 | `testCommand`            | string[]                | `["node", "--test"]` | Verbatim command used to run related tests; must accept file paths. |
-| `timeoutMs`              | number                  | `120000`             | Timeout for a command and its attached process tree.                |
+| `timeoutMs`              | number                  | `120000`             | Timeout for a command and its attached process tree; maximum `2,147,483,647` ms.                |
 | `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                              |
 
 Example:
