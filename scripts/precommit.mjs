@@ -4,12 +4,7 @@
 import path from "node:path";
 import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
-import {
-  run,
-  spawnAsync,
-  TOOL_TIMEOUT_MS,
-  toolInvocation,
-} from "./lib/process.mjs";
+import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
 import {
   invalidPrecommitConfigMessages,
   loadPrecommitConfig,
@@ -62,48 +57,38 @@ if (outputArgs.error) {
 }
 const jsonMode = outputArgs.enabled;
 
-function runPeerTool(name, args) {
-  const invocation = toolInvocation(name, args);
-  if (invocation.missingTool) {
-    return Promise.resolve({
-      outcome: "missing-tool",
-      missingTool: name,
-      error: undefined,
-      status: null,
-      signal: null,
-      stdout: "",
-      stderr: "",
-    });
-  }
-  return spawnAsync(invocation.command, invocation.args, {
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-}
-
 function runEslint(files) {
-  return runPeerTool("eslint", [
-    "--cache",
-    "--cache-strategy",
-    "content",
-    "--format",
-    "json",
-    "--",
-    ...files,
-  ]);
+  return runTool(
+    "eslint",
+    [
+      "--cache",
+      "--cache-strategy",
+      "content",
+      "--format",
+      "json",
+      "--",
+      ...files,
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] },
+  );
 }
 
 function runPrettier(files) {
-  return runPeerTool("prettier", [
-    "--cache",
-    "--cache-location",
-    ".prettiercache",
-    "--cache-strategy",
-    "content",
-    "--list-different",
-    "--ignore-unknown",
-    "--",
-    ...files,
-  ]);
+  return runTool(
+    "prettier",
+    [
+      "--cache",
+      "--cache-location",
+      ".prettiercache",
+      "--cache-strategy",
+      "content",
+      "--list-different",
+      "--ignore-unknown",
+      "--",
+      ...files,
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] },
+  );
 }
 
 function runStagedTestCommand(testCommand, tests) {
@@ -613,11 +598,17 @@ function unavailableToolIssue(result, outcome, displayName, packageName, type) {
     };
   }
   if (outcome === "timeout") {
+    const cleanupDetail =
+      result.cleanup === "direct-child"
+        ? "the direct child was stopped; descendant cleanup was unavailable"
+        : result.cleanup
+          ? "attached process-tree cleanup completed"
+          : null;
     return {
       autoFixable: false,
       type,
       message: `${displayName} timed out`,
-      detail: `No result within ${TOOL_TIMEOUT_MS / 1000}s`,
+      detail: `No result within ${TOOL_TIMEOUT_MS / 1000}s${cleanupDetail ? `; ${cleanupDetail}` : ""}`,
     };
   }
   if (outcome === "signal") {
@@ -787,7 +778,13 @@ if (testRun) {
             : "Unable to run staged tests",
       detail:
         stagedTestOutcome === "timeout"
-          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
+          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s${
+              testRun.cleanup === "direct-child"
+                ? "; the direct child was stopped; descendant cleanup was unavailable"
+                : testRun.cleanup
+                  ? "; attached process-tree cleanup completed"
+                  : ""
+            }`
           : stagedTestOutcome === "signal"
             ? `Process ended from ${testRun.signal || "an unknown signal"}`
             : "Check precommitChecks.testCommand in package.json",

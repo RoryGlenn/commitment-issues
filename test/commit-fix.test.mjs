@@ -3,7 +3,9 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -11,6 +13,7 @@ import {
   fakeGitEnv,
   readHeadFile,
   run,
+  setPrecommitConfig,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
@@ -208,6 +211,93 @@ test("warns when a format-only file cannot be fixed automatically", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Manual attention still needed\./);
+});
+
+test("commit-fix timeout cleans up fixer descendants", async (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { timeoutMs: 1500 });
+  writeFile(path.join(tempDir, "src", "slow.js"), "export const slow = 1;\n");
+
+  // Replace the shared dependency link with local fixture packages. The fake
+  // ESLint starts a heartbeat grandchild and hangs; Prettier exits cleanly so
+  // the timeout path remains isolated to one tool.
+  fs.unlinkSync(path.join(tempDir, "node_modules"));
+  const heartbeat = path.join(tempDir, "fixer-heartbeat");
+  const parentPidFile = path.join(tempDir, "fixer-parent-pid");
+  const childPidFile = path.join(tempDir, "fixer-child-pid");
+  const worker = [
+    'const fs = require("node:fs");',
+    "let beat = 0;",
+    "fs.writeFileSync(process.env.FIXER_CHILD_PID, String(process.pid));",
+    "fs.writeFileSync(process.env.FIXER_HEARTBEAT, String(beat));",
+    "setInterval(() => fs.writeFileSync(process.env.FIXER_HEARTBEAT, String(++beat)), 40);",
+  ].join("\n");
+  writeFile(
+    path.join(tempDir, "node_modules", "eslint", "package.json"),
+    `${JSON.stringify({ name: "eslint", bin: "bin/eslint.mjs" })}\n`,
+  );
+  writeFile(
+    path.join(tempDir, "node_modules", "eslint", "bin", "eslint.mjs"),
+    [
+      'import fs from "node:fs";',
+      'import { spawn } from "node:child_process";',
+      "process.stdout.destroy();",
+      "process.stderr.destroy();",
+      "fs.writeFileSync(process.env.FIXER_PARENT_PID, String(process.pid));",
+      `spawn(process.execPath, ["-e", ${JSON.stringify(worker)}], { stdio: "ignore" });`,
+      "setInterval(() => {}, 1000);",
+    ].join("\n"),
+  );
+  writeFile(
+    path.join(tempDir, "node_modules", "prettier", "package.json"),
+    `${JSON.stringify({ name: "prettier", bin: "bin/prettier.mjs" })}\n`,
+  );
+  writeFile(
+    path.join(tempDir, "node_modules", "prettier", "bin", "prettier.mjs"),
+    "process.exit(0);\n",
+  );
+  // The fixture repo tracks its original node_modules symlink. Remove that
+  // link from the index in this commit; the replacement directory stays
+  // ignored, leaving commit-fix a clean worktree to inspect.
+  run("git", ["rm", "--cached", "--force", "node_modules"], tempDir);
+  run("git", ["add", "src/slow.js", "package.json"], tempDir);
+  run("git", ["commit", "-m", "slow fixer"], tempDir);
+
+  const env = {
+    ...process.env,
+    FIXER_HEARTBEAT: heartbeat,
+    FIXER_PARENT_PID: parentPidFile,
+    FIXER_CHILD_PID: childPidFile,
+  };
+  let heartbeatContinued = false;
+  let cleanupNeeded = true;
+  try {
+    const result = runCommitFix(tempDir, { env });
+    assert.equal(result.status, 1);
+    assert.match(`${result.stdout}${result.stderr}`, /Manual attention/);
+    assert.equal(fs.existsSync(childPidFile), true, "grandchild should start");
+
+    const beatAtTimeout = fs.readFileSync(heartbeat, "utf8");
+    await delay(300);
+    const beatAfterTimeout = fs.readFileSync(heartbeat, "utf8");
+    heartbeatContinued = beatAfterTimeout !== beatAtTimeout;
+    cleanupNeeded = heartbeatContinued;
+  } finally {
+    for (const pidFile of cleanupNeeded ? [parentPidFile, childPidFile] : []) {
+      if (!fs.existsSync(pidFile)) {
+        continue;
+      }
+      try {
+        process.kill(Number(fs.readFileSync(pidFile, "utf8")), "SIGKILL");
+      } catch {
+        // Expected after successful process-tree cleanup.
+      }
+    }
+  }
+
+  assert.equal(heartbeatContinued, false, "fixer grandchild survived timeout");
 });
 
 test("errors when the amend itself fails", (t) => {

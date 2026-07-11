@@ -29,6 +29,11 @@ npm install -D commitment-issues eslint prettier
 
 `commitment-issues` also supports pnpm, Yarn, and Bun and adjusts its command hints to the package manager it detects.
 
+Hooks resolve ESLint and Prettier only from the project's installed
+`node_modules`. If either peer tool is missing, the check stays advisory and
+prints the matching npm, pnpm, Yarn, or Bun install command; it never falls back
+to `npx` to query a registry or install a package.
+
 ### 2. Preview and initialize
 
 See exactly what setup would change:
@@ -222,7 +227,7 @@ A stricter team configuration can start with:
 }
 ```
 
-If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence. The test command must accept test file paths as arguments, and every spawned tool is capped by a configurable timeout.
+If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence. The test command must accept test file paths as arguments, and every spawned tool is capped by a configurable timeout that cleans up its attached process tree.
 
 ### Safety model
 
@@ -249,12 +254,18 @@ It does not overwrite unrelated scripts, custom hook bodies, foreign hook direct
 
 ## Privacy and trust
 
-Everything runs locally through Git, ESLint, Prettier, and your configured test command.
+Everything runs locally through Git, project-installed ESLint and Prettier, and
+your configured test command.
 
 - No telemetry or usage collection
 - No phone-home request
 - No repository data upload
 - No account or hosted service
+- No implicit `npx` or registry fallback for missing ESLint/Prettier peers
+
+`precommitChecks.testCommand` is explicit user configuration and is executed
+verbatim. Configuring it with `npx`, a package-manager runner, or another
+network-capable command opts into that command's own resolution behavior.
 
 Project quality and security evidence:
 

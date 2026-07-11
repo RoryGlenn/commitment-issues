@@ -121,3 +121,7 @@ not support `--json`.
 - Fix commands can fail non-zero when safety checks fail or manual fixes remain.
 - JSON mode reports the same exit code in its `exitCode` field and does not
   change whether an advisory or enforcement result blocks.
+- Missing ESLint/Prettier peers are advisory in hooks and never invoke an
+  implicit `npx` fallback; fix commands fail nonzero and print an install hint.
+- Configured test commands are executed verbatim, including an explicitly
+  selected `npx` command.

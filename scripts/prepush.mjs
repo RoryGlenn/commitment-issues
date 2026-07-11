@@ -569,9 +569,15 @@ const testDidNotComplete = [
 ].includes(testOutcome);
 
 if (testDidNotComplete) {
+  const timeoutCleanup =
+    result.cleanup === "direct-child"
+      ? "the direct child was stopped, but descendant cleanup was unavailable"
+      : result.cleanup
+        ? "attached process-tree cleanup completed"
+        : null;
   const reasonText =
     testOutcome === "timeout"
-      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
+      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s${timeoutCleanup ? `; ${timeoutCleanup}` : ""}.`
       : testOutcome === "signal"
         ? `The test command stopped after ${
             result.signal || "an unknown signal"

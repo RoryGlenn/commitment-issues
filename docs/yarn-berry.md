@@ -18,10 +18,11 @@ Plug'n'Play (`nodeLinker: pnp`, the Yarn Berry default) is **not supported**.
 ## Why Plug'n'Play is not supported
 
 The Git hooks that `commitment-issues` installs run the `commitment-issues`
-binary from `node_modules/.bin`, and the checks shell out to `eslint` and
-`prettier` the same way. Under Plug'n'Play there is no `node_modules` directory
-and no `.bin` folder — Yarn resolves dependencies through its `.pnp.cjs` runtime
-instead. That means the hook entry points cannot find the binaries they expect.
+binary from `node_modules/.bin`, while built-in checks resolve the installed
+`eslint` and `prettier` package bins directly from `node_modules`. Under
+Plug'n'Play there is no `node_modules` directory or `.bin` folder — Yarn resolves
+dependencies through its `.pnp.cjs` runtime instead. That means the hook entry
+points and peer-tool resolver cannot find the binaries they expect.
 
 This is a boundary of the current design, not a temporary bug. Supporting PnP
 would require resolving every tool through the Yarn runtime instead of
@@ -54,8 +55,8 @@ would require resolving every tool through the Yarn runtime instead of
    yarn commitment-issues init
    ```
 
-5. Commit and push normally. The hooks resolve their binaries from
-   `node_modules/.bin`, just like in an npm or pnpm project.
+5. Commit and push normally. The hook entrypoint and peer tools resolve from the
+   local `node_modules` tree, just like in an npm or pnpm project.
 
 ## Verifying the setup
 
