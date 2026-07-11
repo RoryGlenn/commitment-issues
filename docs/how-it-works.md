@@ -30,12 +30,18 @@ The init command is idempotent. It wires plain Git hooks, adds helper npm script
 
 `commitment-issues` does not require a hook manager.
 
-| Git action   | Native hook path        | Command invoked               |
-| ------------ | ----------------------- | ----------------------------- |
-| `git commit` | `.git/hooks/pre-commit` | `commitment-issues precommit` |
-| `git push`   | `.git/hooks/pre-push`   | `commitment-issues prepush`   |
+| Git action              | Native hook path        | Command invoked                     |
+| ----------------------- | ----------------------- | ----------------------------------- |
+| `git commit`            | `.git/hooks/pre-commit` | `commitment-issues precommit`       |
+| `git push`              | `.git/hooks/pre-push`   | `commitment-issues prepush`         |
+| commit message (opt-in) | `.git/hooks/commit-msg` | `commitment-issues commit-msg "$1"` |
 
 The hook files call the package binary from `node_modules/.bin`, so the behavior stays local to the project.
+
+ESLint and Prettier are also resolved directly from the project's
+`node_modules`; a missing peer is reported with an install hint and never
+delegated to an implicit `npx` fallback. The configured `testCommand` is user
+owned and runs verbatim.
 
 ## Pre-commit flow
 
@@ -48,6 +54,19 @@ On commit, the pre-commit hook inspects staged files first.
 - In default advisory mode, issues are shown as warnings and the commit still continues.
 
 Blocking commit behavior is only used when explicitly configured.
+
+## Optional commit-message flow
+
+When `precommitChecks.commitMessage.enabled` is `true`, `init` and `doctor`
+also own the native commit-msg hook. Git supplies the pending message file as
+`$1`; the generated hook quotes it and the Node entrypoint forwards its absolute
+path as one argv value to project-local `node_modules/.bin/commitlint`.
+
+No commitlint package or ruleset is bundled. The consumer installs the CLI and
+defines its own commitlint configuration. Findings and setup failures warn by
+default; `commitMessage.blockOnFailure` is the explicit enforcement switch.
+Successful runs are silent, and `git commit --no-verify` retains Git's normal
+bypass behavior.
 
 ## Safe fix paths
 
@@ -73,6 +92,12 @@ The pre-push hook reads pushed refs, detects changed files, collects related tes
 | No related tests are found | Push allowed              | Push allowed  |
 
 If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
+
+Spawned tools return structured outcomes for success, normal nonzero exit,
+external signal, timeout, and spawn failure. Missing built-in peer tools are a
+separate outcome. Timeout cleanup terminates the attached process group on
+Ubuntu/macOS and process tree on Windows; see the documented
+[timeout cleanup boundary](configuration.md#timeout-cleanup-boundary).
 
 ## Configuration defaults
 

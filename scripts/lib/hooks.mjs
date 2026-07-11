@@ -17,9 +17,25 @@ export const BIN = "commitment-issues";
 export const HOOK_SUBCOMMANDS = {
   "pre-commit": "precommit",
   "pre-push": "prepush",
+  "commit-msg": "commit-msg",
 };
 
 export const HOOK_NAMES = Object.keys(HOOK_SUBCOMMANDS);
+export const ALWAYS_HOOK_NAMES = ["pre-commit", "pre-push"];
+
+/**
+ * Hooks that should be active for a sanitized project configuration.
+ * Commit-message linting is the only optional hook and requires an explicit
+ * `enabled: true`; uninstall still uses HOOK_NAMES to find every artifact this
+ * package may own.
+ * @param {object} config - Sanitized precommitChecks configuration.
+ * @returns {string[]} Active hook names.
+ */
+export function hookNamesForConfig(config) {
+  return config?.commitMessage?.enabled === true
+    ? [...ALWAYS_HOOK_NAMES, "commit-msg"]
+    : [...ALWAYS_HOOK_NAMES];
+}
 
 /**
  * The bin invocation a hook must contain to count as wired.
@@ -27,7 +43,10 @@ export const HOOK_NAMES = Object.keys(HOOK_SUBCOMMANDS);
  * @returns {string} e.g. "commitment-issues precommit".
  */
 export function hookCommand(name) {
-  return `${BIN} ${HOOK_SUBCOMMANDS[name]}`;
+  const command = `${BIN} ${HOOK_SUBCOMMANDS[name]}`;
+  // Git supplies the message file as $1. Keep it quoted in both generated and
+  // suggested custom-hook wiring so repositories with unusual paths are safe.
+  return name === "commit-msg" ? `${command} "$1"` : command;
 }
 
 /**
@@ -37,7 +56,7 @@ export function hookCommand(name) {
  * - puts node_modules/.bin on PATH (git runs hooks from the repo root);
  * - self-neutralizes when the bin is gone (uninstalling the package must never
  *   break commits or pushes).
- * @param {string} name - Hook name (e.g. "pre-commit").
+ * @param {string} name - Hook name (e.g. "pre-commit" or "commit-msg").
  * @returns {string} Hook file contents.
  */
 export function hookBody(name) {
@@ -123,9 +142,12 @@ export function classifyHook(hooksDir, name) {
   if (content === hookBody(name)) {
     return "wired";
   }
-  return content.includes(hookCommand(name))
-    ? "custom-with-command"
-    : "custom-without-command";
+  const command = hookCommand(name);
+  const invokesCommand = content.split(/\r?\n/).some((line) => {
+    const trimmed = line.trimStart();
+    return !trimmed.startsWith("#") && line.includes(command);
+  });
+  return invokesCommand ? "custom-with-command" : "custom-without-command";
 }
 
 /**
