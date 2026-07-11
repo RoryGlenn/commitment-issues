@@ -105,11 +105,25 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const visibleCommitIndex = tape.indexOf(
     "git commit -q -am 'print hello world'",
   );
+  const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
+  const verifyIndex = workflow.indexOf(
+    "run: git diff --exit-code -- assets/demo.gif",
+  );
+  const uploadIndex = workflow.indexOf("name: Upload rendered demo");
 
   assert.match(tape, /^Output assets\/demo\.gif$/m);
   assert.match(tape, /ln -s "\$REPO\/node_modules" node_modules/);
   assert.match(workflow, /npm ci --ignore-scripts/);
   assert.match(workflow, /node-version: "24\.14\.0"/);
+  assert.ok(renderIndex >= 0, "workflow should render the demo");
+  assert.ok(
+    verifyIndex > renderIndex,
+    "workflow should compare the rendered GIF after rendering it",
+  );
+  assert.ok(
+    uploadIndex > verifyIndex,
+    "workflow should verify the committed GIF before uploading the artifact",
+  );
   assert.match(tape, /Set FontFamily "DejaVu Sans Mono"/);
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
