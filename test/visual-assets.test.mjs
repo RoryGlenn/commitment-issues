@@ -108,6 +108,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
 
   assert.match(tape, /^Output assets\/demo\.gif$/m);
   assert.match(tape, /npm pack --quiet --ignore-scripts/);
+  assert.match(tape, /npm install --offline --ignore-scripts/);
   assert.match(tape, /commitment-issues-demo\.tgz/);
   assert.match(tape, /--save-exact/);
   assert.match(tape, /Set FontFamily "DejaVu Sans Mono"/);
@@ -115,7 +116,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
   assert.match(tape, /PROMPT='READY> '/);
-  assert.match(tape, /Wait\+Line@2m \/READY>\$\//);
+  assert.match(tape, /Wait\+Line@1m \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
   assert.match(tape, /Wait\+Screen@30s \/Pre-commit suggestions found\//);
   assert.match(

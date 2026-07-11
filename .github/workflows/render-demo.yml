@@ -28,6 +28,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.14.0"
+          cache: npm
+
+      - name: Warm the locked npm cache for the offline demo fixture
+        run: npm ci --ignore-scripts
+
       - name: Install pinned VHS renderer
         env:
           VHS_SHA256: 99cb634587eaae0473c1ea377db80c3a048c27f99fe0a7febb1a1e8cb7ee5009

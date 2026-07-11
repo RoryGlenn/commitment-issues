@@ -56,8 +56,8 @@ Wait+Line /READY>$/
 # current code without recording a machine-specific source path.
 Type `TARBALL=$(npm pack --quiet --ignore-scripts "$REPO" --pack-destination .) && mv "$TARBALL" commitment-issues-demo.tgz` Enter
 Wait+Line@1m /READY>$/
-Type `npm install -D --save-exact ./commitment-issues-demo.tgz eslint@9.39.4 prettier@3.9.5 @eslint/js@9.39.4 globals@17.7.0 >/dev/null 2>&1` Enter
-Wait+Line@2m /READY>$/
+Type `npm install --offline --ignore-scripts -D --save-exact ./commitment-issues-demo.tgz eslint@9.39.4 prettier@3.9.5 @eslint/js@9.39.4 globals@17.7.0 >/dev/null 2>&1` Enter
+Wait+Line@1m /READY>$/
 Type "rm commitment-issues-demo.tgz" Enter
 Wait+Line /READY>$/
 Type `printf 'import js from "@eslint/js";\nimport globals from "globals";\nexport default [js.configs.recommended, { languageOptions: { globals: globals.node } }];\n' > eslint.config.mjs` Enter
