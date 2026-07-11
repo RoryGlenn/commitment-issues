@@ -1,0 +1,212 @@
+name: Render demo
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/render-demo.yml"
+      - "assets/demo.gif"
+      - "promo/demo.tape"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-demo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render deterministic demo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.14.0"
+          cache: npm
+
+      - name: Warm the locked npm cache for the offline demo fixture
+        run: npm ci --ignore-scripts
+
+      - name: Install pinned VHS renderer
+        env:
+          VHS_SHA256: 99cb634587eaae0473c1ea377db80c3a048c27f99fe0a7febb1a1e8cb7ee5009
+          TTYD_SHA256: 8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg fonts-dejavu-core zsh
+
+          mkdir -p "$RUNNER_TEMP/render-bin"
+          curl --fail --location --silent --show-error \
+            https://github.com/charmbracelet/vhs/releases/download/v0.11.0/vhs_0.11.0_Linux_x86_64.tar.gz \
+            --output "$RUNNER_TEMP/vhs.tar.gz"
+          echo "$VHS_SHA256  $RUNNER_TEMP/vhs.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/vhs.tar.gz" -C "$RUNNER_TEMP"
+          mv "$RUNNER_TEMP/vhs_0.11.0_Linux_x86_64/vhs" "$RUNNER_TEMP/render-bin/vhs"
+
+          curl --fail --location --silent --show-error \
+            https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 \
+            --output "$RUNNER_TEMP/render-bin/ttyd"
+          echo "$TTYD_SHA256  $RUNNER_TEMP/render-bin/ttyd" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/render-bin/vhs" "$RUNNER_TEMP/render-bin/ttyd"
+          echo "$RUNNER_TEMP/render-bin" >> "$GITHUB_PATH"
+
+      - name: Preserve the committed demo for visual comparison
+        run: cp assets/demo.gif "$RUNNER_TEMP/committed-demo.gif"
+
+      - name: Render assets/demo.gif from promo/demo.tape
+        run: vhs promo/demo.tape
+
+      - name: Upload rendered demo
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rendered-demo
+          path: assets/demo.gif
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify rendered demo dimensions and timing
+        env:
+          MAX_FRAME_COUNT_DRIFT: "2"
+          MAX_DURATION_DRIFT_SECONDS: "0.10"
+        run: |
+          set -euo pipefail
+          node - "$RUNNER_TEMP/committed-demo.gif" assets/demo.gif <<'NODE'
+          const { execFileSync } = require("node:child_process");
+
+          const [committedPath, renderedPath] = process.argv.slice(2);
+          const frameTolerance = Number(process.env.MAX_FRAME_COUNT_DRIFT);
+          const tolerance = Number(process.env.MAX_DURATION_DRIFT_SECONDS);
+
+          if (!Number.isInteger(frameTolerance) || frameTolerance < 0) {
+            throw new Error("MAX_FRAME_COUNT_DRIFT must be a non-negative integer.");
+          }
+          if (!Number.isFinite(tolerance) || tolerance < 0) {
+            throw new Error("MAX_DURATION_DRIFT_SECONDS must be non-negative.");
+          }
+
+          function probe(file) {
+            const raw = execFileSync(
+              "ffprobe",
+              [
+                "-v",
+                "error",
+                "-count_frames",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height,nb_read_frames,duration:format=duration",
+                "-of",
+                "json",
+                file,
+              ],
+              { encoding: "utf8" },
+            );
+            const data = JSON.parse(raw);
+            const stream = data.streams?.[0] ?? {};
+            const streamDuration = Number(stream.duration);
+            const formatDuration = Number(data.format?.duration);
+            const metrics = {
+              width: Number(stream.width),
+              height: Number(stream.height),
+              frames: Number(stream.nb_read_frames),
+              duration: Number.isFinite(streamDuration)
+                ? streamDuration
+                : formatDuration,
+            };
+
+            if (
+              !Number.isInteger(metrics.width) ||
+              metrics.width <= 0 ||
+              !Number.isInteger(metrics.height) ||
+              metrics.height <= 0 ||
+              !Number.isInteger(metrics.frames) ||
+              metrics.frames <= 0 ||
+              !Number.isFinite(metrics.duration) ||
+              metrics.duration <= 0
+            ) {
+              throw new Error(
+                `ffprobe returned invalid GIF metrics for ${file}: ${JSON.stringify(metrics)}`,
+              );
+            }
+            return metrics;
+          }
+
+          const committed = probe(committedPath);
+          const rendered = probe(renderedPath);
+          const failures = [];
+
+          if (
+            rendered.width !== committed.width ||
+            rendered.height !== committed.height
+          ) {
+            failures.push(
+              `dimensions differ (${committed.width}x${committed.height} committed, ${rendered.width}x${rendered.height} rendered)`,
+            );
+          }
+          const frameDrift = Math.abs(rendered.frames - committed.frames);
+          if (frameDrift > frameTolerance) {
+            failures.push(
+              `frame-count drift ${frameDrift} exceeds ${frameTolerance} (${committed.frames} committed, ${rendered.frames} rendered)`,
+            );
+          }
+
+          const durationDrift = Math.abs(rendered.duration - committed.duration);
+          if (durationDrift > tolerance) {
+            failures.push(
+              `duration drift ${durationDrift.toFixed(6)}s exceeds ${tolerance.toFixed(6)}s (${committed.duration.toFixed(6)}s committed, ${rendered.duration.toFixed(6)}s rendered)`,
+            );
+          }
+
+          if (failures.length > 0) {
+            console.error(`Rendered demo metadata mismatch: ${failures.join("; ")}.`);
+            process.exit(1);
+          }
+
+          console.log(
+            `Rendered demo metadata matches: ${rendered.width}x${rendered.height}, ${rendered.frames} frames, ${rendered.duration.toFixed(6)}s.`,
+          );
+          NODE
+
+      - name: Verify rendered demo matches committed visuals
+        env:
+          # A one-frame VHS timing shift can move the aggregate score by about
+          # 0.001 while the strict metadata gate above still bounds the render.
+          MINIMUM_SSIM: "0.997"
+        run: |
+          set -euo pipefail
+          comparison="$(
+            ffmpeg -hide_banner \
+              -i "$RUNNER_TEMP/committed-demo.gif" \
+              -i assets/demo.gif \
+              -lavfi ssim \
+              -f null - 2>&1
+          )"
+          score="$(
+            printf '%s\n' "$comparison" |
+              sed -n 's/.* All:\([0-9.]*\) .*/\1/p' |
+              tail -1
+          )"
+          SCORE="$score" node -e '
+            const score = Number(process.env.SCORE);
+            const minimum = Number(process.env.MINIMUM_SSIM);
+            if (!Number.isFinite(score) || score < minimum) {
+              console.error(
+                `Rendered demo visual similarity ${score || "unavailable"} is below ${minimum}.`,
+              );
+              process.exit(1);
+            }
+            console.log(
+              `Rendered demo visual similarity ${score.toFixed(6)} meets ${minimum}.`,
+            );
+          '

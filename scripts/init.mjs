@@ -9,7 +9,7 @@ import {
   BIN,
   classifyHook,
   gitHooksDir,
-  hookCommand,
+  hookInvocation,
   hookNamesForConfig,
   hooksPathConfig,
   isHuskyHooksPath,
@@ -24,6 +24,11 @@ import {
 } from "./lib/config.mjs";
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
+import {
+  loadRawPrecommitConfig,
+  readStandalonePrecommitConfig,
+  STANDALONE_CONFIG_FILE,
+} from "./lib/config.mjs";
 
 // One-command setup for a consuming repo: wires up the git hooks, npm scripts,
 // and gitignored caches without clobbering existing values. Hooks are plain
@@ -55,10 +60,50 @@ try {
   process.exit(1);
 }
 
+function isJsonObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function rejectInvalidContainer(property) {
+  const location = property ? `property \`${property}\`` : "root value";
+  errorBox([
+    pc.bold("Invalid package.json structure."),
+    "",
+    pc.dim(`The ${location} must be a non-null, non-array JSON object.`),
+    pc.dim("Fix package.json, then run init again. No files were changed."),
+  ]);
+  process.exit(1);
+}
+
+// Validate every package container before mutating anything. JSON syntax alone
+// is not enough: arrays, primitives, and null cannot safely hold the values
+// init adds.
+if (!isJsonObject(pkg)) {
+  rejectInvalidContainer();
+}
+for (const property of ["scripts", "precommitChecks"]) {
+  if (Object.hasOwn(pkg, property) && !isJsonObject(pkg[property])) {
+    rejectInvalidContainer(property);
+  }
+}
+
+// Explicit setup must not write around a malformed higher-precedence config.
+// Hook-time readers only warn and fall back because commits/pushes are
+// advisory boundaries; init can stop safely before it mutates anything.
+const standalone = readStandalonePrecommitConfig();
+if (standalone.error) {
+  errorBox([
+    pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
+    "",
+    pc.dim(`The file ${standalone.error}.`),
+    pc.dim("Fix or remove it, then run init again. No files were changed."),
+  ]);
+  process.exit(1);
+}
 const created = [];
 const warnings = [];
 
-pkg.scripts = pkg.scripts || {};
+pkg.scripts ??= {};
 
 // `doctor --quiet` re-establishes hook wiring after every fresh clone or
 // reinstall. Compose it after a project-owned `prepare` command because Yarn
@@ -106,17 +151,33 @@ for (const [name, value] of Object.entries(scripts)) {
   }
 }
 
-if (!pkg.precommitChecks) {
-  pkg.precommitChecks = {};
-  created.push("precommitChecks config");
-}
+let standaloneChanged = false;
+if (standalone.exists) {
+  const effectiveConfig = {
+    ...loadRawPrecommitConfig(),
+    ...standalone.config,
+  };
+  if (
+    !("advisePushTests" in effectiveConfig) &&
+    !("blockPushOnTestFailure" in effectiveConfig)
+  ) {
+    standalone.config.advisePushTests = true;
+    standaloneChanged = true;
+    created.push(`pre-push advisory config (${STANDALONE_CONFIG_FILE})`);
+  }
+} else {
+  if (!pkg.precommitChecks) {
+    pkg.precommitChecks = {};
+    created.push("precommitChecks config");
+  }
 
-if (
-  !("advisePushTests" in pkg.precommitChecks) &&
-  !("blockPushOnTestFailure" in pkg.precommitChecks)
-) {
-  pkg.precommitChecks.advisePushTests = true;
-  created.push("pre-push advisory config");
+  if (
+    !("advisePushTests" in pkg.precommitChecks) &&
+    !("blockPushOnTestFailure" in pkg.precommitChecks)
+  ) {
+    pkg.precommitChecks.advisePushTests = true;
+    created.push("pre-push advisory config");
+  }
 }
 
 const effectiveConfig = sanitizePrecommitConfig(pkg.precommitChecks);
@@ -125,6 +186,12 @@ const configWarnings = precommitConfigWarningMessages(effectiveConfig);
 
 if (!dryRun) {
   fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+  if (standaloneChanged) {
+    fs.writeFileSync(
+      STANDALONE_CONFIG_FILE,
+      `${JSON.stringify(standalone.config, null, 2)}\n`,
+    );
+  }
 }
 
 // --- Hook wiring (native .git/hooks) ---
@@ -168,7 +235,7 @@ if (foreignHooksPath) {
   warnings.push(
     `core.hooksPath is set to ${configuredHooksPath}, so git ignores .git/hooks.`,
     "Add these commands to the matching hooks in that directory:",
-    ...hookNames.map((name) => `  ${name}: ${hookCommand(name)}`),
+    ...hookNames.map((name) => `  ${name}: ${hookInvocation(name)}`),
     "Or unset it: git config --unset core.hooksPath",
   );
 }
@@ -183,18 +250,26 @@ if (!isGitRepo) {
 if (isGitRepo && !foreignHooksPath) {
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
+  const nonExecutableHooks = [];
   for (const name of hookNames) {
     const status = classifyHook(hooksDir, name);
-    // Only ever create; a hook the user wrote is left exactly as-is. A custom
-    // hook that invokes commitment-issues is healthy, while one that does not
-    // is reported below with the exact command the user needs to add.
-    if (status === "missing") {
+    // Create missing hooks and refresh exact older generated bodies. A hook the
+    // user wrote is left exactly as-is. A custom hook that invokes
+    // commitment-issues is healthy, while one that does not is reported below
+    // with the exact command the user needs to add.
+    if (status === "missing" || status === "stale-wired") {
       if (!dryRun) {
         writeHook(hooksDir, name);
       }
-      created.push(`.git/hooks/${name}`);
+      created.push(
+        status === "stale-wired"
+          ? `updated .git/hooks/${name}`
+          : `.git/hooks/${name}`,
+      );
     } else if (status === "custom-without-command") {
       unwiredHooks.push(name);
+    } else if (status === "non-executable") {
+      nonExecutableHooks.push(name);
     }
   }
 
@@ -203,16 +278,27 @@ if (isGitRepo && !foreignHooksPath) {
       "Existing git hooks were left unchanged but do not run commitment-issues.",
       "Add each command without removing your existing hook logic:",
       ...unwiredHooks.map(
-        (name) => `  .git/hooks/${name}: ${hookCommand(name)}`,
+        (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
       ),
+    );
+  }
+
+  if (nonExecutableHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks were left unchanged but are not executable.",
+      "Make each hook executable so Git can run it:",
+      ...nonExecutableHooks.map((name) => `  chmod +x .git/hooks/${name}`),
     );
   }
 
   // Missing hooks are written above (or would be written by a dry run), and
   // wired/custom-with-command hooks are already active. Native hooks remain
-  // inactive when a custom hook omits the command or a husky hooksPath could
-  // not be retired and still shadows .git/hooks.
-  hooksActive = hooksPathRetired && unwiredHooks.length === 0;
+  // inactive when a custom hook omits the command, lacks an executable bit on
+  // POSIX, or a husky hooksPath could not be retired and shadows .git/hooks.
+  hooksActive =
+    hooksPathRetired &&
+    unwiredHooks.length === 0 &&
+    nonExecutableHooks.length === 0;
 
   // Clean up the husky-era artifacts this tool generated (exact-match hook
   // files and husky's runtime dir). User-authored `.husky` hooks are never

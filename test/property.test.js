@@ -209,7 +209,11 @@ test("ESLint JSON parsers never throw on malformed output", () => {
 test("parseNumstat never throws and always returns sane totals", () => {
   fc.assert(
     fc.property(fc.string({ unit: "binary", maxLength: 300 }), (raw) => {
-      const { fileCount, changedLines } = parseNumstat(raw);
+      const result = parseNumstat(raw);
+      if (result === null) {
+        return;
+      }
+      const { fileCount, changedLines } = result;
       assert.ok(Number.isInteger(fileCount) && fileCount >= 0);
       assert.ok(Number.isInteger(changedLines) && changedLines >= 0);
       // A file can contribute lines only if it was counted.
@@ -228,9 +232,8 @@ test("parseNumstat totals well-formed entries exactly", () => {
   });
   fc.assert(
     fc.property(fc.array(entry, { maxLength: 20 }), (entries) => {
-      const stdout = entries
-        .map((e) => `${e.added}\t${e.deleted}\t${e.file}`)
-        .join("\n");
+      const records = entries.map((e) => `${e.added}\t${e.deleted}\t${e.file}`);
+      const stdout = records.length > 0 ? `${records.join("\0")}\0` : "";
       const expected = entries.reduce((sum, e) => sum + e.added + e.deleted, 0);
       assert.deepEqual(parseNumstat(stdout), {
         fileCount: entries.length,

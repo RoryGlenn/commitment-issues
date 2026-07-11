@@ -60,11 +60,71 @@ The normal change process is:
 
 Small documentation corrections, typo fixes, and low-risk maintenance changes may be proposed directly as pull requests without a prior issue.
 
+## Prospective enforcement baseline
+
+DCO and review enforcement is prospective from **2026-07-10**, commit
+[`81a9e412bc347f01300df62505ee378284646d15`](https://github.com/RoryGlenn/commitment-issues/commit/81a9e412bc347f01300df62505ee378284646d15).
+Published history before that baseline is not rewritten. Every commit after the
+baseline must carry a valid `Signed-off-by` trailer, including commits that
+reach `main` through an authorized bypass.
+
+The DCO job inside `CI Success` checks pull-request commits and audits all
+commits on `main` after the baseline. The focused DCO workflow provides a
+second, visible report. The baseline must not be advanced to hide a failure.
+Before a squash merge, the merger must ensure the generated commit message
+retains a valid sign-off; checking signed head commits cannot predict the final
+server-generated squash message.
+
 ## Review and merge policy
 
-Pull requests are reviewed against the standards in the contributing guide. Maintainers may request changes, ask for additional tests, or reject changes that are too broad or outside the roadmap.
+Normal changes to `main` must use a pull request. The live `main` ruleset
+requires:
 
-The project prefers review by someone other than the author when practical. Direct maintainer commits to `main` are reserved for urgent maintenance where a pull request is not practical.
+- one approving review;
+- dismissal of approvals when new commits make them stale;
+- approval of the most recent push by someone other than the pusher;
+- resolution of all review threads;
+- strict success of the aggregate `CI Success` status, which includes DCO,
+  the OS/Node test matrix, and package-manager lifecycle integration; and
+- linear history with squash or rebase merges only.
+
+Pull requests are reviewed against the standards in the contributing guide.
+Maintainers may request changes, ask for additional tests, or reject changes
+that are too broad or outside the roadmap.
+
+### Temporary single-maintainer exception
+
+The project currently has one trusted maintainer, so a second eligible approver
+is not always available. Until a second trusted reviewer or maintainer is
+listed in [Project roles](docs/project-roles.md), the sole maintainer may use
+the repository-admin bypass only to merge an otherwise review-ready pull
+request when independent approval cannot be obtained. DCO and `CI Success`
+must still pass, review threads must be resolved, and the pull request must
+record that the temporary exception was used and why. Self-approval is not
+treated as independent review.
+
+The continuity plan is to recruit and onboard a second trusted reviewer who
+has the repository permission needed to satisfy the live approval rule,
+review sensitive-resource coverage at each release and whenever access
+changes, and remove this exception once two-person review is sustainable.
+
+### Emergency bypass
+
+A direct push or bypass of a failing required check is limited to an active
+security, release-integrity, or repository-availability incident where the
+normal pull-request path cannot safely be used. The maintainer must:
+
+1. sign off every commit;
+2. preserve linear history and never force-push or move a consumed tag;
+3. record the reason, affected commit, validation performed, and any skipped
+   control in an issue or pull request as soon as the repository is usable; and
+4. run the skipped checks and obtain retrospective review when another trusted
+   reviewer is available.
+
+Convenience, a red test caused by the proposed change, or lack of time is not
+an emergency. Release preparation changes follow the normal pull-request path;
+pushing an immutable release tag after those changes merge is an authorized
+release operation, not a direct change to `main`.
 
 ## Release process
 

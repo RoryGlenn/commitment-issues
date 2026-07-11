@@ -54,6 +54,8 @@ function wireHuskyEra(tempDir, { live = false } = {}) {
     path.join(tempDir, ".husky", "pre-push"),
     "commitment-issues prepush\n",
   );
+  fs.chmodSync(path.join(tempDir, ".husky", "pre-commit"), 0o755);
+  fs.chmodSync(path.join(tempDir, ".husky", "pre-push"), 0o755);
   if (live) {
     // Swap the node_modules symlink (which points at the real repo, where
     // husky is no longer installed) for a real dir: a husky stub plus
@@ -190,6 +192,43 @@ test("doctor recreates a missing hook file", (t) => {
   assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
 });
 
+test("doctor refreshes the exact older generated pre-push hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  const hookPath = gitHook(tempDir, "pre-push");
+  const current = fs.readFileSync(hookPath, "utf8");
+  const stale = current.replace(
+    'commitment-issues prepush "$@"',
+    "commitment-issues prepush",
+  );
+  fs.writeFileSync(hookPath, stale);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Repaired the git hook wiring/);
+  assert.match(output, /outdated generated hook file\(s\): pre-push/);
+  assert.equal(fs.readFileSync(hookPath, "utf8"), current);
+});
+
+test("doctor preserves a customized pre-push hook without forwarded args", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  const hookPath = gitHook(tempDir, "pre-push");
+  const custom = "#!/bin/sh\necho custom\ncommitment-issues prepush\n";
+  fs.writeFileSync(hookPath, custom);
+
+  const result = runDoctor(tempDir);
+
+  assert.equal(result.status, 0);
+  assert.equal(fs.readFileSync(hookPath, "utf8"), custom);
+});
+
 test("doctor respects live husky-era wiring and only nudges", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -308,6 +347,86 @@ test("doctor accepts a custom hook that still invokes commitment-issues", (t) =>
   assert.match(output, /Git hooks are healthy/);
 });
 
+test("doctor rejects inert command mentions without changing custom hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir); // establish executable hook files
+  const bodies = {
+    "pre-commit": "#!/bin/sh\necho 'commitment-issues precommit'\n",
+    "pre-push": '#!/bin/sh\nexample="commitment-issues prepush"\n',
+  };
+  for (const [name, body] of Object.entries(bodies)) {
+    fs.writeFileSync(gitHook(tempDir, name), body);
+  }
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /does not invoke commitment-issues/);
+  for (const [name, body] of Object.entries(bodies)) {
+    assert.equal(fs.readFileSync(gitHook(tempDir, name), "utf8"), body);
+  }
+});
+
+test(
+  "doctor reports a non-executable custom hook without changing it",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    runDoctor(tempDir);
+    const hookPath = gitHook(tempDir, "pre-commit");
+    const body = "#!/bin/sh\ncommitment-issues precommit\n";
+    fs.writeFileSync(hookPath, body);
+    fs.chmodSync(hookPath, 0o644);
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.match(output, /not executable/);
+    assert.match(output, /Run: chmod \+x '\.git\/hooks\/pre-commit'/);
+    assert.match(output, /\.git\/hooks\/pre-commit/);
+    assert.equal(fs.readFileSync(hookPath, "utf8"), body);
+    assert.equal(fs.statSync(hookPath).mode & 0o111, 0);
+  },
+);
+
+test(
+  "doctor shell-quotes a non-executable foreign hook path",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const configuredHooksPath = "-hooks with spaces;$(touch injected)'quoted";
+    const hookPath = path.join(tempDir, configuredHooksPath, "pre-commit");
+    const hookBody = "#!/bin/sh\ncommitment-issues precommit\n";
+    writeFile(hookPath, hookBody);
+    fs.chmodSync(hookPath, 0o644);
+    run("git", ["config", "core.hooksPath", configuredHooksPath], tempDir);
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+    const quotedPath = `'./-hooks with spaces;$(touch injected)'"'"'quoted/pre-commit'`;
+    const fixCommand = `chmod +x ${quotedPath}`;
+
+    assert.equal(result.status, 1);
+    assert.ok(output.includes(fixCommand));
+    assert.equal(fs.readFileSync(hookPath, "utf8"), hookBody);
+    assert.equal(fs.statSync(hookPath).mode & 0o111, 0);
+    assert.equal(fs.existsSync(path.join(tempDir, "injected")), false);
+
+    const fixed = run("sh", ["-c", fixCommand], tempDir);
+    assert.equal(fixed.status, 0, fixed.stderr);
+    assert.notEqual(fs.statSync(hookPath).mode & 0o111, 0);
+    assert.equal(fs.existsSync(path.join(tempDir, "injected")), false);
+  },
+);
+
 test("doctor reports a pre-commit hook that never invokes commitment-issues", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -377,6 +496,45 @@ test("doctor --quiet stays silent when the wiring is healthy", (t) => {
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
 });
 
+test("doctor warns about malformed standalone config without blocking repair", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.writeFileSync(
+    path.join(tempDir, ".commitmentrc.json"),
+    "{ invalid json\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Configuration needs attention/);
+  assert.match(output, /\.commitmentrc\.json/);
+  assert.match(output, /contains invalid JSON/);
+  assert.match(output, /Repaired the git hook wiring/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".commitmentrc.json"), "utf8"),
+    "{ invalid json\n",
+  );
+});
+
+test("doctor --quiet reports malformed standalone config in one line", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  fs.writeFileSync(path.join(tempDir, ".commitmentrc.json"), "[]\n");
+
+  const result = runDoctor(tempDir, ["--quiet"]);
+  const output = `${result.stdout}${result.stderr}`.trim();
+
+  assert.equal(result.status, 0);
+  assert.match(output, /\.commitmentrc\.json/);
+  assert.match(output, /must contain a JSON object/);
+  assert.equal(output.split(/\r?\n/).length, 1);
+});
+
 test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -391,6 +549,8 @@ test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
     path.join(tempDir, "githooks", "pre-push"),
     "commitment-issues prepush\n",
   );
+  fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
+  fs.chmodSync(path.join(tempDir, "githooks", "pre-push"), 0o755);
   run("git", ["config", "core.hooksPath", "githooks"], tempDir);
 
   const result = runDoctor(tempDir);
@@ -412,6 +572,7 @@ test("doctor reports an unwired foreign core.hooksPath without touching it", (t)
     path.join(tempDir, "githooks", "pre-commit"),
     "echo my own hook\n",
   );
+  fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
   run("git", ["config", "core.hooksPath", "githooks"], tempDir);
 
   const result = runDoctor(tempDir);

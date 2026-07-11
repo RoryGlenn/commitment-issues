@@ -52,6 +52,20 @@ Shown when `init` (or interactive `doctor`) runs outside a project root.
 
 Shown when package.json cannot be parsed; fix the JSON and run `init` again.
 
+### Invalid package.json structure
+
+`Invalid package.json structure.` is shown when the JSON parses but its root,
+`scripts`, or `precommitChecks` value is not an object. The message names the
+invalid container, exits before any write, and tells the user to fix
+`package.json` before rerunning `init`.
+
+### Invalid .commitmentrc.json
+
+`Invalid .commitmentrc.json.` is shown by `init` or `uninstall` when the
+standalone file contains invalid JSON or its top-level value is not an object.
+The command exits before changing package scripts, configuration, hooks, or
+gitignore state.
+
 ### Hook wiring needs attention
 
 <p>
@@ -189,7 +203,7 @@ Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps i
   <img src="../assets/config-unknown-key-warning.svg" alt="A single yellow console warning saying an unknown precommitChecks key is being ignored" width="646">
 </p>
 
-Shown as a diagnostic by hooks, `init`, and `doctor` when `precommitChecks` contains a key the tool does not recognize — including nested paths such as `commitMessage.enable` that would otherwise silently fall back to the default behavior.
+Shown as a diagnostic by hooks, `init`, and `doctor` when either configuration source contains an effective key the tool does not recognize — including typos like `requireTest` and nested paths such as `commitMessage.enable` that would otherwise silently fall back to default behavior. The diagnostic names the contributing source.
 
 ### Invalid config value warning
 
@@ -197,7 +211,13 @@ Shown as a diagnostic by hooks, `init`, and `doctor` when `precommitChecks` cont
   <img src="../assets/config-invalid-value-warning.svg" alt="A single yellow console warning saying an invalid precommitChecks value is being ignored" width="646">
 </p>
 
-Shown as a diagnostic by hooks, `init`, and `doctor` when a recognized `precommitChecks` key has an invalid value — for example a string where a boolean is expected, a non-positive `timeoutMs`, or a non-boolean `commitMessage.enabled`. The invalid value is ignored in favor of the default.
+Shown as a diagnostic by hooks, `init`, and `doctor` when a recognized key in either configuration source has an invalid value — for example a string where a boolean is expected, a non-positive `timeoutMs`, or a non-boolean `commitMessage.enabled`. The invalid value is ignored in favor of the default; hooks remain advisory and continue.
+
+### Malformed standalone config warning
+
+`Ignoring .commitmentrc.json …` is printed as a one-line advisory when the
+standalone file cannot be parsed or has a non-object root. The hooks continue
+with `package.json` `precommitChecks` or built-in defaults instead.
 
 ### Unable to inspect staged files
 
@@ -642,9 +662,11 @@ A real `git push` with no push-test mode configured prints nothing at all — th
 
 ### Configuration needs attention
 
-`Configuration needs attention.` lists unknown or invalid package configuration,
-including nested commit-message paths, without preventing safe hook repair.
-`doctor --quiet` prints equivalent one-line diagnostics and still exits 0.
+`Configuration needs attention.` reports malformed standalone JSON, unknown
+keys (including nested commit-message paths), or invalid values without
+preventing hook diagnosis and repair.
+`doctor --quiet` prints the same diagnostics as plain one-line warnings and
+still exits successfully so an install is never broken.
 
 ### Already healthy
 
@@ -669,6 +691,12 @@ Shown when `doctor` recreates missing `.git/hooks` files or retires dead husky-e
 </p>
 
 Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` reports it and leaves the hook untouched.
+
+### Hook inactive
+
+`A git hook is inactive.` is shown on POSIX when a custom hook contains the
+expected command but the file is not executable. `doctor` leaves the file and
+its mode untouched and prints the exact `chmod +x` command to run.
 
 ### Missing peer tools
 
@@ -729,7 +757,7 @@ Shown when a repair step fails (for example, the husky-era `core.hooksPath` cann
   <img src="../assets/doctor-quiet-lines.svg" alt="Plain console lines from doctor --quiet: a missing-tool warning and a repaired notice" width="786">
 </p>
 
-`doctor --quiet` (the generated or composed `prepare` repair command) never prints boxes: it stays silent when healthy and prints a single line when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
+`doctor --quiet` (the generated or composed `prepare` repair command) never prints boxes: it stays silent when healthy and prints a single line for each configuration warning or when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
 
 ## Adding more examples
 

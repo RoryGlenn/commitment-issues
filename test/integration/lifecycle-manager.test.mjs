@@ -15,7 +15,7 @@ const integrationDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(integrationDir, "..", "..");
 const packageManager = process.env.COMMITMENT_ISSUES_LIFECYCLE_PM ?? "npm";
 
-test(`${packageManager} installs packed package and runs generated lifecycle hooks`, () => {
+test(`${packageManager} runs packed lifecycle hooks across workspaces and worktrees`, () => {
   assert.ok(
     SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager),
     `unsupported lifecycle package manager: ${packageManager}; expected ${formatLifecycleManagers()}`,

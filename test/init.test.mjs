@@ -92,7 +92,7 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   );
   assert.match(
     fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
-    /commitment-issues prepush/,
+    /commitment-issues prepush "\$@"/,
   );
   assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
   // Native wiring: hooks live in .git/hooks with no core.hooksPath set.
@@ -150,6 +150,7 @@ test("init preserves custom commit-msg hooks and requires safe forwarding", (t) 
     precommitChecks: { commitMessage: { enabled: true } },
   });
   writeFile(gitHook(tempDir, "commit-msg"), "echo custom message policy\n");
+  fs.chmodSync(gitHook(tempDir, "commit-msg"), 0o755);
 
   const result = runInit(tempDir);
   const output = `${result.stdout}${result.stderr}`;
@@ -165,6 +166,7 @@ test("init preserves custom commit-msg hooks and requires safe forwarding", (t) 
     gitHook(tempDir, "commit-msg"),
     'echo custom\ncommitment-issues commit-msg "$1"\n',
   );
+  fs.chmodSync(gitHook(tempDir, "commit-msg"), 0o755);
   const safe = runInit(tempDir);
   assert.equal(safe.status, 0);
   assert.match(`${safe.stdout}${safe.stderr}`, /Already configured/);
@@ -353,6 +355,77 @@ test("init preserves explicit push blocking config", (t) => {
   assert.equal("advisePushTests" in pkg.precommitChecks, false);
 });
 
+test("init uses an existing standalone file as the configuration target", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    '{\n  "tone": "fun"\n}\n',
+  );
+
+  const preview = runInit(tempDir, ["--dry-run"]);
+  assert.equal(preview.status, 0);
+  assert.match(
+    `${preview.stdout}${preview.stderr}`,
+    /pre-push advisory config \(\.commitmentrc\.json\)/,
+  );
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {
+    tone: "fun",
+  });
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {
+    tone: "fun",
+    advisePushTests: true,
+  });
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+});
+
+test("init respects an effective package blocking mode with a standalone file", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    precommitChecks: { blockPushOnTestFailure: true },
+  });
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "{}\n");
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {});
+  assert.deepEqual(readPackage(tempDir).precommitChecks, {
+    blockPushOnTestFailure: true,
+  });
+});
+
+test("init rejects malformed standalone config before writing anything", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0" });
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "{ invalid\n");
+  const beforePackage = readFile(tempDir, "package.json");
+  const beforeGitignore = readFile(tempDir, ".gitignore");
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Invalid \.commitmentrc\.json/);
+  assert.match(output, /contains invalid JSON/);
+  assert.match(output, /No files were changed/);
+  assert.equal(readFile(tempDir, "package.json"), beforePackage);
+  assert.equal(readFile(tempDir, ".gitignore"), beforeGitignore);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
 test("init preserves an unrelated prepare and appends repair", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -449,6 +522,8 @@ test("init leaves customized hooks untouched", (t) => {
   fs.mkdirSync(path.join(tempDir, ".git", "hooks"), { recursive: true });
   fs.writeFileSync(gitHook(tempDir, "pre-commit"), "echo custom commit\n");
   fs.writeFileSync(gitHook(tempDir, "pre-push"), "echo custom push\n");
+  fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o755);
+  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
 
   const result = runInit(tempDir);
   const output = `${result.stdout}${result.stderr}`;
@@ -479,6 +554,8 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
   const prePush = "#!/bin/sh\necho custom push\ncommitment-issues prepush\n";
   fs.writeFileSync(gitHook(tempDir, "pre-commit"), preCommit);
   fs.writeFileSync(gitHook(tempDir, "pre-push"), prePush);
+  fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o755);
+  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
 
   const result = runInit(tempDir);
   const output = `${result.stdout}${result.stderr}`;
@@ -493,6 +570,32 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
     preCommit,
   );
   assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
+});
+
+test("init refreshes the exact older generated pre-push hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  runInit(tempDir);
+  const hookPath = gitHook(tempDir, "pre-push");
+  const current = fs.readFileSync(hookPath, "utf8");
+  fs.writeFileSync(
+    hookPath,
+    current.replace(
+      'commitment-issues prepush "$@"',
+      "commitment-issues prepush",
+    ),
+  );
+
+  const result = runInit(tempDir);
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /updated \.git\/hooks\/pre-push/,
+  );
+  assert.equal(fs.readFileSync(hookPath, "utf8"), current);
 });
 
 test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
@@ -561,6 +664,126 @@ test("init errors clearly when package.json is invalid JSON", (t) => {
     /Fix package\.json so it contains valid JSON/,
   );
 });
+
+const invalidContainerShapes = [
+  ["null", null],
+  ["a string", "unexpected-string"],
+  ["a number", 42],
+  ["a boolean", true],
+  ["an array", []],
+];
+
+for (const [description, value] of invalidContainerShapes) {
+  test(`init rejects ${description} as the package.json root without writing`, (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    writePackage(tempDir, value);
+    const before = readFile(tempDir, "package.json");
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.match(output, /Invalid package\.json structure/);
+    assert.match(output, /root value/);
+    assert.match(output, /No files were changed/);
+    assert.doesNotMatch(output, /TypeError|\s+at .*init\.mjs/);
+    assert.equal(readFile(tempDir, "package.json"), before);
+  });
+}
+
+for (const property of ["scripts", "precommitChecks"]) {
+  for (const [description, value] of invalidContainerShapes) {
+    test(`init rejects ${description} as package.json ${property} without writing`, (t) => {
+      const tempDir = createTempRepo();
+      t.after(() => cleanupTempRepo(tempDir));
+
+      writePackage(tempDir, {
+        name: "x",
+        version: "1.0.0",
+        [property]: value,
+      });
+      const before = readFile(tempDir, "package.json");
+      const result = runInit(tempDir);
+      const output = `${result.stdout}${result.stderr}`;
+
+      assert.equal(result.status, 1);
+      assert.match(output, /Invalid package\.json structure/);
+      assert.match(output, new RegExp(`property .*${property}`));
+      assert.match(output, /No files were changed/);
+      assert.doesNotMatch(output, /TypeError|\s+at .*init\.mjs/);
+      assert.equal(readFile(tempDir, "package.json"), before);
+    });
+  }
+}
+
+test("init accepts empty scripts and precommitChecks objects", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    scripts: {},
+    precommitChecks: {},
+  });
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  const pkg = readPackage(tempDir);
+  assert.equal(pkg.scripts.prepare, "commitment-issues doctor --quiet");
+  assert.equal(pkg.precommitChecks.advisePushTests, true);
+});
+
+test("init rejects inert command mentions in executable custom hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0" });
+  const bodies = {
+    "pre-commit": "#!/bin/sh\n# commitment-issues precommit\n",
+    "pre-push": "#!/bin/sh\nprintf '%s\\n' 'commitment-issues prepush'\n",
+  };
+  for (const [name, body] of Object.entries(bodies)) {
+    fs.writeFileSync(gitHook(tempDir, name), body);
+    fs.chmodSync(gitHook(tempDir, name), 0o755);
+  }
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assertHookClaimsWithheld(output);
+  assert.match(output, /pre-commit: commitment-issues precommit/);
+  assert.match(output, /pre-push: commitment-issues prepush/);
+  for (const [name, body] of Object.entries(bodies)) {
+    assert.equal(fs.readFileSync(gitHook(tempDir, name), "utf8"), body);
+  }
+});
+
+test(
+  "init reports a non-executable custom hook without changing it",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    writePackage(tempDir, { name: "x", version: "1.0.0" });
+    const body = "#!/bin/sh\ncommitment-issues precommit\n";
+    fs.writeFileSync(gitHook(tempDir, "pre-commit"), body);
+    fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o644);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assertHookClaimsWithheld(output);
+    assert.match(output, /not executable/);
+    assert.match(output, /chmod \+x \.git\/hooks\/pre-commit/);
+    assert.equal(fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"), body);
+    assert.equal(fs.statSync(gitHook(tempDir, "pre-commit")).mode & 0o111, 0);
+  },
+);
 
 test("init creates a .gitignore when none exists", (t) => {
   const tempDir = createTempRepo();

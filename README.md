@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
 </p>
 
 # Commitment Issues
@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Branch coverage: 93.72%](https://img.shields.io/badge/branch%20coverage-93.72%25-brightgreen.svg)](docs/branch-coverage.md)
+[![Branch coverage: 90.5%](https://img.shields.io/badge/branch%20coverage-90.5%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -20,7 +20,7 @@ No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 ## Commit normally. Fix safely. Push with confidence.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
 </p>
 
 **Advisory by default. Fixes run only when requested and proven safe. Pushes run only tests related to files that changed.**
@@ -144,7 +144,7 @@ Missing-test and pushed-test discovery use nearby filename conventions. See [Con
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/project-flowchart-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/project-flowchart-light.svg">
-  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" src="assets/project-flowchart-light.svg">
+  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests" src="assets/project-flowchart-light.svg">
 </picture>
 
 `commitment-issues` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files. When commit-message linting is enabled, it also owns `.git/hooks/commit-msg`. Those hooks invoke the installed binary from `node_modules/.bin`; package source is not copied into your repository.
@@ -162,7 +162,7 @@ See [How commitment-issues works](docs/how-it-works.md) for the complete flow.
 | Git hooks               | Native `.git/hooks` files                                            |
 | Yarn Berry              | Supported with `nodeLinker: node-modules`                            |
 | Yarn Plug'n'Play        | Not supported; hooks resolve `node_modules/.bin`                     |
-| Monorepos               | Root-level workspaces supported; review the documented boundaries    |
+| Monorepos               | Root-owned npm/pnpm/Yarn/Bun workspaces and linked Git worktrees     |
 | Existing custom hooks   | Preserved; add the `commitment-issues` command manually              |
 | Commit-message linting  | Optional; bring your own local commitlint CLI and configuration      |
 | CI                      | Keep CI as the authoritative gate; local hooks can be disabled in CI |
@@ -196,8 +196,8 @@ Already using another tool? Follow the step-by-step [migration guide](docs/migra
 ## Adopt it with a team
 
 1. Run `npx commitment-issues init --dry-run` and review the proposed ownership.
-2. Run `npx commitment-issues init` and inspect the resulting `package.json` and `.gitignore` diff.
-3. Commit `package.json`, your lockfile, and any accepted `.gitignore` additions. The `.git/hooks` files are intentionally local and are not committed.
+2. Run `npx commitment-issues init` and inspect the resulting `package.json`, optional `.commitmentrc.json`, and `.gitignore` diff.
+3. Commit the configuration files, your lockfile, and any accepted `.gitignore` additions. The `.git/hooks` files are intentionally local and are not committed.
 4. Let the repository run in advisory mode first. Teammates can learn the messages without having commits or pushes unexpectedly blocked.
 5. Once the warnings are trusted, enable only the enforcement modes the team wants.
 
@@ -267,6 +267,12 @@ advisory mode; `blockOnFailure: true` makes those outcomes block. Git's standard
 [configuration reference](docs/configuration.md#optional-commit-message-linting)
 for custom-hook wiring and package-manager-specific install commands.
 
+Configuration can remain under `package.json` → `precommitChecks`, or use a
+non-executable `.commitmentrc.json` with the same keys at the top level. When
+both exist, standalone keys override matching package keys; unmatched package
+keys remain active. See the [configuration reference](docs/configuration.md#configuration-files-and-precedence)
+for validation and fallback behavior.
+
 ### Safety model
 
 - Commit and push checks do not mutate tracked files.
@@ -283,7 +289,9 @@ Depending on the repository's existing state, `init` can:
 
 - add `doctor`, `fix:staged`, `commit:fix`, and `test:precommit` package scripts;
 - add a self-healing `prepare` script, preserving and composing after an existing project command;
-- add the `precommitChecks` configuration namespace and default advisory push mode;
+- add the default advisory push mode to an existing `.commitmentrc.json`, or
+  create the `precommitChecks` namespace in `package.json` when no standalone
+  file exists;
 - create missing native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files,
   plus `.git/hooks/commit-msg` only when commit-message linting is enabled;
 - add `.eslintcache`, `.prettiercache`, and `node_modules/` to `.gitignore` when absent;
@@ -343,6 +351,8 @@ npx commitment-issues init --dry-run       # preview setup
 npx commitment-issues uninstall            # remove generated setup
 npx commitment-issues uninstall --dry-run  # preview removal
 npx commitment-issues doctor               # verify and repair hook wiring
+npx commitment-issues precommit --json     # structured commit-check result
+npx commitment-issues prepush --json       # structured push-check result
 npx commitment-issues --version
 
 npm run test:precommit  # run commit checks directly
@@ -367,6 +377,7 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 - [How it works](docs/how-it-works.md)
 - [Configuration and behavior](docs/configuration.md)
 - [External interface reference](docs/external-interface.md)
+- [JSON output schema and usage](docs/json-output.md)
 - [Message states](docs/message-states.md)
 
 **Operate and contribute**

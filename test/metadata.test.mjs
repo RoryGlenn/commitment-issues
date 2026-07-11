@@ -4,9 +4,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { KNOWN_PRECOMMIT_CONFIG_KEYS } from "../scripts/lib/config.mjs";
+import { DCO_ENFORCEMENT_BASELINE } from "../tools/check-dco-range.mjs";
+import { globToRegExp } from "../scripts/lib/files.mjs";
+import { run } from "../scripts/lib/process.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,6 +42,13 @@ function lineNumberAt(text, index) {
   return text.slice(0, index).split(/\r?\n/).length;
 }
 
+function markdownTableKeys(markdown, heading) {
+  const section = markdown.split(heading)[1]?.split(/\n##\s/)[0] ?? "";
+  return [...section.matchAll(/^\|\s*`([a-z][A-Za-z0-9]*)`\s*\|/gm)].map(
+    ([, key]) => key,
+  );
+}
+
 function packageFilePatterns(pkg) {
   return new Set(pkg.files || []);
 }
@@ -49,7 +61,7 @@ function isPackaged(relativePath, pkg) {
       if (pattern.endsWith("/")) {
         return relativePath.startsWith(pattern);
       }
-      return false;
+      return globToRegExp(pattern).test(relativePath);
     })
   );
 }
@@ -247,15 +259,95 @@ test("README documents both advisory and blocking push modes", () => {
   );
 });
 
+test("all supported precommitChecks keys appear on every maintainer reference surface", () => {
+  const expected = [...KNOWN_PRECOMMIT_CONFIG_KEYS].sort();
+  const authoringSection = readText(".github/skills/authoring-checks/SKILL.md")
+    .split("The supported keys are grouped by behavior:")[1]
+    ?.split("`KNOWN_PRECOMMIT_CONFIG_KEYS`")[0];
+  assert.ok(authoringSection, "authoring skill should have a config-key list");
+
+  const documented = new Map([
+    [
+      "docs/configuration.md",
+      markdownTableKeys(
+        readText("docs/configuration.md"),
+        "## Configuration reference",
+      ),
+    ],
+    [
+      "docs/external-interface.md",
+      markdownTableKeys(
+        readText("docs/external-interface.md"),
+        "## Configuration interface",
+      ),
+    ],
+    [
+      ".github/skills/authoring-checks/SKILL.md",
+      [...authoringSection.matchAll(/`([a-z][A-Za-z0-9]*)`/g)].map(
+        ([, key]) => key,
+      ),
+    ],
+  ]);
+
+  for (const [file, keys] of documented) {
+    assert.deepEqual(
+      [...new Set(keys)].sort(),
+      expected,
+      `${file} config keys should exactly match the source allowlist`,
+    );
+  }
+});
+
+test("CI Success includes DCO and the prospective baseline stays documented", () => {
+  const ci = readText(".github/workflows/ci.yml");
+  const dco = readText(".github/workflows/dco.yml");
+  const governance = readText("GOVERNANCE.md");
+  const roles = readText("docs/project-roles.md");
+
+  assert.match(ci, /needs: \[dco, check, pm-lifecycle\]/);
+  assert.match(ci, /node tools\/check-dco-range\.mjs/);
+  assert.match(dco, /push:\s*\n\s+branches: \[main\]/);
+  assert.match(dco, /node tools\/check-dco-range\.mjs/);
+  for (const [file, workflow] of [
+    [".github/workflows/ci.yml", ci],
+    [".github/workflows/dco.yml", dco],
+  ]) {
+    assert.match(workflow, /fetch-depth: 0/);
+    assert.match(workflow, /GITHUB_EVENT_NAME.*pull_request/);
+    assert.match(workflow, /check-dco-range\.mjs --merge-base/);
+    assert.doesNotMatch(
+      workflow,
+      /ref:.*github\.event\.pull_request\.head\.sha/,
+      `${file} should keep the default merge-ref checkout for fork PR history`,
+    );
+  }
+  for (const [file, text] of [
+    [".github/workflows/ci.yml", ci],
+    [".github/workflows/dco.yml", dco],
+    ["GOVERNANCE.md", governance],
+    ["docs/project-roles.md", roles],
+  ]) {
+    assert.ok(
+      text.includes(DCO_ENFORCEMENT_BASELINE),
+      `${file} should reference the prospective DCO baseline`,
+    );
+  }
+});
+
 test("package files entries exist", () => {
   const pkg = readJson("package.json");
+  const trackedFiles = execFileSync("git", ["ls-files", "-z"], {
+    cwd: root,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter(Boolean);
 
   for (const entry of pkg.files || []) {
-    assert.equal(
-      fs.existsSync(path.join(root, entry)),
-      true,
-      `${entry} should exist`,
-    );
+    const exists = /[*?]/.test(entry)
+      ? trackedFiles.some((file) => globToRegExp(entry).test(file))
+      : fs.existsSync(path.join(root, entry));
+    assert.equal(exists, true, `${entry} should exist or match a tracked file`);
   }
 });
 
@@ -281,6 +373,49 @@ test("README relative image assets exist and are included in npm package files",
       `${imagePath} should be included by package.json files`,
     );
   }
+});
+
+test("npm package excludes promotional media and stays within its size budget", (t) => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), "npm-pack-cache-"));
+  t.after(() => fs.rmSync(cache, { recursive: true, force: true }));
+  const result = run(
+    "npm",
+    ["pack", "--dry-run", "--json", "--ignore-scripts", "--cache", cache],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  const [pack] = JSON.parse(result.stdout);
+  const files = new Set(pack.files.map((file) => file.path));
+  const docs = readText("docs/package-contents.md");
+  const readme = readText("README.md");
+
+  assert.equal(files.has("assets/commitment-issues.png"), false);
+  assert.equal(files.has("assets/demo.gif"), false);
+  assert.ok(
+    [...files].every((file) =>
+      file.startsWith("assets/") ? file.endsWith(".svg") : true,
+    ),
+  );
+  assert.ok(files.has("scripts/cli.mjs"));
+  assert.ok(files.has("docs/package-contents.md"));
+  assert.match(
+    readme,
+    /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/commitment-issues\.png/,
+  );
+  assert.match(
+    readme,
+    /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/demo\.gif/,
+  );
+  assert.ok(
+    pack.size <= 350 * 1024,
+    `packed size ${pack.size} exceeds 350 KiB`,
+  );
+  assert.ok(
+    pack.unpackedSize <= 750 * 1024,
+    `unpacked size ${pack.unpackedSize} exceeds 750 KiB`,
+  );
+  assert.match(docs, /350 KiB compressed/);
+  assert.match(docs, /750 KiB\s+unpacked/);
 });
 
 test("message-state SVG assets exist and are included in npm package files", () => {

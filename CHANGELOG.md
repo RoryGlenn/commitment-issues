@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Optional `.commitmentrc.json` configuration with direct top-level keys. Its
+  keys shallowly override `package.json` `precommitChecks` values without
+  executing project code; malformed files warn at hook/doctor time and stop
+  `init` or `uninstall` before mutation.
+- Opt-in `--json` results for `precommit` and `prepush`, with one shared,
+  versioned schema covering check outcomes, findings, safe command suggestions,
+  configuration diagnostics, and unchanged exit codes. JSON is the only stdout
+  content; pre-push test-runner output moves to stderr in this mode.
 - Optional bring-your-own commitlint integration under
   `precommitChecks.commitMessage`: disabled by default, advisory after explicit
   enablement, and blocking only with `blockOnFailure`. It owns a safely quoted
@@ -30,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Governance and maintainer guidance now match the live strict `main` ruleset:
+  one approval, stale/last-push review controls, resolved threads, DCO inside
+  the aggregate CI gate, a prospective signed-history baseline, and a narrow,
+  auditable single-maintainer exception with a continuity plan. Maintainer
+  references also enumerate the full guard/secret configuration surface and
+  current lifecycle job names.
 - The README now reports explicitly scoped **branch coverage** for the
   user-facing runtime. `npm run test:coverage` enumerates the complete runtime
   source set, fails if a source is absent from LCOV, and enforces a 90% branch
@@ -40,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   team rollout, progressive enforcement, ownership boundaries, and reversible
   removal. Detailed output and compliance evidence remain available lower in
   the document without delaying the adoption path.
+- The npm, pnpm, Yarn, and Bun lifecycle matrix now installs the packed package
+  into a real workspace fixture, covering shallow and nested packages,
+  root-owned configuration, fresh clones, and linked Git worktrees.
 
 ### Fixed
 
@@ -47,6 +64,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scenario produces an unexpected result, while continuing to render later
   scenarios, and removes an inherited `NO_COLOR` before forcing colored child
   output.
+- Pre-commit, `fix:staged`, and `commit:fix` now consume NUL-delimited Git
+  pathname records (including numstat and index metadata), preserving legal
+  leading/trailing whitespace, tabs, newlines, and Unicode without trimming.
+- A new branch's first push now diffs from its closest unambiguous upstream or
+  destination-remote merge base instead of treating the entire inherited
+  repository as new. Orphan, ambiguous, and unrelated histories conservatively
+  fall back to the empty tree, and generated pre-push hooks forward the remote
+  arguments needed to keep multi-remote selection safe. Exact older generated
+  hook bodies are refreshed automatically on upgrade; customized hooks remain
+  untouched. SHA-1 and SHA-256 zero object IDs are recognized.
+- Related-test lookup now respects the nearest workspace package boundary and
+  preserves package-relative source paths. Same-basename sources cannot claim
+  another workspace's or the root package's fallback test; every candidate in
+  the first matching specificity tier runs deterministically.
+- The npm package now excludes the promotional hero PNG and demo GIF while
+  keeping README images live through GitHub-hosted URLs; a package-content test
+  enforces both the required offline SVG/docs set and a documented size budget.
 - Release publishing now sends the exact tarball that was packed and hashed to
   npm, attaches that tarball and its SLSA provenance to the GitHub Release, and
   provides a collision-checking preflight plus an immutable-tag recovery
@@ -56,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` now verifies that both active hooks invoke `commitment-issues` before claiming setup is complete. User-authored hooks remain untouched; unwired hooks suppress the green commit/push promises and list the exact commands to add.
 - `init` now preserves an unrelated `prepare` command and appends automatic fresh-clone hook repair to the same lifecycle script, including on Yarn Classic. `uninstall` removes only the generated repair suffix.
 - The staged-secret diff parser now treats `+++ ` as file metadata only outside a hunk, so added source lines beginning with `++ ` cannot evade secret detection.
+- `init` now rejects non-object package roots and non-object `scripts` or
+  `precommitChecks` containers before writing anything, with an actionable
+  error instead of an internal `TypeError`.
+- Hook health checks now require a conservative executable command line and,
+  on POSIX, an executable hook file. Comments, echo/printf output, and quoted
+  examples no longer produce false healthy/setup-success claims.
 
 ## [3.2.0] - 2026-07-10
 
