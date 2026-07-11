@@ -121,10 +121,15 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     "workflow should compare the rendered GIF after rendering it",
   );
   assert.ok(
-    uploadIndex > verifyIndex,
-    "workflow should verify the committed GIF before uploading the artifact",
+    uploadIndex > renderIndex,
+    "workflow should upload only after rendering the demo",
+  );
+  assert.ok(
+    verifyIndex > uploadIndex,
+    "workflow should preserve a mismatched render artifact before failing",
   );
   assert.match(tape, /Set FontFamily "DejaVu Sans Mono"/);
+  assert.match(tape, /Set CursorBlink false/);
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
