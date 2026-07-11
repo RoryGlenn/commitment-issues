@@ -17,7 +17,6 @@ import {
 } from "./lib/config.mjs";
 import {
   eslintManualIssues,
-  parsePrettierList,
   summarizeEslintJson,
 } from "./lib/checks.mjs";
 import {
@@ -40,7 +39,7 @@ import {
   secretsIssue,
 } from "./lib/secret-scan.mjs";
 import { buildAdvisoryMessage } from "./lib/message.mjs";
-import { runScript } from "./lib/package-manager.mjs";
+import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 import {
   createJsonOutput,
   emitJsonArgumentError,
@@ -66,8 +65,26 @@ if (outputArgs.error) {
 }
 const jsonMode = outputArgs.enabled;
 
+function runPeerTool(name, args) {
+  const invocation = toolInvocation(name, args);
+  if (invocation.missingTool) {
+    return Promise.resolve({
+      outcome: "missing-tool",
+      missingTool: name,
+      error: undefined,
+      status: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+    });
+  }
+  return spawnAsync(invocation.command, invocation.args, {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
 function runEslint(files) {
-  const { command, args } = toolInvocation("eslint", [
+  return runPeerTool("eslint", [
     "--cache",
     "--cache-strategy",
     "content",
@@ -76,11 +93,10 @@ function runEslint(files) {
     "--",
     ...files,
   ]);
-  return spawnAsync(command, args, { stdio: ["pipe", "pipe", "pipe"] });
 }
 
 function runPrettier(files) {
-  const { command, args } = toolInvocation("prettier", [
+  return runPeerTool("prettier", [
     "--cache",
     "--cache-location",
     ".prettiercache",
@@ -91,7 +107,6 @@ function runPrettier(files) {
     "--",
     ...files,
   ]);
-  return spawnAsync(command, args, { stdio: ["pipe", "pipe", "pipe"] });
 }
 
 function runStagedTestCommand(testCommand, tests) {
@@ -591,20 +606,50 @@ const stagedTestOutcome = testRun ? normalizeProcessOutcome(testRun) : null;
 const processDidNotComplete = (outcome) =>
   ["timeout", "spawn-error", "signal", "missing-tool"].includes(outcome);
 
+function unavailableToolIssue(result, outcome, displayName, packageName, type) {
+  if (outcome === "missing-tool") {
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} is not installed locally`,
+      detail: `Install it: ${devInstallCommand([packageName])}`,
+    };
+  }
+  if (outcome === "timeout") {
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} timed out`,
+      detail: `No result within ${TOOL_TIMEOUT_MS / 1000}s`,
+    };
+  }
+  if (outcome === "signal") {
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} stopped before completing`,
+      detail: `Process ended from ${result.signal || "an unknown signal"}`,
+    };
+  }
+  return {
+    autoFixable: false,
+    type,
+    message: `Unable to run ${displayName}`,
+    detail: `Check ${displayName} install and project config`,
+  };
+}
+
 if (eslintResult) {
   if (processDidNotComplete(eslintOutcome)) {
-    issues.push({
-      autoFixable: false,
-      type: "lint",
-      message:
-        eslintOutcome === "timeout"
-          ? "ESLint timed out"
-          : "Unable to run ESLint",
-      detail:
-        eslintOutcome === "timeout"
-          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-          : "Check ESLint install and project config",
-    });
+    issues.push(
+      unavailableToolIssue(
+        eslintResult,
+        eslintOutcome,
+        "ESLint",
+        "eslint",
+        "lint",
+      ),
+    );
   } else {
     const { issueCount: eslintIssueCount, fixableCount: eslintFixableCount } =
       summarizeEslintJson(eslintResult.stdout);
@@ -671,23 +716,25 @@ jsonOutput.addCheck({
 
 if (prettierResult) {
   if (processDidNotComplete(prettierOutcome)) {
-    issues.push({
-      autoFixable: false,
-      type: "format",
-      message:
-        prettierOutcome === "timeout"
-          ? "Prettier timed out"
-          : "Unable to run Prettier",
-      detail:
-        prettierOutcome === "timeout"
-          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-          : "Check Prettier install and project config",
-    });
-  } else {
-    const { failed, files } = parsePrettierList(
-      prettierResult.stdout,
-      prettierResult.stderr,
+    issues.push(
+      unavailableToolIssue(
+        prettierResult,
+        prettierOutcome,
+        "Prettier",
+        "prettier",
+        "format",
+      ),
     );
+  } else {
+    const failed =
+      prettierResult.status !== 0 && prettierResult.status !== 1;
+    const files =
+      prettierResult.status === 1
+        ? prettierResult.stdout
+            .split("\n")
+            .map((file) => file.trim())
+            .filter(Boolean)
+        : [];
     if (failed) {
       // A crash (parse error, broken install) is not a formatting issue:
       // commit:fix cannot resolve it, so never present it as auto-fixable.
@@ -739,11 +786,15 @@ if (testRun) {
       message:
         stagedTestOutcome === "timeout"
           ? "Staged tests timed out"
-          : "Unable to run staged tests",
+          : stagedTestOutcome === "signal"
+            ? "Staged tests stopped before completing"
+            : "Unable to run staged tests",
       detail:
         stagedTestOutcome === "timeout"
           ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-          : "Check precommitChecks.testCommand in package.json",
+          : stagedTestOutcome === "signal"
+            ? `Process ended from ${testRun.signal || "an unknown signal"}`
+            : "Check precommitChecks.testCommand in package.json",
     });
   } else if (stagedTestOutcome === "nonzero") {
     issues.push({
