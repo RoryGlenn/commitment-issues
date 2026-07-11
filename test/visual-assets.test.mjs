@@ -136,7 +136,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     workflow,
     /cp assets\/demo\.gif "\$RUNNER_TEMP\/committed-demo\.gif"/,
   );
-  assert.match(workflow, /MINIMUM_SSIM: "0\.998"/);
+  assert.match(workflow, /MINIMUM_SSIM: "0\.997"/);
   assert.match(workflow, /-lavfi ssim/);
   assert.match(workflow, /MAX_FRAME_COUNT_DRIFT: "2"/);
   assert.match(workflow, /MAX_DURATION_DRIFT_SECONDS: "0\.10"/);

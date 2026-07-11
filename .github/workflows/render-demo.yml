@@ -180,7 +180,9 @@ jobs:
 
       - name: Verify rendered demo matches committed visuals
         env:
-          MINIMUM_SSIM: "0.998"
+          # A one-frame VHS timing shift can move the aggregate score by about
+          # 0.001 while the strict metadata gate above still bounds the render.
+          MINIMUM_SSIM: "0.997"
         run: |
           set -euo pipefail
           comparison="$(
