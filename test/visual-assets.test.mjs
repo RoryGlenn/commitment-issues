@@ -108,7 +108,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const fixIndex = tape.indexOf(
     "./node_modules/.bin/commitment-issues commit-fix",
   );
-  const pushIndex = tape.indexOf('Type "git push -q" Enter');
+  const pushIndex = tape.indexOf('Type "git push" Enter');
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const metadataIndex = workflow.indexOf(
     "name: Verify rendered demo dimensions and timing",

@@ -109,7 +109,7 @@ Wait+Screen@30s /Latest commit amended with automatic fixes/
 Sleep 4s
 
 # --- 4. Push changes ---
-Type "git push -q" Enter
+Type "git push" Enter
 Wait+Screen@30s /Push allowed/
 Sleep 4s
 Show
