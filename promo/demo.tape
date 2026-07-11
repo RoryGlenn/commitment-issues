@@ -56,8 +56,8 @@ Sleep 2500ms
 # generated hooks while creating and pushing this hidden baseline.
 Hide
 Set TypingSpeed 1ms
-Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify" Enter
-Sleep 1500ms
+Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
+Wait+Screen /__BASELINE_READY__/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
@@ -72,8 +72,10 @@ Sleep 3s
 
 # --- 3. Run command to fix changes ---
 Type "npm run commit:fix" Enter
-Sleep 4500ms
+Wait+Screen /Latest commit amended with automatic fixes\./
+Sleep 2200ms
 
 # --- 4. Push changes ---
 Type "git push -q" Enter
-Sleep 4500ms
+Wait+Screen /Push allowed\./
+Sleep 2500ms
