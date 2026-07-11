@@ -19,7 +19,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-002** — package README documents the Node engine. Unit: `test/metadata.test.mjs`.
 - **PKG-003** — package description does not contradict configurable blocking. Unit: `test/metadata.test.mjs`.
 - **PKG-004** — package `files` entries exist. Unit: `test/metadata.test.mjs`.
-- **PKG-005** — package bin works from packed tarball across OS / Node matrix. CI smoke: `.github/workflows/ci.yml`.
+- **PKG-005** — package bin works from a packed tarball across the OS / Node matrix. CI lifecycle integration: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`.
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
 - **PKG-007** — package includes README SVG gallery assets and installed docs in the tarball. Unit: `test/metadata.test.mjs` using `npm pack --dry-run --json`.
 - **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
@@ -41,6 +41,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **DOC-003** — README documents blocking push mode. Unit: `test/metadata.test.mjs`.
 - **DOC-004** — README image references cannot drift away from packaged assets. Unit: `test/metadata.test.mjs`.
 - **DOC-005** — supported Node version stays consistent across the README, docs, and workflows. Unit: `test/metadata.test.mjs`.
+- **DOC-006** — every allowlisted `precommitChecks` key appears in the user configuration reference, external interface, and maintainer authoring skill. Unit: `test/metadata.test.mjs`.
+- **DOC-007** — the aggregate CI gate includes DCO and every prospective-enforcement surface names the same immutable baseline. Unit: `test/metadata.test.mjs`.
 
 ### Config
 
@@ -88,7 +90,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-010** — init migrates a husky-era 2.x setup: retires `core.hooksPath`, removes generated `.husky` wiring, writes native hooks. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 - **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
-- **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
+- **INIT-013** — init succeeds from the packed package in a fresh Git repo. CI lifecycle integration: `test/integration/lifecycle-manager.test.mjs`.
 - **INIT-014** — init adds `node_modules/` to `.gitignore` defaults and avoids duplicate existing entries. Fixture: `test/init-gitignore.test.mjs`.
 - **INIT-015** — init keeps user-authored `.husky` hooks and warns they no longer run. Fixture: `test/init.test.mjs`.
 - **INIT-016** — init warns about a foreign `core.hooksPath` and leaves it alone. Fixture: `test/init.test.mjs`.
@@ -230,20 +232,20 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### User lifecycle
 
-- **LIFE-001** — user installs and immediately commits in a fresh external repo. CI lifecycle smoke: `.github/workflows/ci.yml`.
-- **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle smoke: `.github/workflows/ci.yml`.
+- **LIFE-001** — user installs and immediately commits in a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
+- **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
 - **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
-- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
+- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 
 ### Package managers
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
 - **PM-002** — uninstall prints a package-removal command for the detected manager. Unit: `test/package-manager.test.mjs`. Fixture: `test/uninstall.test.mjs`.
-- **PM-002** — pnpm end-to-end lifecycle smoke (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
-- **PM-003** — yarn classic end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
-- **PM-005** — bun end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-003** — pnpm end-to-end lifecycle integration (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-004** — Yarn Classic end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-005** — bun end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
 
 ### Monorepos and workspaces
 
@@ -255,7 +257,7 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 
 ## Deferred
 
-- **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
+- **PM-006** — Yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
 - **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Not covered yet
@@ -281,4 +283,5 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 
 ### Batch 5: deferred support boundaries
 
+- Yarn Berry Plug'n'Play.
 - Release-from-tag / release-from-CI workflows.

@@ -8,6 +8,8 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { KNOWN_PRECOMMIT_CONFIG_KEYS } from "../scripts/lib/config.mjs";
+import { DCO_ENFORCEMENT_BASELINE } from "../tools/check-dco-range.mjs";
 import { globToRegExp } from "../scripts/lib/files.mjs";
 import { run } from "../scripts/lib/process.mjs";
 
@@ -38,6 +40,13 @@ function markdownProse(markdown) {
 
 function lineNumberAt(text, index) {
   return text.slice(0, index).split(/\r?\n/).length;
+}
+
+function markdownTableKeys(markdown, heading) {
+  const section = markdown.split(heading)[1]?.split(/\n##\s/)[0] ?? "";
+  return [...section.matchAll(/^\|\s*`([a-z][A-Za-z0-9]*)`\s*\|/gm)].map(
+    ([, key]) => key,
+  );
 }
 
 function packageFilePatterns(pkg) {
@@ -248,6 +257,81 @@ test("README documents both advisory and blocking push modes", () => {
     prose,
     /blockPushOnTestFailure and advisePushTests are both set/i,
   );
+});
+
+test("all supported precommitChecks keys appear on every maintainer reference surface", () => {
+  const expected = [...KNOWN_PRECOMMIT_CONFIG_KEYS].sort();
+  const authoringSection = readText(".github/skills/authoring-checks/SKILL.md")
+    .split("The supported keys are grouped by behavior:")[1]
+    ?.split("`KNOWN_PRECOMMIT_CONFIG_KEYS`")[0];
+  assert.ok(authoringSection, "authoring skill should have a config-key list");
+
+  const documented = new Map([
+    [
+      "docs/configuration.md",
+      markdownTableKeys(
+        readText("docs/configuration.md"),
+        "## Configuration reference",
+      ),
+    ],
+    [
+      "docs/external-interface.md",
+      markdownTableKeys(
+        readText("docs/external-interface.md"),
+        "## Configuration interface",
+      ),
+    ],
+    [
+      ".github/skills/authoring-checks/SKILL.md",
+      [...authoringSection.matchAll(/`([a-z][A-Za-z0-9]*)`/g)].map(
+        ([, key]) => key,
+      ),
+    ],
+  ]);
+
+  for (const [file, keys] of documented) {
+    assert.deepEqual(
+      [...new Set(keys)].sort(),
+      expected,
+      `${file} config keys should exactly match the source allowlist`,
+    );
+  }
+});
+
+test("CI Success includes DCO and the prospective baseline stays documented", () => {
+  const ci = readText(".github/workflows/ci.yml");
+  const dco = readText(".github/workflows/dco.yml");
+  const governance = readText("GOVERNANCE.md");
+  const roles = readText("docs/project-roles.md");
+
+  assert.match(ci, /needs: \[dco, check, pm-lifecycle\]/);
+  assert.match(ci, /node tools\/check-dco-range\.mjs/);
+  assert.match(dco, /push:\s*\n\s+branches: \[main\]/);
+  assert.match(dco, /node tools\/check-dco-range\.mjs/);
+  for (const [file, workflow] of [
+    [".github/workflows/ci.yml", ci],
+    [".github/workflows/dco.yml", dco],
+  ]) {
+    assert.match(workflow, /fetch-depth: 0/);
+    assert.match(workflow, /GITHUB_EVENT_NAME.*pull_request/);
+    assert.match(workflow, /check-dco-range\.mjs --merge-base/);
+    assert.doesNotMatch(
+      workflow,
+      /ref:.*github\.event\.pull_request\.head\.sha/,
+      `${file} should keep the default merge-ref checkout for fork PR history`,
+    );
+  }
+  for (const [file, text] of [
+    [".github/workflows/ci.yml", ci],
+    [".github/workflows/dco.yml", dco],
+    ["GOVERNANCE.md", governance],
+    ["docs/project-roles.md", roles],
+  ]) {
+    assert.ok(
+      text.includes(DCO_ENFORCEMENT_BASELINE),
+      `${file} should reference the prospective DCO baseline`,
+    );
+  }
 });
 
 test("package files entries exist", () => {

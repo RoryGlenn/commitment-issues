@@ -10,7 +10,7 @@ import crossSpawn from "cross-spawn";
 const root = process.cwd();
 
 // Which package manager to exercise end to end. Defaults to npm; pass "pnpm" as
-// the first arg (the pnpm-smoke CI job does) to prove the tool installs, wires
+// the first arg (the pm-lifecycle CI job does) to prove the tool installs, wires
 // its hooks, and runs under pnpm's linked node_modules layout.
 const packageManager = process.argv[2] || "npm";
 const SUPPORTED_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);

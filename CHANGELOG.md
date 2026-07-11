@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Governance and maintainer guidance now match the live strict `main` ruleset:
+  one approval, stale/last-push review controls, resolved threads, DCO inside
+  the aggregate CI gate, a prospective signed-history baseline, and a narrow,
+  auditable single-maintainer exception with a continuity plan. Maintainer
+  references also enumerate the full guard/secret configuration surface and
+  current lifecycle job names.
 - The README now reports explicitly scoped **branch coverage** for the
   user-facing runtime. `npm run test:coverage` enumerates the complete runtime
   source set, fails if a source is absent from LCOV, and enforces a 90% branch
