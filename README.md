@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
 </p>
 
 # Commitment Issues
@@ -80,7 +80,7 @@ npm run fix:staged
 ## See it in action
 
 <p align="center">
-  <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />
 </p>
 
 The output explains what happened, whether Git continued, and which follow-up is safe.

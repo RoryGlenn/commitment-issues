@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The npm package now excludes the promotional hero PNG and demo GIF while
+  keeping README images live through GitHub-hosted URLs; a package-content test
+  enforces both the required offline SVG/docs set and a documented size budget.
 - The blocking pre-push gate now retains deleted source paths and both sides of renames when discovering related tests, while filtering test files that no longer exist before invoking the runner. Git name/status output is NUL-delimited so path whitespace and newlines remain unambiguous.
 - `blockProtectedBranches` now applies before deletion/no-file early exits and resolves the symbolic branch name before the first commit, so deletion-only and unborn-branch commits cannot bypass protected-branch blocking.
 - `init` now verifies that both active hooks invoke `commitment-issues` before claiming setup is complete. User-authored hooks remain untouched; unwired hooks suppress the green commit/push promises and list the exact commands to add.

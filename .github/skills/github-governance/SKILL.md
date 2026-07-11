@@ -13,7 +13,7 @@ Branch protection, rulesets, required checks, and security toggles are **shared-
 
 ## Community-health files live in `.github/`, not the repo root
 
-They are deliberately kept out of the repo root so they stay out of the npm tarball — `package.json` `files` only ships `scripts/`, `assets/`, `docs/`, `README.md`, `CHANGELOG.md`, `LICENSE`. The same rule is why `.github/skills/` and `.github/copilot-instructions.md` don't ship either. Present:
+They are deliberately kept out of the repo root so they stay out of the npm tarball — `package.json` `files` only ships `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. The same rule is why `.github/skills/` and `.github/copilot-instructions.md` don't ship either. Present:
 
 `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, `CODEOWNERS`, `dependabot.yml`, `PULL_REQUEST_TEMPLATE.md`, `ISSUE_TEMPLATE/{bug_report,feature_request,question,config}.yml`.
 

@@ -25,7 +25,7 @@
   ],
   "files": [
     "scripts/",
-    "assets/",
+    "assets/*.svg",
     "docs/",
     "README.md",
     "CHANGELOG.md",
