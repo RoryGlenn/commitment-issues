@@ -105,9 +105,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const visibleCommitIndex = tape.indexOf(
     "git commit -q -am 'print hello world'",
   );
-  const fixIndex = tape.indexOf(
-    "./node_modules/.bin/commitment-issues commit-fix",
-  );
+  const fixIndex = tape.indexOf("npm run commit:fix");
   const pushIndex = tape.indexOf("&& git push", fixIndex);
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const metadataIndex = workflow.indexOf(
@@ -179,7 +177,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
-  assert.match(tape, /\.\/node_modules\/\.bin\/commitment-issues commit-fix/);
+  assert.match(tape, /npm run commit:fix && git push/);
   assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
   assert.match(tape, /Wait\+Screen@30s \/__BASELINE_READY__\//);
   assert.match(tape, /PROMPT='READY> '/);

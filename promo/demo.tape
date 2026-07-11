@@ -104,7 +104,7 @@ Sleep 4s
 Show
 
 # --- 3. Fix the latest commit, then push it ---
-Type "./node_modules/.bin/commitment-issues commit-fix && git push" Enter
+Type "npm run commit:fix && git push" Enter
 Wait+Screen@30s /Latest commit amended with automatic fixes/
 Wait+Screen@30s /Push allowed/
 Sleep 4s
