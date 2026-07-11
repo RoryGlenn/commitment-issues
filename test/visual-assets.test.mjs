@@ -114,7 +114,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
-  assert.match(tape, /npx --no-install commitment-issues commit-fix/);
+  assert.match(tape, /\.\/node_modules\/\.bin\/commitment-issues commit-fix/);
   assert.match(tape, /PROMPT='READY> '/);
   assert.match(tape, /Wait\+Line@30s \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
