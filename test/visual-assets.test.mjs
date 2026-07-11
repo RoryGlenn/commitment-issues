@@ -114,15 +114,17 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
-  assert.match(tape, /Wait\+Screen \/Your next push runs advisory tests\//);
-  assert.match(tape, /Wait\+Screen \/Pre-commit suggestions found\//);
+  assert.match(tape, /PROMPT='READY> '/);
+  assert.match(tape, /Wait\+Line@2m \/READY>\$\//);
+  assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
+  assert.match(tape, /Wait\+Screen@30s \/Pre-commit suggestions found\//);
   assert.match(
     tape,
-    /Wait\+Screen \/Latest commit amended with automatic fixes\//,
+    /Wait\+Screen@30s \/Latest commit amended with automatic fixes\//,
   );
   assert.match(
     tape,
-    /Wait\+Screen \/feature\\\/greeting -> feature\\\/greeting\//,
+    /Wait\+Screen@30s \/feature\\\/greeting -> feature\\\/greeting\//,
   );
   for (const dependency of ["eslint", "prettier", "@eslint/js", "globals"]) {
     const version = lock.packages[`node_modules/${dependency}`]?.version;

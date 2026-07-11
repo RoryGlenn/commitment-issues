@@ -28,65 +28,94 @@ Set TypingSpeed 1ms
 #     A source file + its test are already committed, so the recording
 #     shows only the everyday experience. ---
 Hide
+Type "PROMPT='READY> '" Enter
+Wait+Line /READY>$/
+Type "set -e" Enter
+Wait+Line /READY>$/
 Type "REPO=$(pwd)" Enter
+Wait+Line /READY>$/
 Type `WORKDIR=$(mktemp -d)/hello-world && mkdir -p "$WORKDIR"` Enter
+Wait+Line /READY>$/
 Type "REMOTE_DIR=$(mktemp -d)/demo.git" Enter
+Wait+Line /READY>$/
 Type `git init --bare "$REMOTE_DIR" >/dev/null 2>&1` Enter
+Wait+Line /READY>$/
 Type `cd "$WORKDIR"` Enter
+Wait+Line /READY>$/
 Type "export LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC GIT_AUTHOR_DATE=2026-07-11T12:00:00Z GIT_COMMITTER_DATE=2026-07-11T12:00:00Z" Enter
+Wait+Line /READY>$/
 Type "git init -q --initial-branch=main && git config user.name demo && git config user.email demo@example.com && git config commit.gpgsign false" Enter
+Wait+Line /READY>$/
 Type `git remote add origin "$REMOTE_DIR"` Enter
+Wait+Line /READY>$/
 Type "npm init -y >/dev/null 2>&1" Enter
+Wait+Line@30s /READY>$/
 Type "printf 'node_modules/\n' > .gitignore" Enter
+Wait+Line /READY>$/
 # Pack and install the local build (not the npm release) so the GIF reflects
 # current code without recording a machine-specific source path.
 Type `TARBALL=$(npm pack --quiet --ignore-scripts "$REPO" --pack-destination .) && mv "$TARBALL" commitment-issues-demo.tgz` Enter
+Wait+Line@1m /READY>$/
 Type `npm install -D --save-exact ./commitment-issues-demo.tgz eslint@9.39.4 prettier@3.9.5 @eslint/js@9.39.4 globals@17.7.0 >/dev/null 2>&1` Enter
+Wait+Line@2m /READY>$/
 Type "rm commitment-issues-demo.tgz" Enter
+Wait+Line /READY>$/
 Type `printf 'import js from "@eslint/js";\nimport globals from "globals";\nexport default [js.configs.recommended, { languageOptions: { globals: globals.node } }];\n' > eslint.config.mjs` Enter
+Wait+Line /READY>$/
 Type "mkdir src" Enter
+Wait+Line /READY>$/
 Type `printf 'export const greet = () => "Hello, World!";\n' > src/hello.mjs` Enter
+Wait+Line /READY>$/
 Type `printf 'import test from "node:test";\nimport assert from "node:assert/strict";\nimport { greet } from "./hello.mjs";\ntest("greet", () => assert.equal(greet(), "Hello, World!"));\n' > src/hello.test.mjs` Enter
+Wait+Line /READY>$/
 Type "git add . && git commit -q -m init" Enter
+Wait+Line@30s /READY>$/
 Type "git push -u origin main >/dev/null 2>&1" Enter
+Wait+Line@30s /READY>$/
 # Work on a feature branch and give it an upstream before the recording starts.
 Type "git switch -q -c feature/greeting && git push -q -u origin HEAD" Enter
+Wait+Line@30s /READY>$/
 # Mirror our oh-my-zsh "robbyrussell" prompt with zsh's built-in vcs_info, so the
 # recording looks like a normal terminal without depending on oh-my-zsh.
 Type `autoload -Uz vcs_info colors && colors; setopt PROMPT_SUBST; zstyle ':vcs_info:git:*' check-for-changes true; zstyle ':vcs_info:git:*' unstagedstr ' %F{yellow}✗'; zstyle ':vcs_info:git:*' stagedstr ' %F{yellow}✗'; zstyle ':vcs_info:git:*' formats ' %F{blue}git:(%F{red}%b%F{blue})%f%u%c'; zstyle ':vcs_info:git:*' actionformats ' %F{blue}git:(%F{red}%b%F{blue})%f%u%c'; precmd() { vcs_info }; PROMPT='%(?:%B%F{green}➜%f%b:%B%F{red}➜%f%b) %B%F{cyan}%c%f%b${vcs_info_msg_0_} '` Enter
+Wait+Line /git:\(feature\/greeting\)$/
 Type "clear" Enter
+Wait+Line /git:\(feature\/greeting\)$/
 Set TypingSpeed 100ms
 Show
 
 # --- 1. One command sets everything up ---
 Type "npx --no-install commitment-issues init" Enter
-Wait+Screen /Your next push runs advisory tests/
+Wait+Screen@30s /Your next push runs advisory tests/
 Sleep 4s
 # Commit the hook setup off-camera, then clear it so beat 2 starts on a clean
 # screen and the next commit shows a single file. --no-verify skips its hook box.
 Hide
 Set TypingSpeed 1ms
 Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
+Wait+Line@30s /git:\(feature\/greeting\)$/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
+Wait+Line /git:\(feature\/greeting\)/
 Type "clear" Enter
+Wait+Line /git:\(feature\/greeting\)/
 
 Set TypingSpeed 100ms
 Show
 Type "git commit -q -am 'print hello world'" Enter
-Wait+Screen /Pre-commit suggestions found/
+Wait+Screen@30s /Pre-commit suggestions found/
 Sleep 4s
 Show
 
 # --- 3. Run command to fix changes ---
 Type "npm run commit:fix" Enter
-Wait+Screen /Latest commit amended with automatic fixes/
+Wait+Screen@30s /Latest commit amended with automatic fixes/
 Sleep 4s
 Show
 
 # --- 4. Push changes ---
 Type "git push" Enter
-Wait+Screen /feature\/greeting -> feature\/greeting/
+Wait+Screen@30s /feature\/greeting -> feature\/greeting/
 Sleep 4s
 Show
