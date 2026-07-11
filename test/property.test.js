@@ -174,12 +174,13 @@ test("parseNodeTestSummary is total: null or non-negative counts", () => {
   );
 });
 
-test("parsePrettierList is total and never lists files for a crash", () => {
+test("parsePrettierList is total and never lists files for a failed status", () => {
   fc.assert(
     fc.property(
-      fc.array(fc.string({ unit: "binary", maxLength: 80 }), { maxLength: 3 }),
-      (streams) => {
-        const result = parsePrettierList(...streams);
+      fc.oneof(fc.integer(), fc.constant(null)),
+      fc.string({ unit: "binary", maxLength: 200 }),
+      (status, stdout) => {
+        const result = parsePrettierList(status, stdout);
         assert.equal(typeof result.failed, "boolean");
         assert.ok(Array.isArray(result.files));
         if (result.failed) {

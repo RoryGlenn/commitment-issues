@@ -128,7 +128,7 @@ export function addBareRemote(tempDir) {
 // Write a cross-platform executable `name` into binDir that runs a Node shim
 // with the same arguments: a shebang launcher for POSIX shells plus a matching
 // `.cmd` for Windows (cross-spawn resolves `.cmd` there via PATHEXT).
-function writeCrossPlatformShim(binDir, name, shimBody) {
+export function writeCrossPlatformShim(binDir, name, shimBody) {
   const shimPath = path.join(binDir, `${name}-shim.mjs`);
   fs.writeFileSync(shimPath, shimBody);
   const unix = path.join(binDir, name);

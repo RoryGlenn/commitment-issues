@@ -21,19 +21,21 @@ npx commitment-issues init
 root:
 
 - **Hooks belong to the Git repository.** `init` writes `pre-commit` and
-  `pre-push` in Git's common hooks directory, so they run once per commit and
-  push for the whole repository. A linked Git worktree shares those hooks with
-  the primary checkout.
+  `pre-push` in Git's common hooks directory, plus the optional `commit-msg`
+  hook when enabled, so they run once for the whole repository. A linked Git
+  worktree shares those hooks with the primary checkout.
 - **Staged files are checked across all packages.** The pre-commit check reads
   staged paths with `git diff --cached` relative to the repo root, so changes in
   any workspace package are included together.
 - **Configuration is read from the root `package.json`.** The `precommitChecks`
   options come from the root package, not from individual workspace packages.
-- **Tools resolve from the root `node_modules/.bin`.** Install
-  `commitment-issues`, ESLint, and Prettier as root development dependencies.
-  This works with the managers' default `node_modules` layouts, including
-  linked or isolated workspace installs; package-local tool installs are not
-  searched.
+- **Tools resolve locally from the root `node_modules`.** Install
+  `commitment-issues`, ESLint, Prettier, and optional commitlint as root
+  development dependencies. Hooks read peer-tool package bins directly and
+  resolve the package CLI and optional commitlint through the root
+  `node_modules/.bin` tree. This works with the managers' default
+  `node_modules` layouts, including linked or isolated workspace installs;
+  package-local tool installs are not searched.
 
 ## Tested compatibility contract
 
@@ -71,7 +73,7 @@ nested package in a linked Git worktree. The nested packages carry conflicting
 The table above is the tested compatibility baseline. Other workspace globs and
 custom hoisting settings may work when they preserve the same two invariants:
 the Git/workspace root owns the configuration, and the required binaries exist
-in its `node_modules/.bin` directory. They are not blanket guarantees; report a
+in its root `node_modules` tree. They are not blanket guarantees; report a
 specific layout that violates those invariants as a focused compatibility
 issue.
 
@@ -84,6 +86,8 @@ issue.
    to specific packages when needed.
 4. Set `precommitChecks` in the root `package.json` to match how you want the
    whole repository checked.
+5. If commit-message linting is enabled, install commitlint and keep its config
+   at the root; per-workspace commitlint resolution is not attempted.
 
 For pnpm, use the workspace-root flag when adding the tools:
 
@@ -123,7 +127,7 @@ The following are outside the current design:
 - **Per-package `precommitChecks` configuration.** Only the root package's
   `precommitChecks` is read.
 - **Per-package tool versions.** The hooks resolve a single set of tools from the
-  root `node_modules/.bin` rather than a different version per workspace.
+  root `node_modules` rather than a different version per workspace.
 - **Separate hooks per workspace package.** Hooks are wired once at the Git root,
   not per package.
 - **Yarn Plug'n'Play.** Yarn Berry must use `nodeLinker: node-modules`; see the

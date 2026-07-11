@@ -10,7 +10,7 @@ import {
   formatFilePattern,
   shortFileList,
 } from "./lib/files.mjs";
-import { runScript } from "./lib/package-manager.mjs";
+import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
@@ -140,19 +140,27 @@ const indexSnapshotBefore = getIndexSnapshot(fixableFiles);
 // pipeline (fix what can be fixed, report the rest), mirroring each tool's
 // own --fix semantics.
 let toolFailed = false;
+const missingTools = [];
+
+function recordToolResult(result) {
+  if (result.outcome !== "success") {
+    toolFailed = true;
+  }
+  if (result.outcome === "missing-tool") {
+    missingTools.push(result.missingTool);
+  }
+}
 
 if (stagedJsFiles.length > 0) {
-  const eslintResult = runTool(
+  const eslintResult = await runTool(
     "eslint",
     ["--cache", "--cache-strategy", "content", "--fix", "--", ...stagedJsFiles],
     { stdio: "inherit" },
   );
-  if (eslintResult.error || (eslintResult.status ?? 1) !== 0) {
-    toolFailed = true;
-  }
+  recordToolResult(eslintResult);
 }
 
-const prettierResult = runTool(
+const prettierResult = await runTool(
   "prettier",
   [
     "--cache",
@@ -167,9 +175,7 @@ const prettierResult = runTool(
   ],
   { stdio: "inherit" },
 );
-if (prettierResult.error || (prettierResult.status ?? 1) !== 0) {
-  toolFailed = true;
-}
+recordToolResult(prettierResult);
 
 // Stage whatever the fixers changed so the commit picks it up.
 const addResult = run("git", [...GIT_PATH_ARGS, "add", "--", ...fixableFiles]);
@@ -214,6 +220,12 @@ warningBox([
   pc.bold("Manual attention still needed."),
   "",
   pc.dim("Available fixes were applied and the index was refreshed."),
+  ...(missingTools.length > 0
+    ? [
+        pc.dim(`Missing local tool(s): ${missingTools.join(", ")}.`),
+        pc.dim(`Install them: ${devInstallCommand(missingTools)}`),
+      ]
+    : []),
   pc.dim(
     "Review the ESLint or Prettier output above, then commit again when ready.",
   ),
