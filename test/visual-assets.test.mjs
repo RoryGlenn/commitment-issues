@@ -107,7 +107,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   );
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const verifyIndex = workflow.indexOf(
-    "run: git diff --exit-code -- assets/demo.gif",
+    "name: Verify rendered demo matches committed visuals",
   );
   const uploadIndex = workflow.indexOf("name: Upload rendered demo");
 
@@ -116,6 +116,12 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(workflow, /npm ci --ignore-scripts/);
   assert.match(workflow, /node-version: "24\.14\.0"/);
   assert.ok(renderIndex >= 0, "workflow should render the demo");
+  assert.match(
+    workflow,
+    /cp assets\/demo\.gif "\$RUNNER_TEMP\/committed-demo\.gif"/,
+  );
+  assert.match(workflow, /MINIMUM_SSIM: "0\.998"/);
+  assert.match(workflow, /-lavfi ssim/);
   assert.ok(
     verifyIndex > renderIndex,
     "workflow should compare the rendered GIF after rendering it",
