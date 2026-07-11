@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in `--json` results for `precommit` and `prepush`, with one shared,
+  versioned schema covering check outcomes, findings, safe command suggestions,
+  configuration diagnostics, and unchanged exit codes. JSON is the only stdout
+  content; pre-push test-runner output moves to stderr in this mode.
 - Optional bring-your-own commitlint integration under
   `precommitChecks.commitMessage`: disabled by default, advisory after explicit
   enablement, and blocking only with `blockOnFailure`. It owns a safely quoted
@@ -35,9 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   team rollout, progressive enforcement, ownership boundaries, and reversible
   removal. Detailed output and compliance evidence remain available lower in
   the document without delaying the adoption path.
+- The npm, pnpm, Yarn, and Bun lifecycle matrix now installs the packed package
+  into a real workspace fixture, covering shallow and nested packages,
+  root-owned configuration, fresh clones, and linked Git worktrees.
 
 ### Fixed
 
+- The npm package now excludes the promotional hero PNG and demo GIF while
+  keeping README images live through GitHub-hosted URLs; a package-content test
+  enforces both the required offline SVG/docs set and a documented size budget.
 - Release publishing now sends the exact tarball that was packed and hashed to
   npm, attaches that tarball and its SLSA provenance to the GitHub Release, and
   provides a collision-checking preflight plus an immutable-tag recovery

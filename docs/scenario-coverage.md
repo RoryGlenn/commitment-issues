@@ -21,9 +21,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-004** — package `files` entries exist. Unit: `test/metadata.test.mjs`.
 - **PKG-005** — package bin works from packed tarball across OS / Node matrix. CI smoke: `.github/workflows/ci.yml`.
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
-- **PKG-007** — package includes README gallery assets and docs in the tarball. Manual: `npm pack --dry-run`.
+- **PKG-007** — package includes README SVG gallery assets and installed docs in the tarball. Unit: `test/metadata.test.mjs` using `npm pack --dry-run --json`.
 - **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
 - **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
+- **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
 
 ### Path normalization
 
@@ -71,6 +72,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-016** — shell-sensitive command tokens are not shell-expanded by the CLI wrapper. Subprocess: `test/cli.test.mjs`.
 - **CLI-017** — `uninstall` dispatches through the bin. Subprocess: `test/cli.test.mjs`.
 - **CLI-018** — `commit-msg` dispatches through the bin and preserves its message-file argument. Subprocess: `test/cli.test.mjs`.
+- **CLI-019** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
 
 ### Init
 
@@ -123,6 +125,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-009** — opt-in staged tests run and warn on failure or stay clean on success (pluralized). Fixture: `test/precommit.test.mjs`.
 - **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
 - **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
+- **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
 
 ### Commit-message linting
 
@@ -183,6 +186,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PUSH-007** — non-node test commands run through the tee/summary fallback. Fixture: `test/prepush.test.mjs`.
 - **PUSH-008** — test-command failure blocks in blocking mode and warns/allows in advisory mode; a missing summary blocks. Fixture: `test/prepush.test.mjs`.
 - **PUSH-009** — pushed-file diff failure or malformed name/status output fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
+- **PUSH-010** — JSON mode preserves Git's pre-push positional arguments, keeps subprocess output off stdout, and reports advisory, clean, and blocking outcomes. Fixture: `test/json-output.test.mjs`.
 
 ### Advisory message and tone
 
@@ -241,11 +245,17 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PM-003** — yarn classic end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
 - **PM-005** — bun end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
 
+### Monorepos and workspaces
+
+- **MONO-001** — workspace-root behavior across npm, pnpm, Yarn, and Bun. The real packed package is installed at the root, each manager's workspace selector runs both package test scripts, root config owns staged checks, and root-native hooks run for commits and pushes. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
+- **MONO-002** — shallow and nested workspace packages are checked together, including when `git commit` starts in the nested package. Package-local `precommitChecks` values remain untouched and do not override the root. CI lifecycle matrix: `.github/workflows/ci.yml`; guide: [Monorepo & workspaces](monorepo.md).
+- **MONO-003** — linked Git worktrees share hooks through Git's common directory, repair safely during a worktree-local install, and run the root checks from a nested package. CI lifecycle matrix: `.github/workflows/ci.yml`.
+
+Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
+
 ## Deferred
 
 - **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
-- **MONO-001** — workspace root behavior. Hooks run from the Git root and check staged files across all packages using the root `precommitChecks` config and hoisted tools. Boundary documented in the [Monorepo & workspaces guide](monorepo.md).
-- **MONO-002** — nested workspace package behavior. Per-package `precommitChecks` config and per-package tool versions are out of scope; the boundary is documented in the [Monorepo & workspaces guide](monorepo.md).
 - **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Not covered yet
@@ -271,6 +281,4 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Batch 5: deferred support boundaries
 
-- pnpm / yarn / bun.
-- Monorepo root/package fixtures.
 - Release-from-tag / release-from-CI workflows.
