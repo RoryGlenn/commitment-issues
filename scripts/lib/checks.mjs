@@ -30,22 +30,28 @@ export function summarizeEslintJson(stdout) {
 }
 
 /**
- * @param {...string} outputs - Prettier `--list-different` output streams.
- * @returns {{failed: boolean, files: string[]}} Whether Prettier crashed before
- * reporting, and the files needing formatting when it did not.
+ * Interpret Prettier's documented `--list-different` exit status before its
+ * human-readable output: 0 means clean, 1 means the stdout paths differ, and
+ * any other status means Prettier could not complete. Output text is never used
+ * to infer a crash, so a legitimate filename containing "[error]" is safe.
+ * @param {number|null} status - Prettier exit status.
+ * @param {string} stdout - Prettier `--list-different` stdout.
+ * @returns {{failed: boolean, files: string[]}} Classification and paths.
  */
-export function parsePrettierList(...outputs) {
-  const combined = outputs.filter(Boolean).join("\n");
-  if (/\[error\]|SyntaxError|ParserError/i.test(combined)) {
+export function parsePrettierList(status, stdout = "") {
+  if (status !== 0 && status !== 1) {
     return { failed: true, files: [] };
   }
 
   return {
     failed: false,
-    files: (outputs[0] || "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
+    files:
+      status === 1
+        ? stdout
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [],
   };
 }
 

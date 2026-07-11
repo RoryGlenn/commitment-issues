@@ -8,6 +8,16 @@ This document summarizes the hardening mechanisms used by
 1. Safer process spawning
    - Commands are executed with argument vectors (no shell interpolation for
      file paths), reducing command-injection risk from path content.
+   - Built-in ESLint and Prettier execution resolves only project-local package
+     bins. Missing peers return a structured result and never trigger an
+     implicit `npx` registry lookup or install.
+   - Process results distinguish spawn failure, timeout, external signal,
+     normal nonzero exit, and success. Prettier uses its documented exit status
+     rather than matching human-readable `[error]` output.
+   - Timed commands are isolated into POSIX process groups on Ubuntu/macOS and
+     terminated as Windows process trees with `taskkill /t /f`, with a
+     direct-child fallback. Deliberately detached/daemonized descendants remain
+     outside this portable cleanup boundary.
 2. Defensive working-tree guards
    - `fix:staged` refuses partially staged files to avoid data loss.
    - `commit:fix` refuses to amend pushed commits or dirty tracked worktrees.
