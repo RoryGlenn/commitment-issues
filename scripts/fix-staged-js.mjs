@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { runTool } from "./lib/process.mjs";
+import { devInstallCommand } from "./lib/package-manager.mjs";
 
 const files = process.argv.slice(2).filter(Boolean);
 
@@ -10,18 +11,26 @@ if (files.length === 0) {
 }
 
 let hasRemainingIssues = false;
+const missingTools = [];
 
-const eslintResult = runTool(
+function recordToolResult(result) {
+  if (result.outcome !== "success") {
+    hasRemainingIssues = true;
+  }
+  if (result.outcome === "missing-tool") {
+    missingTools.push(result.missingTool);
+  }
+}
+
+const eslintResult = await runTool(
   "eslint",
   ["--cache", "--cache-strategy", "content", "--fix", "--", ...files],
   { stdio: "inherit" },
 );
 
-if (eslintResult.error || (eslintResult.status || 0) !== 0) {
-  hasRemainingIssues = true;
-}
+recordToolResult(eslintResult);
 
-const prettierResult = runTool(
+const prettierResult = await runTool(
   "prettier",
   [
     "--cache",
@@ -37,8 +46,13 @@ const prettierResult = runTool(
   { stdio: "inherit" },
 );
 
-if (prettierResult.error || (prettierResult.status || 0) !== 0) {
-  hasRemainingIssues = true;
+recordToolResult(prettierResult);
+
+if (missingTools.length > 0) {
+  console.error(
+    `commitment-issues: missing local tool(s): ${missingTools.join(", ")} — ` +
+      `install with \`${devInstallCommand(missingTools)}\`.`,
+  );
 }
 
 if (hasRemainingIssues) {

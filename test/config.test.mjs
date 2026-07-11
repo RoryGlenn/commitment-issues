@@ -8,8 +8,12 @@ import os from "node:os";
 import path from "node:path";
 import {
   invalidPrecommitConfigMessages,
+  KNOWN_COMMIT_MESSAGE_CONFIG_KEYS,
   KNOWN_PRECOMMIT_CONFIG_KEYS,
+  MAX_TIMEOUT_MS,
   loadPrecommitConfig,
+  precommitConfigWarningMessages,
+  resolveCommitMessageConfig,
   sanitizePrecommitConfig,
   unknownPrecommitConfigKeys,
 } from "../scripts/lib/config.mjs";
@@ -73,6 +77,81 @@ test("unknownPrecommitConfigKeys can diagnose sanitized config", () => {
   });
 
   assert.deepEqual(unknownPrecommitConfigKeys(sanitized), ["requireTest"]);
+});
+
+test("commitMessage config is nested, sanitized, and disabled by default", (t) => {
+  withTempPackage(t, {
+    precommitChecks: {
+      commitMessage: { enabled: true, blockOnFailure: false },
+    },
+  });
+
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, {
+    commitMessage: { enabled: true, blockOnFailure: false },
+  });
+  assert.deepEqual(resolveCommitMessageConfig(config), {
+    enabled: true,
+    blockOnFailure: false,
+  });
+  assert.deepEqual(resolveCommitMessageConfig({}), {
+    enabled: false,
+    blockOnFailure: false,
+  });
+});
+
+test("commitMessage diagnostics name nested typos and invalid values", () => {
+  const sanitized = sanitizePrecommitConfig({
+    commitMessage: {
+      enable: true,
+      enabled: "yes",
+      blockOnFailure: 1,
+    },
+  });
+
+  assert.deepEqual(KNOWN_COMMIT_MESSAGE_CONFIG_KEYS, [
+    "blockOnFailure",
+    "enabled",
+  ]);
+  assert.deepEqual(unknownPrecommitConfigKeys(sanitized), [
+    "commitMessage.enable",
+  ]);
+  assert.deepEqual(invalidPrecommitConfigMessages(sanitized), [
+    "commitMessage.blockOnFailure must be a boolean",
+    "commitMessage.enabled must be a boolean",
+  ]);
+  assert.deepEqual(precommitConfigWarningMessages(sanitized), [
+    "Ignoring unknown precommitChecks key(s) in package.json: commitMessage.enable. Check for typos.",
+    "Ignoring invalid precommitChecks value(s) in package.json: commitMessage.blockOnFailure must be a boolean; commitMessage.enabled must be a boolean.",
+  ]);
+  assert.deepEqual(sanitized, { commitMessage: {} });
+});
+
+test("commitMessage rejects malformed blocks without enabling the hook", () => {
+  for (const value of [null, false, true, "yes", [], 42]) {
+    const sanitized = sanitizePrecommitConfig({ commitMessage: value });
+    assert.deepEqual(sanitized, {});
+    assert.deepEqual(resolveCommitMessageConfig(sanitized), {
+      enabled: false,
+      blockOnFailure: false,
+    });
+    assert.deepEqual(invalidPrecommitConfigMessages({ commitMessage: value }), [
+      "commitMessage must be an object",
+    ]);
+  }
+});
+
+test("blocking commit-message config cannot silently imply enablement", () => {
+  const config = sanitizePrecommitConfig({
+    commitMessage: { blockOnFailure: true },
+  });
+  assert.deepEqual(resolveCommitMessageConfig(config), {
+    enabled: false,
+    blockOnFailure: true,
+  });
+  assert.deepEqual(precommitConfigWarningMessages(config), [
+    "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+  ]);
 });
 
 test("loadPrecommitConfig returns {} when package.json is missing", (t) => {
@@ -175,7 +254,23 @@ test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
       'tone must be "standard" or "fun"',
       "testExempt must be an array of strings",
       "testCommand must be a non-empty array of non-empty strings",
-      "timeoutMs must be a positive finite number",
+      `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
+    ],
+  );
+});
+
+test("timeoutMs accepts Node's timer ceiling and rejects larger values", () => {
+  assert.deepEqual(sanitizePrecommitConfig({ timeoutMs: MAX_TIMEOUT_MS }), {
+    timeoutMs: MAX_TIMEOUT_MS,
+  });
+  assert.deepEqual(
+    sanitizePrecommitConfig({ timeoutMs: MAX_TIMEOUT_MS + 1 }),
+    {},
+  );
+  assert.deepEqual(
+    invalidPrecommitConfigMessages({ timeoutMs: MAX_TIMEOUT_MS + 1 }),
+    [
+      `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
     ],
   );
 });
