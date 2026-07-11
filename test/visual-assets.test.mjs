@@ -108,6 +108,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const fixIndex = tape.indexOf(
     "./node_modules/.bin/commitment-issues commit-fix",
   );
+  const fixPromptIndex = tape.indexOf("Wait+Line@30s /git:/", fixIndex);
   const pushIndex = tape.indexOf('Type "git push" Enter');
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const metadataIndex = workflow.indexOf(
@@ -207,5 +208,9 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.ok(
     pushIndex > fixIndex,
     "the demonstrated push should happen after the safe automatic amend",
+  );
+  assert.ok(
+    fixPromptIndex > fixIndex && pushIndex > fixPromptIndex,
+    "the demonstrated push should wait for commit-fix to return to the prompt",
   );
 });
