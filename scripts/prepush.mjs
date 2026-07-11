@@ -573,7 +573,9 @@ if (testDidNotComplete) {
     testOutcome === "timeout"
       ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
       : testOutcome === "signal"
-        ? `The test command stopped after ${result.signal || "an unknown signal"}.`
+        ? `The test command stopped after ${
+            result.signal || "an unknown signal"
+          }.`
         : "Check precommitChecks.testCommand in package.json.";
   const reason = pc.dim(reasonText);
   const issue = {
