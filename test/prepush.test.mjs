@@ -40,6 +40,19 @@ function setConfig(tempDir, precommitChecks) {
   );
 }
 
+function installTestArgRecorder(tempDir) {
+  const selectedPath = path.join(tempDir, "selected-tests.json");
+  writeFile(
+    path.join(tempDir, "record-tests.mjs"),
+    'import fs from "node:fs";\n' +
+      `fs.writeFileSync(${JSON.stringify(selectedPath)}, JSON.stringify(process.argv.slice(2)));\n`,
+  );
+  return {
+    selectedPath,
+    testCommand: ["node", "record-tests.mjs"],
+  };
+}
+
 function setStandaloneConfig(tempDir, config, { raw = false } = {}) {
   writeFile(
     path.join(tempDir, ".commitmentrc.json"),
@@ -614,4 +627,280 @@ test("discovers associated tests for pushed files with Unicode paths", (t) => {
   assert.doesNotMatch(output, /No tests to run before push/);
   assert.match(output, /All tests passed/);
   assert.match(output, /1 passed, 0 failed/);
+});
+
+test(
+  "passes exact NUL-delimited pathological paths to pushed-file tests",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const recorder = installTestArgRecorder(tempDir);
+    setConfig(tempDir, {
+      blockPushOnTestFailure: true,
+      testCommand: recorder.testCommand,
+      protectedBranches: [],
+    });
+
+    const dir = "src/ leading\t猫\ntrailing ";
+    const source = `${dir}/widget.mjs`;
+    const relatedTest = `${dir}/widget.test.mjs`;
+    writeFile(
+      path.join(tempDir, ...source.split("/")),
+      "export const x = 1;\n",
+    );
+    writeFile(path.join(tempDir, ...relatedTest.split("/")), "export {};\n");
+    run("git", ["add", "--", "package.json", source, relatedTest], tempDir);
+    run("git", ["commit", "-m", "pathological path"], tempDir);
+
+    const result = runPrePush(tempDir, pushInput(tempDir));
+
+    assert.equal(result.status, 0);
+    assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+      relatedTest,
+    ]);
+  },
+);
+
+test("first push of a based branch diffs from its remote merge base", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const recorder = installTestArgRecorder(tempDir);
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: recorder.testCommand,
+    protectedBranches: [],
+  });
+
+  writeFile(path.join(tempDir, "src", "legacy.mjs"), "export const x = 1;\n");
+  writeFile(path.join(tempDir, "src", "legacy.test.mjs"), "export {};\n");
+  run("git", ["add", "package.json", "src"], tempDir);
+  run("git", ["commit", "-m", "remote baseline"], tempDir);
+  const remoteDir = addBareRemote(tempDir);
+  t.after(() => fs.rmSync(remoteDir, { recursive: true, force: true }));
+
+  run("git", ["switch", "-c", "feature/first-push"], tempDir);
+  writeFile(path.join(tempDir, "src", "feature.mjs"), "export const y = 2;\n");
+  writeFile(path.join(tempDir, "src", "feature.test.mjs"), "export {};\n");
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "feature"], tempDir);
+  assert.notEqual(run("git", ["rev-parse", "@{u}"], tempDir).status, 0);
+  const head = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+  const input =
+    `refs/heads/feature/first-push ${head} ` +
+    `refs/heads/feature/first-push ${"0".repeat(40)}\n`;
+
+  const result = runPrePush(tempDir, input);
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "src/feature.test.mjs",
+  ]);
+
+  // An explicit upstream is sufficient even when remote-ref enumeration is
+  // unavailable. This also verifies the full push ref is converted to the
+  // short local branch syntax required by the @{upstream} revision suffix.
+  run(
+    "git",
+    ["branch", "--set-upstream-to=origin/main", "feature/first-push"],
+    tempDir,
+  );
+  const env = fakeGitEnv(tempDir, "for-each-ref");
+  const upstreamResult = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input, env },
+  );
+  assert.equal(upstreamResult.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "src/feature.test.mjs",
+  ]);
+});
+
+test("first push of an orphan history falls back safely to the empty tree", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const recorder = installTestArgRecorder(tempDir);
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: recorder.testCommand,
+    protectedBranches: [],
+  });
+  const orphanPackage = readFile(tempDir, "package.json");
+  const scriptsTarget = fs.readlinkSync(path.join(tempDir, "scripts"));
+
+  writeFile(path.join(tempDir, "src", "legacy.mjs"), "export const x = 1;\n");
+  writeFile(path.join(tempDir, "src", "legacy.test.mjs"), "export {};\n");
+  run("git", ["add", "package.json", "src"], tempDir);
+  run("git", ["commit", "-m", "remote baseline"], tempDir);
+  const remoteDir = addBareRemote(tempDir);
+  t.after(() => fs.rmSync(remoteDir, { recursive: true, force: true }));
+
+  run("git", ["checkout", "--orphan", "orphan"], tempDir);
+  run("git", ["rm", "-rf", "--ignore-unmatch", "."], tempDir);
+  fs.symlinkSync(scriptsTarget, path.join(tempDir, "scripts"));
+  writeFile(path.join(tempDir, "package.json"), orphanPackage);
+  writeFile(path.join(tempDir, "src", "orphan.mjs"), "export const x = 1;\n");
+  writeFile(path.join(tempDir, "src", "orphan.test.mjs"), "export {};\n");
+  run(
+    "git",
+    ["add", "package.json", "src/orphan.mjs", "src/orphan.test.mjs"],
+    tempDir,
+  );
+  run("git", ["commit", "-m", "orphan history"], tempDir);
+  const head = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+
+  const result = runPrePush(
+    tempDir,
+    `refs/heads/orphan ${head} refs/heads/orphan ${"0".repeat(40)}\n`,
+  );
+
+  assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "src/orphan.test.mjs",
+  ]);
+});
+
+test("first push recognizes a SHA-256-length zero object ID", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const recorder = installTestArgRecorder(tempDir);
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: recorder.testCommand,
+    protectedBranches: [],
+  });
+
+  run("git", ["add", "package.json"], tempDir);
+  run("git", ["commit", "-m", "remote baseline"], tempDir);
+  const remoteDir = addBareRemote(tempDir);
+  t.after(() => fs.rmSync(remoteDir, { recursive: true, force: true }));
+
+  run("git", ["switch", "-c", "feature/sha256-zero"], tempDir);
+  writeFile(path.join(tempDir, "src", "feature.mjs"), "export const x = 1;\n");
+  writeFile(path.join(tempDir, "src", "feature.test.mjs"), "export {};\n");
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "feature"], tempDir);
+  const head = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+
+  const result = runPrePush(
+    tempDir,
+    `refs/heads/feature/sha256-zero ${head} ` +
+      `refs/heads/feature/sha256-zero ${"0".repeat(64)}\n`,
+  );
+
+  assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "src/feature.test.mjs",
+  ]);
+});
+
+test("multiple first-pushed refs each use the existing remote base", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const recorder = installTestArgRecorder(tempDir);
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: recorder.testCommand,
+    protectedBranches: [],
+  });
+  run("git", ["add", "package.json"], tempDir);
+  run("git", ["commit", "-m", "configure"], tempDir);
+  const remoteDir = addBareRemote(tempDir);
+  t.after(() => fs.rmSync(remoteDir, { recursive: true, force: true }));
+
+  run("git", ["switch", "-c", "feature/a"], tempDir);
+  writeFile(path.join(tempDir, "src", "a.mjs"), "export const a = 1;\n");
+  writeFile(path.join(tempDir, "src", "a.test.mjs"), "export {};\n");
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "feature a"], tempDir);
+  const headA = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+
+  run("git", ["switch", "-c", "feature/b"], tempDir);
+  writeFile(path.join(tempDir, "src", "b.mjs"), "export const b = 2;\n");
+  writeFile(path.join(tempDir, "src", "b.test.mjs"), "export {};\n");
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "feature b"], tempDir);
+  const headB = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+  const zero = "0".repeat(40);
+
+  const result = runPrePush(
+    tempDir,
+    `refs/heads/feature/a ${headA} refs/heads/feature/a ${zero}\n` +
+      `refs/heads/feature/b ${headB} refs/heads/feature/b ${zero}\n`,
+  );
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)).sort(), [
+    "src/a.test.mjs",
+    "src/b.test.mjs",
+  ]);
+});
+
+test("same-basename monorepo sources select only their package tests", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const recorder = installTestArgRecorder(tempDir);
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    testCommand: recorder.testCommand,
+    protectedBranches: [],
+  });
+  const rootPackage = JSON.parse(readFile(tempDir, "package.json"));
+  rootPackage.workspaces = ["packages/*"];
+  writeFile(
+    path.join(tempDir, "package.json"),
+    `${JSON.stringify(rootPackage, null, 2)}\n`,
+  );
+
+  for (const workspace of ["a", "b"]) {
+    writeFile(
+      path.join(tempDir, "packages", workspace, "package.json"),
+      "{}\n",
+    );
+    writeFile(
+      path.join(tempDir, "packages", workspace, "src", "index.mjs"),
+      `export const workspace = "${workspace}";\n`,
+    );
+    writeFile(
+      path.join(tempDir, "packages", workspace, "test", "index.test.mjs"),
+      "export {};\n",
+    );
+  }
+  writeFile(path.join(tempDir, "test", "index.test.mjs"), "export {};\n");
+  run("git", ["add", "package.json", "packages", "test"], tempDir);
+  run("git", ["commit", "-m", "monorepo baseline"], tempDir);
+
+  const sourceA = path.join(tempDir, "packages", "a", "src", "index.mjs");
+  writeFile(sourceA, 'export const workspace = "a2";\n');
+  run("git", ["add", "packages/a/src/index.mjs"], tempDir);
+  run("git", ["commit", "-m", "change a"], tempDir);
+  let result = runPrePush(tempDir, pushInput(tempDir));
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "packages/a/test/index.test.mjs",
+  ]);
+
+  const sourceB = path.join(tempDir, "packages", "b", "src", "index.mjs");
+  writeFile(sourceB, 'export const workspace = "b2";\n');
+  run("git", ["add", "packages/b/src/index.mjs"], tempDir);
+  run("git", ["commit", "-m", "change b"], tempDir);
+  result = runPrePush(tempDir, pushInput(tempDir));
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "packages/b/test/index.test.mjs",
+  ]);
+
+  run(
+    "git",
+    ["rm", "packages/a/package.json", "packages/a/src/index.mjs"],
+    tempDir,
+  );
+  run("git", ["commit", "-m", "remove a source"], tempDir);
+  result = runPrePush(tempDir, pushInput(tempDir));
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recorder.selectedPath)), [
+    "packages/a/test/index.test.mjs",
+  ]);
 });

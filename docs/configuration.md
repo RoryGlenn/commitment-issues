@@ -9,7 +9,7 @@ For the short install path, start with the [README](../README.md). For terminal 
 `npx commitment-issues init` updates the consuming repo so the installed package can run from Git hooks:
 
 - wires the pre-commit hook to `commitment-issues precommit`
-- wires the pre-push hook to `commitment-issues prepush`
+- wires the pre-push hook to `commitment-issues prepush "$@"`
 - wires `commitment-issues commit-msg "$1"` only when optional
   commit-message linting is explicitly enabled
 - adds npm scripts for `doctor`, `fix:staged`, `commit:fix`, and direct pre-commit checks
@@ -86,7 +86,8 @@ network behavior.
 
 - The pre-commit hook runs `commitment-issues precommit`.
 - `scripts/precommit.mjs` inspects staged files and prints one consolidated summary box.
-- The pre-push hook runs `commitment-issues prepush`.
+- The pre-push hook runs `commitment-issues prepush "$@"` so Git's remote
+  arguments reach first-push base selection.
 - `scripts/prepush.mjs` runs tests associated with pushed files in advisory mode by default.
 - An enabled commit-msg hook passes Git's message file as one quoted argument to
   `commitment-issues commit-msg`; it stays silent when commitlint succeeds.

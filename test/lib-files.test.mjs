@@ -14,8 +14,11 @@ import {
   isConfigFile,
   isThirdPartyPath,
   findTestFile,
+  findTestFiles,
   collectTestsForFiles,
+  parseLsFilesStage,
   parseNameStatusPaths,
+  parseNulPaths,
   shortFileList,
 } from "../scripts/lib/files.mjs";
 
@@ -75,6 +78,7 @@ test("parseNameStatusPaths preserves deletions and rename relationships", () => 
     "src/deleted.mjs",
     "src/old name.mjs",
     "src/new\nname.mjs",
+    "src/original.mjs",
     "src/copied.mjs",
   ]);
 });
@@ -84,6 +88,45 @@ test("parseNameStatusPaths rejects malformed output", () => {
   assert.equal(parseNameStatusPaths("M"), null);
   assert.equal(parseNameStatusPaths("R100\0src/old.mjs"), null);
   assert.equal(parseNameStatusPaths("\0src/path.mjs"), null);
+  assert.equal(parseNameStatusPaths("Q\0src/path.mjs\0"), null);
+  assert.equal(parseNameStatusPaths("M\0\0"), null);
+});
+
+test("parseNulPaths preserves every legal pathname character", () => {
+  const paths = [
+    "src/ leading.mjs",
+    "src/trailing /file.mjs",
+    "src/line\nbreak.mjs",
+    "src/tab\tname.mjs",
+    "src/unicode-猫.mjs",
+  ];
+
+  assert.deepEqual(parseNulPaths(`${paths.join("\0")}\0`), paths);
+  assert.deepEqual(parseNulPaths(""), []);
+  assert.equal(parseNulPaths("src/unterminated.mjs"), null);
+  assert.equal(parseNulPaths("src/a.mjs\0\0"), null);
+});
+
+test("parseLsFilesStage separates metadata from tab-bearing paths", () => {
+  const output =
+    "100644 0123456789abcdef 0\tsrc/tab\tand\nnewline.mjs\0" +
+    "100755 fedcba9876543210 2\t leading-and-trailing \0";
+
+  assert.deepEqual(parseLsFilesStage(output), [
+    {
+      mode: "100644",
+      object: "0123456789abcdef",
+      stage: 0,
+      file: "src/tab\tand\nnewline.mjs",
+    },
+    {
+      mode: "100755",
+      object: "fedcba9876543210",
+      stage: 2,
+      file: " leading-and-trailing ",
+    },
+  ]);
+  assert.equal(parseLsFilesStage("100644 bad\tfile\0"), null);
 });
 
 test("isTestExemptFile honors package.json testExempt globs", () => {
@@ -145,4 +188,46 @@ test("findTestFile and collectTestsForFiles locate sibling tests", (t) => {
     "src/widget.test.mjs",
   ]);
   assert.deepEqual(collectTestsForFiles(["src/missing.mjs", "a.png"]), []);
+});
+
+test("related-test lookup stays inside the nearest monorepo package", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "files-monorepo-"));
+  const cwd = process.cwd();
+  t.after(() => {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  process.chdir(dir);
+
+  fs.writeFileSync("package.json", '{"workspaces":["packages/*"]}\n');
+  for (const workspace of ["a", "b", "c"]) {
+    fs.mkdirSync(`packages/${workspace}/src`, { recursive: true });
+    fs.writeFileSync(`packages/${workspace}/package.json`, "{}\n");
+    fs.writeFileSync(
+      `packages/${workspace}/src/index.mjs`,
+      `export const workspace = "${workspace}";\n`,
+    );
+  }
+  fs.mkdirSync("test", { recursive: true });
+  fs.writeFileSync("test/index.test.mjs", "export {};\n");
+  fs.mkdirSync("packages/a/test", { recursive: true });
+  fs.writeFileSync("packages/a/test/index.test.mjs", "export {};\n");
+  fs.writeFileSync("packages/a/test/index.spec.mjs", "export {};\n");
+  fs.mkdirSync("packages/b/tests", { recursive: true });
+  fs.writeFileSync("packages/b/tests/index.test.mjs", "export {};\n");
+
+  assert.deepEqual(findTestFiles("packages/a/src/index.mjs"), [
+    "packages/a/test/index.test.mjs",
+    "packages/a/test/index.spec.mjs",
+  ]);
+  fs.rmSync("packages/a/package.json");
+  assert.deepEqual(findTestFiles("packages/a/src/index.mjs"), [
+    "packages/a/test/index.test.mjs",
+    "packages/a/test/index.spec.mjs",
+  ]);
+  assert.deepEqual(collectTestsForFiles(["packages/b/src/index.mjs"]), [
+    "packages/b/tests/index.test.mjs",
+  ]);
+  assert.equal(findTestFile("packages/c/src/index.mjs"), null);
+  assert.deepEqual(collectTestsForFiles(["packages/c/src/index.mjs"]), []);
 });

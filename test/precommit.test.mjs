@@ -497,6 +497,26 @@ test("continues (exit 0) when staged files cannot be inspected", (t) => {
   assert.doesNotMatch(output, /error/);
 });
 
+test("continues advisory when staged pathname output is malformed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "x.js"), "export const x = 1;\n");
+  run("git", ["add", "src/x.js"], tempDir);
+  const env = fakeGitEnv(
+    tempDir,
+    "--name-only -z --diff-filter=ACMRT",
+    0,
+    "src/x.js",
+  );
+
+  const result = runHook(tempDir, { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Unable to inspect staged files/);
+});
+
 test("reports a timeout when tools exceed the configured limit", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -821,3 +841,41 @@ test("pluralizes formatting issues across multiple files", (t) => {
     /2 files with formatting issues/,
   );
 });
+
+test(
+  "passes exact NUL-delimited pathological paths to staged tests",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const selectedPath = path.join(tempDir, "selected-tests.json");
+    writeFile(
+      path.join(tempDir, "record-tests.mjs"),
+      'import fs from "node:fs";\n' +
+        `fs.writeFileSync(${JSON.stringify(selectedPath)}, JSON.stringify(process.argv.slice(2)));\n`,
+    );
+    setPrecommitConfig(tempDir, {
+      runStagedTests: true,
+      testCommand: ["node", "record-tests.mjs"],
+      protectedBranches: [],
+    });
+
+    const dir = "src/ leading\t猫\ntrailing ";
+    const source = `${dir}/widget.mjs`;
+    const relatedTest = `${dir}/widget.test.mjs`;
+    writeFile(
+      path.join(tempDir, ...source.split("/")),
+      "export const x = 1;\n",
+    );
+    writeFile(path.join(tempDir, ...relatedTest.split("/")), "export {};\n");
+    run("git", ["add", "--", source, relatedTest], tempDir);
+
+    const result = runHook(tempDir);
+
+    assert.equal(result.status, 0);
+    assert.deepEqual(JSON.parse(fs.readFileSync(selectedPath, "utf8")), [
+      relatedTest,
+    ]);
+  },
+);

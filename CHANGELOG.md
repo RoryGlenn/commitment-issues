@@ -55,6 +55,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Pre-commit, `fix:staged`, and `commit:fix` now consume NUL-delimited Git
+  pathname records (including numstat and index metadata), preserving legal
+  leading/trailing whitespace, tabs, newlines, and Unicode without trimming.
+- A new branch's first push now diffs from its closest unambiguous upstream or
+  destination-remote merge base instead of treating the entire inherited
+  repository as new. Orphan, ambiguous, and unrelated histories conservatively
+  fall back to the empty tree, and generated pre-push hooks forward the remote
+  arguments needed to keep multi-remote selection safe. Exact older generated
+  hook bodies are refreshed automatically on upgrade; customized hooks remain
+  untouched. SHA-1 and SHA-256 zero object IDs are recognized.
+- Related-test lookup now respects the nearest workspace package boundary and
+  preserves package-relative source paths. Same-basename sources cannot claim
+  another workspace's or the root package's fallback test; every candidate in
+  the first matching specificity tier runs deterministically.
 - The npm package now excludes the promotional hero PNG and demo GIF while
   keeping README images live through GitHub-hosted URLs; a package-content test
   enforces both the required offline SVG/docs set and a documented size budget.

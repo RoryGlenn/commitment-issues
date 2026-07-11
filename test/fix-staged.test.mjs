@@ -155,6 +155,25 @@ test("errors when staged files cannot be inspected", (t) => {
   assert.match(output, /Unable to inspect staged files\./);
 });
 
+test("errors when staged pathname output is malformed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const env = fakeGitEnv(
+    tempDir,
+    "--name-only -z --diff-filter=ACMRT",
+    0,
+    "src/unterminated.js",
+  );
+  const result = runFixStaged(tempDir, { env });
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Unable to inspect staged files/,
+  );
+});
+
 test("errors when unstaged files cannot be inspected", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -179,8 +198,8 @@ test("tolerates an unreadable index snapshot and still reports clean", (t) => {
   writeFile(path.join(tempDir, "src", "clean.js"), 'console.log("x");\n');
   run("git", ["add", "src/clean.js"], tempDir);
 
-  // `git ls-files --stage` fails, so the before/after index snapshots are null.
-  const env = fakeGitEnv(tempDir, "ls-files --stage --");
+  // `git ls-files --stage -z` fails, so both index snapshots are null.
+  const env = fakeGitEnv(tempDir, "ls-files --stage -z --");
   const result = runFixStaged(tempDir, { env });
   const output = `${result.stdout}${result.stderr}`;
 
@@ -221,6 +240,30 @@ test("reports already clean and pluralizes for multiple unchanged files", (t) =>
   assert.equal(result.status, 0);
   assert.match(output, /Checked 2 staged files/);
 });
+
+test(
+  "fixes the exact NUL-delimited path containing legal whitespace and Unicode",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const file = "src/ leading\t猫\ntrailing /data.json";
+    writeFile(path.join(tempDir, ...file.split("/")), '{"alpha":1}\n');
+    run("git", ["add", "--", file], tempDir);
+
+    const result = runFixStaged(tempDir);
+    const staged = run(
+      "git",
+      ["diff", "--cached", "--name-only", "-z"],
+      tempDir,
+    );
+
+    assert.equal(result.status, 0);
+    assert.equal(readFile(tempDir, file), '{ "alpha": 1 }\n');
+    assert.equal(staged.stdout, `${file}\0`);
+  },
+);
 
 test("reports local install guidance when fixer peer tools are missing", (t) => {
   const tempDir = createTempRepo();

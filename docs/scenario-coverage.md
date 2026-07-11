@@ -135,6 +135,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
 - **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
 - **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
+- **PRE-013** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
 
 ### Commit-message linting
 
@@ -157,6 +158,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CFIX-008** — guides the user to `git reset --soft HEAD^` when the fixes would empty the commit. Fixture: `test/commit-fix.test.mjs`.
 - **CFIX-009** — warns when a format-only file cannot be fixed automatically. Fixture: `test/commit-fix.test.mjs`.
 - **CFIX-010** — Git failures error clearly: no commit, worktree/file-list/staging/staged-fix inspection, and amend failure. Fixture: `test/commit-fix.test.mjs`.
+- **CFIX-011** — committed pathnames with leading/trailing whitespace, tabs, newlines, and Unicode are fixed and amended exactly. Fixture: `test/commit-fix.test.mjs`.
 
 ### Staged fixes
 
@@ -168,6 +170,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **STG-006** — `fix-staged-js` formats JS/TS and exits 0 when everything is auto-fixable. Fixture: `test/fix-staged-js.test.mjs`.
 - **STG-007** — `fix-staged-js` exits 1 on remaining non-fixable lint or a Prettier parse error. Fixture: `test/fix-staged-js.test.mjs`.
 - **STG-008** — `fix-staged-js` exits 0 immediately when given no file arguments. Fixture: `test/fix-staged-js.test.mjs`.
+- **STG-009** — staged pathnames with leading/trailing whitespace, tabs, newlines, and Unicode are fixed and restaged exactly. Fixture: `test/fix-staged.test.mjs`.
 
 ### Doctor and hook health
 
@@ -197,6 +200,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PUSH-008** — test-command failure blocks in blocking mode and warns/allows in advisory mode; a missing summary blocks. Fixture: `test/prepush.test.mjs`.
 - **PUSH-009** — pushed-file diff failure or malformed name/status output fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
 - **PUSH-010** — JSON mode preserves Git's pre-push positional arguments, keeps subprocess output off stdout, and reports advisory, clean, and blocking outcomes. Fixture: `test/json-output.test.mjs`.
+- **PUSH-011** — the first push of a based branch uses its closest safe remote merge base; orphan histories fall back to the empty tree, and multiple pushed refs are evaluated independently. Fixture: `test/prepush.test.mjs`.
+- **PUSH-012** — same-basename sources in separate packages select only their own package-relative tests; a root basename fallback cannot steal the match. Fixture: `test/prepush.test.mjs`.
+- **PUSH-013** — pushed test selection passes leading/trailing whitespace, tabs, newlines, and Unicode pathnames exactly. Fixture: `test/prepush.test.mjs`.
 
 ### Advisory message and tone
 
@@ -213,7 +219,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIB-001** — ESLint JSON summarizing and manual-issue extraction (totals, fixables, empty/invalid, missing rule id). Unit: `test/checks.test.mjs`.
 - **LIB-002** — Prettier list parsing and Node test-summary parsing (TAP/spec, pass-only/fail-only, unrecognized → null). Unit: `test/checks.test.mjs`.
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
-- **LIB-004** — test discovery and Git-path helpers: `findTestFile`, `collectTestsForFiles`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
+- **LIB-004** — package-aware test discovery and strict NUL-delimited Git-path helpers: `findTestFile(s)`, `collectTestsForFiles`, `parseNulPaths`, `parseLsFilesStage`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
 - **LIB-005** — box rendering: `printBox` and severity boxes color the whole border. Unit: `test/ui.test.mjs`.
 - **LIB-006** — process outcomes distinguish missing tool, spawn failure, timeout, external signal, normal nonzero exit, and success. Unit: `test/process.test.mjs`.
 - **LIB-007** — Prettier classification is exit-status-first; `[error]` in a filename remains a formatting path. Unit: `test/checks.test.mjs`.
@@ -227,9 +233,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-004** — Unicode paths are passed safely through argv and staged-file flows. Unit/subprocess: `test/process.test.mjs`, `test/fix-staged.test.mjs`.
 - **SEC-005** — Windows-style backslash tokens are passed as literal argv. Unit: `test/process.test.mjs`.
 - **SEC-006** — glob-like filename characters are passed safely through a staged-file flow. Subprocess: `test/fix-staged.test.mjs`.
-- **SEC-007** — Git path output is read with `core.quotePath=false` in key hook flows. Source: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`, `scripts/prepush.mjs`.
+- **SEC-007** — every runtime Git pathname list uses a structured NUL-delimited format; parsers never trim or newline-split pathnames. Source/fixtures: `scripts/precommit.mjs`, `scripts/fix-staged.mjs`, `scripts/commit-fix.mjs`, `scripts/prepush.mjs`, `test/lib-files.test.mjs`.
 - **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
-- **SEC-009** — pre-push diff uses NUL-delimited name/status output (plus `core.quotePath=false`), so deletions, renames, Unicode, whitespace, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
+- **SEC-009** — pre-push diff uses NUL-delimited name/status output, so deletions, renames/copies, Unicode, whitespace, tabs, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
 - **SEC-010** — staged-secret parsing distinguishes file headers from added hunk content, including source lines beginning with `++ `. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
 - **SEC-011** — missing ESLint/Prettier peers return an advisory and package-manager install hint without invoking `npx`; explicitly configured `npx` test commands remain verbatim. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`.
 
@@ -292,4 +298,6 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 ### Batch 5: deferred support boundaries
 
 - Yarn Berry Plug'n'Play.
+- Custom no-hoist or non-`node_modules` workspace layouts outside the tested
+  package-manager defaults.
 - Release-from-tag / release-from-CI workflows.

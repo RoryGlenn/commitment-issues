@@ -92,7 +92,7 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   );
   assert.match(
     fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
-    /commitment-issues prepush/,
+    /commitment-issues prepush "\$@"/,
   );
   assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
   // Native wiring: hooks live in .git/hooks with no core.hooksPath set.
@@ -564,6 +564,32 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
     preCommit,
   );
   assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
+});
+
+test("init refreshes the exact older generated pre-push hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  runInit(tempDir);
+  const hookPath = gitHook(tempDir, "pre-push");
+  const current = fs.readFileSync(hookPath, "utf8");
+  fs.writeFileSync(
+    hookPath,
+    current.replace(
+      'commitment-issues prepush "$@"',
+      "commitment-issues prepush",
+    ),
+  );
+
+  const result = runInit(tempDir);
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /updated \.git\/hooks\/pre-push/,
+  );
+  assert.equal(fs.readFileSync(hookPath, "utf8"), current);
 });
 
 test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
