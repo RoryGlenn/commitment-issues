@@ -257,6 +257,34 @@ const SCENARIOS = [
     },
   },
   {
+    name: "commit-msg/missing-local-tool-advisory",
+    run(dir) {
+      setPrecommitConfig(dir, { commitMessage: { enabled: true } });
+      writeFile(path.join(dir, "COMMIT EDITMSG"), "feat: demo\n");
+      return script(dir, "commit-msg.mjs", { args: ["COMMIT EDITMSG"] });
+    },
+  },
+  {
+    name: "commit-msg/missing-local-tool-blocking",
+    run(dir) {
+      setPrecommitConfig(dir, {
+        commitMessage: { enabled: true, blockOnFailure: true },
+      });
+      writeFile(path.join(dir, "COMMIT EDITMSG"), "feat: demo\n");
+      return script(dir, "commit-msg.mjs", { args: ["COMMIT EDITMSG"] });
+    },
+  },
+  {
+    name: "commit-msg/unreadable-fun-tone",
+    run(dir) {
+      setPrecommitConfig(dir, {
+        tone: "fun",
+        commitMessage: { enabled: true },
+      });
+      return script(dir, "commit-msg.mjs");
+    },
+  },
+  {
     name: "prepush/tests-passed",
     run(dir) {
       setPrecommitConfig(dir, { advisePushTests: true });

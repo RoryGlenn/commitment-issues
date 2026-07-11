@@ -15,6 +15,7 @@ const COMMANDS = {
   init: "init.mjs",
   uninstall: "uninstall.mjs",
   doctor: "doctor.mjs",
+  "commit-msg": "commit-msg.mjs",
   precommit: "precommit.mjs",
   prepush: "prepush.mjs",
   "commit-fix": "commit-fix.mjs",

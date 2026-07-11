@@ -11,6 +11,8 @@ import {
   createTempRepo,
   repoRoot,
   run,
+  setPrecommitConfig,
+  writeFile,
 } from "./helpers/temp-repo.mjs";
 
 function cli(tempDir, args, options = {}) {
@@ -52,6 +54,7 @@ test("cli prints usage and exits 0 for --help", (t) => {
     "init",
     "uninstall",
     "doctor",
+    "commit-msg",
     "precommit",
     "prepush",
     "commit-fix",
@@ -159,6 +162,22 @@ test("cli dispatches to precommit", (t) => {
   // Nothing is staged in a fresh temp repo, so precommit is a clean no-op.
   const result = cli(tempDir, ["precommit"]);
   assert.equal(result.status, 0);
+});
+
+test("cli dispatches commit-msg and forwards the message file", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+  const messageFile = path.join(tempDir, "message file.txt");
+  writeFile(messageFile, "feat: literal path\n");
+
+  const result = cli(tempDir, ["commit-msg", messageFile]);
+  assert.equal(result.status, 0);
+  assert.match(combinedOutput(result), /project-local commitlint CLI/);
+  assert.doesNotMatch(
+    combinedOutput(result),
+    /Unable to read the commit message/,
+  );
 });
 
 test("cli dispatches to prepush", (t) => {
