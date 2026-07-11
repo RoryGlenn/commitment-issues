@@ -23,7 +23,7 @@ No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
   <img src="assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
 </p>
 
-**Advisory by default. Fixes run only when requested and proven safe. Pushes test only the files that changed.**
+**Advisory by default. Fixes run only when requested and proven safe. Pushes run only tests related to files that changed.**
 
 <details>
 <summary>See common output states</summary>
