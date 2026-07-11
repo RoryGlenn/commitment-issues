@@ -22,6 +22,7 @@ Set Width 1000
 Set Height 760
 Set Theme "Dracula"
 Set Padding 24
+Set CursorBlink false
 Set TypingSpeed 1ms
 
 # --- Hidden setup: a minimal project with a local bare Git remote.
