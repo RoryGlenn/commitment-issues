@@ -16,12 +16,13 @@
 Output assets/demo.gif
 
 Set Shell "zsh"
+Set FontFamily "DejaVu Sans Mono"
 Set FontSize 18
 Set Width 1000
 Set Height 760
 Set Theme "Dracula"
 Set Padding 24
-Set TypingSpeed 100ms
+Set TypingSpeed 1ms
 
 # --- Hidden setup: a minimal project with a local bare Git remote.
 #     A source file + its test are already committed, so the recording
@@ -54,21 +55,23 @@ Type "git switch -q -c feature/greeting && git push -q -u origin HEAD" Enter
 # recording looks like a normal terminal without depending on oh-my-zsh.
 Type `autoload -Uz vcs_info colors && colors; setopt PROMPT_SUBST; zstyle ':vcs_info:git:*' check-for-changes true; zstyle ':vcs_info:git:*' unstagedstr ' %F{yellow}✗'; zstyle ':vcs_info:git:*' stagedstr ' %F{yellow}✗'; zstyle ':vcs_info:git:*' formats ' %F{blue}git:(%F{red}%b%F{blue})%f%u%c'; zstyle ':vcs_info:git:*' actionformats ' %F{blue}git:(%F{red}%b%F{blue})%f%u%c'; precmd() { vcs_info }; PROMPT='%(?:%B%F{green}➜%f%b:%B%F{red}➜%f%b) %B%F{cyan}%c%f%b${vcs_info_msg_0_} '` Enter
 Type "clear" Enter
+Set TypingSpeed 100ms
 Show
 
 # --- 1. One command sets everything up ---
-Hide
 Type "npx --no-install commitment-issues init" Enter
+Sleep 4s
 # Commit the hook setup off-camera, then clear it so beat 2 starts on a clean
 # screen and the next commit shows a single file. --no-verify skips its hook box.
 Hide
+Set TypingSpeed 1ms
 Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
-Hide
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
 Type "clear" Enter
 
+Set TypingSpeed 100ms
 Show
 Type "git commit -q -am 'print hello world'" Enter
 Sleep 4s

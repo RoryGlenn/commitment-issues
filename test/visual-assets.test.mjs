@@ -100,6 +100,7 @@ test("README and how-it-works reference both refreshed flowchart themes", () => 
 test("demo tape records a reproducible feature-branch workflow", () => {
   const tape = read("promo/demo.tape");
   const lock = JSON.parse(read("package-lock.json"));
+  const initIndex = tape.indexOf("npx --no-install commitment-issues init");
   const switchIndex = tape.indexOf("git switch -q -c feature/greeting");
   const visibleCommitIndex = tape.indexOf(
     "git commit -q -am 'print hello world'",
@@ -109,6 +110,9 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /npm pack --quiet --ignore-scripts/);
   assert.match(tape, /commitment-issues-demo\.tgz/);
   assert.match(tape, /--save-exact/);
+  assert.match(tape, /Set FontFamily "DejaVu Sans Mono"/);
+  assert.match(tape, /Set TypingSpeed 1ms/);
+  assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
   for (const dependency of ["eslint", "prettier", "@eslint/js", "globals"]) {
     const version = lock.packages[`node_modules/${dependency}`]?.version;
@@ -119,6 +123,14 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     );
   }
   assert.ok(switchIndex >= 0, "demo should create a named feature branch");
+  assert.ok(
+    tape.lastIndexOf("Show", initIndex) > tape.lastIndexOf("Hide", initIndex),
+    "the demonstrated init command should be captured rather than hidden",
+  );
+  assert.ok(
+    tape.indexOf("Hide", initIndex) > initIndex,
+    "setup bookkeeping should be hidden only after init is demonstrated",
+  );
   assert.ok(
     visibleCommitIndex > switchIndex,
     "the demonstrated commit should happen after switching off main",

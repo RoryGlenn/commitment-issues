@@ -20,7 +20,7 @@ concurrency:
 jobs:
   render:
     name: Render deterministic demo
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes ffmpeg zsh
+          sudo apt-get install --yes ffmpeg fonts-dejavu-core zsh
 
           mkdir -p "$RUNNER_TEMP/render-bin"
           curl --fail --location --silent --show-error \
