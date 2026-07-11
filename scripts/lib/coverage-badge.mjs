@@ -1,6 +1,15 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const moduleRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
+
 function stripAnsi(input) {
   return input.replace(/\u001b\[[0-9;]*m/g, "");
 }
@@ -13,32 +22,6 @@ const README_COVERAGE_BADGE_RE =
 
 export const BRANCH_COVERAGE_THRESHOLD = 90;
 
-// Public CLI entry points and the runtime helpers they load. The coverage
-// runner passes every file explicitly and verifies that every one appears in
-// the LCOV report, so an unexecuted source cannot silently leave the metric.
-export const BRANCH_COVERAGE_SOURCE_FILES = Object.freeze([
-  "scripts/cli.mjs",
-  "scripts/commit-fix.mjs",
-  "scripts/doctor.mjs",
-  "scripts/fix-staged-js.mjs",
-  "scripts/fix-staged.mjs",
-  "scripts/init.mjs",
-  "scripts/lib/checks.mjs",
-  "scripts/lib/commit-guards.mjs",
-  "scripts/lib/config.mjs",
-  "scripts/lib/files.mjs",
-  "scripts/lib/hooks.mjs",
-  "scripts/lib/logo.mjs",
-  "scripts/lib/message.mjs",
-  "scripts/lib/package-manager.mjs",
-  "scripts/lib/process.mjs",
-  "scripts/lib/secret-scan.mjs",
-  "scripts/lib/ui.mjs",
-  "scripts/precommit.mjs",
-  "scripts/prepush.mjs",
-  "scripts/uninstall.mjs",
-]);
-
 // Repository/package-maintenance automation is validated by its own tests and
 // lifecycle gates, but it is not part of the user-facing runtime percentage.
 export const BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES = Object.freeze([
@@ -49,6 +32,40 @@ export const BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES = Object.freeze([
   "scripts/run-lifecycle-test.mjs",
   "scripts/update-readme-coverage-badge.mjs",
 ]);
+
+function scriptSources(dir = path.join(moduleRoot, "scripts")) {
+  const sources = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      sources.push(...scriptSources(file));
+    } else if (entry.isFile() && entry.name.endsWith(".mjs")) {
+      sources.push(path.relative(moduleRoot, file).split(path.sep).join("/"));
+    }
+  }
+  return sources;
+}
+
+/**
+ * Derive the complete public-runtime denominator. New scripts enter coverage
+ * automatically unless they are deliberately classified as maintenance-only.
+ * @param {string[]} sources - Repository-relative scripts/**/*.mjs paths.
+ * @param {string[]} [excluded] - Exact maintenance-only paths.
+ * @returns {string[]} Sorted, de-duplicated runtime source paths.
+ */
+export function deriveBranchCoverageSourceFiles(
+  sources,
+  excluded = BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
+) {
+  const excludedSet = new Set(excluded);
+  return [...new Set(sources)]
+    .filter((file) => !excludedSet.has(file))
+    .sort();
+}
+
+export const BRANCH_COVERAGE_SOURCE_FILES = Object.freeze(
+  deriveBranchCoverageSourceFiles(scriptSources()),
+);
 
 export const BRANCH_COVERAGE_TEST_PATTERNS = Object.freeze([
   "test/*.test.mjs",
