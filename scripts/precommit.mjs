@@ -6,11 +6,9 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
+  precommitConfigDiagnostics,
   precommitConfigWarningMessages,
-  resolveCommitMessageConfig,
-  unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
 import { eslintManualIssues, summarizeEslintJson } from "./lib/checks.mjs";
 import {
@@ -130,31 +128,11 @@ function emitJsonResult({
 
 const configWarnings = precommitConfigWarningMessages(config);
 if (jsonMode) {
-  const unknownKeys = unknownPrecommitConfigKeys(config);
-  if (unknownKeys.length > 0) {
+  for (const { code, message } of precommitConfigDiagnostics(config)) {
     jsonOutput.addDiagnostic({
       severity: "warning",
-      code: "config.unknown-keys",
-      message: `Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    });
-  }
-
-  const invalidValueMessages = invalidPrecommitConfigMessages(config);
-  if (invalidValueMessages.length > 0) {
-    jsonOutput.addDiagnostic({
-      severity: "warning",
-      code: "config.invalid-values",
-      message: `Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    });
-  }
-
-  const commitMessage = resolveCommitMessageConfig(config);
-  if (commitMessage.blockOnFailure && !commitMessage.enabled) {
-    jsonOutput.addDiagnostic({
-      severity: "warning",
-      code: "config.ineffective-value",
-      message:
-        "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+      code,
+      message,
     });
   }
 } else {
@@ -790,7 +768,7 @@ if (testRun) {
             }`
           : stagedTestOutcome === "signal"
             ? `Process ended from ${testRun.signal || "an unknown signal"}`
-            : "Check precommitChecks.testCommand in package.json",
+            : "Check testCommand in .commitmentrc.json or package.json precommitChecks",
     });
   } else if (stagedTestOutcome === "nonzero") {
     issues.push({

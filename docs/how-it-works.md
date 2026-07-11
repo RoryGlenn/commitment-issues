@@ -113,4 +113,7 @@ The default behavior is intentionally advisory-first:
 }
 ```
 
+These keys may instead be top-level entries in `.commitmentrc.json`.
+Standalone keys override matching `package.json` values.
+
 See [Configuration and Behavior](configuration.md) for the full configuration reference.

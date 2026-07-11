@@ -288,6 +288,32 @@ test("JSON configuration diagnostics stay structured", (t) => {
   assert.match(payload.diagnostics[2].message, /blockOnFailure/);
 });
 
+test("JSON configuration diagnostics identify standalone sources", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    '{"requireTest":false,"requireTests":"nope"}\n',
+  );
+  let result = cli(tempDir, ["precommit", "--json"]);
+  let payload = jsonPayload(result);
+
+  assert.equal(result.stderr, "");
+  assert.deepEqual(
+    payload.diagnostics.map(({ code }) => code),
+    ["config.unknown-keys", "config.invalid-values"],
+  );
+  assert.match(payload.diagnostics[0].message, /\.commitmentrc\.json/);
+  assert.match(payload.diagnostics[1].message, /\.commitmentrc\.json/);
+
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "{ invalid\n");
+  result = cli(tempDir, ["precommit", "--json"]);
+  payload = jsonPayload(result);
+  assert.equal(payload.diagnostics[0].code, "config.invalid-source");
+  assert.match(payload.diagnostics[0].message, /contains invalid JSON/);
+});
+
 test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
   const branchDir = createTempRepo();
   const secretDir = createTempRepo();

@@ -94,7 +94,6 @@ const hookSummary =
   hookNames.length === 3
     ? "pre-commit, pre-push, and commit-msg are wired up and active."
     : "pre-commit and pre-push are wired up and active.";
-
 if (configWarnings.length > 0) {
   if (quiet) {
     for (const message of configWarnings) {

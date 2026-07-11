@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Optional `.commitmentrc.json` configuration with direct top-level keys. Its
+  keys shallowly override `package.json` `precommitChecks` values without
+  executing project code; malformed files warn at hook/doctor time and stop
+  `init` or `uninstall` before mutation.
 - Opt-in `--json` results for `precommit` and `prepush`, with one shared,
   versioned schema covering check outcomes, findings, safe command suggestions,
   configuration diagnostics, and unchanged exit codes. JSON is the only stdout

@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Branch coverage: 91.7%](https://img.shields.io/badge/branch%20coverage-91.7%25-brightgreen.svg)](docs/branch-coverage.md)
+[![Branch coverage: 91.6%](https://img.shields.io/badge/branch%20coverage-91.6%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -196,8 +196,8 @@ Already using another tool? Follow the step-by-step [migration guide](docs/migra
 ## Adopt it with a team
 
 1. Run `npx commitment-issues init --dry-run` and review the proposed ownership.
-2. Run `npx commitment-issues init` and inspect the resulting `package.json` and `.gitignore` diff.
-3. Commit `package.json`, your lockfile, and any accepted `.gitignore` additions. The `.git/hooks` files are intentionally local and are not committed.
+2. Run `npx commitment-issues init` and inspect the resulting `package.json`, optional `.commitmentrc.json`, and `.gitignore` diff.
+3. Commit the configuration files, your lockfile, and any accepted `.gitignore` additions. The `.git/hooks` files are intentionally local and are not committed.
 4. Let the repository run in advisory mode first. Teammates can learn the messages without having commits or pushes unexpectedly blocked.
 5. Once the warnings are trusted, enable only the enforcement modes the team wants.
 
@@ -267,6 +267,12 @@ advisory mode; `blockOnFailure: true` makes those outcomes block. Git's standard
 [configuration reference](docs/configuration.md#optional-commit-message-linting)
 for custom-hook wiring and package-manager-specific install commands.
 
+Configuration can remain under `package.json` → `precommitChecks`, or use a
+non-executable `.commitmentrc.json` with the same keys at the top level. When
+both exist, standalone keys override matching package keys; unmatched package
+keys remain active. See the [configuration reference](docs/configuration.md#configuration-files-and-precedence)
+for validation and fallback behavior.
+
 ### Safety model
 
 - Commit and push checks do not mutate tracked files.
@@ -283,7 +289,9 @@ Depending on the repository's existing state, `init` can:
 
 - add `doctor`, `fix:staged`, `commit:fix`, and `test:precommit` package scripts;
 - add a self-healing `prepare` script, preserving and composing after an existing project command;
-- add the `precommitChecks` configuration namespace and default advisory push mode;
+- add the default advisory push mode to an existing `.commitmentrc.json`, or
+  create the `precommitChecks` namespace in `package.json` when no standalone
+  file exists;
 - create missing native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files,
   plus `.git/hooks/commit-msg` only when commit-message linting is enabled;
 - add `.eslintcache`, `.prettiercache`, and `node_modules/` to `.gitignore` when absent;

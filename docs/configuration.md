@@ -13,11 +13,53 @@ For the short install path, start with the [README](../README.md). For terminal 
 - wires `commitment-issues commit-msg "$1"` only when optional
   commit-message linting is explicitly enabled
 - adds npm scripts for `doctor`, `fix:staged`, `commit:fix`, and direct pre-commit checks
-- enables advisory push tests through `precommitChecks.advisePushTests`
+- enables advisory push tests in the active configuration source
 - migrates pre-3.0 husky-era wiring (retires the old `core.hooksPath`, removes the generated `.husky` files)
 - gitignores `.eslintcache`, `.prettiercache`, and `node_modules/`
 
 Nothing is copied into your repo from the package source. The hooks are plain `.git/hooks` files that call the installed `commitment-issues` bin — no hook manager is involved.
+
+## Configuration files and precedence
+
+Configuration can live in either of these repository-root files:
+
+1. `.commitmentrc.json`, with options directly at the top level
+2. `package.json`, under the existing `precommitChecks` object
+3. built-in defaults for options absent from both files
+
+The standalone file is optional. Existing `package.json` configurations behave
+exactly as before when it is absent. When both exist, they are shallowly merged
+one key at a time and `.commitmentrc.json` wins. Arrays are replaced, not
+concatenated. For example:
+
+```json
+{
+  "requireTests": false,
+  "testExempt": ["generated/**"],
+  "tone": "fun"
+}
+```
+
+Only JSON is supported; JavaScript configuration is deliberately not loaded or
+executed. The top-level value must be an object. A recognized but invalid
+standalone value still owns its higher-precedence key and is omitted in favor
+of the built-in default—it does not silently revive the lower-precedence
+`package.json` value.
+
+If the standalone file cannot be parsed or has a non-object root, pre-commit and
+pre-push print an advisory warning and fall back to `package.json` or defaults.
+`doctor` reports the same problem without breaking `doctor --quiet` during an
+install. Mutating commands are stricter: `init` and `uninstall` stop before any
+write until the file is fixed or removed.
+
+`init` keeps its backward-compatible default of creating `precommitChecks` in
+`package.json`. If `.commitmentrc.json` already exists, it instead adds the
+default `advisePushTests` setting there when neither push mode is configured.
+`uninstall --dry-run` previews removal of a valid standalone file, and
+`uninstall` removes it with the rest of the package-specific configuration.
+
+The examples below use the `package.json` form. The same keys can be moved to
+the top level of `.commitmentrc.json` without the `precommitChecks` wrapper.
 
 ## Local peer-tool resolution
 
@@ -264,7 +306,7 @@ successfully from install-time `doctor --quiet`.
 
 ## Configuration reference
 
-All options live under `precommitChecks` in `package.json`; all are optional:
+All options are optional and use the same types in either configuration file:
 
 | Key                      | Type                    | Default              | Description                                                                                                    |
 | ------------------------ | ----------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -288,7 +330,7 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
 | `commitMessage`          | object                  | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
 
-Unrecognized `precommitChecks` keys, including nested `commitMessage` keys, are ignored and named in diagnostics from hooks, `init`, and `doctor` — so a typo like `commitMessage.enable` cannot silently enable or enforce a check.
+Unrecognized configuration keys, including nested `commitMessage` keys, are ignored and named with their effective source in diagnostics from hooks, `init`, and `doctor` — so typos like `requireTest` or `commitMessage.enable` cannot silently disable, enable, or enforce a check.
 
 Recognized keys with the wrong value type (for example a string where a boolean is expected, or an out-of-range `timeoutMs`) are likewise ignored and fall back to their defaults, and the hooks print a one-line warning naming each invalid value — so a mistyped value cannot silently change behavior either. Both warnings are advisory only: the commit or push still proceeds.
 
