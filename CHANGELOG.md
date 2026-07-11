@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   team rollout, progressive enforcement, ownership boundaries, and reversible
   removal. Detailed output and compliance evidence remain available lower in
   the document without delaying the adoption path.
+- The npm, pnpm, Yarn, and Bun lifecycle matrix now installs the packed package
+  into a real workspace fixture, covering shallow and nested packages,
+  root-owned configuration, fresh clones, and linked Git worktrees.
 
 ### Fixed
 

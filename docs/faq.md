@@ -205,6 +205,11 @@ Git hooks run from the root and check staged files across every workspace
 package using the root `precommitChecks` configuration and the tools hoisted to
 the root `node_modules/.bin`.
 
+The lifecycle matrix covers npm, pnpm, Yarn, and Bun with both shallow and
+nested packages, plus fresh clones and linked Git worktrees. Install
+dependencies separately in each linked worktree; the worktrees share the
+repository's native hooks.
+
 Per-package `precommitChecks` configuration and per-package tool versions are not
 supported. See the [Monorepo & workspaces guide](monorepo.md) for setup, scoping,
 and the boundary details.

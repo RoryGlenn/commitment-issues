@@ -24,6 +24,26 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
 
 const DEV_DEPS = ["eslint", "prettier", "@eslint/js", "globals"];
 const EXISTING_PREPARE = "node scripts/existing-prepare.mjs";
+const WORKSPACE_GLOBS = ["packages/*", "packages/nested/*"];
+const WORKSPACE_PACKAGES = [
+  {
+    dir: "packages/app",
+    name: "@commitment-issues-fixture/app",
+    stem: "app-widget",
+  },
+  {
+    dir: "packages/nested/lib",
+    name: "@commitment-issues-fixture/nested-lib",
+    stem: "nested-widget",
+  },
+];
+const PACKAGE_LOCAL_CONFIG = {
+  // This intentionally conflicts with the branches exercised below. A commit
+  // started inside the nested package still succeeds because Git runs the
+  // shared hook from the repository root, whose config owns the whole repo.
+  blockProtectedBranches: true,
+  protectedBranches: ["main", "master", "workspace-lifecycle"],
+};
 const MANAGED_EXPECTED_SCRIPTS = {
   "commit:fix": "commitment-issues commit-fix",
   "fix:staged": "commitment-issues fix-staged",
@@ -43,9 +63,15 @@ const HOOK_SUBCOMMANDS = {
 function installDevDeps(tarball) {
   switch (packageManager) {
     case "pnpm":
-      return ["pnpm", ["add", "-D", tarball, ...DEV_DEPS]];
+      return [
+        "pnpm",
+        ["add", "--save-dev", "--workspace-root", tarball, ...DEV_DEPS],
+      ];
     case "yarn":
-      return ["yarn", ["add", "-D", tarball, ...DEV_DEPS]];
+      return [
+        "yarn",
+        ["add", "--dev", "--ignore-workspace-root-check", tarball, ...DEV_DEPS],
+      ];
     case "bun":
       return ["bun", ["add", "--dev", tarball, ...DEV_DEPS]];
     default:
@@ -65,6 +91,35 @@ function installProject() {
       return ["bun", ["install"]];
     default:
       return ["npm", ["install"]];
+  }
+}
+
+// Exercise each manager's own workspace traversal before Git hooks run the
+// same package tests from changed paths.
+function workspaceTestCommand() {
+  switch (packageManager) {
+    case "pnpm":
+      return ["pnpm", ["--recursive", "run", "test"]];
+    case "yarn":
+      return ["yarn", ["workspaces", "run", "test"]];
+    case "bun":
+      return ["bun", ["run", "--workspaces", "--if-present", "test"]];
+    default:
+      return ["npm", ["run", "test", "--workspaces", "--if-present"]];
+  }
+}
+
+function runWorkspaceTests(repoDir) {
+  const [command, args] = workspaceTestCommand();
+  const output = runForOutput(command, args, repoDir);
+  if (output) {
+    console.log(output);
+  }
+  for (const workspace of WORKSPACE_PACKAGES) {
+    assertSmoke(
+      output.includes(`${workspace.name} workspace script passed`),
+      `${packageManager} should run the test script for ${workspace.name}`,
+    );
   }
 }
 
@@ -106,6 +161,30 @@ function run(command, args, cwd) {
   }
 }
 
+function runForOutput(command, args, cwd) {
+  const env = { ...process.env };
+  delete env.HUSKY;
+  delete env.COMMITMENT_ISSUES;
+
+  const result = crossSpawn.sync(command, args, {
+    cwd,
+    env,
+    encoding: "utf8",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} ${args.join(" ")} failed with exit ${result.status}: ${result.stderr}`,
+    );
+  }
+
+  return result.stdout.trim();
+}
+
 function assertSmoke(condition, message) {
   if (!condition) {
     throw new Error(`[lifecycle smoke] ${message}`);
@@ -125,10 +204,28 @@ function assertFileContains(filePath, expected) {
   );
 }
 
+function gitCommonDir(repoDir) {
+  const commonDir = runForOutput(
+    "git",
+    ["rev-parse", "--git-common-dir"],
+    repoDir,
+  );
+  return path.resolve(repoDir, commonDir);
+}
+
+function hookPath(repoDir, name) {
+  return path.join(gitCommonDir(repoDir), "hooks", name);
+}
+
+function comparablePath(filePath) {
+  const resolved = fs.realpathSync(filePath);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
 function assertHookWired(repoDir, name) {
-  const hookPath = path.join(repoDir, ".git", "hooks", name);
+  const resolvedHookPath = hookPath(repoDir, name);
   const subcommand = HOOK_SUBCOMMANDS[name];
-  assertFileContains(hookPath, `commitment-issues ${subcommand}`);
+  assertFileContains(resolvedHookPath, `commitment-issues ${subcommand}`);
 
   // Git for Windows runs hook files through its bundled shell, but POSIX mode
   // bits are not a reliable signal on that filesystem. Keep the executable-bit
@@ -136,8 +233,8 @@ function assertHookWired(repoDir, name) {
   // Windows to prove the hooks actually run.
   if (process.platform !== "win32") {
     assertSmoke(
-      Boolean(fs.statSync(hookPath).mode & 0o111),
-      `${hookPath} should be executable`,
+      Boolean(fs.statSync(resolvedHookPath).mode & 0o111),
+      `${resolvedHookPath} should be executable`,
     );
   }
 }
@@ -156,6 +253,43 @@ function assertPackageJsonConfigured(repoDir) {
     pkg.precommitChecks?.advisePushTests === true,
     "package.json should enable advisory pre-push tests by default",
   );
+}
+
+function assertWorkspaceConfigured(repoDir) {
+  const rootPackage = readJson(path.join(repoDir, "package.json"));
+  assertSmoke(
+    JSON.stringify(rootPackage.workspaces) === JSON.stringify(WORKSPACE_GLOBS),
+    `root package.json should keep workspaces ${JSON.stringify(WORKSPACE_GLOBS)}`,
+  );
+
+  for (const workspace of WORKSPACE_PACKAGES) {
+    const workspacePackage = readJson(
+      path.join(repoDir, workspace.dir, "package.json"),
+    );
+    assertSmoke(
+      workspacePackage.name === workspace.name,
+      `${workspace.dir}/package.json should keep its package name`,
+    );
+    assertSmoke(
+      JSON.stringify(workspacePackage.precommitChecks) ===
+        JSON.stringify(PACKAGE_LOCAL_CONFIG),
+      `${workspace.dir}/package.json should keep package-local config untouched`,
+    );
+    assertSmoke(
+      !Object.hasOwn(
+        workspacePackage.devDependencies ?? {},
+        "commitment-issues",
+      ),
+      `${workspace.dir} should not own the commitment-issues install`,
+    );
+  }
+
+  if (packageManager === "pnpm") {
+    assertFileContains(
+      path.join(repoDir, "pnpm-workspace.yaml"),
+      '  - "packages/nested/*"',
+    );
+  }
 }
 
 function assertGitignoreConfigured(repoDir) {
@@ -190,8 +324,8 @@ function assertGeneratedSetupRemoved(repoDir) {
   );
   for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
     assertSmoke(
-      !fs.existsSync(path.join(repoDir, ".git", "hooks", name)),
-      `.git/hooks/${name} should be removed`,
+      !fs.existsSync(hookPath(repoDir, name)),
+      `${name} should be removed from the common git hooks directory`,
     );
   }
 }
@@ -215,12 +349,87 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content);
 }
 
+function writeWorkspaceFixture(repoDir) {
+  for (const workspace of WORKSPACE_PACKAGES) {
+    writeFile(
+      path.join(repoDir, workspace.dir, "package.json"),
+      `${JSON.stringify(
+        {
+          name: workspace.name,
+          version: "1.0.0",
+          private: true,
+          type: "module",
+          scripts: {
+            test: "node scripts/workspace.test.mjs",
+          },
+          precommitChecks: PACKAGE_LOCAL_CONFIG,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    writeFile(
+      path.join(repoDir, workspace.dir, "src", `${workspace.stem}.mjs`),
+      `export const value = () => ${workspace.stem.length};\n`,
+    );
+    writeFile(
+      path.join(repoDir, workspace.dir, "src", `${workspace.stem}.test.mjs`),
+      [
+        'import test from "node:test";',
+        'import assert from "node:assert/strict";',
+        `import { value } from "./${workspace.stem}.mjs";`,
+        "",
+        `test("${workspace.stem}", () => assert.equal(value(), ${workspace.stem.length}));`,
+        "",
+      ].join("\n"),
+    );
+    writeFile(
+      path.join(repoDir, workspace.dir, "scripts", "workspace.test.mjs"),
+      [
+        'import assert from "node:assert/strict";',
+        `import { value } from "../src/${workspace.stem}.mjs";`,
+        "",
+        `assert.equal(value(), ${workspace.stem.length});`,
+        `console.log("${workspace.name} workspace script passed");`,
+        "",
+      ].join("\n"),
+    );
+  }
+
+  if (packageManager === "pnpm") {
+    writeFile(
+      path.join(repoDir, "pnpm-workspace.yaml"),
+      `packages:\n${WORKSPACE_GLOBS.map((glob) => `  - "${glob}"`).join("\n")}\n`,
+    );
+  }
+}
+
+function updateNestedWorkspace(repoDir, revision) {
+  const workspace = WORKSPACE_PACKAGES[1];
+  writeFile(
+    path.join(repoDir, workspace.dir, "src", `${workspace.stem}.mjs`),
+    `export const value = () => ${revision};\n`,
+  );
+  writeFile(
+    path.join(repoDir, workspace.dir, "src", `${workspace.stem}.test.mjs`),
+    [
+      'import test from "node:test";',
+      'import assert from "node:assert/strict";',
+      `import { value } from "./${workspace.stem}.mjs";`,
+      "",
+      `test("${workspace.stem}", () => assert.equal(value(), ${revision}));`,
+      "",
+    ].join("\n"),
+  );
+}
+
 const tempRoot = fs.mkdtempSync(
   path.join(os.tmpdir(), "commitment-issues-lifecycle-"),
 );
 const packDir = path.join(tempRoot, "pack");
 const smokeDir = path.join(tempRoot, "repo");
 const cloneDir = path.join(tempRoot, "clone");
+const worktreeDir = path.join(tempRoot, "worktree");
 const remoteDir = path.join(tempRoot, "remote.git");
 
 fs.mkdirSync(packDir, { recursive: true });
@@ -254,6 +463,7 @@ try {
         version: "1.0.0",
         type: "module",
         private: true,
+        workspaces: WORKSPACE_GLOBS,
         scripts: { prepare: EXISTING_PREPARE },
       },
       null,
@@ -264,10 +474,13 @@ try {
     path.join(smokeDir, "scripts", "existing-prepare.mjs"),
     'process.stdout.write("existing prepare ran\\n");\n',
   );
+  writeWorkspaceFixture(smokeDir);
 
   const [installCommand, installArgs] = installDevDeps(tarball);
   run(installCommand, installArgs, smokeDir);
   assertManagerLockfile(smokeDir);
+  assertWorkspaceConfigured(smokeDir);
+  runWorkspaceTests(smokeDir);
 
   const [helpCommand, helpArgs] = execBin(["--help"]);
   run(helpCommand, helpArgs, smokeDir);
@@ -275,6 +488,7 @@ try {
   run(initCommand, initArgs, smokeDir);
 
   assertPackageJsonConfigured(smokeDir);
+  assertWorkspaceConfigured(smokeDir);
   assertGitignoreConfigured(smokeDir);
   assertHookWired(smokeDir, "pre-commit");
   assertHookWired(smokeDir, "pre-push");
@@ -297,24 +511,14 @@ try {
     ].join("\n"),
   );
 
-  writeFile(
-    path.join(smokeDir, "src", "widget.mjs"),
-    "export const widget = () => 1;\n",
-  );
-  writeFile(
-    path.join(smokeDir, "test", "widget.test.mjs"),
-    [
-      'import test from "node:test";',
-      'import assert from "node:assert/strict";',
-      'import { widget } from "../src/widget.mjs";',
-      "",
-      'test("widget", () => assert.equal(widget(), 1));',
-      "",
-    ].join("\n"),
-  );
-
   run("git", ["add", "-A"], smokeDir);
-  run("git", ["commit", "-m", "first checked commit"], smokeDir);
+  // Starting a commit below the workspace root must still run the root-owned
+  // hook and root config for staged files in both workspace depths.
+  run(
+    "git",
+    ["commit", "-m", "first checked workspace commit"],
+    path.join(smokeDir, WORKSPACE_PACKAGES[1].dir),
+  );
 
   run("git", ["init", "--bare", remoteDir], tempRoot);
   run("git", ["branch", "-M", "main"], smokeDir);
@@ -327,15 +531,54 @@ try {
   run("git", ["clone", "--branch", "main", remoteDir, cloneDir], tempRoot);
   for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
     assertSmoke(
-      !fs.existsSync(path.join(cloneDir, ".git", "hooks", name)),
-      `fresh clone should start without .git/hooks/${name}`,
+      !fs.existsSync(hookPath(cloneDir, name)),
+      `fresh clone should start without a ${name} hook`,
     );
   }
   const [projectInstallCommand, projectInstallArgs] = installProject();
   run(projectInstallCommand, projectInstallArgs, cloneDir);
   assertPackageJsonConfigured(cloneDir);
+  assertWorkspaceConfigured(cloneDir);
   assertHookWired(cloneDir, "pre-commit");
   assertHookWired(cloneDir, "pre-push");
+
+  // A linked worktree has a `.git` file rather than its own `.git/hooks`.
+  // Dependencies remain worktree-local, while native hooks live in the shared
+  // common Git directory and must run correctly from a nested package.
+  run(
+    "git",
+    ["worktree", "add", "-b", "workspace-lifecycle", worktreeDir, "main"],
+    smokeDir,
+  );
+  assertSmoke(
+    comparablePath(gitCommonDir(worktreeDir)) ===
+      comparablePath(gitCommonDir(smokeDir)),
+    "linked worktree should use the primary checkout's common Git directory",
+  );
+  assertHookWired(worktreeDir, "pre-commit");
+  assertHookWired(worktreeDir, "pre-push");
+
+  run(projectInstallCommand, projectInstallArgs, worktreeDir);
+  assertPackageJsonConfigured(worktreeDir);
+  assertWorkspaceConfigured(worktreeDir);
+  assertHookWired(worktreeDir, "pre-commit");
+  assertHookWired(worktreeDir, "pre-push");
+
+  updateNestedWorkspace(worktreeDir, 42);
+  run(
+    "git",
+    [
+      "add",
+      `${WORKSPACE_PACKAGES[1].dir}/src/${WORKSPACE_PACKAGES[1].stem}.mjs`,
+      `${WORKSPACE_PACKAGES[1].dir}/src/${WORKSPACE_PACKAGES[1].stem}.test.mjs`,
+    ],
+    worktreeDir,
+  );
+  run(
+    "git",
+    ["commit", "-m", "check nested package from linked worktree"],
+    path.join(worktreeDir, WORKSPACE_PACKAGES[1].dir),
+  );
 
   const [uninstallPreviewCommand, uninstallPreviewArgs] = execBin([
     "uninstall",
@@ -343,12 +586,14 @@ try {
   ]);
   run(uninstallPreviewCommand, uninstallPreviewArgs, smokeDir);
   assertPackageJsonConfigured(smokeDir);
+  assertWorkspaceConfigured(smokeDir);
   assertHookWired(smokeDir, "pre-commit");
   assertHookWired(smokeDir, "pre-push");
 
   const [uninstallCommand, uninstallArgs] = execBin(["uninstall"]);
   run(uninstallCommand, uninstallArgs, smokeDir);
   assertGeneratedSetupRemoved(smokeDir);
+  assertWorkspaceConfigured(smokeDir);
   assertGitignoreConfigured(smokeDir);
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
