@@ -49,7 +49,7 @@ function scriptSources(dir = path.join(moduleRoot, "scripts")) {
 /**
  * Derive the complete public-runtime denominator. New scripts enter coverage
  * automatically unless they are deliberately classified as maintenance-only.
- * @param {string[]} sources - Repository-relative scripts/**/*.mjs paths.
+ * @param {string[]} sources - Repository-relative .mjs paths under scripts.
  * @param {string[]} [excluded] - Exact maintenance-only paths.
  * @returns {string[]} Sorted, de-duplicated runtime source paths.
  */
