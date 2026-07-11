@@ -73,11 +73,7 @@ const detail = [result.stdout, result.stderr]
   .filter(Boolean)
   .join("\n");
 
-if (
-  result.outcome === "timeout" ||
-  result.timedOut === true ||
-  result.signal
-) {
+if (result.outcome === "timeout" || result.timedOut === true || result.signal) {
   finish("timeout", detail);
 }
 if (result.outcome === "spawn-error" || result.error) {
