@@ -33,7 +33,7 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
 
 - `run(command, args, options?)` — `cross-spawn` sync wrapper (utf8). Use `cross-spawn` (not `node:child_process` directly) so bare names resolve on Windows without a shell and avoid DEP0190.
 - `toolInvocation(name, extraArgs)` — resolves a tool's CLI entry from the nearest `node_modules` `bin` and returns `{ command, args }` to run it with the current Node, skipping npx startup cost. Prefer this for eslint/prettier/etc.
-- `localToolInvocation(name, extraArgs, cwd)` — resolves only a project
+- `local-tool.mjs`: `localToolInvocation(name, extraArgs, cwd)` resolves only a project
   `node_modules/.bin` executable and returns `null` when absent. Use for optional
   integrations such as commitlint that must never fall back to npx/global/network.
 - `spawnAsync(command, args, options?)` — async spawn with the shared timeout.
