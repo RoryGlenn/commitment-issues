@@ -6,11 +6,8 @@ import fs from "node:fs";
 import path from "node:path";
 import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
-import {
-  run,
-  isPackageInstalled,
-  localToolInvocation,
-} from "./lib/process.mjs";
+import { run, isPackageInstalled } from "./lib/process.mjs";
+import { localToolInvocation } from "./lib/local-tool.mjs";
 import {
   BIN,
   classifyHook,
