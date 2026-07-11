@@ -1,0 +1,41 @@
+name: Render demo
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/render-demo.yml"
+      - "assets/demo.gif"
+      - "promo/demo.tape"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-demo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render deterministic demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Render assets/demo.gif from promo/demo.tape
+        uses: charmbracelet/vhs-action@145e03cbd6463218fafc295cdb872647cfa54f2f # v2.1.0
+        with:
+          path: promo/demo.tape
+          version: 0.11.0
+
+      - name: Upload rendered demo
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rendered-demo
+          path: assets/demo.gif
+          if-no-files-found: error
+          retention-days: 7

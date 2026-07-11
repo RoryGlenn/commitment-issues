@@ -138,7 +138,7 @@ Missing-test and pushed-test discovery use nearby filename conventions. See [Con
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/project-flowchart-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/project-flowchart-light.svg">
-  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" src="assets/project-flowchart-light.svg">
+  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests" src="assets/project-flowchart-light.svg">
 </picture>
 
 `commitment-issues` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files. Those hooks invoke the installed binary from `node_modules/.bin`; package source is not copied into your repository.
