@@ -4,10 +4,11 @@
 import spawn from "cross-spawn";
 import fs from "node:fs";
 import path from "node:path";
-import { loadPrecommitConfig } from "./config.mjs";
+import { loadPrecommitConfig, MAX_TIMEOUT_MS } from "./config.mjs";
 
 // Default ceiling for any tool the hooks spawn, so a hung tool can never wedge a
-// commit indefinitely. Override with precommitChecks.timeoutMs (positive number).
+// commit indefinitely. Override with precommitChecks.timeoutMs (positive number
+// no greater than Node's maximum timer delay).
 const configuredTimeout = Number(loadPrecommitConfig().timeoutMs);
 export const TOOL_TIMEOUT_MS =
   Number.isFinite(configuredTimeout) && configuredTimeout > 0
@@ -217,6 +218,27 @@ export function spawnAsync(command, args, options = {}) {
     ...spawnOptions
   } = options;
   return new Promise((resolve) => {
+    if (
+      !Number.isFinite(timeoutMs) ||
+      timeoutMs <= 0 ||
+      timeoutMs > MAX_TIMEOUT_MS
+    ) {
+      const error = new RangeError(
+        `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
+      );
+      error.code = "ERR_OUT_OF_RANGE";
+      resolve(
+        withOutcome({
+          error,
+          status: null,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      );
+      return;
+    }
+
     let child;
     try {
       child = spawn(command, args, {
