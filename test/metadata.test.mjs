@@ -139,6 +139,38 @@ test("supported Node version stays consistent across docs and workflows", () => 
   }
 });
 
+test("repository metadata uses canonical sponsor and version values", () => {
+  const funding = readText(".github/FUNDING.yml");
+  const bugReport = readText(".github/ISSUE_TEMPLATE/bug_report.yml");
+
+  assert.match(funding, /^ko_fi:\s+roryglenn\s*$/m);
+  assert.doesNotMatch(funding, /^ko_fi:\s+https?:\/\//m);
+  assert.match(bugReport, /npx commitment-issues --version/);
+  assert.doesNotMatch(
+    bugReport,
+    /commitment-issues --help[^\n]*(?:header|version)/i,
+  );
+});
+
+test("Scorecard SARIF is uploaded safely with a pinned CodeQL action", () => {
+  const workflow = readText(".github/workflows/scorecard.yml");
+
+  assert.match(workflow, /^\s+security-events:\s+write\s*$/m);
+  assert.match(
+    workflow,
+    /github\/codeql-action\/upload-sarif@[0-9a-f]{40}\s+# v\d+\.\d+\.\d+/,
+  );
+  assert.match(workflow, /sarif_file:\s+results\.sarif/);
+  assert.match(
+    workflow,
+    /publish_results:[\s\S]*github\.event\.pull_request\.head\.repo\.full_name == github\.repository/,
+  );
+  assert.match(
+    workflow,
+    /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/,
+  );
+});
+
 test("package description does not contradict configurable blocking", () => {
   const pkg = readJson("package.json");
 

@@ -52,8 +52,8 @@ body:
     id: version
     attributes:
       label: commitment-issues version
-      description: Output of `npx commitment-issues --help` header or your installed version.
-      placeholder: 2.3.0
+      description: Output of `npx commitment-issues --version`.
+      placeholder: 3.x.x
     validations:
       required: true
   - type: input
