@@ -40,6 +40,13 @@ function setConfig(tempDir, precommitChecks) {
   );
 }
 
+function setStandaloneConfig(tempDir, config, { raw = false } = {}) {
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    raw ? config : `${JSON.stringify(config, null, 2)}\n`,
+  );
+}
+
 // Builds the stdin line git feeds a pre-push hook so the script diffs
 // HEAD~1..HEAD (i.e. the freshly committed files) as "the push".
 function pushInput(tempDir) {
@@ -244,6 +251,41 @@ test("advisory mode runs tests and warns without blocking on failure", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /Tests failed \(advisory\)/);
   assert.match(output, /widget\.test\.mjs/);
+});
+
+test("standalone push settings override package.json per key", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  setStandaloneConfig(tempDir, {
+    blockPushOnTestFailure: false,
+    advisePushTests: true,
+  });
+  commitWidget(tempDir, 2);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Tests failed \(advisory\)/);
+  assert.doesNotMatch(output, /Push blocked: tests failed/);
+});
+
+test("pre-push warns and uses package fallback for malformed standalone config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { advisePushTests: true });
+  setStandaloneConfig(tempDir, "{ invalid\n", { raw: true });
+  commitWidget(tempDir, 2);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Ignoring \.commitmentrc\.json/);
+  assert.match(output, /Tests failed \(advisory\)/);
 });
 
 test("advisory mode shows passing summary and allows the push", (t) => {

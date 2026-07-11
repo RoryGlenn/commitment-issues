@@ -52,6 +52,13 @@ Shown when `init` (or interactive `doctor`) runs outside a project root.
 
 Shown when package.json cannot be parsed; fix the JSON and run `init` again.
 
+### Invalid .commitmentrc.json
+
+`Invalid .commitmentrc.json.` is shown by `init` or `uninstall` when the
+standalone file contains invalid JSON or its top-level value is not an object.
+The command exits before changing package scripts, configuration, hooks, or
+gitignore state.
+
 ### Hook wiring needs attention
 
 <p>
@@ -185,7 +192,7 @@ Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps i
   <img src="../assets/config-unknown-key-warning.svg" alt="A single yellow console warning saying an unknown precommitChecks key is being ignored" width="646">
 </p>
 
-Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when `precommitChecks` contains a key the tool does not recognize — usually a typo like `requireTest` that would otherwise silently fall back to the default behavior.
+Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when either configuration source contains an effective key the tool does not recognize — usually a typo like `requireTest` that would otherwise silently fall back to the default behavior. The line names the contributing source.
 
 ### Invalid config value warning
 
@@ -193,7 +200,13 @@ Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push h
   <img src="../assets/config-invalid-value-warning.svg" alt="A single yellow console warning saying an invalid precommitChecks value is being ignored" width="646">
 </p>
 
-Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when a recognized `precommitChecks` key has an invalid value — for example a string where a boolean is expected, or a non-positive `timeoutMs`. The invalid value is ignored in favor of the default, and the commit or push still proceeds.
+Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when a recognized key in either configuration source has an invalid value — for example a string where a boolean is expected, or a non-positive `timeoutMs`. The invalid value is ignored in favor of the default, and the commit or push still proceeds.
+
+### Malformed standalone config warning
+
+`Ignoring .commitmentrc.json …` is printed as a one-line advisory when the
+standalone file cannot be parsed or has a non-object root. The hooks continue
+with `package.json` `precommitChecks` or built-in defaults instead.
 
 ### Unable to inspect staged files
 
@@ -589,6 +602,13 @@ A real `git push` with no push-test mode configured prints nothing at all — th
 
 ## Doctor
 
+### Configuration needs attention
+
+`Configuration needs attention.` reports malformed standalone JSON, unknown
+keys, or invalid values without preventing hook diagnosis and repair.
+`doctor --quiet` prints the same diagnostics as plain one-line warnings and
+still exits successfully so an install is never broken.
+
 ### Already healthy
 
 <p>
@@ -663,7 +683,7 @@ Shown when a repair step fails (for example, the husky-era `core.hooksPath` cann
   <img src="../assets/doctor-quiet-lines.svg" alt="Plain console lines from doctor --quiet: a missing-tool warning and a repaired notice" width="786">
 </p>
 
-`doctor --quiet` (the generated or composed `prepare` repair command) never prints boxes: it stays silent when healthy and prints a single line when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
+`doctor --quiet` (the generated or composed `prepare` repair command) never prints boxes: it stays silent when healthy and prints a single line for each configuration warning or when it repairs something, finds missing tools, spots an unwired hook, or cannot complete a repair. It always exits 0 so an install can never break.
 
 ## Adding more examples
 

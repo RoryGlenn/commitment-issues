@@ -140,6 +140,67 @@ test("requireTests:false disables the missing-test check", (t) => {
   assert.doesNotMatch(output, /missing unit tests/);
 });
 
+test("standalone config overrides package.json during pre-commit", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: true });
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    '{"requireTests":false}\n',
+  );
+  writeFile(path.join(tempDir, "src", "widget.mjs"), "export const w = 1;\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(output, /missing unit tests/);
+});
+
+test("pre-commit warns and falls back for malformed standalone config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "{ invalid\n");
+  writeFile(path.join(tempDir, "src", "widget.mjs"), "export const w = 1;\n");
+  run("git", ["add", "src/widget.mjs"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Ignoring \.commitmentrc\.json/);
+  assert.match(output, /contains invalid JSON/);
+  assert.doesNotMatch(output, /missing unit tests/);
+});
+
+test("pre-commit attributes standalone key diagnostics", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {});
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    '{"requireTest":false,"tone":"silly"}\n',
+  );
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(
+    output,
+    /unknown precommitChecks key\(s\) in \.commitmentrc\.json: requireTest/,
+  );
+  assert.match(
+    output,
+    /invalid precommitChecks value\(s\) in \.commitmentrc\.json: tone must/,
+  );
+});
+
 test("warns about unknown precommitChecks keys but still runs", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

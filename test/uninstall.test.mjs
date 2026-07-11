@@ -97,6 +97,51 @@ test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), beforeCommitHook);
 });
 
+test("uninstall previews and removes standalone configuration", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "consumer", version: "1.0.0" });
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    '{\n  "requireTests": false\n}\n',
+  );
+  assert.equal(runScript(tempDir, "init").status, 0);
+
+  const preview = runScript(tempDir, "uninstall", ["--dry-run"]);
+  assert.equal(preview.status, 0);
+  assert.match(`${preview.stdout}${preview.stderr}`, /\.commitmentrc\.json/);
+  assert.equal(fs.existsSync(path.join(tempDir, ".commitmentrc.json")), true);
+
+  const result = runScript(tempDir, "uninstall");
+  assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /\.commitmentrc\.json/);
+  assert.equal(fs.existsSync(path.join(tempDir, ".commitmentrc.json")), false);
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+});
+
+test("uninstall rejects malformed standalone config before cleanup", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "consumer",
+    version: "1.0.0",
+    scripts: { doctor: "commitment-issues doctor" },
+  });
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "[invalid\n");
+  const beforePackage = readFile(tempDir, "package.json");
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Invalid \.commitmentrc\.json/);
+  assert.match(output, /No files were changed/);
+  assert.equal(readFile(tempDir, "package.json"), beforePackage);
+  assert.equal(readFile(tempDir, ".commitmentrc.json"), "[invalid\n");
+});
+
 test("uninstall removes an appended prepare repair and preserves prepare", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

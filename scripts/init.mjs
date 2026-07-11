@@ -20,6 +20,11 @@ import {
 } from "./lib/hooks.mjs";
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
+import {
+  loadRawPrecommitConfig,
+  readStandalonePrecommitConfig,
+  STANDALONE_CONFIG_FILE,
+} from "./lib/config.mjs";
 
 // One-command setup for a consuming repo: wires up the git hooks, npm scripts,
 // and gitignored caches without clobbering existing values. Hooks are plain
@@ -47,6 +52,20 @@ try {
     pc.bold("Invalid package.json."),
     "",
     pc.dim("Fix package.json so it contains valid JSON, then run init again."),
+  ]);
+  process.exit(1);
+}
+
+// Explicit setup must not write around a malformed higher-precedence config.
+// Hook-time readers only warn and fall back because commits/pushes are
+// advisory boundaries; init can stop safely before it mutates anything.
+const standalone = readStandalonePrecommitConfig();
+if (standalone.error) {
+  errorBox([
+    pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
+    "",
+    pc.dim(`The file ${standalone.error}.`),
+    pc.dim("Fix or remove it, then run init again. No files were changed."),
   ]);
   process.exit(1);
 }
@@ -102,21 +121,43 @@ for (const [name, value] of Object.entries(scripts)) {
   }
 }
 
-if (!pkg.precommitChecks) {
-  pkg.precommitChecks = {};
-  created.push("precommitChecks config");
-}
+let standaloneChanged = false;
+if (standalone.exists) {
+  const effectiveConfig = {
+    ...loadRawPrecommitConfig(),
+    ...standalone.config,
+  };
+  if (
+    !("advisePushTests" in effectiveConfig) &&
+    !("blockPushOnTestFailure" in effectiveConfig)
+  ) {
+    standalone.config.advisePushTests = true;
+    standaloneChanged = true;
+    created.push(`pre-push advisory config (${STANDALONE_CONFIG_FILE})`);
+  }
+} else {
+  if (!pkg.precommitChecks) {
+    pkg.precommitChecks = {};
+    created.push("precommitChecks config");
+  }
 
-if (
-  !("advisePushTests" in pkg.precommitChecks) &&
-  !("blockPushOnTestFailure" in pkg.precommitChecks)
-) {
-  pkg.precommitChecks.advisePushTests = true;
-  created.push("pre-push advisory config");
+  if (
+    !("advisePushTests" in pkg.precommitChecks) &&
+    !("blockPushOnTestFailure" in pkg.precommitChecks)
+  ) {
+    pkg.precommitChecks.advisePushTests = true;
+    created.push("pre-push advisory config");
+  }
 }
 
 if (!dryRun) {
   fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+  if (standaloneChanged) {
+    fs.writeFileSync(
+      STANDALONE_CONFIG_FILE,
+      `${JSON.stringify(standalone.config, null, 2)}\n`,
+    );
+  }
 }
 
 // --- Hook wiring (native .git/hooks) ---

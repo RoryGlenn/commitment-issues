@@ -27,8 +27,9 @@ root:
 - **Staged files are checked across all packages.** The pre-commit check reads
   staged paths with `git diff --cached` relative to the repo root, so changes in
   any workspace package are included together.
-- **Configuration is read from the root `package.json`.** The `precommitChecks`
-  options come from the root package, not from individual workspace packages.
+- **Configuration is read from the repository root.** Use root
+  `.commitmentrc.json` and/or root `package.json` `precommitChecks`; individual
+  workspace package configuration is not discovered.
 - **Tools resolve from the root `node_modules/.bin`.** In a typical workspace
   setup the peer tools (`eslint`, `prettier`)
   are hoisted to the
@@ -41,8 +42,8 @@ root:
 2. Run `npx commitment-issues init` from the root.
 3. Keep a root-level ESLint flat config. Use its `files` patterns to scope rules
    to specific packages when needed.
-4. Set `precommitChecks` in the root `package.json` to match how you want the
-   whole repository checked.
+4. Set the root `.commitmentrc.json` or root `package.json` `precommitChecks` to
+   match how you want the whole repository checked.
 
 ## Scoping checks per package
 
@@ -59,8 +60,8 @@ Because configuration is root-level, use the tools' own path scoping:
 
 The following are outside the current design:
 
-- **Per-package `precommitChecks` configuration.** Only the root package's
-  `precommitChecks` is read.
+- **Per-package configuration.** Only the root standalone/package configuration
+  is read.
 - **Per-package tool versions.** The hooks resolve a single set of tools from the
   root `node_modules/.bin` rather than a different version per workspace.
 - **Separate hooks per workspace package.** Hooks are wired once at the Git root,

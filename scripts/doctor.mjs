@@ -19,6 +19,10 @@ import {
   writeHook,
 } from "./lib/hooks.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
+import {
+  loadPrecommitConfig,
+  precommitConfigWarningMessages,
+} from "./lib/config.mjs";
 
 // Diagnose and self-heal the git hook wiring. Hooks are plain `.git/hooks`
 // files — git's default location, no hook manager — but `.git/hooks` is not
@@ -78,6 +82,21 @@ if (insideRepo.error || insideRepo.status !== 0) {
     "",
     pc.dim("Run this from inside your git project."),
   ]);
+}
+
+const configWarnings = precommitConfigWarningMessages(loadPrecommitConfig());
+if (configWarnings.length > 0) {
+  if (quiet) {
+    for (const message of configWarnings) {
+      console.warn(pc.yellow(`commitment-issues: ${message}`));
+    }
+  } else {
+    warningBox([
+      pc.bold("Configuration needs attention."),
+      "",
+      ...configWarnings.map((message) => pc.dim(`• ${message}`)),
+    ]);
+  }
 }
 
 // Advisory peer-tool check, independent of hook wiring. commitment-issues

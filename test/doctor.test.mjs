@@ -307,6 +307,45 @@ test("doctor --quiet stays silent when the wiring is healthy", (t) => {
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
 });
 
+test("doctor warns about malformed standalone config without blocking repair", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.writeFileSync(
+    path.join(tempDir, ".commitmentrc.json"),
+    "{ invalid json\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Configuration needs attention/);
+  assert.match(output, /\.commitmentrc\.json/);
+  assert.match(output, /contains invalid JSON/);
+  assert.match(output, /Repaired the git hook wiring/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".commitmentrc.json"), "utf8"),
+    "{ invalid json\n",
+  );
+});
+
+test("doctor --quiet reports malformed standalone config in one line", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  fs.writeFileSync(path.join(tempDir, ".commitmentrc.json"), "[]\n");
+
+  const result = runDoctor(tempDir, ["--quiet"]);
+  const output = `${result.stdout}${result.stderr}`.trim();
+
+  assert.equal(result.status, 0);
+  assert.match(output, /\.commitmentrc\.json/);
+  assert.match(output, /must contain a JSON object/);
+  assert.equal(output.split(/\r?\n/).length, 1);
+});
+
 test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

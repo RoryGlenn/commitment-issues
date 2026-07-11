@@ -50,7 +50,9 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
 
 ### `config.mjs`
 
-- `loadPrecommitConfig()` — reads the `precommitChecks` object from `package.json` in the cwd; returns `{}` if absent/unreadable/malformed. Never throws. All config access goes through here.
+- `loadPrecommitConfig()` — reads root `.commitmentrc.json` plus the
+  `precommitChecks` object from `package.json`; standalone keys win. It returns
+  only sanitized values and never throws. All config access goes through here.
 
 ### `files.mjs`
 
@@ -75,7 +77,7 @@ run("git", [...GIT_PATH_ARGS, "diff", "--name-only", "--cached"], { cwd });
 
 Never assume `/` separators when consuming git paths — normalize (`replace(/\\/g, "/")`) before matching, and keep everything cross-platform.
 
-## `precommitChecks` config surface (package.json)
+## `precommitChecks` config surface
 
 Read via `loadPrecommitConfig()`. Known keys: `tone` (`"standard"`|`"fun"`), `blockPushOnTestFailure` (bool), `runStagedTests` (bool), `testExempt` (glob array), `timeoutMs` (positive number). If you add a new key, document it in [`docs/configuration.md`](../../../docs/configuration.md) and add a default-behavior test.
 

@@ -45,7 +45,9 @@ package can run from Git hooks. It can:
 
 - add or update npm scripts for `doctor`, `fix:staged`, `commit:fix`, and
   `test:precommit`
-- add `precommitChecks.advisePushTests` when no push-test mode is configured
+- add `advisePushTests` to an existing `.commitmentrc.json`, or add
+  `precommitChecks.advisePushTests` to `package.json` when no standalone file
+  exists and no push-test mode is configured
 - add `commitment-issues doctor --quiet` as `prepare`, or append it after the
   project-owned `prepare` command, so hook wiring self-heals on install
 - create `.git/hooks/pre-commit` and `.git/hooks/pre-push` when they are
@@ -62,6 +64,15 @@ setup succeeds. This also works with Yarn Classic, which does not run an npm-sty
 
 It does not vendor package source into your repo. The hooks call the installed
 `commitment-issues` binary from `node_modules/.bin`.
+
+## Can configuration live outside package.json?
+
+Yes. Put the same option names directly in a repository-root
+`.commitmentrc.json`. It is parsed as JSON only—JavaScript config files are not
+executed. When both sources exist, standalone keys override matching
+`package.json` `precommitChecks` keys and unmatched package keys remain active.
+See [Configuration files and precedence](configuration.md#configuration-files-and-precedence)
+for malformed-file fallback and validation details.
 
 ## Is it safe to run `init` more than once?
 

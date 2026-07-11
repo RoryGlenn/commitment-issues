@@ -24,7 +24,8 @@ The assets the project is intended to protect include:
 Relevant attackers or failure modes include:
 
 - a malicious or compromised dependency;
-- a malicious repository configuration value in `package.json`;
+- a malicious repository configuration value in `package.json` or
+  `.commitmentrc.json`;
 - file paths containing spaces, shell metacharacters, or unusual Unicode;
 - generated or malformed Git output;
 - a compromised GitHub Action or release workflow dependency;
@@ -43,8 +44,8 @@ Out of scope:
 
 Important trust boundaries are:
 
-1. **User repository boundary** — project files, `package.json`, staged files, branch state, and test files are controlled by the repository and may be untrusted when running in an unfamiliar project.
-2. **Configuration boundary** — `precommitChecks` in `package.json` is user-controlled input and must be validated before use.
+1. **User repository boundary** — project files, `package.json`, `.commitmentrc.json`, staged files, branch state, and test files are controlled by the repository and may be untrusted when running in an unfamiliar project.
+2. **Configuration boundary** — standalone and package-embedded configuration are user-controlled input and must be validated before use.
 3. **Git boundary** — Git output is external process output and must be parsed defensively.
 4. **Process boundary** — ESLint, Prettier, test runners, and package-manager commands are spawned as external tools.
 5. **Shell boundary** — file paths and command arguments must not be interpolated into a shell command.
@@ -78,7 +79,10 @@ The package is pure ESM JavaScript with no build step, no native binaries, no ne
 
 ### Complete mediation
 
-Git state and configuration are checked at the point of hook execution. Configuration values are validated before being used by the hooks and process helpers.
+Git state and configuration are checked at the point of hook execution.
+Configuration is parsed only as JSON, shallowly merged using documented
+precedence, and allowlisted by key and value before hooks or process helpers use
+it. Project JavaScript is never imported to discover configuration.
 
 ### Fail-safe defaults
 
@@ -108,7 +112,11 @@ Automatic fixes are guarded. The tool refuses risky mutation when staged and uns
 
 ### Malformed or untrusted configuration
 
-The `precommitChecks` object is allowlisted by key and value. Unknown keys are reported as likely typos. Invalid values are rejected by omission so the rest of the tool receives only validated configuration.
+The effective configuration from `.commitmentrc.json` and `package.json` is
+allowlisted by key and value. Unknown keys are reported as likely typos.
+Invalid values are rejected by omission so the rest of the tool receives only
+validated configuration. Hook-time parse failures warn and use the package
+fallback; mutating setup/removal commands stop before writing.
 
 ### Dependency vulnerabilities
 

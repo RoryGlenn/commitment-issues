@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Optional `.commitmentrc.json` configuration with direct top-level keys. Its
+  keys shallowly override `package.json` `precommitChecks` values without
+  executing project code; malformed files warn at hook/doctor time and stop
+  `init` or `uninstall` before mutation.
 - `commitment-issues uninstall` with a matching `--dry-run` preview. It removes
   only exact generated scripts and native hook bodies plus the package-specific
   configuration block; custom project wiring is preserved and reported for

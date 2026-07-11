@@ -49,6 +49,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CFG-004** — missing `precommitChecks` degrades to `{}`. Unit: `test/config.test.mjs`.
 - **CFG-005** — malformed `precommitChecks` containers are ignored. Fuzz unit: `test/config.test.mjs`.
 - **CFG-006** — malformed option values inside an object are tolerated. Fuzz unit: `test/config.test.mjs`.
+- **CFG-007** — `.commitmentrc.json` loads direct top-level options without executing code. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`.
+- **CFG-008** — standalone keys shallowly override matching package keys while preserving unmatched package options; invalid higher-priority values do not revive lower-priority values. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
+- **CFG-009** — malformed JSON and non-object standalone roots warn at hook time and fall back to package configuration. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
 
 ### CLI command matrix
 
@@ -91,6 +94,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
 - **INIT-018** — init preserves custom native hooks, accepts those that invoke `commitment-issues`, and withholds setup-complete claims while listing exact commands for those that do not. Fixture: `test/init.test.mjs`.
 - **INIT-019** — init preserves an unrelated `postprepare` while composing repair into the project-owned `prepare`. Fixture: `test/init.test.mjs`.
+- **INIT-020** — an existing standalone file receives the generated advisory-push default without creating a package configuration block; dry-run previews without writing. Fixture: `test/init.test.mjs`.
+- **INIT-021** — malformed standalone configuration stops init before package, hook, or gitignore writes. Fixture: `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -105,6 +110,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **UNINST-009** — a configured native hooks path is deduplicated during inspection. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-010** — an unreadable or malformed hook path is reported and left unchanged. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-011** — uninstall removes the appended repair suffix while restoring the project's unrelated `prepare`. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-012** — standalone configuration is included in dry-run and removed during uninstall. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-013** — malformed standalone configuration stops uninstall before partial cleanup. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -157,6 +164,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **HOOK-009** — `doctor --quiet` never breaks an install (no git repo, or repair cannot complete). Fixture: `test/doctor.test.mjs`.
 - **HOOK-010** — interactive doctor errors clearly: no `package.json`, unrepairable wiring, or still broken after repair. Fixture: `test/doctor.test.mjs`.
 - **HOOK-011** — a foreign `core.hooksPath` is respected: healthy when its hooks invoke the tool, reported (never rewired) when they do not. Fixture: `test/doctor.test.mjs`.
+- **HOOK-012** — doctor reports malformed standalone configuration while continuing hook repair; quiet mode remains one-line and exit-zero. Fixture: `test/doctor.test.mjs`.
 
 ### Pre-push modes
 

@@ -8,9 +8,8 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
-  unknownPrecommitConfigKeys,
+  precommitConfigWarningMessages,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles, parseNameStatusPaths } from "./lib/files.mjs";
@@ -32,27 +31,10 @@ const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const config = loadPrecommitConfig();
 
-// A typo'd key (e.g. advisePushTest) silently disables the mode the user
-// thinks is on. One concise advisory line, matching the conflict warning below.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
-}
-
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default. Surface it on one concise advisory line, matching the unknown-key
-// and config-conflict warnings — never a box, never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
+// Configuration diagnostics are advisory even when a push gate is enabled:
+// malformed/invalid values are omitted before any blocking decision is made.
+for (const message of precommitConfigWarningMessages(config)) {
+  console.warn(pc.yellow(`⚠ ${message}`));
 }
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is
@@ -84,7 +66,7 @@ if (blocking && config.advisePushTests === true) {
     pc.yellow(
       "⚠ Both blockPushOnTestFailure and advisePushTests are set; using " +
         "blockPushOnTestFailure (block on failure). Remove advisePushTests " +
-        "from package.json to silence this.",
+        "from .commitmentrc.json or package.json to silence this.",
     ),
   );
 }
@@ -134,7 +116,7 @@ if (!blocking && !advisory) {
       pc.bold("Pre-push test checks are disabled."),
       "",
       pc.dim("Nothing ran because no pre-push test mode is enabled in"),
-      pc.dim("package.json. Enable one under precommitChecks:"),
+      pc.dim(".commitmentrc.json or package.json precommitChecks. Enable one:"),
       "",
       `  ${pc.bold('"blockPushOnTestFailure": true')} ${pc.dim("— run tests and block on failure")}`,
       `  ${pc.bold('"advisePushTests": true')} ${pc.dim("— run tests but only warn")}`,
@@ -393,7 +375,7 @@ if (result.error || result.signal) {
   const reason = pc.dim(
     result.signal
       ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
-      : "Check precommitChecks.testCommand in package.json.",
+      : "Check testCommand in .commitmentrc.json or package.json precommitChecks.",
   );
   if (blocking) {
     errorBox([pc.bold("Push blocked: could not run tests"), "", reason]);

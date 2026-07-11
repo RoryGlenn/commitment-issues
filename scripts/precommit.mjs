@@ -11,9 +11,8 @@ import {
   run,
 } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
-  unknownPrecommitConfigKeys,
+  precommitConfigWarningMessages,
 } from "./lib/config.mjs";
 import {
   eslintManualIssues,
@@ -93,28 +92,10 @@ function runStagedTestCommand(testCommand, tests) {
 
 const config = loadPrecommitConfig();
 
-// A typo'd key (e.g. requireTest) silently falls back to the default, which
-// reads as "the tool ignored my config". One concise advisory line — never a
-// box, never blocking — mirroring the pre-push config-conflict warning.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
-}
-
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default — which also reads as "the tool ignored my config". Surface it on
-// one concise advisory line, never a box and never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
+// Malformed files, typo'd keys, and invalid values fall back safely. Surface
+// each one concisely without turning advisory commit checks into a blocker.
+for (const message of precommitConfigWarningMessages(config)) {
+  console.warn(pc.yellow(`⚠ ${message}`));
 }
 
 const guardConfig = resolveGuardConfig(config);
@@ -495,7 +476,7 @@ if (testRun) {
         : "Unable to run staged tests",
       detail: testRun.signal
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-        : "Check precommitChecks.testCommand in package.json",
+        : "Check testCommand in .commitmentrc.json or package.json precommitChecks",
     });
   } else if ((testRun.status || 0) !== 0) {
     issues.push({

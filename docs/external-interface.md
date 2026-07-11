@@ -48,6 +48,7 @@ npx commitment-issues --version
 
 - exact generated package scripts
 - the `precommitChecks` configuration block
+- a valid `.commitmentrc.json` standalone configuration file
 - exact generated native pre-commit and pre-push hook bodies
 
 Customized hooks and scripts are preserved and reported for manual cleanup.
@@ -69,7 +70,23 @@ The package does not copy source files into a consumer repository.
 
 ## Configuration interface
 
-All configuration lives under `precommitChecks` in `package.json`.
+Configuration is accepted from two dependency-free JSON sources at the project
+root:
+
+- `.commitmentrc.json`: options are direct top-level keys
+- `package.json`: options remain under `precommitChecks` for backward
+  compatibility
+
+The sources are shallowly merged. A key in `.commitmentrc.json` overrides the
+same key in `package.json`; other package keys remain active, and built-in
+defaults fill anything absent from both. Arrays replace lower-precedence arrays.
+No JavaScript config file is discovered or executed.
+
+A malformed standalone file is ignored by hook-time reads with an advisory
+warning and `package.json` fallback. `init` and `uninstall` reject it before
+mutation. If a valid standalone file already exists, `init` puts its generated
+advisory push default there; otherwise its existing `package.json` behavior is
+unchanged.
 
 | Key                      | Type                    | Default              | Effect                                                     |
 | ------------------------ | ----------------------- | -------------------- | ---------------------------------------------------------- |
@@ -96,6 +113,18 @@ Example:
 }
 ```
 
+Equivalent `.commitmentrc.json`:
+
+```json
+{
+  "runStagedTests": true,
+  "blockPushOnTestFailure": true,
+  "testCommand": ["node", "--test"],
+  "testExempt": ["src/legacy/**"],
+  "tone": "standard"
+}
+```
+
 ## Output interface
 
 The tool prints compact terminal boxes with clear status and next steps:
@@ -110,5 +139,5 @@ For concrete output states and screenshots, see
 ## Exit behavior
 
 - Default commit and push flows are advisory-first and non-blocking.
-- Blocking behavior is opt-in via `precommitChecks`.
+- Blocking behavior is opt-in through either configuration source.
 - Fix commands can fail non-zero when safety checks fail or manual fixes remain.

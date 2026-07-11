@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 import fs from "node:fs";
+import path from "node:path";
 
 const RAW_CONFIG = Symbol("commitment-issues.rawPrecommitConfig");
+const CONFIG_STATE = Symbol("commitment-issues.precommitConfigState");
+
+export const STANDALONE_CONFIG_FILE = ".commitmentrc.json";
 
 function isPlainConfig(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -197,11 +201,14 @@ export function sanitizePrecommitConfig(config) {
 
 /**
  * Reads the optional raw `precommitChecks` object from package.json in the cwd.
+ * @param {string} [cwd] - Project root containing package.json.
  * @returns {object} The raw config object, or {} if absent/unreadable/malformed.
  */
-export function loadRawPrecommitConfig() {
+export function loadRawPrecommitConfig(cwd = process.cwd()) {
   try {
-    const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
+    );
     const config = pkg && pkg.precommitChecks;
     return isPlainConfig(config) ? config : {};
   } catch {
@@ -210,9 +217,164 @@ export function loadRawPrecommitConfig() {
 }
 
 /**
- * Reads and validates the optional `precommitChecks` object from package.json.
- * @returns {object} Valid config values, or {} if absent/unreadable/malformed.
+ * Reads the optional standalone JSON config without executing project code.
+ * @param {string} [cwd] - Project root containing the config file.
+ * @returns {{exists: boolean, config: object, error: string|null}} Read result.
  */
-export function loadPrecommitConfig() {
-  return sanitizePrecommitConfig(loadRawPrecommitConfig());
+export function readStandalonePrecommitConfig(cwd = process.cwd()) {
+  const filePath = path.join(cwd, STANDALONE_CONFIG_FILE);
+  if (!fs.existsSync(filePath)) {
+    return { exists: false, config: {}, error: null };
+  }
+
+  let content;
+  try {
+    content = fs.readFileSync(filePath, "utf8");
+  } catch {
+    return {
+      exists: true,
+      config: {},
+      error: "could not be read",
+    };
+  }
+
+  let config;
+  try {
+    config = JSON.parse(content);
+  } catch {
+    return {
+      exists: true,
+      config: {},
+      error: "contains invalid JSON",
+    };
+  }
+
+  if (!isPlainConfig(config)) {
+    return {
+      exists: true,
+      config: {},
+      error: "must contain a JSON object at the top level",
+    };
+  }
+
+  return { exists: true, config, error: null };
+}
+
+/**
+ * Load both configuration sources. Standalone keys shallowly override
+ * package.json keys; invalid standalone values still win precedence and are
+ * then removed by sanitization instead of reviving a lower-priority value.
+ * A malformed standalone file cannot participate, so package.json remains the
+ * backward-compatible fallback and the caller can surface `error`.
+ * @param {string} [cwd] - Project root containing the configuration sources.
+ * @returns {{config: object, packageConfig: object, standalone: {exists: boolean, config: object, error: string|null}}} Loaded state.
+ */
+export function loadPrecommitConfigState(cwd = process.cwd()) {
+  const packageConfig = loadRawPrecommitConfig(cwd);
+  const standalone = readStandalonePrecommitConfig(cwd);
+  const rawConfig = standalone.error
+    ? packageConfig
+    : { ...packageConfig, ...standalone.config };
+  const config = sanitizePrecommitConfig(rawConfig);
+  const state = { packageConfig, standalone };
+
+  Object.defineProperty(config, CONFIG_STATE, {
+    enumerable: false,
+    value: state,
+  });
+
+  return { config, ...state };
+}
+
+/**
+ * Describe which source contributes effective keys to a loaded config.
+ * @param {object} config - Config returned by loadPrecommitConfig().
+ * @param {string[]} [keys] - Optional effective keys whose source to report.
+ * @returns {string} Human-readable source label.
+ */
+export function precommitConfigSourceLabel(config, keys) {
+  const state = config?.[CONFIG_STATE];
+  if (!state) {
+    return "package.json";
+  }
+
+  if (keys?.length > 0) {
+    const fromStandalone =
+      !state.standalone.error &&
+      keys.some((key) => Object.hasOwn(state.standalone.config, key));
+    const fromPackage = keys.some(
+      (key) =>
+        !Object.hasOwn(state.standalone.config, key) &&
+        Object.hasOwn(state.packageConfig, key),
+    );
+    if (fromStandalone && fromPackage) {
+      return `${STANDALONE_CONFIG_FILE} and package.json`;
+    }
+    if (fromStandalone) {
+      return STANDALONE_CONFIG_FILE;
+    }
+    if (fromPackage) {
+      return "package.json";
+    }
+  }
+
+  const standaloneKeys = state.standalone.error
+    ? []
+    : Object.keys(state.standalone.config);
+  const packageKeys = Object.keys(state.packageConfig).filter(
+    (key) => !Object.hasOwn(state.standalone.config, key),
+  );
+
+  if (standaloneKeys.length > 0 && packageKeys.length > 0) {
+    return `${STANDALONE_CONFIG_FILE} and package.json`;
+  }
+  return standaloneKeys.length > 0 ? STANDALONE_CONFIG_FILE : "package.json";
+}
+
+/**
+ * User-facing, non-blocking diagnostics for malformed files and values.
+ * @param {object} config - Config returned by loadPrecommitConfig().
+ * @returns {string[]} Warning messages without color or a warning prefix.
+ */
+export function precommitConfigWarningMessages(config) {
+  const messages = [];
+  const state = config?.[CONFIG_STATE];
+
+  if (state?.standalone.error) {
+    messages.push(
+      `Ignoring ${STANDALONE_CONFIG_FILE} because it ${state.standalone.error}. ` +
+        "Using package.json precommitChecks or defaults instead.",
+    );
+  }
+
+  const unknownKeys = unknownPrecommitConfigKeys(config);
+  if (unknownKeys.length > 0) {
+    const source = precommitConfigSourceLabel(config, unknownKeys);
+    messages.push(
+      `Ignoring unknown precommitChecks key(s) in ${source}: ${unknownKeys.join(", ")}. Check for typos.`,
+    );
+  }
+
+  const invalidValues = invalidPrecommitConfigMessages(config);
+  if (invalidValues.length > 0) {
+    const invalidKeys = invalidValues.map(
+      (message) => message.split(" ", 1)[0],
+    );
+    const source = precommitConfigSourceLabel(config, invalidKeys);
+    messages.push(
+      `Ignoring invalid precommitChecks value(s) in ${source}: ${invalidValues.join("; ")}.`,
+    );
+  }
+
+  return messages;
+}
+
+/**
+ * Reads and validates `.commitmentrc.json` plus package.json precommitChecks.
+ * @param {string} [cwd] - Project root containing the configuration sources.
+ * @returns {object} Sanitized effective values; malformed standalone input
+ *   falls back to package.json and absent configuration returns {}.
+ */
+export function loadPrecommitConfig(cwd = process.cwd()) {
+  return loadPrecommitConfigState(cwd).config;
 }
