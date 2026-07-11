@@ -13,7 +13,10 @@ import {
 } from "./lib/config.mjs";
 import { buildCommitMessageCheckMessage } from "./lib/message.mjs";
 import { devInstallCommand } from "./lib/package-manager.mjs";
-import { localToolInvocation } from "./lib/local-tool.mjs";
+import {
+  interruptedToolOutcome,
+  localToolInvocation,
+} from "./lib/local-tool.mjs";
 import { spawnAsync } from "./lib/process.mjs";
 
 const config = loadPrecommitConfig();
@@ -74,10 +77,11 @@ const detail = [result.stdout, result.stderr]
   .filter(Boolean)
   .join("\n");
 
-if (result.outcome === "timeout" || result.timedOut === true || result.signal) {
-  finish("timeout", detail);
+const interruptedOutcome = interruptedToolOutcome(result);
+if (interruptedOutcome === "timeout") {
+  finish(interruptedOutcome, detail);
 }
-if (result.outcome === "spawn-error" || result.error) {
+if (interruptedOutcome === "unavailable") {
   finish("unavailable", result.error?.message || detail);
 }
 // Commitlint normally uses result code 9 when no rules configuration can be

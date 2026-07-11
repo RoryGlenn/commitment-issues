@@ -7,7 +7,6 @@ import path from "node:path";
 import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, isPackageInstalled } from "./lib/process.mjs";
-import { localToolInvocation } from "./lib/local-tool.mjs";
 import {
   BIN,
   classifyHook,
@@ -25,6 +24,7 @@ import {
   precommitConfigWarningMessages,
   resolveCommitMessageConfig,
 } from "./lib/config.mjs";
+import { localToolInvocation } from "./lib/local-tool.mjs";
 
 // Diagnose and self-heal the git hook wiring. Hooks are plain `.git/hooks`
 // files — git's default location, no hook manager — but `.git/hooks` is not

@@ -6,7 +6,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { localToolInvocation } from "../scripts/lib/local-tool.mjs";
+import {
+  interruptedToolOutcome,
+  localToolInvocation,
+} from "../scripts/lib/local-tool.mjs";
 
 test("localToolInvocation resolves only a project node_modules bin", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "local-tool-"));
@@ -38,4 +41,37 @@ test("localToolInvocation has no npx, global PATH, or missing-tool fallback", ()
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("interruptedToolOutcome honors structured runner outcomes", () => {
+  assert.equal(
+    interruptedToolOutcome({
+      outcome: "timeout",
+      timedOut: true,
+      signal: "SIGKILL",
+    }),
+    "timeout",
+  );
+  assert.equal(
+    interruptedToolOutcome({
+      outcome: "signal",
+      timedOut: false,
+      signal: "SIGTERM",
+    }),
+    "unavailable",
+  );
+  assert.equal(
+    interruptedToolOutcome({
+      outcome: "spawn-error",
+      error: new Error("could not spawn"),
+      signal: null,
+    }),
+    "unavailable",
+  );
+});
+
+test("interruptedToolOutcome preserves the legacy SIGTERM timeout marker", () => {
+  assert.equal(interruptedToolOutcome({ signal: "SIGTERM" }), "timeout");
+  assert.equal(interruptedToolOutcome({ signal: "SIGINT" }), "unavailable");
+  assert.equal(interruptedToolOutcome({ status: 1, signal: null }), null);
 });
