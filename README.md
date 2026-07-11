@@ -15,15 +15,15 @@
 
 No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 
-[See it in action](#see-it-in-action) · [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) · [Migration guide](docs/migration.md) · [Configuration](docs/configuration.md) · [Uninstall](#uninstall)
+[See it in action](#commit-normally-fix-safely-push-with-confidence) · [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) · [Migration guide](docs/migration.md) · [Configuration](docs/configuration.md) · [Uninstall](#uninstall)
 
-## See it in action
+## Commit normally. Fix safely. Push with confidence.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing push-time tests" width="800" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
 </p>
 
-**Commit normally → follow the suggested fix → push with related tests.** The output explains what happened, whether Git continued, and which follow-up is safe.
+**Advisory by default. Fixes run only when requested and proven safe. Pushes run only tests related to files that changed.**
 
 <details>
 <summary>See common output states</summary>
@@ -144,7 +144,7 @@ Missing-test and pushed-test discovery use nearby filename conventions. See [Con
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/project-flowchart-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/project-flowchart-light.svg">
-  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" src="assets/project-flowchart-light.svg">
+  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests" src="assets/project-flowchart-light.svg">
 </picture>
 
 `commitment-issues` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files. When commit-message linting is enabled, it also owns `.git/hooks/commit-msg`. Those hooks invoke the installed binary from `node_modules/.bin`; package source is not copied into your repository.
