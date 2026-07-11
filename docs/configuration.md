@@ -292,6 +292,6 @@ Recognized keys with the wrong value type (for example a string where a boolean 
 
 These scripts are Git-hook tooling, so set `COMMITMENT_ISSUES=0` in CI to skip hook runs.
 
-This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
+This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. `npm run test:coverage` measures the explicitly scoped user-facing runtime and enforces 90% branch coverage on both Node lines. Package lifecycle integration remains a separately named pass/fail gate. See the [branch coverage policy](branch-coverage.md) for the exact included and excluded files, badge freshness rule, and rationale.
 
 For ready-to-use pipelines, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.
