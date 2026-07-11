@@ -11,6 +11,7 @@ import {
   BRANCH_COVERAGE_TEST_PATTERNS,
   BRANCH_COVERAGE_THRESHOLD,
   coverageBadgeColor,
+  deriveBranchCoverageSourceFiles,
   parseBranchCoverageFromNodeTestOutput,
   updateReadmeCoverageBadge,
 } from "../scripts/lib/coverage-badge.mjs";
@@ -103,11 +104,27 @@ test("branch coverage scope partitions every scripts source exactly once", () =>
   const excluded = new Set(BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES);
   const overlap = [...included].filter((file) => excluded.has(file));
 
+  const sources = scriptSources();
+
   assert.deepEqual(overlap, []);
   assert.deepEqual(
-    [...included, ...excluded].sort(),
-    scriptSources(),
-    "every scripts/**/*.mjs file must be explicitly included or excluded",
+    BRANCH_COVERAGE_SOURCE_FILES,
+    sources.filter((file) => !excluded.has(file)),
+    "every non-maintenance scripts/**/*.mjs file belongs to runtime coverage",
+  );
+  assert.deepEqual(
+    [...excluded].filter((file) => !sources.includes(file)),
+    [],
+    "every maintenance exclusion must name an existing script",
+  );
+  assert.deepEqual(
+    deriveBranchCoverageSourceFiles([
+      ...sources,
+      "scripts/future-hook.mjs",
+      "scripts/future-hook.mjs",
+    ]),
+    [...BRANCH_COVERAGE_SOURCE_FILES, "scripts/future-hook.mjs"].sort(),
+    "a future runtime script enters the denominator automatically",
   );
   assert.equal(BRANCH_COVERAGE_THRESHOLD, 90);
   assert.deepEqual(BRANCH_COVERAGE_TEST_PATTERNS, [
