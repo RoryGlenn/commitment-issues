@@ -22,7 +22,7 @@ The project will prioritize:
 ### Maintenance and compatibility
 
 - Keep support current for maintained Node.js versions used by the project.
-- Keep npm, pnpm, yarn, and bun lifecycle smoke tests current.
+- Keep npm, pnpm, Yarn, and Bun lifecycle integrations current.
 - Maintain compatibility documentation for common JavaScript and TypeScript project layouts.
 - Keep migration documentation current for users moving from older `commitment-issues` versions or other hook managers.
 
@@ -52,8 +52,12 @@ The project will prioritize:
 
 ### Feature direction
 
-- Improve branch-awareness and wrong-branch protection design before implementation.
-- Explore additional advisory checks such as large commit warnings, debug-junk warnings, and generated-file warnings.
+- Maintain the shipped branch-awareness safeguards: protected-branch commit and
+  push advisories, optional blocking, and behind-upstream guidance.
+- Maintain the shipped commit-shape and repository-hygiene guards for large
+  commits, oversized files, generated artifacts, and likely staged secrets.
+- Evaluate additional advisory checks only when they remain local,
+  dependency-light, and demonstrably actionable.
 - Keep any stricter enforcement mode opt-in and clearly documented.
 - Keep user-facing output concise, actionable, and safe to ignore unless enforcement is explicitly enabled.
 
@@ -77,8 +81,8 @@ These ideas may be revisited after the planned maintenance and security work rem
 
 - richer PR-readiness checks;
 - a `panic` command for recovering from common Git mistakes;
-- optional branch-awareness checks;
-- optional secret or debug-artifact staged checks;
+- optional debug-artifact checks beyond the current generated-file and secret
+  guards;
 - improved framework-specific setup guidance;
 - optional localized output if there is contributor demand.
 

@@ -19,11 +19,12 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-002** — package README documents the Node engine. Unit: `test/metadata.test.mjs`.
 - **PKG-003** — package description does not contradict configurable blocking. Unit: `test/metadata.test.mjs`.
 - **PKG-004** — package `files` entries exist. Unit: `test/metadata.test.mjs`.
-- **PKG-005** — package bin works from packed tarball across OS / Node matrix. CI smoke: `.github/workflows/ci.yml`.
+- **PKG-005** — package bin works from a packed tarball across the OS / Node matrix. CI lifecycle integration: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`.
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
-- **PKG-007** — package includes README gallery assets and docs in the tarball. Manual: `npm pack --dry-run`.
+- **PKG-007** — package includes README SVG gallery assets and installed docs in the tarball. Unit: `test/metadata.test.mjs` using `npm pack --dry-run --json`.
 - **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
 - **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
+- **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
 
 ### Path normalization
 
@@ -40,6 +41,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **DOC-003** — README documents blocking push mode. Unit: `test/metadata.test.mjs`.
 - **DOC-004** — README image references cannot drift away from packaged assets. Unit: `test/metadata.test.mjs`.
 - **DOC-005** — supported Node version stays consistent across the README, docs, and workflows. Unit: `test/metadata.test.mjs`.
+- **DOC-006** — every allowlisted `precommitChecks` key appears in the user configuration reference, external interface, and maintainer authoring skill. Unit: `test/metadata.test.mjs`.
+- **DOC-007** — the aggregate CI gate includes DCO and every prospective-enforcement surface names the same immutable baseline. Unit: `test/metadata.test.mjs`.
 
 ### Config
 
@@ -49,7 +52,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CFG-004** — missing `precommitChecks` degrades to `{}`. Unit: `test/config.test.mjs`.
 - **CFG-005** — malformed `precommitChecks` containers are ignored. Fuzz unit: `test/config.test.mjs`.
 - **CFG-006** — malformed option values inside an object are tolerated. Fuzz unit: `test/config.test.mjs`.
-- **CFG-007** — nested `commitMessage` keys are allowlisted, sanitized, typo-diagnosed, and disabled unless `enabled: true`. Unit: `test/config.test.mjs`.
+- **CFG-007** — `.commitmentrc.json` loads direct top-level options without executing code. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`.
+- **CFG-008** — standalone keys shallowly override matching package keys while preserving unmatched package options; invalid higher-priority values do not revive lower-priority values. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
+- **CFG-009** — malformed JSON and non-object standalone roots warn at hook time and fall back to package configuration. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
+- **CFG-010** — nested `commitMessage` keys are allowlisted, sanitized, typo-diagnosed, and disabled unless `enabled: true`. Unit: `test/config.test.mjs`.
 
 ### CLI command matrix
 
@@ -71,6 +77,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-016** — shell-sensitive command tokens are not shell-expanded by the CLI wrapper. Subprocess: `test/cli.test.mjs`.
 - **CLI-017** — `uninstall` dispatches through the bin. Subprocess: `test/cli.test.mjs`.
 - **CLI-018** — `commit-msg` dispatches through the bin and preserves its message-file argument. Subprocess: `test/cli.test.mjs`.
+- **CLI-019** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
 
 ### Init
 
@@ -86,14 +93,16 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-010** — init migrates a husky-era 2.x setup: retires `core.hooksPath`, removes generated `.husky` wiring, writes native hooks. Fixture: `test/init.test.mjs`.
 - **INIT-011** — init errors clearly when `package.json` is invalid JSON. Fixture: `test/init.test.mjs`.
 - **INIT-012** — init setup summary renders as a readable list instead of one wide line. Fixture: `test/init.test.mjs`.
-- **INIT-013** — init succeeds from the published npm package in a fresh Git repo. Manual: temp project with `npm install -D commitment-issues@latest`.
+- **INIT-013** — init succeeds from the packed package in a fresh Git repo. CI lifecycle integration: `test/integration/lifecycle-manager.test.mjs`.
 - **INIT-014** — init adds `node_modules/` to `.gitignore` defaults and avoids duplicate existing entries. Fixture: `test/init-gitignore.test.mjs`.
 - **INIT-015** — init keeps user-authored `.husky` hooks and warns they no longer run. Fixture: `test/init.test.mjs`.
 - **INIT-016** — init warns about a foreign `core.hooksPath` and leaves it alone. Fixture: `test/init.test.mjs`.
 - **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
 - **INIT-018** — init preserves custom native hooks, accepts those that invoke `commitment-issues`, and withholds setup-complete claims while listing exact commands for those that do not. Fixture: `test/init.test.mjs`.
 - **INIT-019** — init preserves an unrelated `postprepare` while composing repair into the project-owned `prepare`. Fixture: `test/init.test.mjs`.
-- **INIT-020** — commit-msg wiring is opt-in, dry-run aware, executable, idempotent, and never overwrites a custom hook. Fixture: `test/init.test.mjs`, unit: `test/hooks.test.mjs`.
+- **INIT-020** — an existing standalone file receives the generated advisory-push default without creating a package configuration block; dry-run previews without writing. Fixture: `test/init.test.mjs`.
+- **INIT-021** — malformed standalone configuration stops init before package, hook, or gitignore writes. Fixture: `test/init.test.mjs`.
+- **INIT-022** — commit-msg wiring is opt-in, dry-run aware, executable, idempotent, and never overwrites a custom hook. Fixture: `test/init.test.mjs`, unit: `test/hooks.test.mjs`.
 
 ## Uninstall
 
@@ -108,7 +117,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **UNINST-009** — a configured native hooks path is deduplicated during inspection. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-010** — an unreadable or malformed hook path is reported and left unchanged. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-011** — uninstall removes the appended repair suffix while restoring the project's unrelated `prepare`. Fixture: `test/uninstall.test.mjs`.
-- **UNINST-012** — uninstall previews/removes an exact owned commit-msg hook and preserves customized variants for manual cleanup. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-012** — standalone configuration is included in dry-run and removed during uninstall. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-013** — malformed standalone configuration stops uninstall before partial cleanup. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-014** — uninstall previews/removes an exact owned commit-msg hook and preserves customized variants for manual cleanup. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -123,7 +134,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-009** — opt-in staged tests run and warn on failure or stay clean on success (pluralized). Fixture: `test/precommit.test.mjs`.
 - **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
 - **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
-- **PRE-012** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
+- **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
+- **PRE-013** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
 
 ### Commit-message linting
 
@@ -173,7 +185,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **HOOK-009** — `doctor --quiet` never breaks an install (no git repo, or repair cannot complete). Fixture: `test/doctor.test.mjs`.
 - **HOOK-010** — interactive doctor errors clearly: no `package.json`, unrepairable wiring, or still broken after repair. Fixture: `test/doctor.test.mjs`.
 - **HOOK-011** — a foreign `core.hooksPath` is respected: healthy when its hooks invoke the tool, reported (never rewired) when they do not. Fixture: `test/doctor.test.mjs`.
-- **HOOK-012** — doctor creates and fresh-clone repairs configured commit-msg wiring, preserves custom bodies, requires quoted `$1`, and warns without failing when the local CLI is absent. Fixture: `test/doctor.test.mjs`.
+- **HOOK-012** — doctor reports malformed standalone configuration while continuing hook repair; quiet mode remains one-line and exit-zero. Fixture: `test/doctor.test.mjs`.
+- **HOOK-013** — doctor creates and fresh-clone repairs configured commit-msg wiring, preserves custom bodies, requires quoted `$1`, and warns without failing when the local CLI is absent. Fixture: `test/doctor.test.mjs`.
 
 ### Pre-push modes
 
@@ -186,9 +199,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PUSH-007** — non-node test commands run through the tee/summary fallback. Fixture: `test/prepush.test.mjs`.
 - **PUSH-008** — test-command failure blocks in blocking mode and warns/allows in advisory mode; a missing summary blocks. Fixture: `test/prepush.test.mjs`.
 - **PUSH-009** — pushed-file diff failure or malformed name/status output fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
-- **PUSH-010** — the first push of a based branch uses its closest safe remote merge base; orphan histories fall back to the empty tree, and multiple pushed refs are evaluated independently. Fixture: `test/prepush.test.mjs`.
-- **PUSH-011** — same-basename sources in separate packages select only their own package-relative tests; a root basename fallback cannot steal the match. Fixture: `test/prepush.test.mjs`.
-- **PUSH-012** — pushed test selection passes leading/trailing whitespace, tabs, newlines, and Unicode pathnames exactly. Fixture: `test/prepush.test.mjs`.
+- **PUSH-010** — JSON mode preserves Git's pre-push positional arguments, keeps subprocess output off stdout, and reports advisory, clean, and blocking outcomes. Fixture: `test/json-output.test.mjs`.
+- **PUSH-011** — the first push of a based branch uses its closest safe remote merge base; orphan histories fall back to the empty tree, and multiple pushed refs are evaluated independently. Fixture: `test/prepush.test.mjs`.
+- **PUSH-012** — same-basename sources in separate packages select only their own package-relative tests; a root basename fallback cannot steal the match. Fixture: `test/prepush.test.mjs`.
+- **PUSH-013** — pushed test selection passes leading/trailing whitespace, tabs, newlines, and Unicode pathnames exactly. Fixture: `test/prepush.test.mjs`.
 
 ### Advisory message and tone
 
@@ -232,26 +246,32 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### User lifecycle
 
-- **LIFE-001** — user installs and immediately commits in a fresh external repo. CI lifecycle smoke: `.github/workflows/ci.yml`.
-- **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle smoke: `.github/workflows/ci.yml`.
+- **LIFE-001** — user installs and immediately commits in a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
+- **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
 - **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
-- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
+- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 
 ### Package managers
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
 - **PM-002** — uninstall prints a package-removal command for the detected manager. Unit: `test/package-manager.test.mjs`. Fixture: `test/uninstall.test.mjs`.
-- **PM-002** — pnpm end-to-end lifecycle smoke (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
-- **PM-003** — yarn classic end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
-- **PM-005** — bun end-to-end lifecycle smoke. CI: `.github/workflows/ci.yml` (pm-smoke matrix); script: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-003** — pnpm end-to-end lifecycle integration (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-004** — Yarn Classic end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-005** — bun end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+
+### Monorepos and workspaces
+
+- **MONO-001** — workspace-root behavior across npm, pnpm, Yarn, and Bun. The real packed package is installed at the root, each manager's workspace selector runs both package test scripts, root config owns staged checks, and root-native hooks run for commits and pushes. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
+- **MONO-002** — shallow and nested workspace packages are checked together, including when `git commit` starts in the nested package. Package-local `precommitChecks` values remain untouched and do not override the root. CI lifecycle matrix: `.github/workflows/ci.yml`; guide: [Monorepo & workspaces](monorepo.md).
+- **MONO-003** — linked Git worktrees share hooks through Git's common directory, repair safely during a worktree-local install, and run the root checks from a nested package. CI lifecycle matrix: `.github/workflows/ci.yml`.
+
+Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
 
 ## Deferred
 
-- **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
-- **MONO-001** — workspace root behavior. Hooks run from the Git root and check staged files across all packages using the root `precommitChecks` config and hoisted tools. Boundary documented in the [Monorepo & workspaces guide](monorepo.md).
-- **MONO-002** — nested workspace package behavior. Per-package `precommitChecks` config and per-package tool versions are out of scope; the boundary is documented in the [Monorepo & workspaces guide](monorepo.md).
+- **PM-006** — Yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
 - **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Not covered yet
@@ -277,7 +297,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 ### Batch 5: deferred support boundaries
 
-- pnpm / yarn / bun.
-- Broader monorepo install/configuration matrices (focused related-test
-  isolation fixtures already exist).
+- Yarn Berry Plug'n'Play.
+- Custom no-hoist or non-`node_modules` workspace layouts outside the tested
+  package-manager defaults.
 - Release-from-tag / release-from-CI workflows.

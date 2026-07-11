@@ -353,6 +353,77 @@ test("init preserves explicit push blocking config", (t) => {
   assert.equal("advisePushTests" in pkg.precommitChecks, false);
 });
 
+test("init uses an existing standalone file as the configuration target", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    '{\n  "tone": "fun"\n}\n',
+  );
+
+  const preview = runInit(tempDir, ["--dry-run"]);
+  assert.equal(preview.status, 0);
+  assert.match(
+    `${preview.stdout}${preview.stderr}`,
+    /pre-push advisory config \(\.commitmentrc\.json\)/,
+  );
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {
+    tone: "fun",
+  });
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {
+    tone: "fun",
+    advisePushTests: true,
+  });
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+});
+
+test("init respects an effective package blocking mode with a standalone file", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    precommitChecks: { blockPushOnTestFailure: true },
+  });
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "{}\n");
+
+  const result = runInit(tempDir);
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {});
+  assert.deepEqual(readPackage(tempDir).precommitChecks, {
+    blockPushOnTestFailure: true,
+  });
+});
+
+test("init rejects malformed standalone config before writing anything", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0" });
+  writeFile(path.join(tempDir, ".commitmentrc.json"), "{ invalid\n");
+  const beforePackage = readFile(tempDir, "package.json");
+  const beforeGitignore = readFile(tempDir, ".gitignore");
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Invalid \.commitmentrc\.json/);
+  assert.match(output, /contains invalid JSON/);
+  assert.match(output, /No files were changed/);
+  assert.equal(readFile(tempDir, "package.json"), beforePackage);
+  assert.equal(readFile(tempDir, ".gitignore"), beforeGitignore);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
 test("init preserves an unrelated prepare and appends repair", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

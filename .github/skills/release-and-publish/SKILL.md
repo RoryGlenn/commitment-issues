@@ -9,9 +9,9 @@ Package: **`commitment-issues`**, npm owner **`roryglenn`**, **public** registry
 
 ## Operational safety — read first
 
-Publishing and tagging are **hard to reverse**. Before running any release-mutating step (`npm version`, `git push --follow-tags`, or a manual `npm publish`), confirm intent with the user, state the exact target version, and run the preflight below.
+Publishing and tagging are **hard to reverse**. Before running any release-mutating step (`npm version`, `git push origin vX.Y.Z`, or a manual `npm publish`), confirm intent with the user, state the exact target version, and run the preflight below.
 
-- **Pushing a `vX.Y.Z` tag is the publish trigger.** With trusted publishing enabled, `git push --follow-tags` starts an npm publish from CI — treat the tag push itself as "publish now."
+- **Pushing a `vX.Y.Z` tag is the publish trigger.** With trusted publishing enabled, pushing that tag starts an npm publish from CI — treat the tag push itself as "publish now."
 - **Never move or reuse a pushed or consumed release tag.** If a publish fails
   after the tag is pushed, fix forward with a new patch version and tag. The
   only deletion exception is a tag proven unconsumed by any workflow or public
@@ -35,7 +35,7 @@ The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for
    npm test
    npm run lint
    npm run format:check
-   npm run test:smoke      # end-to-end packaging lifecycle
+   npm run test:lifecycle:npm  # end-to-end npm packaging lifecycle
    ```
 2. **Choose and preflight the exact version.** This is read-only and fails if
    the version or tag already exists locally, on the remote, in GitHub
@@ -43,25 +43,40 @@ The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for
    ```bash
    npm run release:preflight -- <version>
    ```
-3. **Update the changelog.** Move items under `## [Unreleased]` in [`CHANGELOG.md`](../../../CHANGELOG.md) to a new `## [X.Y.Z] - YYYY-MM-DD` heading. Keep an empty `## [Unreleased]` at the top. (Commit it now, or let `npm version` include it — see next step.)
-4. **Bump to that exact version.** This edits `package.json`, creates a commit, and creates the matching `vX.Y.Z` tag:
+3. **Update the changelog.** Move items under `## [Unreleased]` in [`CHANGELOG.md`](../../../CHANGELOG.md) to a new `## [X.Y.Z] - YYYY-MM-DD` heading. Keep an empty `## [Unreleased]` at the top and commit it together with the version files in the next step.
+4. **Bump to that exact version on a release branch without creating a tag yet.** This
+   updates `package.json` and `package-lock.json`; the normal PR/DCO/review path
+   still applies to release preparation:
    ```bash
-   npm version <version>
+   npm version <version> --no-git-tag-version
+   git commit -s -am "chore: release vX.Y.Z"
    ```
-5. **Push the commit and tag — this publishes:**
+   Open a pull request, pass `CI Success`, obtain approval (or record the
+   temporary single-maintainer exception), and merge it.
+5. **From the exact merged `main` commit, create and push only the immutable
+   release tag — this publishes:**
    ```bash
-   git push --follow-tags
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin vX.Y.Z
    ```
    Pushing the `vX.Y.Z` tag triggers [`publish.yml`](../../workflows/publish.yml), which publishes to npm via OIDC trusted publishing with automatic provenance. No `npm login`, no token.
 6. **Verify** the exact version is live, confirm the npm provenance badge, and
    confirm the GitHub Release contains both `.tgz` and `.intoto.jsonl` assets:
    `npm view commitment-issues@<version> version dist.integrity`.
 
-`main` is protected (linear history; squash/rebase merges only). Release commits/tags are pushed by the owner, who can bypass the ruleset; regular changes still go through a PR.
+`main` is protected (strict CI, DCO, review, linear history; squash/rebase
+merges only). Version and changelog changes go through a PR. Pushing the tag
+after that PR merges is the release operation and does not change `main`.
 
 ## Manual publish (fallback)
 
-Use this only before trusted publishing is registered, or as break-glass if the workflow is unavailable. Do steps 1–4 above, then:
+Use this only before trusted publishing is registered. Registering the trusted
+publisher first is strongly preferred: the current tag-triggered workflow has
+no per-release skip switch, so a manual release cannot produce a completely
+green tag workflow. Once trusted publishing is active, repair the automated
+workflow and fix forward with a new version instead of creating a
+manual/automated duplicate-publish race. Prepare and merge the release PR in
+steps 1–4 above, then:
 
 5. **User logs in to npm** (credentials + 2FA — agent cannot do this):
    ```bash
@@ -75,27 +90,34 @@ Use this only before trusted publishing is registered, or as break-glass if the 
    tarball="$(npm pack --silent | tail -n1)"
    npm publish "./$tarball"
    ```
-7. **Push the commit and tag:**
+7. **Create and push the release tag from the same merged commit:**
    ```bash
-   git push --follow-tags
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin vX.Y.Z
    ```
-   With trusted publishing registered, this tag push also triggers the workflow — use either the automated flow or the manual flow, not both, to avoid a duplicate-version publish.
+   This tag still starts `publish.yml`. With no trusted publisher, or because
+   the version was just published manually, its publish job is expected to
+   fail rather than publish a second copy; record that expected failure and do
+   not retry the same version. The failed workflow also cannot create its SLSA
+   attestation. Register trusted publishing before the next release so future
+   tags use the green automated path.
 
 ## Gotchas
 
 - **Trusted publishing needs the tag to match `package.json`.** `publish.yml` fails fast if the pushed tag (e.g. `v2.4.0`) doesn't equal `v$(package.json version)`. Always bump with `npm version` so the tag and manifest agree.
+- **Trusted publishing requires npm ≥ 11.5.1 and `id-token: write`.** `publish.yml` verifies the bundled npm version and sets the permission; it does not self-update npm during a release. If a publish job errors with an OIDC/authentication message, confirm the trusted publisher is registered on npm for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`.
+- **Manual `npm publish` → `E404 Not Found - PUT ... or you do not have permission`** is almost always an **auth** problem, not a bad package name — npm masks 403/permission errors as 404. Check `npm whoami` (an `E401` there means not logged in). Fix by logging in as `roryglenn`; do **not** rename the package or fabricate a scope.
 - **Never retry a failed publish by moving its tag.** Fix the cause, bump to a
   new patch version, rerun the preflight, and push the new tag. A local or
   remote tag may be deleted only if no workflow has consumed it and no GitHub
   Release or npm version exists.
-- **Trusted publishing requires npm ≥ 11.5.1 and `id-token: write`.** Both are handled in `publish.yml` (it upgrades npm and sets the permission). If a publish job errors with an OIDC/authentication message, confirm the trusted publisher is registered on npm for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`.
-- **Manual `npm publish` → `E404 Not Found - PUT ... or you do not have permission`** is almost always an **auth** problem, not a bad package name — npm masks 403/permission errors as 404. Check `npm whoami` (an `E401` there means not logged in). Fix by logging in as `roryglenn`; do **not** rename the package or fabricate a scope.
 - **Publishing a tarball does not run this root package's `prepublishOnly`.** The automated and manual exact-tarball flows explicitly run `npm test` and `npm run test:lifecycle:npm` before packing. Keep both gates; `prepublishOnly` remains defense in depth for a direct root-directory publish.
-- **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/`, `docs/`, `README.md`, `CHANGELOG.md`, `LICENSE`. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
+- **`prepublishOnly` failing** blocks a direct root-directory publish by design — it runs the full test suite and the packaging smoke. Fix the failure; do not bypass it.
+- **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. Promotional raster/video media stays in the source repository and is referenced by GitHub-hosted URLs. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
 
 ## CI / required checks
 
-- The required status check is the aggregate job **`CI Success`** in `.github/workflows/ci.yml` (`needs: [check, pm-smoke]`, `if: always()`), which fails if any matrix leg failed. This keeps the required-check list stable across matrix changes — don't rename it without updating the branch-protection ruleset.
+- The required status check is the aggregate job **`CI Success`** in `.github/workflows/ci.yml` (`needs: [dco, check, pm-lifecycle]`, `if: always()`), which fails if DCO, any OS/Node matrix leg, or any package-manager lifecycle integration fails. This keeps the required-check list stable across matrix changes — don't rename it without updating the ruleset.
 - Dependabot groups minor/patch bumps; **major** dependency bumps arrive as individual PRs and some (e.g. eslint 9→10) are expected to fail CI until the breaking change is handled — that's the `CI Success` gate doing its job, not a regression to force-merge.
 
 ## Post-release
