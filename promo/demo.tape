@@ -35,6 +35,8 @@ Type "REPO=$(pwd)" Enter
 Wait+Line /READY>$/
 Type `WORKDIR=$(mktemp -d)/hello-world && mkdir -p "$WORKDIR"` Enter
 Wait+Line /READY>$/
+Type "PACKAGE_DIR=$(mktemp -d)" Enter
+Wait+Line /READY>$/
 Type "REMOTE_DIR=$(mktemp -d)/demo.git" Enter
 Wait+Line /READY>$/
 Type `git init --bare "$REMOTE_DIR" >/dev/null 2>&1` Enter
@@ -51,10 +53,12 @@ Type "npm init -y >/dev/null 2>&1" Enter
 Wait+Line@30s /READY>$/
 Type "printf 'node_modules/\n' > .gitignore" Enter
 Wait+Line /READY>$/
-# Link the repository's lockfile-installed tools into the disposable fixture.
-# The source path never appears while recording because this happens under Hide.
-Type `ln -s "$REPO/node_modules" node_modules` Enter
-Wait+Line /READY>$/
+# Install the locally packed build and exact peer-tool versions, preferring the
+# cache warmed by the render workflow before any registry fallback.
+Type `PACKAGE_TGZ=$(npm pack "$REPO" --ignore-scripts --pack-destination "$PACKAGE_DIR" --silent | tail -1)` Enter
+Wait+Line@30s /READY>$/
+Type `npm install -D "$PACKAGE_DIR/$PACKAGE_TGZ" eslint@9.39.4 prettier@3.9.5 @eslint/js@9.39.4 globals@17.7.0 --ignore-scripts --prefer-offline >/dev/null 2>&1` Enter
+Wait+Line@30s /READY>$/
 Type `printf 'import js from "@eslint/js";\nimport globals from "globals";\nexport default [js.configs.recommended, { languageOptions: { globals: globals.node } }];\n' > eslint.config.mjs` Enter
 Wait+Line /READY>$/
 Type "mkdir src" Enter

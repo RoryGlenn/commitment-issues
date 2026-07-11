@@ -117,7 +117,10 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const uploadIndex = workflow.indexOf("name: Upload rendered demo");
 
   assert.match(tape, /^Output assets\/demo\.gif$/m);
-  assert.match(tape, /ln -s "\$REPO\/node_modules" node_modules/);
+  assert.match(tape, /npm pack "\$REPO" --ignore-scripts/);
+  assert.match(tape, /npm install -D "\$PACKAGE_DIR\/\$PACKAGE_TGZ"/);
+  assert.match(tape, /--ignore-scripts --prefer-offline/);
+  assert.doesNotMatch(tape, /ln -s "\$REPO\/node_modules" node_modules/);
   assert.match(workflow, /npm ci --ignore-scripts/);
   assert.match(workflow, /node-version: "24\.14\.0"/);
   for (const input of [
