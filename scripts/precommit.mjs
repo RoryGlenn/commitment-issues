@@ -596,11 +596,13 @@ if (eslintResult) {
     issues.push({
       autoFixable: false,
       type: "lint",
-      message: eslintOutcome === "timeout"
-        ? "ESLint timed out"
+      message:
+        eslintOutcome === "timeout"
+          ? "ESLint timed out"
         : "Unable to run ESLint",
-      detail: eslintOutcome === "timeout"
-        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
+      detail:
+        eslintOutcome === "timeout"
+          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check ESLint install and project config",
     });
   } else {
@@ -672,11 +674,13 @@ if (prettierResult) {
     issues.push({
       autoFixable: false,
       type: "format",
-      message: prettierOutcome === "timeout"
-        ? "Prettier timed out"
+      message:
+        prettierOutcome === "timeout"
+          ? "Prettier timed out"
         : "Unable to run Prettier",
-      detail: prettierOutcome === "timeout"
-        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
+      detail:
+        prettierOutcome === "timeout"
+          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check Prettier install and project config",
     });
   } else {
@@ -732,11 +736,13 @@ if (testRun) {
     issues.push({
       autoFixable: false,
       type: "tests",
-      message: stagedTestOutcome === "timeout"
-        ? "Staged tests timed out"
+      message:
+        stagedTestOutcome === "timeout"
+          ? "Staged tests timed out"
         : "Unable to run staged tests",
-      detail: stagedTestOutcome === "timeout"
-        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
+      detail:
+        stagedTestOutcome === "timeout"
+          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check precommitChecks.testCommand in package.json",
     });
   } else if (stagedTestOutcome === "nonzero") {
