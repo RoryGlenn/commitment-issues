@@ -7,6 +7,47 @@ export const JSON_OUTPUT_SCHEMA_VERSION = 1;
 
 const CHECK_STATUSES = new Set(["passed", "advisory", "failed", "skipped"]);
 
+const PROCESS_OUTCOMES = new Set([
+  "success",
+  "nonzero",
+  "signal",
+  "timeout",
+  "spawn-error",
+  "missing-tool",
+]);
+
+/**
+ * Normalize both the legacy spawnSync-shaped result and the structured process
+ * result introduced by the hardened runner. This keeps JSON consumers safe
+ * while process.mjs changes land independently.
+ * @param {object} result - Captured child-process result.
+ * @returns {"success"|"nonzero"|"signal"|"timeout"|"spawn-error"|"missing-tool"}
+ */
+export function normalizeProcessOutcome(result) {
+  if (PROCESS_OUTCOMES.has(result?.outcome)) {
+    return result.outcome;
+  }
+  if (result?.timedOut === true || result?.error?.code === "ETIMEDOUT") {
+    return "timeout";
+  }
+  if (result?.missingTool) {
+    return "missing-tool";
+  }
+  if (result?.error) {
+    return "spawn-error";
+  }
+  if (result?.signal) {
+    return "signal";
+  }
+  if (result?.status === 0) {
+    return "success";
+  }
+  if (typeof result?.status === "number") {
+    return "nonzero";
+  }
+  return "spawn-error";
+}
+
 function normalizeDetails(detail) {
   if (Array.isArray(detail)) {
     return detail.map(String);
