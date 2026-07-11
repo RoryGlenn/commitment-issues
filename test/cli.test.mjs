@@ -84,6 +84,25 @@ test("cli errors on an unknown command", (t) => {
   const result = cli(tempDir, ["bogus"]);
   assert.equal(result.status, 1);
   assert.match(combinedOutput(result), /unknown command 'bogus'/);
+  assert.doesNotMatch(combinedOutput(result), /Did you mean/);
+});
+
+test("cli suggests the closest command for a likely typo", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  for (const [typo, expected] of [
+    ["docter", "doctor"],
+    ["precommt", "precommit"],
+    ["fix-stagged", "fix-staged"],
+  ]) {
+    const result = cli(tempDir, [typo]);
+    assert.equal(result.status, 1);
+    assert.match(
+      combinedOutput(result),
+      new RegExp(`Did you mean '${escapeRegExp(expected)}'\\?`),
+    );
+  }
 });
 
 test("cli preserves shell-sensitive unknown command tokens", (t) => {

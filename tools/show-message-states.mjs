@@ -1,19 +1,19 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
-// Maintainer tool: renders every message state LIVE in your terminal by
-// driving the real entry scripts inside throwaway git repos — the runnable
-// counterpart of the static docs/message-states.md gallery (whose SVGs are
-// hand-specified mockups). Not shipped (tools/ is outside the files
-// allowlist).
+// Maintainer tool: renders representative message states LIVE in your terminal
+// by driving the real entry scripts inside throwaway git repos. It complements
+// the exhaustive static docs/message-states.md gallery (whose SVGs are
+// hand-specified mockups). Not shipped (tools/ is outside the files allowlist).
 //
-//   node tools/show-message-states.mjs            # all states
+//   node tools/show-message-states.mjs            # representative states
 //   node tools/show-message-states.mjs secrets    # states matching "secrets"
 //   node tools/show-message-states.mjs --list     # list state names
 //
 // Each scenario builds a fresh temp repo (test/helpers/temp-repo.mjs), sets
 // up the exact staged/config situation, runs the real script, and streams
-// its output. FORCE_COLOR keeps the boxes colored through the pipe.
+// its output. FORCE_COLOR keeps the boxes colored through the pipe; NO_COLOR
+// is removed from child environments so Node does not warn about a conflict.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -31,9 +31,11 @@ import {
 const AWS_KEY = ["AKIA", "ABCDEFGH", "IJKLMNOP"].join("");
 
 function script(tempDir, name, { input = "", env = {}, args = [] } = {}) {
+  const childEnv = { ...process.env, ...env, FORCE_COLOR: "1" };
+  delete childEnv.NO_COLOR;
   return run("node", [path.join(tempDir, "scripts", name), ...args], tempDir, {
     input,
-    env: { ...process.env, FORCE_COLOR: "1", ...env },
+    env: childEnv,
   });
 }
 
@@ -138,6 +140,7 @@ const SCENARIOS = [
   },
   {
     name: "precommit/protected-branch-block",
+    expectedStatus: 1,
     run(dir) {
       setPrecommitConfig(dir, {
         protectedBranches: ["main"],
@@ -214,6 +217,7 @@ const SCENARIOS = [
   },
   {
     name: "precommit/secrets-block",
+    expectedStatus: 1,
     run(dir) {
       setPrecommitConfig(dir, { blockOnSecrets: true });
       writeFile(
@@ -276,6 +280,7 @@ const SCENARIOS = [
   },
   {
     name: "prepush/blocking-failure",
+    expectedStatus: 1,
     run(dir) {
       setPrecommitConfig(dir, { blockPushOnTestFailure: true });
       writeFile(path.join(dir, "src", "widget.test.mjs"), failingTest);
@@ -314,6 +319,7 @@ const SCENARIOS = [
   },
   {
     name: "prepush/protected-branch-block",
+    expectedStatus: 1,
     run(dir) {
       setPrecommitConfig(dir, {
         protectedBranches: ["main"],
@@ -407,12 +413,15 @@ const SCENARIOS = [
   },
 ];
 
-function printResult(name, result) {
+function printResult(name, result, expectedStatus = 0) {
   console.log("");
   console.log(pc.bold(pc.cyan(`━━━ ${name} `.padEnd(72, "━"))));
-  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trimEnd();
+  const output = `${result?.stdout ?? ""}${result?.stderr ?? ""}`.trimEnd();
   console.log(output.length > 0 ? output : pc.dim("(no output)"));
-  console.log(pc.dim(`exit ${result.status}`));
+  console.log(pc.dim(`exit ${result?.status ?? "unknown"}`));
+  if (result?.status !== expectedStatus) {
+    console.log(pc.red(`expected exit ${expectedStatus}`));
+  }
 }
 
 const args = process.argv.slice(2);
@@ -441,19 +450,30 @@ console.log(
   ),
 );
 
+let failed = false;
 for (const scenario of selected) {
-  const dir = createTempRepo();
+  let dir;
   try {
-    printResult(scenario.name, scenario.run(dir));
+    dir = createTempRepo();
+    const result = scenario.run(dir);
+    const expectedStatus = scenario.expectedStatus ?? 0;
+    printResult(scenario.name, result, expectedStatus);
+    if (result?.status !== expectedStatus) failed = true;
   } catch (error) {
-    printResult(scenario.name, {
-      stdout: "",
-      stderr: `scenario error: ${error.message}`,
-      status: 1,
-    });
+    failed = true;
+    printResult(
+      scenario.name,
+      {
+        stdout: "",
+        stderr: `scenario error: ${error.message}`,
+        status: 1,
+      },
+      0,
+    );
   } finally {
-    cleanupTempRepo(dir);
+    if (dir) cleanupTempRepo(dir);
   }
 }
 
 console.log("");
+if (failed) process.exitCode = 1;
