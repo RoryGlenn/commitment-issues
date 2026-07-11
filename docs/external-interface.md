@@ -71,16 +71,16 @@ The package does not copy source files into a consumer repository.
 
 All configuration lives under `precommitChecks` in `package.json`.
 
-| Key                      | Type                    | Default              | Effect                                                              |
-| ------------------------ | ----------------------- | -------------------- | ------------------------------------------------------------------- |
-| `testExempt`             | string[]                | `[]`                 | Extra glob exemptions for missing-test checks.                      |
-| `requireTests`           | boolean                 | `true`               | Turns missing-test advisories on or off.                            |
-| `runStagedTests`         | boolean                 | `false`              | Runs related tests during `git commit`.                             |
-| `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.              |
-| `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.                  |
-| `testCommand`            | string[]                | `["node", "--test"]` | Verbatim command used to run related tests; must accept file paths. |
-| `timeoutMs`              | number                  | `120000`             | Timeout for a command and its attached process tree; maximum `2,147,483,647` ms.                |
-| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                              |
+| Key                      | Type                    | Default              | Effect                                                                           |
+| ------------------------ | ----------------------- | -------------------- | -------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                | `[]`                 | Extra glob exemptions for missing-test checks.                                   |
+| `requireTests`           | boolean                 | `true`               | Turns missing-test advisories on or off.                                         |
+| `runStagedTests`         | boolean                 | `false`              | Runs related tests during `git commit`.                                          |
+| `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.                           |
+| `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.                               |
+| `testCommand`            | string[]                | `["node", "--test"]` | Verbatim command used to run related tests; must accept file paths.              |
+| `timeoutMs`              | number                  | `120000`             | Timeout for a command and its attached process tree; maximum `2,147,483,647` ms. |
+| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                                           |
 
 Example:
 
