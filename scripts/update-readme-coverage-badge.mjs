@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { run } from "./lib/process.mjs";
 import {
+  formatCoverageBadgePercentage,
   parseBranchCoverageFromNodeTestOutput,
   updateReadmeCoverageBadge,
 } from "./lib/coverage-badge.mjs";
@@ -42,22 +43,21 @@ if (branchCoverage === null) {
 
 const currentReadme = fs.readFileSync(readmePath, "utf8");
 const updatedReadme = updateReadmeCoverageBadge(currentReadme, branchCoverage);
+const displayedCoverage = formatCoverageBadgePercentage(branchCoverage);
 
 if (updatedReadme === currentReadme) {
   console.log(
-    `README branch coverage badge is up to date (${branchCoverage.toFixed(2)}%).`,
+    `README branch coverage badge is up to date (${displayedCoverage}%).`,
   );
   process.exit(0);
 }
 
 if (checkOnly) {
   console.error(
-    `README branch coverage badge is stale. Run \`npm run coverage:badge\` and commit the result (${branchCoverage.toFixed(2)}%).`,
+    `README branch coverage badge is stale. Run \`npm run coverage:badge\` and commit the result (${displayedCoverage}%).`,
   );
   process.exit(1);
 }
 
 fs.writeFileSync(readmePath, updatedReadme);
-console.log(
-  `Updated README branch coverage badge to ${branchCoverage.toFixed(2)}%.`,
-);
+console.log(`Updated README branch coverage badge to ${displayedCoverage}%.`);

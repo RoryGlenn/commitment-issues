@@ -57,6 +57,16 @@ if (!file) {
   process.exit(1);
 }
 
+if (
+  rest.some((arg) => arg === "--json" || /^--json=/.test(arg)) &&
+  !["precommit", "prepush"].includes(subcommand)
+) {
+  console.error(
+    `commitment-issues: --json is only supported by 'precommit' and 'prepush'.`,
+  );
+  process.exit(1);
+}
+
 // Run the target script in this same process: rewrite argv so it sees only its
 // own arguments, then import it. The scripts call process.exit themselves, which
 // propagates the correct exit code (and stdin stays connected for pre-push).
