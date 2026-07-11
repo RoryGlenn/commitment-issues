@@ -190,7 +190,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     tape,
     /Wait\+Screen@30s \/Latest commit amended with automatic fixes\//,
   );
-  assert.match(tape, /Wait\+Screen@30s \/Push allowed\\\.\//);
+  assert.match(tape, /Wait\+Screen@30s \/Push allowed\//);
   assert.ok(switchIndex >= 0, "demo should create a named feature branch");
   assert.ok(
     tape.lastIndexOf("Show", initIndex) > tape.lastIndexOf("Hide", initIndex),

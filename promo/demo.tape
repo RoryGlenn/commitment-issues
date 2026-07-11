@@ -110,6 +110,6 @@ Sleep 4s
 
 # --- 4. Push changes ---
 Type "git push -q" Enter
-Wait+Screen@30s /Push allowed\./
+Wait+Screen@30s /Push allowed/
 Sleep 4s
 Show
