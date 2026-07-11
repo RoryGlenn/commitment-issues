@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Branch coverage: 93.77%](https://img.shields.io/badge/branch%20coverage-93.77%25-brightgreen.svg)](docs/branch-coverage.md)
+[![Branch coverage: 91.66%](https://img.shields.io/badge/branch%20coverage-91.66%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -343,6 +343,8 @@ npx commitment-issues init --dry-run       # preview setup
 npx commitment-issues uninstall            # remove generated setup
 npx commitment-issues uninstall --dry-run  # preview removal
 npx commitment-issues doctor               # verify and repair hook wiring
+npx commitment-issues precommit --json     # structured commit-check result
+npx commitment-issues prepush --json       # structured push-check result
 npx commitment-issues --version
 
 npm run test:precommit  # run commit checks directly
@@ -367,6 +369,7 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 - [How it works](docs/how-it-works.md)
 - [Configuration and behavior](docs/configuration.md)
 - [External interface reference](docs/external-interface.md)
+- [JSON output schema and usage](docs/json-output.md)
 - [Message states](docs/message-states.md)
 
 **Operate and contribute**
