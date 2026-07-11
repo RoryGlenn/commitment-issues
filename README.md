@@ -80,7 +80,7 @@ npm run fix:staged
 ## See it in action
 
 <p align="center">
-  <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, commit:fix, and a passing push" width="800" />
+  <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, and commit:fix" width="800" />
 </p>
 
 The output explains what happened, whether Git continued, and which follow-up is safe.

@@ -105,11 +105,5 @@ Show
 # --- 3. Run command to fix changes ---
 Type "./node_modules/.bin/commitment-issues commit-fix" Enter
 Wait+Screen@30s /Latest commit amended with automatic fixes/
-Sleep 2s
-Show
-
-# --- 4. Push changes ---
-Type "git push" Enter
-Wait+Screen@30s /feature\/greeting -> feature\/greeting/
 Sleep 4s
 Show
