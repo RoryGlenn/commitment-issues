@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Coverage: 95.31%](https://img.shields.io/badge/coverage-95.31%25-brightgreen.svg)](docs/scenario-coverage.md)
+[![Branch coverage: 94.98%](https://img.shields.io/badge/branch%20coverage-94.98%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -322,6 +322,8 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 **Operate and contribute**
 
 - [CI provider recipes](docs/ci-recipes.md)
+- [Branch coverage policy](docs/branch-coverage.md) — exact source/test scope,
+  threshold, lifecycle boundary, and badge freshness
 - [Roadmap](ROADMAP.md)
 - [Contributing](.github/CONTRIBUTING.md)
 - [OpenSSF evidence](docs/openssf-best-practices.md)

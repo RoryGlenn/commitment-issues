@@ -3,10 +3,30 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
+  BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
+  BRANCH_COVERAGE_SOURCE_FILES,
+  BRANCH_COVERAGE_TEST_PATTERNS,
+  BRANCH_COVERAGE_THRESHOLD,
+  coverageBadgeColor,
   parseBranchCoverageFromNodeTestOutput,
   updateReadmeCoverageBadge,
 } from "../scripts/lib/coverage-badge.mjs";
+
+function scriptSources(dir = "scripts") {
+  const sources = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      sources.push(...scriptSources(file));
+    } else if (entry.isFile() && entry.name.endsWith(".mjs")) {
+      sources.push(file.split(path.sep).join("/"));
+    }
+  }
+  return sources.sort();
+}
 
 test("parseBranchCoverageFromNodeTestOutput reads all files branch coverage", () => {
   const output = [
@@ -40,16 +60,58 @@ test("updateReadmeCoverageBadge replaces alt text and badge URL percentage", () 
   const readme =
     "[![Coverage: 93.13%](https://img.shields.io/badge/coverage-93.13%25-brightgreen.svg)](docs/scenario-coverage.md)\n";
 
-  const updated = updateReadmeCoverageBadge(readme, 92.55);
+  const updated = updateReadmeCoverageBadge(readme, 82.55);
   assert.match(
     updated,
-    /^\[!\[Coverage: 92\.55%\]\(https:\/\/img\.shields\.io\/badge\/coverage-92\.55%25-brightgreen\.svg\)\]\(docs\/scenario-coverage\.md\)$/m,
+    /^\[!\[Branch coverage: 82\.55%\]\(https:\/\/img\.shields\.io\/badge\/branch%20coverage-82\.55%25-green\.svg\)\]\(docs\/branch-coverage\.md\)$/m,
   );
+});
+
+test("coverageBadgeColor derives stable colors from the percentage", () => {
+  assert.equal(coverageBadgeColor(100), "brightgreen");
+  assert.equal(coverageBadgeColor(90), "brightgreen");
+  assert.equal(coverageBadgeColor(89.99), "green");
+  assert.equal(coverageBadgeColor(80), "green");
+  assert.equal(coverageBadgeColor(70), "yellowgreen");
+  assert.equal(coverageBadgeColor(60), "yellow");
+  assert.equal(coverageBadgeColor(50), "orange");
+  assert.equal(coverageBadgeColor(49.99), "red");
+  assert.equal(coverageBadgeColor(0), "red");
+  assert.throws(() => coverageBadgeColor(-1), /between 0 and 100/);
+  assert.throws(() => coverageBadgeColor(101), /between 0 and 100/);
+  assert.throws(() => coverageBadgeColor(Number.NaN), /between 0 and 100/);
 });
 
 test("updateReadmeCoverageBadge throws when badge line is missing", () => {
   assert.throws(
     () => updateReadmeCoverageBadge("# no badge here\n", 92.55),
-    /Could not find README coverage badge line/,
+    /Could not find README branch coverage badge line/,
   );
+});
+
+test("badge color follows the displayed rounded value", () => {
+  const readme =
+    "[![Branch coverage: 80.00%](https://img.shields.io/badge/branch%20coverage-80.00%25-green.svg)](docs/branch-coverage.md)\n";
+  assert.match(
+    updateReadmeCoverageBadge(readme, 89.999),
+    /Branch coverage: 90\.00%.*90\.00%25-brightgreen/,
+  );
+});
+
+test("branch coverage scope partitions every scripts source exactly once", () => {
+  const included = new Set(BRANCH_COVERAGE_SOURCE_FILES);
+  const excluded = new Set(BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES);
+  const overlap = [...included].filter((file) => excluded.has(file));
+
+  assert.deepEqual(overlap, []);
+  assert.deepEqual(
+    [...included, ...excluded].sort(),
+    scriptSources(),
+    "every scripts/**/*.mjs file must be explicitly included or excluded",
+  );
+  assert.equal(BRANCH_COVERAGE_THRESHOLD, 90);
+  assert.deepEqual(BRANCH_COVERAGE_TEST_PATTERNS, [
+    "test/*.test.mjs",
+    "test/*.test.js",
+  ]);
 });

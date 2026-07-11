@@ -139,6 +139,31 @@ test("supported Node version stays consistent across docs and workflows", () => 
   }
 });
 
+test("CI enforces branch coverage on both Node lines and badge freshness", () => {
+  const pkg = readJson("package.json");
+  const workflow = readText(".github/workflows/ci.yml");
+  const readme = readText("README.md");
+
+  assert.equal(
+    pkg.scripts["test:coverage"],
+    "node scripts/run-branch-coverage.mjs",
+  );
+  assert.equal(
+    pkg.scripts["coverage:check"],
+    "node scripts/update-readme-coverage-badge.mjs --check",
+  );
+  assert.match(
+    workflow,
+    /Branch coverage threshold \(Node 22\.22\.1\)[\s\S]*matrix\.node-version == '22\.22\.1'[\s\S]*npm run test:coverage/,
+  );
+  assert.match(
+    workflow,
+    /Branch coverage threshold and badge freshness \(Node 24\)[\s\S]*matrix\.node-version == '24'[\s\S]*npm run coverage:check/,
+  );
+  assert.match(readme, /\[!\[Branch coverage: [0-9.]+%\]/);
+  assert.match(readme, /docs\/branch-coverage\.md/);
+});
+
 test("package description does not contradict configurable blocking", () => {
   const pkg = readJson("package.json");
 
