@@ -9,18 +9,18 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 
 ## Commands
 
-| Goal                       | Command                                                               |
-| -------------------------- | --------------------------------------------------------------------- |
-| Run everything             | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)           |
-| Run one file               | `node --test test/precommit.test.mjs`                                 |
-| Coverage report            | `npm run test:coverage` (reported, **not gated** — no threshold flag) |
-| Reproduce CI locally       | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below)   |
-| End-to-end packaging smoke | `npm run test:smoke` (also `:pnpm`, `:yarn`, `:bun`)                  |
+| Goal                       | Command                                                             |
+| -------------------------- | ------------------------------------------------------------------- |
+| Run everything             | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)         |
+| Run one file               | `node --test test/precommit.test.mjs`                               |
+| Branch coverage gate       | `npm run test:coverage` (explicit runtime scope, 90% threshold)     |
+| Reproduce CI locally       | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below) |
+| End-to-end packaging smoke | `npm run test:smoke` (also `:pnpm`, `:yarn`, `:bun`)                |
 
 ## The two kinds of code, and how each is tested
 
 1. **Helper modules** (`scripts/lib/*.mjs`) are pure and side-effect-light. **Unit-test them in-process** with a direct `import`. Easy to cover.
-2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, `fix-staged-js`, `ci-lifecycle-smoke`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
+2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-msg`, `commit-fix`, `fix-staged`, `fix-staged-js`, `ci-lifecycle-smoke`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
 
 Typical subprocess test shape:
 
@@ -91,11 +91,15 @@ All shim helpers are cross-platform (POSIX launcher + `.cmd`), so keep tests fre
 
 ## Inspecting coverage gaps
 
-Coverage is reported, not gated, so don't chase 100%. To see _which_ branches are uncovered, emit lcov and grep the branch-data lines:
+Coverage is gated at 90%, not 100%. The exact runtime/test scope and lifecycle
+exclusions are documented in `docs/branch-coverage.md`. To see _which_ branches
+are uncovered, emit lcov and inspect the branch-data lines:
 
 ```bash
+npm run test:coverage
 node --test --experimental-test-coverage \
-  --test-reporter=lcov --test-reporter-destination=/tmp/cov.info test/*.test.mjs test/*.test.js
+  --test-reporter=lcov --test-reporter-destination=/tmp/cov.info \
+  test/*.test.mjs test/*.test.js
 grep -E ",-$|,0$" /tmp/cov.info   # BRDA lines ending in ,- (never taken) or ,0 (taken 0x)
 ```
 

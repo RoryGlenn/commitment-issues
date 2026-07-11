@@ -307,3 +307,118 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
 
   return { severity: "warning", lines };
 }
+
+/**
+ * Build the failure/unavailable message for the optional commit-msg check.
+ * Successful checks stay silent, matching commitlint's normal hook behavior.
+ * @param {{outcome?: "reported"|"missing-tool"|"missing-config"|"unreadable"|"timeout"|"unavailable", blocking?: boolean, tone?: string, detail?: string, installCommand?: string}} options - Result and presentation context.
+ * @returns {{severity: "warning"|"error", lines: string[]}} Box model.
+ */
+export function buildCommitMessageCheckMessage(options = {}) {
+  const {
+    outcome = "unavailable",
+    blocking = false,
+    detail = "",
+    installCommand = "",
+  } = options;
+  const tone = normalizeTone(options.tone);
+  const fun = tone === "fun";
+
+  const copy = {
+    reported: {
+      title: fun
+        ? "Commit message sent mixed signals"
+        : blocking
+          ? "Commit blocked: commit message needs attention"
+          : "Commit message needs attention",
+      summary: fun
+        ? "Commitlint found a few relationship rules this message missed."
+        : "Commitlint reported a problem with this commit message or its configuration.",
+    },
+    "missing-tool": {
+      title: fun
+        ? "Commitlint stood this commit up"
+        : "Commit-message check unavailable",
+      summary: fun
+        ? "The project-local commitlint CLI never showed."
+        : "The project-local commitlint CLI is not installed.",
+    },
+    "missing-config": {
+      title: fun
+        ? "Commitlint needs relationship rules"
+        : "Commitlint configuration not found",
+      summary: fun
+        ? "There is no project ruleset defining what commitment looks like."
+        : "Commitlint requires a project configuration with at least one rule.",
+    },
+    unreadable: {
+      title: fun
+        ? "The commit message went missing"
+        : "Unable to read the commit message",
+      summary: fun
+        ? "Git handed over a message file that could not be opened."
+        : "The commit-msg hook did not receive a readable message file.",
+    },
+    timeout: {
+      title: fun ? "Commitlint needed space" : "Commitlint timed out",
+      summary: fun
+        ? "It never texted back before the hook timeout."
+        : "Commitlint did not finish before the configured timeout.",
+    },
+    unavailable: {
+      title: fun
+        ? "Commitlint left this commit on read"
+        : "Commit-message check unavailable",
+      summary: fun
+        ? "The local CLI was present but could not finish the conversation."
+        : "The project-local commitlint CLI could not be executed.",
+    },
+  }[outcome];
+
+  const lines = [pc.bold(copy.title), "", pc.dim(copy.summary)];
+
+  if (outcome === "missing-tool") {
+    lines.push(
+      "",
+      pc.dim("No npx, network, or global-tool fallback was attempted."),
+    );
+    if (installCommand) {
+      lines.push(pc.dim(`Install it in this project: ${installCommand}`));
+    }
+  }
+
+  if (outcome === "missing-config") {
+    lines.push(
+      "",
+      pc.dim("Add a commitlint config with your chosen rules."),
+      pc.dim("No built-in Conventional Commits rules were substituted."),
+    );
+  }
+
+  const trimmedDetail = String(detail).trim();
+  if (trimmedDetail) {
+    lines.push("", ...trimmedDetail.split(/\r?\n/).map((line) => pc.dim(line)));
+  }
+
+  lines.push(
+    "",
+    pc.dim(
+      blocking
+        ? fun
+          ? "This commit is on pause because blocking mode is official."
+          : "Commit blocked because commit-message enforcement is enabled."
+        : fun
+          ? "Commit will continue. Consider this a relationship note."
+          : "Commit will continue because commit-message linting is advisory.",
+    ),
+  );
+  if (blocking) {
+    lines.push(
+      pc.dim(
+        "Fix the message or setup, or bypass once: git commit --no-verify",
+      ),
+    );
+  }
+
+  return { severity: blocking ? "error" : "warning", lines };
+}

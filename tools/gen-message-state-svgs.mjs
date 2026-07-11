@@ -326,8 +326,8 @@ boxSvg({
     { k: "b" },
     { k: "d", text: "Commit will continue. Suggestions:" },
     { k: "b" },
-    { k: "a", text: "→ Unable to run ESLint" },
-    { k: "di", text: "Check ESLint install and project config" },
+    { k: "a", text: "→ ESLint is not installed locally" },
+    { k: "di", text: "Install it: npm install -D eslint" },
     { k: "b" },
     { k: "d", text: "No automatic fix command for these issues." },
   ],
@@ -1041,7 +1041,11 @@ boxSvg({
     { k: "b" },
     {
       k: "d",
-      text: "commitment-issues runs these during pre-commit and pre-push.",
+      text: "commitment-issues only runs project-local copies of these tools.",
+    },
+    {
+      k: "d",
+      text: "Hooks never ask npx to download a missing peer dependency.",
     },
     {
       k: "d",

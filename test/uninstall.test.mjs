@@ -97,6 +97,56 @@ test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), beforeCommitHook);
 });
 
+test("uninstall previews and removes an owned commit-msg hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "consumer",
+    version: "1.0.0",
+    precommitChecks: {
+      commitMessage: { enabled: true, blockOnFailure: true },
+    },
+  });
+  assert.equal(runScript(tempDir, "init").status, 0);
+  const before = readFile(tempDir, ".git/hooks/commit-msg");
+
+  const preview = runScript(tempDir, "uninstall", ["--dry-run"]);
+  assert.equal(preview.status, 0);
+  assert.match(
+    `${preview.stdout}${preview.stderr}`,
+    /\.git\/hooks\/commit-msg/,
+  );
+  assert.equal(readFile(tempDir, ".git/hooks/commit-msg"), before);
+
+  const result = runScript(tempDir, "uninstall");
+  assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /\.git\/hooks\/commit-msg/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
+});
+
+test("uninstall preserves customized commit-msg hooks for manual cleanup", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "consumer",
+    version: "1.0.0",
+    precommitChecks: { commitMessage: { enabled: true } },
+  });
+  writeFile(
+    gitHook(tempDir, "commit-msg"),
+    'echo custom\ncommitment-issues commit-msg "$1"\n',
+  );
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /commit-msg is customized/);
+  assert.equal(
+    readFile(tempDir, ".git/hooks/commit-msg"),
+    'echo custom\ncommitment-issues commit-msg "$1"\n',
+  );
+});
+
 test("uninstall removes an appended prepare repair and preserves prepare", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

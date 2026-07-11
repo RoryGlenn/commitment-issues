@@ -42,9 +42,9 @@ body:
     attributes:
       label: Relevant configuration
       description: >-
-        Your `precommitChecks` block from `package.json` and any relevant hook
-        files, if applicable. This will be rendered as code, so no need for
-        backticks.
+        Your `precommitChecks` block from `package.json`, any relevant hook
+        files, and (for commit-message reports) the name of your commitlint
+        config. This will be rendered as code, so no need for backticks.
       render: json
     validations:
       required: false
