@@ -37,7 +37,9 @@ export function normalizeProcessOutcome(result) {
     return "spawn-error";
   }
   if (result?.signal) {
-    return "signal";
+    // Legacy spawnAsync used SIGTERM as its timeout marker and did not expose a
+    // timedOut flag. Structured results identify external signals explicitly.
+    return "timeout";
   }
   if (result?.status === 0) {
     return "success";
