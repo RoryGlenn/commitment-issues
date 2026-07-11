@@ -55,7 +55,7 @@ test("updates README badge from test:coverage output", (t) => {
   const readmePath = path.join(tempDir, "README.md");
   writeFile(
     readmePath,
-    "[![Coverage: 93.13%](https://img.shields.io/badge/coverage-93.13%25-brightgreen.svg)](docs/scenario-coverage.md)\n",
+    "[![Branch coverage: 93.13%](https://img.shields.io/badge/branch%20coverage-93.13%25-brightgreen.svg)](docs/branch-coverage.md)\n",
   );
 
   const coverageOutput = [
@@ -75,11 +75,11 @@ test("updates README badge from test:coverage output", (t) => {
   assert.equal(result.status, 0);
   assert.match(
     `${result.stdout}${result.stderr}`,
-    /Updated README coverage badge to 88.88%/,
+    /Updated README branch coverage badge to 88.88%/,
   );
   assert.match(
     fs.readFileSync(readmePath, "utf8"),
-    /Coverage: 88\.88%\]\(https:\/\/img\.shields\.io\/badge\/coverage-88\.88%25-brightgreen\.svg\)/,
+    /Branch coverage: 88\.88%\]\(https:\/\/img\.shields\.io\/badge\/branch%20coverage-88\.88%25-green\.svg\)/,
   );
 });
 
@@ -89,7 +89,7 @@ test("exits non-zero when test:coverage fails", (t) => {
 
   const readmePath = path.join(tempDir, "README.md");
   const initialReadme =
-    "[![Coverage: 93.13%](https://img.shields.io/badge/coverage-93.13%25-brightgreen.svg)](docs/scenario-coverage.md)\n";
+    "[![Branch coverage: 93.13%](https://img.shields.io/badge/branch%20coverage-93.13%25-brightgreen.svg)](docs/branch-coverage.md)\n";
   writeFile(readmePath, initialReadme);
 
   const result = run(
@@ -115,7 +115,7 @@ test("reports when the badge is already up to date", (t) => {
 
   const readmePath = path.join(tempDir, "README.md");
   const initialReadme =
-    "[![Coverage: 88.88%](https://img.shields.io/badge/coverage-88.88%25-brightgreen.svg)](docs/scenario-coverage.md)\n";
+    "[![Branch coverage: 88.88%](https://img.shields.io/badge/branch%20coverage-88.88%25-green.svg)](docs/branch-coverage.md)\n";
   writeFile(readmePath, initialReadme);
 
   const result = run(
@@ -133,7 +133,7 @@ test("reports when the badge is already up to date", (t) => {
   assert.equal(result.status, 0);
   assert.match(
     `${result.stdout}${result.stderr}`,
-    /README coverage badge already up to date \(88\.88%\)/,
+    /README branch coverage badge is up to date \(88\.88%\)/,
   );
   assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
 });
@@ -209,7 +209,71 @@ test("exits 1 when the coverage run is killed by a signal", (t) => {
   assert.notEqual(result.status, 0);
   assert.doesNotMatch(
     `${result.stdout}${result.stderr}`,
-    /Updated README coverage badge/,
+    /Updated README branch coverage badge/,
+  );
+  assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
+});
+
+test("--check rejects a stale badge without writing it", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const readmePath = path.join(tempDir, "README.md");
+  const initialReadme =
+    "[![Branch coverage: 91.00%](https://img.shields.io/badge/branch%20coverage-91.00%25-brightgreen.svg)](docs/branch-coverage.md)\n";
+  writeFile(readmePath, initialReadme);
+
+  const result = run(
+    "node",
+    [
+      path.join(tempDir, "scripts", "update-readme-coverage-badge.mjs"),
+      "--check",
+    ],
+    tempDir,
+    {
+      env: fakeNpmEnv(tempDir, {
+        output: "all files | 99.99 | 88.88 | 100.00 |\n",
+        status: 0,
+      }),
+    },
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /README branch coverage badge is stale.*coverage:badge/s,
+  );
+  assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
+});
+
+test("--check accepts the exact generated badge", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const readmePath = path.join(tempDir, "README.md");
+  const initialReadme =
+    "[![Branch coverage: 88.88%](https://img.shields.io/badge/branch%20coverage-88.88%25-green.svg)](docs/branch-coverage.md)\n";
+  writeFile(readmePath, initialReadme);
+
+  const result = run(
+    "node",
+    [
+      path.join(tempDir, "scripts", "update-readme-coverage-badge.mjs"),
+      "--check",
+    ],
+    tempDir,
+    {
+      env: fakeNpmEnv(tempDir, {
+        output: "all files | 99.99 | 88.88 | 100.00 |\n",
+        status: 0,
+      }),
+    },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /README branch coverage badge is up to date \(88\.88%\)/,
   );
   assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
 });
