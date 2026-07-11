@@ -15,10 +15,7 @@ import {
   loadPrecommitConfig,
   unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
-import {
-  eslintManualIssues,
-  summarizeEslintJson,
-} from "./lib/checks.mjs";
+import { eslintManualIssues, summarizeEslintJson } from "./lib/checks.mjs";
 import {
   behindUpstreamIssue,
   generatedFilesIssue,
@@ -726,8 +723,7 @@ if (prettierResult) {
       ),
     );
   } else {
-    const failed =
-      prettierResult.status !== 0 && prettierResult.status !== 1;
+    const failed = prettierResult.status !== 0 && prettierResult.status !== 1;
     const files =
       prettierResult.status === 1
         ? prettierResult.stdout
