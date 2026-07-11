@@ -12,6 +12,8 @@ import {
   fakeGitEnv,
   repoRoot,
   run,
+  setPrecommitConfig,
+  writeFile,
 } from "./helpers/temp-repo.mjs";
 
 function runDoctor(tempDir, args = [], options = {}) {
@@ -91,6 +93,74 @@ test("doctor wires up native hooks in a fresh repo", (t) => {
     fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
     /commitment-issues prepush/,
   );
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
+});
+
+test("doctor wires and fresh-clone repairs opt-in commit-msg hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+
+  const first = runDoctor(tempDir);
+  const firstOutput = `${first.stdout}${first.stderr}`;
+  assert.equal(first.status, 0);
+  assert.match(firstOutput, /Commit-message linting is not ready/);
+  assert.match(firstOutput, /project-local commitlint CLI is not installed/);
+  assert.match(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    /commitment-issues commit-msg "\$1"/,
+  );
+
+  fs.rmSync(gitHook(tempDir, "commit-msg"));
+  const repaired = runDoctor(tempDir, ["--quiet"]);
+  const repairedOutput = `${repaired.stdout}${repaired.stderr}`;
+  assert.equal(repaired.status, 0);
+  assert.match(repairedOutput, /repaired git hooks/);
+  assert.match(repairedOutput, /commit-msg/);
+  assert.match(repairedOutput, /project-local commitlint is missing/);
+  assert.ok(fs.existsSync(gitHook(tempDir, "commit-msg")));
+});
+
+test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+  runDoctor(tempDir);
+  writeFile(gitHook(tempDir, "commit-msg"), "echo custom message hook\n");
+
+  const unwired = runDoctor(tempDir);
+  const unwiredOutput = `${unwired.stdout}${unwired.stderr}`;
+  assert.equal(unwired.status, 1);
+  assert.match(unwiredOutput, /commit-msg/);
+  assert.match(unwiredOutput, /commitment-issues commit-msg "\$1"/);
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    "echo custom message hook\n",
+  );
+
+  fs.writeFileSync(
+    gitHook(tempDir, "commit-msg"),
+    'echo custom\ncommitment-issues commit-msg "$1"\n',
+  );
+  const safe = runDoctor(tempDir);
+  assert.equal(safe.status, 0);
+  assert.match(`${safe.stdout}${safe.stderr}`, /Git hooks are healthy/);
+});
+
+test("doctor diagnoses invalid commitMessage config without requiring a hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    commitMessage: { enable: true, enabled: "yes" },
+  });
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /Configuration needs attention/);
+  assert.match(output, /commitMessage\.enable/);
+  assert.match(output, /commitMessage\.enabled must be a boolean/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
 });
 
 test("doctor reports healthy once everything is wired", (t) => {

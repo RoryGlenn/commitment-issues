@@ -8,9 +8,8 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
-  unknownPrecommitConfigKeys,
+  precommitConfigWarningMessages,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles, parseNameStatusPaths } from "./lib/files.mjs";
@@ -31,27 +30,10 @@ const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const config = loadPrecommitConfig();
 
-// A typo'd key (e.g. advisePushTest) silently disables the mode the user
-// thinks is on. One concise advisory line, matching the conflict warning below.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
-}
-
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default. Surface it on one concise advisory line, matching the unknown-key
-// and config-conflict warnings — never a box, never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
+// Typo'd keys and invalid values fall back safely. Surface each diagnostic on
+// one concise advisory line without turning pre-push checks into a blocker.
+for (const message of precommitConfigWarningMessages(config)) {
+  console.warn(pc.yellow(`⚠ ${message}`));
 }
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is
@@ -537,11 +519,21 @@ const summaryLines = summary
   ? ["", pc.dim(`${summary.passed} passed, ${summary.failed} failed`)]
   : [];
 
-if (result.error || result.signal) {
+if (
+  result.outcome === "timeout" ||
+  result.outcome === "spawn-error" ||
+  result.outcome === "signal"
+) {
+  const timeoutCleanup =
+    result.cleanup === "direct-child"
+      ? "the direct child was stopped, but descendant cleanup was unavailable"
+      : "attached process-tree cleanup completed";
   const reason = pc.dim(
-    result.signal
-      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
-      : "Check precommitChecks.testCommand in package.json.",
+    result.outcome === "timeout"
+      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s; ${timeoutCleanup}.`
+      : result.outcome === "signal"
+        ? `The test command stopped after ${result.signal || "an unknown signal"}.`
+        : "Check precommitChecks.testCommand in package.json.",
   );
   if (blocking) {
     errorBox([pc.bold("Push blocked: could not run tests"), "", reason]);
@@ -556,7 +548,7 @@ if (result.error || result.signal) {
   process.exit(0);
 }
 
-if ((result.status || 0) !== 0) {
+if (result.outcome === "nonzero") {
   if (blocking) {
     errorBox([
       pc.bold("Push blocked: tests failed"),

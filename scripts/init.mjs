@@ -7,10 +7,10 @@ import pc from "picocolors";
 import { errorBox, infoBox, printBox, warningBox } from "./lib/ui.mjs";
 import {
   BIN,
-  HOOK_NAMES,
   classifyHook,
   gitHooksDir,
   hookInvocation,
+  hookNamesForConfig,
   hooksPathConfig,
   isHuskyHooksPath,
   leftoverHuskyHooks,
@@ -18,6 +18,10 @@ import {
   removeLegacyHuskyWiring,
   writeHook,
 } from "./lib/hooks.mjs";
+import {
+  precommitConfigWarningMessages,
+  sanitizePrecommitConfig,
+} from "./lib/config.mjs";
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
 
@@ -115,6 +119,10 @@ if (
   created.push("pre-push advisory config");
 }
 
+const effectiveConfig = sanitizePrecommitConfig(pkg.precommitChecks);
+const hookNames = hookNamesForConfig(effectiveConfig);
+const configWarnings = precommitConfigWarningMessages(effectiveConfig);
+
 if (!dryRun) {
   fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
 }
@@ -159,8 +167,9 @@ if (huskyEraHooksPath) {
 if (foreignHooksPath) {
   warnings.push(
     `core.hooksPath is set to ${configuredHooksPath}, so git ignores .git/hooks.`,
-    `Add \`${hookInvocation("pre-commit")}\` and \`${hookInvocation("pre-push")}\` to the`,
-    "hooks in that directory, or unset it: git config --unset core.hooksPath",
+    "Add these commands to the matching hooks in that directory:",
+    ...hookNames.map((name) => `  ${name}: ${hookInvocation(name)}`),
+    "Or unset it: git config --unset core.hooksPath",
   );
 }
 
@@ -174,7 +183,7 @@ if (!isGitRepo) {
 if (isGitRepo && !foreignHooksPath) {
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
-  for (const name of HOOK_NAMES) {
+  for (const name of hookNames) {
     const status = classifyHook(hooksDir, name);
     // Create missing hooks and refresh exact older generated bodies. A hook the
     // user wrote is left exactly as-is. A custom hook that invokes
@@ -274,10 +283,23 @@ const footer = dryRun
   : hooksActive
     ? [
         pc.dim("Your next commit runs advisory checks."),
+        ...(effectiveConfig.commitMessage?.enabled === true
+          ? [
+              pc.dim(
+                effectiveConfig.commitMessage.blockOnFailure === true
+                  ? "Commit messages must pass your project commitlint rules."
+                  : "Commit messages receive advisory project commitlint feedback.",
+              ),
+            ]
+          : []),
         pc.dim("Your next push runs advisory tests when matching tests exist."),
       ]
     : [
-        pc.dim("Pre-commit and pre-push checks are not active yet."),
+        pc.dim(
+          effectiveConfig.commitMessage?.enabled === true
+            ? "The configured Git checks are not all active yet."
+            : "Pre-commit and pre-push checks are not active yet.",
+        ),
         pc.dim("Complete the hook wiring steps below."),
       ];
 
@@ -310,5 +332,13 @@ if (warnings.length > 0) {
     pc.bold("Hook wiring needs your attention."),
     "",
     ...warnings.map((line) => pc.dim(line)),
+  ]);
+}
+
+if (configWarnings.length > 0) {
+  warningBox([
+    pc.bold("Configuration needs attention."),
+    "",
+    ...configWarnings.map((message) => pc.dim(`• ${message}`)),
   ]);
 }

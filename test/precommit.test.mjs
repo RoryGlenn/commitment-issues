@@ -12,6 +12,7 @@ import {
   readFile,
   run,
   setPrecommitConfig,
+  writeCrossPlatformShim,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
@@ -471,6 +472,78 @@ test("reports a timeout when tools exceed the configured limit", (t) => {
   assert.match(output, /timed out/);
 });
 
+test("missing peer tools stay advisory and never fall back to npx", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { requireTests: false });
+  writeFile(path.join(tempDir, "pnpm-lock.yaml"), "");
+  writeFile(path.join(tempDir, "src", "local-only.js"), "export const x=1;\n");
+  run("git", ["add", "src/local-only.js"], tempDir);
+
+  fs.unlinkSync(path.join(tempDir, "node_modules"));
+  fs.mkdirSync(path.join(tempDir, "node_modules"));
+  const binDir = path.join(tempDir, ".fakebin");
+  const marker = path.join(tempDir, "implicit-npx-was-invoked");
+  fs.mkdirSync(binDir, { recursive: true });
+  writeCrossPlatformShim(
+    binDir,
+    "npx",
+    `import fs from "node:fs";\nfs.writeFileSync(process.env.NPX_MARKER, "called");\nprocess.exit(99);\n`,
+  );
+  const env = {
+    ...process.env,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+    NPX_MARKER: marker,
+  };
+  delete env.npm_config_user_agent;
+
+  const result = runHook(tempDir, { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /ESLint is not installed locally/);
+  assert.match(output, /Prettier is not installed locally/);
+  assert.match(output, /pnpm add -D eslint/);
+  assert.match(output, /pnpm add -D prettier/);
+  assert.doesNotMatch(output, /Unable to run (ESLint|Prettier)/);
+  assert.equal(fs.existsSync(marker), false);
+});
+
+test("an explicitly configured npx test command still runs verbatim", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const binDir = path.join(tempDir, ".fakebin");
+  const marker = path.join(tempDir, "configured-npx-args.json");
+  fs.mkdirSync(binDir, { recursive: true });
+  writeCrossPlatformShim(
+    binDir,
+    "npx",
+    `import fs from "node:fs";\nfs.writeFileSync(process.env.NPX_MARKER, JSON.stringify(process.argv.slice(2)));\n`,
+  );
+  setPrecommitConfig(tempDir, {
+    requireTests: false,
+    runStagedTests: true,
+    testCommand: ["npx", "configured-runner"],
+  });
+  writeFile(path.join(tempDir, "test", "configured.test.mjs"), "export {};\n");
+  run("git", ["add", "test/configured.test.mjs"], tempDir);
+
+  const env = {
+    ...process.env,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+    NPX_MARKER: marker,
+  };
+  const result = runHook(tempDir, { env });
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(marker, "utf8")), [
+    "configured-runner",
+    "test/configured.test.mjs",
+  ]);
+});
+
 test("reports when ESLint cannot complete (broken config)", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -661,7 +734,10 @@ test("reports a staged-test timeout", (t) => {
   });
   writeFile(
     path.join(tempDir, "test", "slow.test.mjs"),
-    'import test from "node:test";\ntest("slow", () => {});\n',
+    'import test from "node:test";\n' +
+      'test("slow", async () => {\n' +
+      "  await new Promise((resolve) => setTimeout(resolve, 30_000));\n" +
+      "});\n",
   );
   run("git", ["add", "test/slow.test.mjs"], tempDir);
 

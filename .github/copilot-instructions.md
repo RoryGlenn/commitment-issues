@@ -25,6 +25,9 @@ Add/adjust a test for every behavior change (bug fixes get a regression test). U
 - **`COMMITMENT_ISSUES=0`** (and legacy `HUSKY=0`) skip the generated hooks; CI sets it and the test helpers must keep stripping both from subprocess env. Reproduce CI-only failures with `COMMITMENT_ISSUES=0 npm test`.
 - **`isPackageInstalled` must stay fs-based** (packages whose `exports` map hides `package.json` make `require.resolve` throw).
 - **Never reintroduce husky/lint-staged** — v3 owns hook wiring (`.git/hooks`) and the staged-fix pipeline; a metadata test enforces this.
+- **Commitlint stays optional and project-local.** The commit-msg integration
+  must use `localToolInvocation`, never implicit npx/global/network resolution,
+  and must never invent a ruleset for the consumer.
 - **Don't weaken the `CI Success` gate** or force-merge breaking Dependabot majors.
 
 ## Detailed workflows — load the matching skill

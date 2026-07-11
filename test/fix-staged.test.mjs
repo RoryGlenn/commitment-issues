@@ -264,3 +264,23 @@ test(
     assert.equal(staged.stdout, `${file}\0`);
   },
 );
+
+test("reports local install guidance when fixer peer tools are missing", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(
+    path.join(tempDir, "src", "missing-tools.js"),
+    "export const x=1;\n",
+  );
+  run("git", ["add", "src/missing-tools.js"], tempDir);
+  fs.unlinkSync(path.join(tempDir, "node_modules"));
+  fs.mkdirSync(path.join(tempDir, "node_modules"));
+
+  const result = runFixStaged(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Missing local tool\(s\): eslint, prettier/);
+  assert.match(output, /npm install -D eslint prettier/);
+});
