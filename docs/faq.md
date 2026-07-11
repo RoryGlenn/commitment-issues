@@ -22,6 +22,10 @@ Pushes run tests associated with pushed files in advisory mode when matching
 files exist. If those tests fail, the push still continues and a warning is
 printed.
 
+ESLint and Prettier are resolved only from the project's installed
+`node_modules`. A missing peer tool produces an advisory with the detected
+package manager's install command; hooks do not ask `npx` to fetch it.
+
 ## When does it block anything?
 
 Commit-time checks are advisory and exit successfully by default. Push-time test
@@ -34,6 +38,9 @@ failures only block when `blockPushOnTestFailure` is enabled:
   }
 }
 ```
+
+Optional commit-message failures block only when both
+`commitMessage.enabled` and `commitMessage.blockOnFailure` are `true`.
 
 The fix commands can still fail when they cannot run safely or when manual fixes
 remain. That is separate from the default commit and push hook behavior.
@@ -52,6 +59,8 @@ package can run from Git hooks. It can:
   project-owned `prepare` command, so hook wiring self-heals on install
 - create `.git/hooks/pre-commit` and `.git/hooks/pre-push` when they are
   missing (existing hook files are never overwritten)
+- create `.git/hooks/commit-msg` only when `commitMessage.enabled` is `true`
+  (custom commit-msg hooks are preserved like every other custom hook)
 - migrate a pre-3.0 setup: retire the husky-era `core.hooksPath` and remove
   the `.husky` wiring this tool generated (user-authored `.husky` hooks are
   kept and reported)
@@ -73,6 +82,40 @@ executed. When both sources exist, standalone keys override matching
 `package.json` `precommitChecks` keys and unmatched package keys remain active.
 See [Configuration files and precedence](configuration.md#configuration-files-and-precedence)
 for malformed-file fallback and validation details.
+
+## How do I enable commit-message linting?
+
+Bring your own commitlint installation and rules. For example:
+
+```bash
+npm install -D @commitlint/cli @commitlint/config-conventional
+```
+
+```js
+// commitlint.config.js
+export default { extends: ["@commitlint/config-conventional"] };
+```
+
+Then enable advisory feedback:
+
+```json
+{
+  "precommitChecks": {
+    "commitMessage": {
+      "enabled": true,
+      "blockOnFailure": false
+    }
+  }
+}
+```
+
+Run `npx commitment-issues init` or `npm run doctor` after enabling it so the
+native commit-msg hook is created. Set `blockOnFailure` to `true` only after the
+team trusts the rules. The runner uses project-local
+`node_modules/.bin/commitlint` only—never implicit `npx`, a global install, or
+the network—and it never substitutes a built-in Conventional Commits policy.
+Missing CLI/config and lint failures warn in advisory mode and block in blocking
+mode. `git commit --no-verify` remains the explicit one-time bypass.
 
 ## Is it safe to run `init` more than once?
 
@@ -191,6 +234,23 @@ Jest:
 
 The same `testCommand` is used for staged tests and push-time tests.
 
+`testCommand` is explicit user intent and runs exactly as configured. The `npx`
+examples above may use npx's normal package-resolution behavior. Install the
+runner locally or use `npx --no-install`/`--offline` as supported by your npx
+version when the hook must remain network-isolated.
+
+## Will a hook download ESLint or Prettier if one is missing?
+
+No. Built-in ESLint and Prettier checks resolve only project-local package bins.
+If one is absent, the commit check remains advisory and names the missing tool
+plus the correct npm, pnpm, Yarn, or Bun dev-install command. `doctor` reports
+the same condition. Fix commands exit nonzero because they cannot safely claim
+the requested fix completed.
+
+Explicitly configured commands are a separate trust boundary. For example,
+`testCommand: ["npx", "vitest", "run"]` is preserved as written and opts into
+npx's behavior.
+
 ## Does it support TypeScript?
 
 Yes. TypeScript extensions such as `.ts`, `.tsx`, `.mts`, and `.cts` are treated
@@ -264,6 +324,12 @@ hook is not wired and leaves it alone.
 Add the `commitment-issues` command to the custom hook manually when you want it
 to run alongside your existing behavior.
 
+For a custom commit-msg hook, preserve Git's message file as one argument:
+
+```sh
+commitment-issues commit-msg "$1"
+```
+
 ## How do I make the output more playful?
 
 Set `tone` to `"fun"`:
@@ -299,7 +365,8 @@ npx commitment-issues uninstall
 ```
 
 The uninstaller removes exact generated package scripts, the
-`precommitChecks` configuration block, and exact generated native hook bodies.
+`precommitChecks` configuration block, and exact generated native hook bodies,
+including an owned optional commit-msg hook.
 It preserves customized scripts and hooks and reports any command that needs
 manual removal. It also preserves shared `.gitignore` entries, ESLint,
 Prettier, the package dependency, and the lockfile because the project may own

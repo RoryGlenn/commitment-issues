@@ -8,8 +8,8 @@
     <text x="250.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
     <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Pre-commit suggestions found</text>
     <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Commit will continue. Suggestions:</text>
-    <text x="34" y="132" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">→ Unable to run ESLint</text>
-    <text x="54" y="162" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Check ESLint install and project config</text>
+    <text x="34" y="132" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">→ ESLint is not installed locally</text>
+    <text x="54" y="162" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Install it: npm install -D eslint</text>
     <text x="34" y="206" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">No automatic fix command for these issues.</text>
   </g>
 </svg>

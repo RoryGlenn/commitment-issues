@@ -1,6 +1,6 @@
 ---
 name: authoring-checks
-description: "How to add or modify commitment-issues commands, hook checks, and shared helpers (pure ESM .mjs, no build step, Node >=22.22.1). USE WHEN: adding a new pre-commit/pre-push check; editing an entry script (cli/init/doctor/precommit/prepush/commit-fix/fix-staged); adding a scripts/lib helper; spawning a tool or git; printing terminal boxes; reading precommitChecks config; wiring the standard/fun tone message system. Covers the advisory-first philosophy, the process/ui/message/config/files/package-manager libs, and where each pattern belongs."
+description: "How to add or modify commitment-issues commands, hook checks, and shared helpers (pure ESM .mjs, no build step, Node >=22.22.1). USE WHEN: adding a new pre-commit/pre-push/commit-msg check; editing an entry script (cli/init/doctor/precommit/prepush/commit-msg/commit-fix/fix-staged); adding a scripts/lib helper; spawning a tool or git; printing terminal boxes; reading precommitChecks config; wiring the standard/fun tone message system. Covers the advisory-first philosophy, the process/ui/message/config/files/package-manager libs, and where each pattern belongs."
 ---
 
 # Authoring Commands, Checks & Helpers
@@ -33,6 +33,9 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
 
 - `run(command, args, options?)` — `cross-spawn` sync wrapper (utf8). Use `cross-spawn` (not `node:child_process` directly) so bare names resolve on Windows without a shell and avoid DEP0190.
 - `toolInvocation(name, extraArgs)` — resolves a tool's CLI entry from the nearest `node_modules` `bin` and returns `{ command, args }` to run it with the current Node, skipping npx startup cost. Prefer this for eslint/prettier/etc.
+- `local-tool.mjs`: `localToolInvocation(name, extraArgs, cwd)` resolves only a project
+  `node_modules/.bin` executable and returns `null` when absent. Use for optional
+  integrations such as commitlint that must never fall back to npx/global/network.
 - `spawnAsync(command, args, options?)` — async spawn with the shared timeout.
 - `TOOL_TIMEOUT_MS` — default 120s ceiling so a hung tool can't wedge a commit; overridden by `precommitChecks.timeoutMs` (positive number).
 - `isPackageInstalled(name, cwd)` — **fs-based** walk up `node_modules/<name>/package.json`. Must stay fs-based: a package whose `exports` map hides `package.json` makes `require.resolve('<name>/package.json')` throw (false negative). Do not "simplify" it to `require.resolve`.
@@ -46,6 +49,7 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
 ### `message.mjs` — advisory text & tone
 
 - `buildAdvisoryMessage(...)` composes the user-facing lines.
+- `buildCommitMessageCheckMessage(...)` composes optional commitlint outcomes.
 - Two tones: `standard` (default) and `fun`, selected by `precommitChecks.tone`. The `fun` tone rewrites the **standard** wording via regex matches on the canonical message, so when you add a new standard message string, add the matching fun variant and cover it in `test/fun-tone.test.mjs`. Standard wording is the source of truth (tests assert on it).
 
 ### `config.mjs`
@@ -53,6 +57,8 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
 - `loadPrecommitConfig()` — reads root `.commitmentrc.json` plus the
   `precommitChecks` object from `package.json`; standalone keys win. It returns
   only sanitized values and never throws. All config access goes through here.
+- `resolveCommitMessageConfig()` — resolves the sanitized nested opt-in to
+  explicit disabled/advisory defaults.
 
 ### `files.mjs`
 
@@ -79,7 +85,7 @@ Never assume `/` separators when consuming git paths — normalize (`replace(/\\
 
 ## `precommitChecks` config surface
 
-Read via `loadPrecommitConfig()`. Known keys: `tone` (`"standard"`|`"fun"`), `blockPushOnTestFailure` (bool), `runStagedTests` (bool), `testExempt` (glob array), `timeoutMs` (positive number). If you add a new key, document it in [`docs/configuration.md`](../../../docs/configuration.md) and add a default-behavior test.
+Read via `loadPrecommitConfig()`. Known keys include `tone` (`"standard"`|`"fun"`), `blockPushOnTestFailure` (bool), `runStagedTests` (bool), `testExempt` (glob array), `timeoutMs` (positive number), and nested `commitMessage` (`enabled`/`blockOnFailure` booleans). If you add a new key, document it in [`docs/configuration.md`](../../../docs/configuration.md) and add a default-behavior test.
 
 ## Checklist for a new/changed check
 

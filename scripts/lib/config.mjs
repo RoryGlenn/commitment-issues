@@ -9,6 +9,9 @@ const CONFIG_STATE = Symbol("commitment-issues.precommitConfigState");
 
 export const STANDALONE_CONFIG_FILE = ".commitmentrc.json";
 
+// Largest delay Node's setTimeout accepts without coercing it to 1 ms.
+export const MAX_TIMEOUT_MS = 2_147_483_647;
+
 function isPlainConfig(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -35,6 +38,7 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "blockOnSecrets",
   "blockProtectedBranches",
   "blockPushOnTestFailure",
+  "commitMessage",
   "generatedPaths",
   "maxCommitFiles",
   "maxCommitLines",
@@ -72,6 +76,10 @@ const STRING_ARRAY_CONFIG_KEYS = [
 // Non-negative numeric limits where 0 means "disable this guard".
 const LIMIT_CONFIG_KEYS = ["maxCommitFiles", "maxCommitLines", "maxFileSizeMb"];
 
+// Commit-message linting stays isolated in a nested block so adding optional
+// commitlint integration does not grow another cluster of top-level flags.
+export const KNOWN_COMMIT_MESSAGE_CONFIG_KEYS = ["blockOnFailure", "enabled"];
+
 /**
  * Names of `precommitChecks` keys the tool does not recognize — usually typos
  * (e.g. `requireTest`) that would otherwise silently fall back to defaults.
@@ -83,9 +91,20 @@ export function unknownPrecommitConfigKeys(config) {
   if (!isPlainConfig(target)) {
     return [];
   }
-  return Object.keys(target).filter(
+
+  const unknown = Object.keys(target).filter(
     (key) => !KNOWN_PRECOMMIT_CONFIG_KEYS.includes(key),
   );
+
+  if (isPlainConfig(target.commitMessage)) {
+    unknown.push(
+      ...Object.keys(target.commitMessage)
+        .filter((key) => !KNOWN_COMMIT_MESSAGE_CONFIG_KEYS.includes(key))
+        .map((key) => `commitMessage.${key}`),
+    );
+  }
+
+  return unknown;
 }
 
 /**
@@ -135,9 +154,28 @@ export function invalidPrecommitConfigMessages(config) {
 
   if (
     "timeoutMs" in target &&
-    (!Number.isFinite(target.timeoutMs) || target.timeoutMs <= 0)
+    (!Number.isFinite(target.timeoutMs) ||
+      target.timeoutMs <= 0 ||
+      target.timeoutMs > MAX_TIMEOUT_MS)
   ) {
-    messages.push("timeoutMs must be a positive finite number");
+    messages.push(
+      `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
+    );
+  }
+
+  if ("commitMessage" in target) {
+    if (!isPlainConfig(target.commitMessage)) {
+      messages.push("commitMessage must be an object");
+    } else {
+      for (const key of KNOWN_COMMIT_MESSAGE_CONFIG_KEYS) {
+        if (
+          key in target.commitMessage &&
+          typeof target.commitMessage[key] !== "boolean"
+        ) {
+          messages.push(`commitMessage.${key} must be a boolean`);
+        }
+      }
+    }
   }
 
   return messages;
@@ -187,8 +225,21 @@ export function sanitizePrecommitConfig(config) {
     sanitized.testCommand = config.testCommand;
   }
 
-  if (Number.isFinite(config.timeoutMs) && config.timeoutMs > 0) {
+  if (
+    Number.isFinite(config.timeoutMs) &&
+    config.timeoutMs > 0 &&
+    config.timeoutMs <= MAX_TIMEOUT_MS
+  ) {
     sanitized.timeoutMs = config.timeoutMs;
+  }
+
+  if (isPlainConfig(config.commitMessage)) {
+    sanitized.commitMessage = {};
+    for (const key of KNOWN_COMMIT_MESSAGE_CONFIG_KEYS) {
+      if (typeof config.commitMessage[key] === "boolean") {
+        sanitized.commitMessage[key] = config.commitMessage[key];
+      }
+    }
   }
 
   Object.defineProperty(sanitized, RAW_CONFIG, {
@@ -299,10 +350,11 @@ export function precommitConfigSourceLabel(config, keys) {
   }
 
   if (keys?.length > 0) {
+    const topLevelKeys = keys.map((key) => key.split(".", 1)[0]);
     const fromStandalone =
       !state.standalone.error &&
-      keys.some((key) => Object.hasOwn(state.standalone.config, key));
-    const fromPackage = keys.some(
+      topLevelKeys.some((key) => Object.hasOwn(state.standalone.config, key));
+    const fromPackage = topLevelKeys.some(
       (key) =>
         !Object.hasOwn(state.standalone.config, key) &&
         Object.hasOwn(state.packageConfig, key),
@@ -366,6 +418,13 @@ export function precommitConfigWarningMessages(config) {
     );
   }
 
+  const commitMessage = resolveCommitMessageConfig(config);
+  if (commitMessage.blockOnFailure && !commitMessage.enabled) {
+    messages.push(
+      "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+    );
+  }
+
   return messages;
 }
 
@@ -377,4 +436,21 @@ export function precommitConfigWarningMessages(config) {
  */
 export function loadPrecommitConfig(cwd = process.cwd()) {
   return loadPrecommitConfigState(cwd).config;
+}
+
+/**
+ * Resolve the optional commit-message integration to explicit defaults.
+ * Merely adding a block does not enable a hook; `enabled: true` is required,
+ * and blocking remains a second, independent opt-in.
+ * @param {object} config - Sanitized precommitChecks config.
+ * @returns {{enabled: boolean, blockOnFailure: boolean}} Effective settings.
+ */
+export function resolveCommitMessageConfig(config) {
+  const commitMessage = isPlainConfig(config?.commitMessage)
+    ? config.commitMessage
+    : {};
+  return {
+    enabled: commitMessage.enabled === true,
+    blockOnFailure: commitMessage.blockOnFailure === true,
+  };
 }

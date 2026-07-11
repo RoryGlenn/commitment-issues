@@ -52,6 +52,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CFG-007** — `.commitmentrc.json` loads direct top-level options without executing code. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`.
 - **CFG-008** — standalone keys shallowly override matching package keys while preserving unmatched package options; invalid higher-priority values do not revive lower-priority values. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
 - **CFG-009** — malformed JSON and non-object standalone roots warn at hook time and fall back to package configuration. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
+- **CFG-010** — nested `commitMessage` keys are allowlisted, sanitized, typo-diagnosed, and disabled unless `enabled: true`. Unit: `test/config.test.mjs`.
 
 ### CLI command matrix
 
@@ -72,6 +73,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-015** — CLI help and subcommand error reporting work outside a Git repo / Node project. Subprocess: `test/cli.test.mjs`.
 - **CLI-016** — shell-sensitive command tokens are not shell-expanded by the CLI wrapper. Subprocess: `test/cli.test.mjs`.
 - **CLI-017** — `uninstall` dispatches through the bin. Subprocess: `test/cli.test.mjs`.
+- **CLI-018** — `commit-msg` dispatches through the bin and preserves its message-file argument. Subprocess: `test/cli.test.mjs`.
 
 ### Init
 
@@ -96,6 +98,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-019** — init preserves an unrelated `postprepare` while composing repair into the project-owned `prepare`. Fixture: `test/init.test.mjs`.
 - **INIT-020** — an existing standalone file receives the generated advisory-push default without creating a package configuration block; dry-run previews without writing. Fixture: `test/init.test.mjs`.
 - **INIT-021** — malformed standalone configuration stops init before package, hook, or gitignore writes. Fixture: `test/init.test.mjs`.
+- **INIT-022** — commit-msg wiring is opt-in, dry-run aware, executable, idempotent, and never overwrites a custom hook. Fixture: `test/init.test.mjs`, unit: `test/hooks.test.mjs`.
 
 ## Uninstall
 
@@ -112,6 +115,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **UNINST-011** — uninstall removes the appended repair suffix while restoring the project's unrelated `prepare`. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-012** — standalone configuration is included in dry-run and removed during uninstall. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-013** — malformed standalone configuration stops uninstall before partial cleanup. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-014** — uninstall previews/removes an exact owned commit-msg hook and preserves customized variants for manual cleanup. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -126,6 +130,15 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-009** — opt-in staged tests run and warn on failure or stay clean on success (pluralized). Fixture: `test/precommit.test.mjs`.
 - **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
 - **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
+
+### Commit-message linting
+
+- **CMSG-001** — disabled by default: no commit-msg hook and a direct invocation is silent. Fixture: `test/commit-msg.test.mjs`, `test/init.test.mjs`.
+- **CMSG-002** — advisory findings preserve commitlint detail and allow; explicit `blockOnFailure` rejects the same result. Fixture: `test/commit-msg.test.mjs`.
+- **CMSG-003** — only an absolute project `node_modules/.bin/commitlint` invocation is allowed; message paths containing spaces/metacharacters stay one argv value and no npx/global/network fallback exists. Unit: `test/process.test.mjs`; fixture: `test/commit-msg.test.mjs`.
+- **CMSG-004** — missing local CLI, missing consumer config, unreadable message files, and successful runs have distinct outcomes; no built-in rules are substituted. Fixture: `test/commit-msg.test.mjs`.
+- **CMSG-005** — generated hooks block when configured and Git `--no-verify` bypasses without invoking commitlint. Real-Git fixture: `test/commit-msg.test.mjs`.
+- **CMSG-006** — standard and fun tones preserve severity/exit behavior. Unit: `test/message.test.mjs`; fixture: `test/commit-msg.test.mjs`.
 
 ### Commit fix (amend)
 
@@ -165,6 +178,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **HOOK-010** — interactive doctor errors clearly: no `package.json`, unrepairable wiring, or still broken after repair. Fixture: `test/doctor.test.mjs`.
 - **HOOK-011** — a foreign `core.hooksPath` is respected: healthy when its hooks invoke the tool, reported (never rewired) when they do not. Fixture: `test/doctor.test.mjs`.
 - **HOOK-012** — doctor reports malformed standalone configuration while continuing hook repair; quiet mode remains one-line and exit-zero. Fixture: `test/doctor.test.mjs`.
+- **HOOK-013** — doctor creates and fresh-clone repairs configured commit-msg wiring, preserves custom bodies, requires quoted `$1`, and warns without failing when the local CLI is absent. Fixture: `test/doctor.test.mjs`.
 
 ### Pre-push modes
 
@@ -186,6 +200,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **MSG-004** — no fix command is shown when nothing is auto-fixable. Unit: `test/message.test.mjs`.
 - **MSG-005** — an issue's detail lines render. Unit: `test/message.test.mjs`.
 - **MSG-006** — fun tone renders the "Relationship notes" variant from `precommitChecks.tone`. Subprocess: `test/fun-tone.test.mjs`.
+- **MSG-007** — commit-message findings and setup failures render advisory/blocking and standard/fun variants with an explicit bypass. Unit: `test/message.test.mjs`.
 
 ### Internal helpers
 
@@ -194,6 +209,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
 - **LIB-004** — test discovery and Git-path helpers: `findTestFile`, `collectTestsForFiles`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
 - **LIB-005** — box rendering: `printBox` and severity boxes color the whole border. Unit: `test/ui.test.mjs`.
+- **LIB-006** — process outcomes distinguish missing tool, spawn failure, timeout, external signal, normal nonzero exit, and success. Unit: `test/process.test.mjs`.
+- **LIB-007** — Prettier classification is exit-status-first; `[error]` in a filename remains a formatting path. Unit: `test/checks.test.mjs`.
+- **LIB-008** — project-local optional-bin resolution walks ancestor `node_modules/.bin` directories while preserving argv and returning null instead of an implicit fallback. Unit: `test/local-tool.test.mjs`.
 
 ### Safety path matrix
 
@@ -207,10 +225,12 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
 - **SEC-009** — pre-push diff uses NUL-delimited name/status output (plus `core.quotePath=false`), so deletions, renames, Unicode, whitespace, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
 - **SEC-010** — staged-secret parsing distinguishes file headers from added hunk content, including source lines beginning with `++ `. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
+- **SEC-011** — missing ESLint/Prettier peers return an advisory and package-manager install hint without invoking `npx`; explicitly configured `npx` test commands remain verbatim. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`.
 
 ### Performance
 
-- **PERF-001** — timeout is enforced. Fixture: precommit / prepush tests.
+- **PERF-001** — timeout is enforced and reported separately from signals/spawn failures. Fixture: precommit / prepush / process tests.
+- **PERF-002** — timeout cleanup terminates an attached grandchild on supported platforms. Fixture: `test/process.test.mjs`; CI matrix: Ubuntu, macOS, Windows.
 
 ### User lifecycle
 
@@ -234,7 +254,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
 - **MONO-001** — workspace root behavior. Hooks run from the Git root and check staged files across all packages using the root `precommitChecks` config and hoisted tools. Boundary documented in the [Monorepo & workspaces guide](monorepo.md).
 - **MONO-002** — nested workspace package behavior. Per-package `precommitChecks` config and per-package tool versions are out of scope; the boundary is documented in the [Monorepo & workspaces guide](monorepo.md).
-- **PERF-002** — many-files performance. Add only after the behavior matrix is stable.
+- **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Not covered yet
 
