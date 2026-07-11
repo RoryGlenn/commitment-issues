@@ -74,9 +74,9 @@ Wait+Line@30s /READY>$/
 # Mirror our oh-my-zsh "robbyrussell" prompt with zsh's built-in vcs_info, so the
 # recording looks like a normal terminal without depending on oh-my-zsh.
 Type `autoload -Uz vcs_info colors && colors; setopt PROMPT_SUBST; zstyle ':vcs_info:git:*' check-for-changes true; zstyle ':vcs_info:git:*' unstagedstr ' %F{yellow}✗'; zstyle ':vcs_info:git:*' stagedstr ' %F{yellow}✗'; zstyle ':vcs_info:git:*' formats ' %F{blue}git:(%F{red}%b%F{blue})%f%u%c'; zstyle ':vcs_info:git:*' actionformats ' %F{blue}git:(%F{red}%b%F{blue})%f%u%c'; precmd() { vcs_info }; PROMPT='%(?:%B%F{green}➜%f%b:%B%F{red}➜%f%b) %B%F{cyan}%c%f%b${vcs_info_msg_0_} '` Enter
-Wait+Line /git:\(feature\/greeting\)$/
+Sleep 500ms
 Type "clear" Enter
-Wait+Line /git:\(feature\/greeting\)$/
+Sleep 500ms
 Set TypingSpeed 100ms
 Show
 
@@ -89,13 +89,13 @@ Sleep 4s
 Hide
 Set TypingSpeed 1ms
 Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
-Wait+Line@30s /git:\(feature\/greeting\)$/
+Sleep 2s
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
-Wait+Line /git:\(feature\/greeting\)/
+Sleep 500ms
 Type "clear" Enter
-Wait+Line /git:\(feature\/greeting\)/
+Sleep 500ms
 
 Set TypingSpeed 100ms
 Show
