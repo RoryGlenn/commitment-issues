@@ -529,19 +529,21 @@ try {
     ].join("\n"),
   );
 
+  const nestedWorkspaceDir = path.join(smokeDir, WORKSPACE_PACKAGES[1].dir);
+
   run("git", ["add", "-A"], smokeDir);
-  // Starting a commit below the workspace root must still run the root-owned
-  // hook and root config for staged files in both workspace depths.
+  // Starting Git lifecycle commands below the workspace root must still run
+  // the root-owned hooks and config for files in both workspace depths.
   run(
     "git",
     ["commit", "-m", "first checked workspace commit"],
-    path.join(smokeDir, WORKSPACE_PACKAGES[1].dir),
+    nestedWorkspaceDir,
   );
 
   run("git", ["init", "--bare", remoteDir], tempRoot);
   run("git", ["branch", "-M", "main"], smokeDir);
   run("git", ["remote", "add", "origin", remoteDir], smokeDir);
-  run("git", ["push", "-u", "origin", "main"], smokeDir);
+  run("git", ["push", "-u", "origin", "main"], nestedWorkspaceDir);
 
   // .git/hooks is intentionally clone-local and is not present in a fresh
   // checkout. A normal install must run the preserved prepare followed by the
