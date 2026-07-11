@@ -2,10 +2,10 @@
 
 `commitment-issues` uses compact terminal boxes to keep Git hook output readable. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
-To watch the states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run:
+To watch representative states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run. The static gallery below is the exhaustive catalog; the runner intentionally keeps a smaller, maintainable set of executable examples.
 
 ```bash
-npm run states              # every state
+npm run states              # every runnable representative state
 npm run states -- secrets   # only states matching "secrets"
 npm run states -- --list    # list state names
 ```
@@ -51,6 +51,13 @@ Shown when `init` (or interactive `doctor`) runs outside a project root.
 </p>
 
 Shown when package.json cannot be parsed; fix the JSON and run `init` again.
+
+### Invalid package.json structure
+
+`Invalid package.json structure.` is shown when the JSON parses but its root,
+`scripts`, or `precommitChecks` value is not an object. The message names the
+invalid container, exits before any write, and tells the user to fix
+`package.json` before rerunning `init`.
 
 ### Invalid .commitmentrc.json
 
@@ -684,6 +691,12 @@ Shown when `doctor` recreates missing `.git/hooks` files or retires dead husky-e
 </p>
 
 Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` reports it and leaves the hook untouched.
+
+### Hook inactive
+
+`A git hook is inactive.` is shown on POSIX when a custom hook contains the
+expected command but the file is not executable. `doctor` leaves the file and
+its mode untouched and prints the exact `chmod +x` command to run.
 
 ### Missing peer tools
 

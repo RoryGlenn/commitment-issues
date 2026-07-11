@@ -29,7 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configuration block; custom project wiring is preserved and reported for
   manual cleanup.
 - Staged-secrets scan (`scanSecrets`, default on): the pre-commit hook checks lines _added_ by the staged diff against a curated high-precision credential set — AWS access key IDs, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, and URLs with embedded passwords — and flags staged dotenv files (template variants like `.env.example` are ignored). Findings join the consolidated advisory box with file:line detail and rotation guidance. `blockOnSecrets: true` turns findings into a hard block (bypass once with `git commit --no-verify`); `secretExempt` globs exempt fixture paths. Known documentation examples and placeholder passwords never fire, and deleting a secret is never flagged.
-- `npm run states` (repo-only, `tools/show-message-states.mjs`): renders the message-state gallery live in the terminal by driving the real entry scripts through throwaway git repos — the runnable counterpart of `docs/message-states.md`. Filter by substring (`npm run states -- secrets`) or list scenario names with `--list`.
+- `npm run states` (repo-only, `tools/show-message-states.mjs`): renders a
+  representative subset of the message-state gallery live by driving the real
+  entry scripts through throwaway git repos. Filter by substring
+  (`npm run states -- secrets`) or list scenario names with `--list`.
+- Unknown CLI subcommands now suggest the closest valid command when the input
+  looks like a typo (for example, `docter` suggests `doctor`).
 
 ### Changed
 
@@ -55,6 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The representative message-state runner now exits nonzero when setup or a
+  scenario produces an unexpected result, while continuing to render later
+  scenarios, and removes an inherited `NO_COLOR` before forcing colored child
+  output.
 - Pre-commit, `fix:staged`, and `commit:fix` now consume NUL-delimited Git
   pathname records (including numstat and index metadata), preserving legal
   leading/trailing whitespace, tabs, newlines, and Unicode without trimming.
@@ -81,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` now verifies that both active hooks invoke `commitment-issues` before claiming setup is complete. User-authored hooks remain untouched; unwired hooks suppress the green commit/push promises and list the exact commands to add.
 - `init` now preserves an unrelated `prepare` command and appends automatic fresh-clone hook repair to the same lifecycle script, including on Yarn Classic. `uninstall` removes only the generated repair suffix.
 - The staged-secret diff parser now treats `+++ ` as file metadata only outside a hunk, so added source lines beginning with `++ ` cannot evade secret detection.
+- `init` now rejects non-object package roots and non-object `scripts` or
+  `precommitChecks` containers before writing anything, with an actionable
+  error instead of an internal `TypeError`.
+- Hook health checks now require a conservative executable command line and,
+  on POSIX, an executable hook file. Comments, echo/printf output, and quoted
+  examples no longer produce false healthy/setup-success claims.
 
 ## [3.2.0] - 2026-07-10
 

@@ -85,7 +85,12 @@ The package is pure ESM JavaScript with no build step, no native binaries, no ne
 Git state and configuration are checked at the point of hook execution.
 Configuration is parsed only as JSON, shallowly merged using documented
 precedence, and allowlisted by key and value before hooks or process helpers use
-it. Project JavaScript is never imported to discover configuration.
+it. Project JavaScript is never imported to discover configuration. Before
+`init` mutates a consumer repository, it also requires the
+`package.json` root, `scripts`, and `precommitChecks` containers to be JSON
+objects. Hook activation uses the same shared classifier in `init` and `doctor`:
+only executable command lines count, and POSIX hooks must have an executable
+mode bit.
 
 ### Fail-safe defaults
 

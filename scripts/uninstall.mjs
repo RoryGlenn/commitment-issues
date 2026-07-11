@@ -111,7 +111,10 @@ function inspectHookDirectory(directory) {
     const hookPath = path.resolve(directory, name);
     let status;
     try {
-      status = classifyHook(directory, name);
+      // Removal is an ownership/content decision, not a health decision. An
+      // exact generated body remains safe to remove even if its executable bit
+      // was lost, and a customized invocation still needs manual cleanup.
+      status = classifyHook(directory, name, { requireExecutable: false });
     } catch {
       manualCleanup.push(
         `${displayPath(hookPath)} could not be inspected; it was left unchanged.`,
