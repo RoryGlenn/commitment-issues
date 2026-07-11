@@ -156,6 +156,14 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
     "timeout",
   );
   assert.equal(
+    normalizeProcessOutcome({ status: null, signal: "SIGKILL" }),
+    "signal",
+  );
+  assert.equal(
+    normalizeProcessOutcome({ status: null, signal: "SIGINT" }),
+    "signal",
+  );
+  assert.equal(
     normalizeProcessOutcome({ outcome: "signal", signal: "SIGTERM" }),
     "signal",
   );
