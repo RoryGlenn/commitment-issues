@@ -203,7 +203,7 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
 | `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
 | `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.    |
-| `timeoutMs`              | number                  | `120000`             | Max runtime before a spawned command and its attached process tree are terminated.                   |
+| `timeoutMs`              | number                  | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms.                   |
 | `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
 | `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.  |
 | `blockProtectedBranches` | boolean                 | `false`              | Block (instead of warn about) commits and pushes to protected branches.                              |
