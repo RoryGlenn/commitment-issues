@@ -15,7 +15,46 @@
 
 No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 
-[Quickstart](#quickstart) · [Why it is different](#why-it-is-different) · [Migration guide](docs/migration.md) · [Configuration](docs/configuration.md) · [Uninstall](#uninstall)
+[See it in action](#see-it-in-action) · [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) · [Migration guide](docs/migration.md) · [Configuration](docs/configuration.md) · [Uninstall](#uninstall)
+
+## See it in action
+
+<p align="center">
+  <img src="assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning and a safe automatic amend" width="800" />
+</p>
+
+**Commit normally → follow the suggested fix.** The output explains what happened, whether Git continued, and which follow-up is safe.
+
+<details>
+<summary>See common output states</summary>
+
+### Pre-commit suggestions
+
+<p>
+  <img src="assets/precommit-suggestions-warning.svg" alt="Pre-commit warning output showing formatting suggestions and the commit fix command" width="479">
+</p>
+
+### Safety refusal
+
+<p>
+  <img src="assets/partially-staged-error.svg" alt="Error output showing that partially staged files cannot be fixed safely" width="568">
+</p>
+
+### Safe automatic amend
+
+<p>
+  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="590">
+</p>
+
+### Advisory push failure
+
+<p>
+  <img src="assets/advisory-push-failure.svg" alt="Warning output showing failing push-time tests in advisory mode" width="713">
+</p>
+
+See [Message states](docs/message-states.md) for the complete gallery.
+
+</details>
 
 ## Quickstart
 
@@ -76,45 +115,6 @@ npm run fix:staged
 - **Self-repair:** `doctor` recreates missing generated hooks after a fresh clone or install.
 - **Local by design:** no account, telemetry, phone-home request, or repository upload.
 - **Reversible:** preview setup and removal with `--dry-run`, then uninstall generated wiring with one command.
-
-## See it in action
-
-<p align="center">
-  <img src="assets/demo.gif" alt="commitment-issues in action: init, an advisory commit, and commit:fix" width="800" />
-</p>
-
-The output explains what happened, whether Git continued, and which follow-up is safe.
-
-<details>
-<summary>See common output states</summary>
-
-### Pre-commit suggestions
-
-<p>
-  <img src="assets/precommit-suggestions-warning.svg" alt="Pre-commit warning output showing formatting suggestions and the commit fix command" width="479">
-</p>
-
-### Safety refusal
-
-<p>
-  <img src="assets/partially-staged-error.svg" alt="Error output showing that partially staged files cannot be fixed safely" width="568">
-</p>
-
-### Safe automatic amend
-
-<p>
-  <img src="assets/commit-fix-success.svg" alt="Success output showing the latest commit amended with automatic fixes" width="590">
-</p>
-
-### Advisory push failure
-
-<p>
-  <img src="assets/advisory-push-failure.svg" alt="Warning output showing failing push-time tests in advisory mode" width="713">
-</p>
-
-See [Message states](docs/message-states.md) for the complete gallery.
-
-</details>
 
 ## What it catches
 
