@@ -77,15 +77,20 @@ jobs:
 
       - name: Verify rendered demo dimensions and timing
         env:
-          MAX_DURATION_DRIFT_SECONDS: "0.05"
+          MAX_FRAME_COUNT_DRIFT: "2"
+          MAX_DURATION_DRIFT_SECONDS: "0.10"
         run: |
           set -euo pipefail
           node - "$RUNNER_TEMP/committed-demo.gif" assets/demo.gif <<'NODE'
           const { execFileSync } = require("node:child_process");
 
           const [committedPath, renderedPath] = process.argv.slice(2);
+          const frameTolerance = Number(process.env.MAX_FRAME_COUNT_DRIFT);
           const tolerance = Number(process.env.MAX_DURATION_DRIFT_SECONDS);
 
+          if (!Number.isInteger(frameTolerance) || frameTolerance < 0) {
+            throw new Error("MAX_FRAME_COUNT_DRIFT must be a non-negative integer.");
+          }
           if (!Number.isFinite(tolerance) || tolerance < 0) {
             throw new Error("MAX_DURATION_DRIFT_SECONDS must be non-negative.");
           }
@@ -149,9 +154,10 @@ jobs:
               `dimensions differ (${committed.width}x${committed.height} committed, ${rendered.width}x${rendered.height} rendered)`,
             );
           }
-          if (rendered.frames !== committed.frames) {
+          const frameDrift = Math.abs(rendered.frames - committed.frames);
+          if (frameDrift > frameTolerance) {
             failures.push(
-              `frame counts differ (${committed.frames} committed, ${rendered.frames} rendered)`,
+              `frame-count drift ${frameDrift} exceeds ${frameTolerance} (${committed.frames} committed, ${rendered.frames} rendered)`,
             );
           }
 

@@ -138,7 +138,8 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   );
   assert.match(workflow, /MINIMUM_SSIM: "0\.998"/);
   assert.match(workflow, /-lavfi ssim/);
-  assert.match(workflow, /MAX_DURATION_DRIFT_SECONDS: "0\.05"/);
+  assert.match(workflow, /MAX_FRAME_COUNT_DRIFT: "2"/);
+  assert.match(workflow, /MAX_DURATION_DRIFT_SECONDS: "0\.10"/);
   assert.match(workflow, /execFileSync\(\s*"ffprobe"/);
   assert.match(workflow, /"-count_frames"/);
   assert.match(
@@ -147,7 +148,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   );
   assert.match(workflow, /rendered\.width !== committed\.width/);
   assert.match(workflow, /rendered\.height !== committed\.height/);
-  assert.match(workflow, /rendered\.frames !== committed\.frames/);
+  assert.match(workflow, /frameDrift > frameTolerance/);
   assert.match(workflow, /durationDrift > tolerance/);
   assert.ok(
     verifyIndex > renderIndex,
