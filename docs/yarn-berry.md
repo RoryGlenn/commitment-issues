@@ -58,6 +58,10 @@ would require resolving every tool through the Yarn runtime instead of
 5. Commit and push normally. The hook entrypoint and peer tools resolve from the
    local `node_modules` tree, just like in an npm or pnpm project.
 
+If you enable optional commit-message linting, also add `@commitlint/cli` and
+your chosen config package at the project root. That integration follows the
+same `node_modules/.bin` requirement and has no PnP/global/npx fallback.
+
 ## Verifying the setup
 
 - Confirm a `node_modules` directory exists at the project root.

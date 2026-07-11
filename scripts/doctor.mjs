@@ -9,16 +9,22 @@ import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, isPackageInstalled, isToolInstalled } from "./lib/process.mjs";
 import {
   BIN,
-  HOOK_NAMES,
   classifyHook,
   gitHooksDir,
   hookCommand,
+  hookNamesForConfig,
   hooksPathConfig,
   isHuskyHooksPath,
   leftoverHuskyHooks,
   writeHook,
 } from "./lib/hooks.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
+import {
+  loadPrecommitConfig,
+  precommitConfigWarningMessages,
+  resolveCommitMessageConfig,
+} from "./lib/config.mjs";
+import { localToolInvocation } from "./lib/local-tool.mjs";
 
 // Diagnose and self-heal the git hook wiring. Hooks are plain `.git/hooks`
 // files — git's default location, no hook manager — but `.git/hooks` is not
@@ -80,6 +86,29 @@ if (insideRepo.error || insideRepo.status !== 0) {
   ]);
 }
 
+const config = loadPrecommitConfig();
+const configWarnings = precommitConfigWarningMessages(config);
+const commitMessage = resolveCommitMessageConfig(config);
+const hookNames = hookNamesForConfig(config);
+const hookSummary =
+  hookNames.length === 3
+    ? "pre-commit, pre-push, and commit-msg are wired up and active."
+    : "pre-commit and pre-push are wired up and active.";
+
+if (configWarnings.length > 0) {
+  if (quiet) {
+    for (const message of configWarnings) {
+      console.warn(pc.yellow(`commitment-issues: ${message}`));
+    }
+  } else {
+    warningBox([
+      pc.bold("Configuration needs attention."),
+      "",
+      ...configWarnings.map((message) => pc.dim(`• ${message}`)),
+    ]);
+  }
+}
+
 // Advisory peer-tool check, independent of hook wiring. commitment-issues
 // orchestrates eslint and prettier without bundling them; peerDependencies
 // nudge at install time, but a tool can still be absent at runtime (removed
@@ -109,6 +138,30 @@ if (missingTools.length > 0) {
       ),
       pc.dim("Hooks never ask npx to download a missing peer dependency."),
       pc.dim(`Install them: ${installHint}`),
+    ]);
+  }
+}
+
+// commitlint is deliberately optional and is never resolved through npx or a
+// global PATH entry. Once the feature is enabled, diagnose a missing local bin
+// before the first commit without turning install-time doctor into a blocker.
+if (commitMessage.enabled && !localToolInvocation("commitlint", [])) {
+  const installHint = devInstallCommand(["@commitlint/cli"]);
+  if (quiet) {
+    console.warn(
+      pc.yellow(
+        `commitment-issues: commit-message linting is enabled but project-local commitlint is missing — install with \`${installHint}\`.`,
+      ),
+    );
+  } else {
+    warningBox([
+      pc.bold("Commit-message linting is not ready."),
+      "",
+      pc.dim("precommitChecks.commitMessage.enabled is true, but the"),
+      pc.dim("project-local commitlint CLI is not installed."),
+      "",
+      pc.dim(`Install it: ${installHint}`),
+      pc.dim("Then add a commitlint config with your chosen rules."),
     ]);
   }
 }
@@ -146,7 +199,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
   const checkDir = huskyEraLive
     ? path.resolve(".husky")
     : path.resolve(configuredHooksPath);
-  const unwired = HOOK_NAMES.filter((name) => {
+  const unwired = hookNames.filter((name) => {
     const status = classifyHook(checkDir, name);
     return status === "missing" || status === "custom-without-command";
   });
@@ -156,7 +209,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
         pc.bold("Git hooks are healthy."),
         "",
         pc.dim(`core.hooksPath → ${configuredHooksPath}`),
-        pc.dim("pre-commit and pre-push are wired up and active."),
+        pc.dim(hookSummary),
         ...(huskyEraLive
           ? [
               "",
@@ -219,7 +272,7 @@ if (!hooksDir) {
 // Classify every hook once so existence, content, and "is it actually wired"
 // are all considered — reporting healthy on the mere presence of a hook file
 // was the bug this addresses.
-const hookReports = HOOK_NAMES.map((name) => ({
+const hookReports = hookNames.map((name) => ({
   name,
   status: classifyHook(hooksDir, name),
 }));
@@ -279,7 +332,7 @@ if (problems.length === 0) {
       pc.bold("Git hooks are healthy."),
       "",
       pc.dim(".git/hooks is active — no hook manager needed."),
-      pc.dim("pre-commit and pre-push are wired up and active."),
+      pc.dim(hookSummary),
     ]);
   }
   process.exit(0);
@@ -321,13 +374,13 @@ for (const name of missingHooks) {
 
 if (
   hooksPathConfig() !== "" ||
-  HOOK_NAMES.some((name) => classifyHook(hooksDir, name) === "missing")
+  hookNames.some((name) => classifyHook(hooksDir, name) === "missing")
 ) {
   repairFailed([
     pc.bold("Hook wiring still looks broken after repair."),
     "",
     pc.dim("Confirm core.hooksPath is unset: git config --get core.hooksPath"),
-    pc.dim("Then confirm .git/hooks/pre-commit and pre-push exist."),
+    pc.dim(`Then confirm these hooks exist: ${hookNames.join(", ")}.`),
   ]);
 }
 
@@ -379,7 +432,7 @@ if (quiet) {
     pc.dim(`Was broken: ${problems.join("; ")}.`),
     pc.dim(`Fixed: ${repaired.join(", ")}.`),
     "",
-    pc.dim("pre-commit and pre-push are active again."),
+    pc.dim(hookSummary.replace("wired up and ", "")),
   ]);
 }
 

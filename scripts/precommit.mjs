@@ -6,9 +6,8 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
-  unknownPrecommitConfigKeys,
+  precommitConfigWarningMessages,
 } from "./lib/config.mjs";
 import {
   eslintManualIssues,
@@ -94,28 +93,10 @@ function runStagedTestCommand(testCommand, tests) {
 
 const config = loadPrecommitConfig();
 
-// A typo'd key (e.g. requireTest) silently falls back to the default, which
-// reads as "the tool ignored my config". One concise advisory line — never a
-// box, never blocking — mirroring the pre-push config-conflict warning.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
-}
-
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default — which also reads as "the tool ignored my config". Surface it on
-// one concise advisory line, never a box and never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
+// Typo'd keys and invalid values fall back safely. Surface each diagnostic on
+// one concise advisory line without turning pre-commit checks into a blocker.
+for (const message of precommitConfigWarningMessages(config)) {
+  console.warn(pc.yellow(`⚠ ${message}`));
 }
 
 const guardConfig = resolveGuardConfig(config);
