@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { MAX_TIMEOUT_MS } from "../scripts/lib/config.mjs";
 import {
   run,
   toolInvocation,
@@ -171,6 +172,23 @@ test("spawnAsync resolves an error when spawn throws synchronously", async () =>
   assert.equal(result.status, null);
   assert.equal(result.stdout, "");
   assert.equal(result.stderr, "");
+});
+
+test("spawnAsync enforces Node's maximum timer delay", async () => {
+  const accepted = await spawnAsync(
+    "node",
+    ["-e", "process.stdout.write('ok')"],
+    { timeoutMs: MAX_TIMEOUT_MS },
+  );
+  assert.equal(accepted.outcome, "success");
+  assert.equal(accepted.stdout, "ok");
+
+  const rejected = await spawnAsync("node", ["-e", "process.exit(0)"], {
+    timeoutMs: MAX_TIMEOUT_MS + 1,
+  });
+  assert.equal(rejected.outcome, "spawn-error");
+  assert.equal(rejected.error?.code, "ERR_OUT_OF_RANGE");
+  assert.match(rejected.error?.message ?? "", /2147483647/);
 });
 
 test("spawnAsync reports a non-zero status", async () => {
