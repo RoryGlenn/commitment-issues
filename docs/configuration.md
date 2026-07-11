@@ -195,26 +195,26 @@ Beyond tool checks, the hooks run instant, git-only advisory guards. All of them
 
 All options live under `precommitChecks` in `package.json`; all are optional:
 
-| Key                      | Type                    | Default              | Description                                                                                          |
-| ------------------------ | ----------------------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `testExempt`             | string[]                | `[]`                 | Glob patterns for files excluded from the missing-test check.                                        |
-| `requireTests`           | boolean                 | `true`               | Set `false` to disable the missing-test check.                                                       |
-| `runStagedTests`         | boolean                 | `false`              | Run tests for staged files at commit time.                                                           |
-| `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
-| `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
-| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.    |
-| `timeoutMs`              | number                  | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms.                   |
-| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
-| `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.  |
-| `blockProtectedBranches` | boolean                 | `false`              | Block (instead of warn about) commits and pushes to protected branches.                              |
-| `adviseBehindUpstream`   | boolean                 | `true`               | Warn at commit time when the branch is behind its upstream (as of the last fetch).                   |
-| `maxCommitFiles`         | number                  | `30`                 | Warn when a commit stages more than this many files. `0` disables.                                   |
-| `maxCommitLines`         | number                  | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                  |
-| `maxFileSizeMb`          | number                  | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                       |
-| `generatedPaths`         | string[]                | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                             |
-| `scanSecrets`            | boolean                 | `true`               | Scan added staged lines and dotenv files for likely credentials.                                     |
-| `blockOnSecrets`         | boolean                 | `false`              | Block the commit when the secrets scan finds something.                                              |
-| `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                   |
+| Key                      | Type                    | Default              | Description                                                                                                    |
+| ------------------------ | ----------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                | `[]`                 | Glob patterns for files excluded from the missing-test check.                                                  |
+| `requireTests`           | boolean                 | `true`               | Set `false` to disable the missing-test check.                                                                 |
+| `runStagedTests`         | boolean                 | `false`              | Run tests for staged files at commit time.                                                                     |
+| `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
+| `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                                |
+| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.              |
+| `timeoutMs`              | number                  | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
+| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                                  |
+| `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.            |
+| `blockProtectedBranches` | boolean                 | `false`              | Block (instead of warn about) commits and pushes to protected branches.                                        |
+| `adviseBehindUpstream`   | boolean                 | `true`               | Warn at commit time when the branch is behind its upstream (as of the last fetch).                             |
+| `maxCommitFiles`         | number                  | `30`                 | Warn when a commit stages more than this many files. `0` disables.                                             |
+| `maxCommitLines`         | number                  | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                            |
+| `maxFileSizeMb`          | number                  | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
+| `generatedPaths`         | string[]                | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                                       |
+| `scanSecrets`            | boolean                 | `true`               | Scan added staged lines and dotenv files for likely credentials.                                               |
+| `blockOnSecrets`         | boolean                 | `false`              | Block the commit when the secrets scan finds something.                                                        |
+| `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
 
 Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
 
