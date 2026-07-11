@@ -23,6 +23,7 @@ import {
   createJsonOutput,
   emitJsonArgumentError,
   issueToJsonFinding,
+  normalizeProcessOutcome,
   parseJsonOutputArgs,
 } from "./lib/json-output.mjs";
 
@@ -559,10 +560,21 @@ const summaryLines = summary
   ? ["", pc.dim(`${summary.passed} passed, ${summary.failed} failed`)]
   : [];
 
-if (result.error || result.signal) {
-  const reasonText = result.signal
-    ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
-    : "Check precommitChecks.testCommand in package.json.";
+const testOutcome = normalizeProcessOutcome(result);
+const testDidNotComplete = [
+  "timeout",
+  "spawn-error",
+  "signal",
+  "missing-tool",
+].includes(testOutcome);
+
+if (testDidNotComplete) {
+  const reasonText =
+    testOutcome === "timeout"
+      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
+      : testOutcome === "signal"
+        ? `The test command stopped after ${result.signal || "an unknown signal"}.`
+        : "Check precommitChecks.testCommand in package.json.";
   const reason = pc.dim(reasonText);
   const issue = {
     autoFixable: false,
@@ -582,6 +594,7 @@ if (result.error || result.signal) {
       status: result.status,
       signal: result.signal,
       error: result.error?.message || null,
+      outcome: testOutcome,
       summary,
     },
   });
@@ -613,7 +626,7 @@ if (result.error || result.signal) {
   process.exit(0);
 }
 
-if ((result.status || 0) !== 0) {
+if (testOutcome === "nonzero") {
   const issue = {
     autoFixable: false,
     type: "tests",
@@ -633,6 +646,7 @@ if ((result.status || 0) !== 0) {
       files: testFiles,
       status: result.status,
       signal: result.signal,
+      outcome: testOutcome,
       summary,
     },
   });
@@ -679,6 +693,7 @@ jsonOutput.addCheck({
     files: testFiles,
     status: result.status,
     signal: result.signal,
+    outcome: testOutcome,
     summary,
   },
 });
