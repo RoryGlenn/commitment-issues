@@ -58,9 +58,7 @@ export function deriveBranchCoverageSourceFiles(
   excluded = BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
 ) {
   const excludedSet = new Set(excluded);
-  return [...new Set(sources)]
-    .filter((file) => !excludedSet.has(file))
-    .sort();
+  return [...new Set(sources)].filter((file) => !excludedSet.has(file)).sort();
 }
 
 export const BRANCH_COVERAGE_SOURCE_FILES = Object.freeze(
