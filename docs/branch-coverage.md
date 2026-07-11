@@ -17,30 +17,11 @@ aggregate branch metric.
 
 ## Source scope
 
-These files are the complete published percentage denominator:
-
-```text
-scripts/cli.mjs
-scripts/commit-fix.mjs
-scripts/doctor.mjs
-scripts/fix-staged-js.mjs
-scripts/fix-staged.mjs
-scripts/init.mjs
-scripts/lib/checks.mjs
-scripts/lib/commit-guards.mjs
-scripts/lib/config.mjs
-scripts/lib/files.mjs
-scripts/lib/hooks.mjs
-scripts/lib/logo.mjs
-scripts/lib/message.mjs
-scripts/lib/package-manager.mjs
-scripts/lib/process.mjs
-scripts/lib/secret-scan.mjs
-scripts/lib/ui.mjs
-scripts/precommit.mjs
-scripts/prepush.mjs
-scripts/uninstall.mjs
-```
+Every published `scripts/**/*.mjs` file is included in the public-runtime
+denominator automatically unless it appears in the exact maintenance-only list
+below. This keeps the scope closed by default: adding a new hook, command, or
+runtime helper cannot silently escape the threshold. The current tree contains
+20 included runtime files.
 
 These repository/package-maintenance files are deliberately outside the
 published runtime percentage:
@@ -54,9 +35,10 @@ scripts/run-lifecycle-test.mjs
 scripts/update-readme-coverage-badge.mjs
 ```
 
-They still have unit or integration tests. A static invariant partitions every
-`scripts/**/*.mjs` file into exactly one of these two lists, so adding a source
-file requires an explicit scope decision.
+They still have unit or integration tests. A static invariant requires every
+exclusion to name an existing script and verifies that every other script is in
+the measured denominator. New runtime files are therefore covered by default;
+adding a maintenance-only script requires an explicit exclusion.
 
 ## Test scope
 
