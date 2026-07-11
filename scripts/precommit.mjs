@@ -45,6 +45,7 @@ import {
   createJsonOutput,
   emitJsonArgumentError,
   issueToJsonFinding,
+  normalizeProcessOutcome,
   parseJsonOutputArgs,
 } from "./lib/json-output.mjs";
 import {
@@ -580,15 +581,25 @@ const [eslintResult, prettierResult, testRun] = await Promise.all([
     : null,
 ]);
 
+const eslintOutcome = eslintResult
+  ? normalizeProcessOutcome(eslintResult)
+  : null;
+const prettierOutcome = prettierResult
+  ? normalizeProcessOutcome(prettierResult)
+  : null;
+const stagedTestOutcome = testRun ? normalizeProcessOutcome(testRun) : null;
+const processDidNotComplete = (outcome) =>
+  ["timeout", "spawn-error", "signal", "missing-tool"].includes(outcome);
+
 if (eslintResult) {
-  if (eslintResult.error || eslintResult.signal) {
+  if (processDidNotComplete(eslintOutcome)) {
     issues.push({
       autoFixable: false,
       type: "lint",
-      message: eslintResult.signal
+      message: eslintOutcome === "timeout"
         ? "ESLint timed out"
         : "Unable to run ESLint",
-      detail: eslintResult.signal
+      detail: eslintOutcome === "timeout"
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check ESLint install and project config",
     });
@@ -652,18 +663,19 @@ jsonOutput.addCheck({
     files: stagedJsFiles,
     status: eslintResult?.status ?? null,
     signal: eslintResult?.signal ?? null,
+    outcome: eslintOutcome,
   },
 });
 
 if (prettierResult) {
-  if (prettierResult.error || prettierResult.signal) {
+  if (processDidNotComplete(prettierOutcome)) {
     issues.push({
       autoFixable: false,
       type: "format",
-      message: prettierResult.signal
+      message: prettierOutcome === "timeout"
         ? "Prettier timed out"
         : "Unable to run Prettier",
-      detail: prettierResult.signal
+      detail: prettierOutcome === "timeout"
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check Prettier install and project config",
     });
@@ -711,22 +723,23 @@ jsonOutput.addCheck({
     files: stagedFormatFiles,
     status: prettierResult?.status ?? null,
     signal: prettierResult?.signal ?? null,
+    outcome: prettierOutcome,
   },
 });
 
 if (testRun) {
-  if (testRun.error || testRun.signal) {
+  if (processDidNotComplete(stagedTestOutcome)) {
     issues.push({
       autoFixable: false,
       type: "tests",
-      message: testRun.signal
+      message: stagedTestOutcome === "timeout"
         ? "Staged tests timed out"
         : "Unable to run staged tests",
-      detail: testRun.signal
+      detail: stagedTestOutcome === "timeout"
         ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
         : "Check precommitChecks.testCommand in package.json",
     });
-  } else if ((testRun.status || 0) !== 0) {
+  } else if (stagedTestOutcome === "nonzero") {
     issues.push({
       autoFixable: false,
       type: "tests",
@@ -759,6 +772,7 @@ jsonOutput.addCheck({
     files: stagedTests,
     status: testRun?.status ?? null,
     signal: testRun?.signal ?? null,
+    outcome: stagedTestOutcome,
   },
 });
 
