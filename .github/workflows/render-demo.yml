@@ -63,9 +63,6 @@ jobs:
       - name: Render assets/demo.gif from promo/demo.tape
         run: vhs promo/demo.tape
 
-      - name: Verify rendered demo matches the committed asset
-        run: git diff --exit-code -- assets/demo.gif
-
       - name: Upload rendered demo
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -73,3 +70,6 @@ jobs:
           path: assets/demo.gif
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify rendered demo matches the committed asset
+        run: git diff --exit-code -- assets/demo.gif
