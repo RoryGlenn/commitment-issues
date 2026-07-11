@@ -186,6 +186,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
 - **LIB-004** — test discovery and Git-path helpers: `findTestFile`, `collectTestsForFiles`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
 - **LIB-005** — box rendering: `printBox` and severity boxes color the whole border. Unit: `test/ui.test.mjs`.
+- **LIB-006** — process outcomes distinguish missing tool, spawn failure, timeout, external signal, normal nonzero exit, and success. Unit: `test/process.test.mjs`.
+- **LIB-007** — Prettier classification is exit-status-first; `[error]` in a filename remains a formatting path. Unit: `test/checks.test.mjs`.
 
 ### Safety path matrix
 
@@ -199,10 +201,12 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **SEC-008** — accidentally staged `node_modules` files are skipped by pre-commit checks. Fixture: `test/precommit-dependency-ignore.test.mjs`.
 - **SEC-009** — pre-push diff uses NUL-delimited name/status output (plus `core.quotePath=false`), so deletions, renames, Unicode, whitespace, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
 - **SEC-010** — staged-secret parsing distinguishes file headers from added hunk content, including source lines beginning with `++ `. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
+- **SEC-011** — missing ESLint/Prettier peers return an advisory and package-manager install hint without invoking `npx`; explicitly configured `npx` test commands remain verbatim. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`.
 
 ### Performance
 
-- **PERF-001** — timeout is enforced. Fixture: precommit / prepush tests.
+- **PERF-001** — timeout is enforced and reported separately from signals/spawn failures. Fixture: precommit / prepush / process tests.
+- **PERF-002** — timeout cleanup terminates an attached grandchild on supported platforms. Fixture: `test/process.test.mjs`; CI matrix: Ubuntu, macOS, Windows.
 
 ### User lifecycle
 
@@ -226,7 +230,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PM-004** — yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Classic yarn is covered by PM-003. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
 - **MONO-001** — workspace root behavior. Hooks run from the Git root and check staged files across all packages using the root `precommitChecks` config and hoisted tools. Boundary documented in the [Monorepo & workspaces guide](monorepo.md).
 - **MONO-002** — nested workspace package behavior. Per-package `precommitChecks` config and per-package tool versions are out of scope; the boundary is documented in the [Monorepo & workspaces guide](monorepo.md).
-- **PERF-002** — many-files performance. Add only after the behavior matrix is stable.
+- **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Not covered yet
 

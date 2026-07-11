@@ -389,11 +389,21 @@ const summaryLines = summary
   ? ["", pc.dim(`${summary.passed} passed, ${summary.failed} failed`)]
   : [];
 
-if (result.error || result.signal) {
+if (
+  result.outcome === "timeout" ||
+  result.outcome === "spawn-error" ||
+  result.outcome === "signal"
+) {
+  const timeoutCleanup =
+    result.cleanup === "direct-child"
+      ? "the direct child was stopped, but descendant cleanup was unavailable"
+      : "attached process-tree cleanup completed";
   const reason = pc.dim(
-    result.signal
-      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s.`
-      : "Check precommitChecks.testCommand in package.json.",
+    result.outcome === "timeout"
+      ? `The test command timed out after ${TOOL_TIMEOUT_MS / 1000}s; ${timeoutCleanup}.`
+      : result.outcome === "signal"
+        ? `The test command stopped after ${result.signal || "an unknown signal"}.`
+        : "Check precommitChecks.testCommand in package.json.",
   );
   if (blocking) {
     errorBox([pc.bold("Push blocked: could not run tests"), "", reason]);
@@ -408,7 +418,7 @@ if (result.error || result.signal) {
   process.exit(0);
 }
 
-if ((result.status || 0) !== 0) {
+if (result.outcome === "nonzero") {
   if (blocking) {
     errorBox([
       pc.bold("Push blocked: tests failed"),

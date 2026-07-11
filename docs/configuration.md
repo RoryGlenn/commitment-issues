@@ -17,6 +17,19 @@ For the short install path, start with the [README](../README.md). For terminal 
 
 Nothing is copied into your repo from the package source. The hooks are plain `.git/hooks` files that call the installed `commitment-issues` bin — no hook manager is involved.
 
+## Local peer-tool resolution
+
+Built-in ESLint and Prettier checks resolve the package `bin` only from the
+repository's reachable `node_modules` tree. There is no implicit `npx`
+fallback. When a peer is missing, commit-time checks report an advisory and the
+package-manager-specific install command; fix commands fail nonzero rather than
+claiming an incomplete fix succeeded. `doctor` reports the same local state.
+
+This restriction does not rewrite explicit configuration.
+`precommitChecks.testCommand` is executed exactly as supplied, so a command such
+as `["npx", "vitest", "run"]` deliberately opts into npx's own resolution and
+network behavior.
+
 ## What happens on commit and push?
 
 | Action       | Default behavior                                                                            | Stricter option                                                |
@@ -80,6 +93,21 @@ By default the commit hook only checks for missing tests; it does not run them. 
 When enabled, the hook runs `testCommand` against the staged test files plus the tests it can find for staged source files. `testCommand` is optional and defaults to `node --test`.
 
 > Enabling `runStagedTests` executes a repo-defined command on every commit, similar to `lint-staged`. Only enable it in repositories you trust. Spawned tools are capped by a timeout so a hung command cannot wedge a commit.
+
+### Timeout cleanup boundary
+
+Timed commands run in a dedicated process group on Ubuntu/macOS. When the
+deadline expires, the whole attached group is force-terminated. Windows uses
+the built-in `taskkill /t /f` process-tree operation, with a direct-child kill
+as a fallback if tree termination is unavailable. The hook reports a timeout
+separately from a spawn failure, external signal, normal nonzero exit, or
+success.
+
+Cleanup covers descendants that remain attached to the command's process group
+or Windows process tree. A descendant that deliberately daemonizes, reparents,
+or creates a separate process group can escape that boundary; the operating
+system does not expose one portable, permission-free way to reclaim such a
+process. Commands used in hooks should not launch background daemons.
 
 ### Using a different test runner
 
@@ -174,8 +202,8 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `runStagedTests`         | boolean                 | `false`              | Run tests for staged files at commit time.                                                           |
 | `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set. |
 | `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                      |
-| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; must accept test file paths.                     |
-| `timeoutMs`              | number                  | `120000`             | Max time any spawned tool may run before it is treated as timed out.                                 |
+| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.    |
+| `timeoutMs`              | number                  | `120000`             | Max runtime before a spawned command and its attached process tree are terminated.                   |
 | `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                        |
 | `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.  |
 | `blockProtectedBranches` | boolean                 | `false`              | Block (instead of warn about) commits and pushes to protected branches.                              |

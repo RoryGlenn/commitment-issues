@@ -137,7 +137,8 @@ Shown when `runStagedTests` is enabled and a staged test file fails. The commit 
   <img src="../assets/tool-limit-warning.svg" alt="Warning output showing that a tool exceeded the configured time limit" width="469">
 </p>
 
-Shown when a spawned tool exceeds the configured timeout.
+Shown when a spawned tool exceeds the configured timeout. Its attached process
+group/tree is terminated before the hook continues.
 
 ### Tool crash
 
@@ -153,7 +154,10 @@ Shown when ESLint or Prettier exits with a crash (broken config, parse error) in
   <img src="../assets/precommit-tool-unavailable.svg" alt="Warning output showing that ESLint could not be run" width="541">
 </p>
 
-Shown when a tool cannot be spawned at all (missing install). The commit still continues.
+Shown when a project-local ESLint or Prettier install is missing, or a tool
+cannot be spawned. The commit still continues. Missing peers include the
+detected package manager's install command and never trigger an implicit `npx`
+fallback.
 
 ### Amend blocked by other tracked changes
 
@@ -619,7 +623,9 @@ Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` 
   <img src="../assets/doctor-missing-tools.svg" alt="Warning output listing required tools that are not installed" width="726">
 </p>
 
-Shown when eslint or prettier cannot be resolved. Advisory only: missing tools never fail an otherwise-healthy repo.
+Shown when eslint or prettier cannot be resolved from the project's
+`node_modules`. Advisory only: missing tools never fail an otherwise-healthy
+repo, and `doctor` states that hooks do not download them through `npx`.
 
 ### Foreign core.hooksPath
 

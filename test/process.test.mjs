@@ -6,12 +6,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   run,
   toolInvocation,
   runTool,
   spawnAsync,
   isPackageInstalled,
+  isToolInstalled,
 } from "../scripts/lib/process.mjs";
 
 test("toolInvocation resolves a local bin and runs it via the current Node", () => {
@@ -24,18 +26,32 @@ test("toolInvocation resolves a local bin and runs it via the current Node", () 
   assert.match(prettier.args[0], /prettier/);
 });
 
-test("toolInvocation falls back to npx for an unresolved tool", () => {
+test("toolInvocation returns a missing-tool invocation without npx", () => {
   const inv = toolInvocation("definitely-not-installed-xyz", ["--help"]);
-  assert.equal(inv.command, "npx");
-  assert.deepEqual(inv.args, ["definitely-not-installed-xyz", "--help"]);
+  assert.equal(inv.command, null);
+  assert.deepEqual(inv.args, []);
+  assert.equal(inv.missingTool, "definitely-not-installed-xyz");
 });
 
-test("toolInvocation falls back to npx for a resolvable package with no bin", () => {
+test("toolInvocation reports a resolvable package with no bin as missing", () => {
   // picocolors is installed (its package.json resolves) but exposes no `bin`,
-  // so resolveTool returns null and we fall back to npx.
+  // so it cannot be executed as a tool.
   const inv = toolInvocation("picocolors", ["--help"]);
-  assert.equal(inv.command, "npx");
-  assert.deepEqual(inv.args, ["picocolors", "--help"]);
+  assert.equal(inv.command, null);
+  assert.deepEqual(inv.args, []);
+  assert.equal(inv.missingTool, "picocolors");
+});
+
+test("toolInvocation resolves only from the selected project", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tool-project-"));
+  try {
+    assert.equal(
+      toolInvocation("eslint", ["--version"], dir).missingTool,
+      "eslint",
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("isPackageInstalled resolves a package present in the project", () => {
@@ -47,6 +63,11 @@ test("isPackageInstalled resolves a package present in the project", () => {
 
 test("isPackageInstalled reports a package that cannot be resolved", () => {
   assert.equal(isPackageInstalled("definitely-not-installed-xyz"), false);
+});
+
+test("isToolInstalled requires a real package bin", () => {
+  assert.equal(isToolInstalled("eslint"), true);
+  assert.equal(isToolInstalled("picocolors"), false);
 });
 
 test("isPackageInstalled resolves relative to the given project root", () => {
@@ -70,6 +91,7 @@ test("isPackageInstalled resolves relative to the given project root", () => {
 
 test("run captures stdout synchronously", () => {
   const result = run("node", ["-e", "process.stdout.write('hi')"]);
+  assert.equal(result.outcome, "success");
   assert.equal(result.status, 0);
   assert.equal(result.stdout, "hi");
 });
@@ -107,10 +129,19 @@ test("run passes shell-sensitive tokens as literal argv", () => {
   assert.deepEqual(JSON.parse(result.stdout), tokens);
 });
 
-test("runTool runs a resolved tool synchronously", () => {
-  const result = runTool("prettier", ["--version"], { encoding: "utf8" });
+test("runTool runs a resolved local tool", async () => {
+  const result = await runTool("prettier", ["--version"]);
+  assert.equal(result.outcome, "success");
   assert.equal(result.status, 0);
   assert.match(result.stdout, /\d+\.\d+/);
+});
+
+test("runTool returns missing-tool without invoking a command fallback", async () => {
+  const result = await runTool("definitely-not-installed-xyz", ["--help"]);
+  assert.equal(result.outcome, "missing-tool");
+  assert.equal(result.missingTool, "definitely-not-installed-xyz");
+  assert.equal(result.status, null);
+  assert.equal(result.error, undefined);
 });
 
 test("spawnAsync captures output and resolves a status", async () => {
@@ -118,6 +149,7 @@ test("spawnAsync captures output and resolves a status", async () => {
     "-e",
     "process.stdout.write('out'); process.stderr.write('err')",
   ]);
+  assert.equal(result.outcome, "success");
   assert.equal(result.status, 0);
   assert.equal(result.stdout, "out");
   assert.equal(result.stderr, "err");
@@ -125,6 +157,7 @@ test("spawnAsync captures output and resolves a status", async () => {
 
 test("spawnAsync resolves an error for a missing binary", async () => {
   const result = await spawnAsync("definitely-not-a-real-binary-xyz", []);
+  assert.equal(result.outcome, "spawn-error");
   assert.ok(result.error);
   assert.equal(result.status, null);
 });
@@ -133,6 +166,7 @@ test("spawnAsync resolves an error when spawn throws synchronously", async () =>
   // An invalid `cwd` makes the spawn throw synchronously; spawnAsync must catch
   // it and resolve a result rather than letting the throw escape.
   const result = await spawnAsync("node", ["-v"], { cwd: 12345 });
+  assert.equal(result.outcome, "spawn-error");
   assert.ok(result.error);
   assert.equal(result.status, null);
   assert.equal(result.stdout, "");
@@ -141,10 +175,14 @@ test("spawnAsync resolves an error when spawn throws synchronously", async () =>
 
 test("spawnAsync reports a non-zero status", async () => {
   const result = await spawnAsync("node", ["-e", "process.exit(3)"]);
+  assert.equal(result.outcome, "nonzero");
   assert.equal(result.status, 3);
 });
 
 test("spawnAsync with echo tees output while capturing it", async () => {
+  // Let the test reporter flush the previous result before temporarily
+  // replacing its stdout writer.
+  await delay(10);
   const original = process.stdout.write.bind(process.stdout);
   const originalErr = process.stderr.write.bind(process.stderr);
   let echoed = "";
@@ -171,6 +209,61 @@ test("spawnAsync with echo tees output while capturing it", async () => {
     process.stdout.write = original;
     process.stderr.write = originalErr;
   }
+});
+
+test(
+  "spawnAsync distinguishes termination by signal",
+  { skip: process.platform === "win32" },
+  async () => {
+    const result = await spawnAsync("node", [
+      "-e",
+      "process.kill(process.pid, 'SIGTERM')",
+    ]);
+    assert.equal(result.outcome, "signal");
+    assert.equal(result.signal, "SIGTERM");
+  },
+);
+
+test("spawnAsync reports timeout separately and cleans up grandchildren", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "process-tree-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const heartbeat = path.join(dir, "grandchild-heartbeat");
+  const pidFile = path.join(dir, "grandchild-pid");
+  const grandchild = [
+    "const fs = require('node:fs');",
+    `const heartbeat = ${JSON.stringify(heartbeat)};`,
+    `fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));`,
+    "let beat = 0;",
+    "fs.writeFileSync(heartbeat, String(beat));",
+    "setInterval(() => fs.writeFileSync(heartbeat, String(++beat)), 50);",
+  ].join("\n");
+  const parent = [
+    "const { spawn } = require('node:child_process');",
+    `spawn(process.execPath, ['-e', ${JSON.stringify(grandchild)}], { stdio: 'ignore' });`,
+    "setInterval(() => {}, 1000);",
+  ].join("\n");
+
+  const result = await spawnAsync("node", ["-e", parent], { timeoutMs: 1000 });
+  assert.equal(result.outcome, "timeout");
+  assert.equal(result.timedOut, true);
+  assert.match(
+    result.cleanup,
+    /process-group|taskkill-tree|direct-child|already-exited/,
+  );
+
+  assert.equal(fs.existsSync(pidFile), true, "grandchild should start");
+  const grandchildPid = Number(fs.readFileSync(pidFile, "utf8"));
+  const beatAtTimeout = fs.readFileSync(heartbeat, "utf8");
+  await delay(350);
+  const beatAfterTimeout = fs.readFileSync(heartbeat, "utf8");
+  if (beatAfterTimeout !== beatAtTimeout) {
+    try {
+      process.kill(grandchildPid, "SIGKILL");
+    } catch {
+      // It may have exited between the heartbeat read and cleanup attempt.
+    }
+  }
+  assert.equal(beatAfterTimeout, beatAtTimeout);
 });
 
 test("test environment still resolves path module", () => {
