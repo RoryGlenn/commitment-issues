@@ -293,6 +293,8 @@ npx commitment-issues init --dry-run       # preview setup
 npx commitment-issues uninstall            # remove generated setup
 npx commitment-issues uninstall --dry-run  # preview removal
 npx commitment-issues doctor               # verify and repair hook wiring
+npx commitment-issues precommit --json     # structured commit-check result
+npx commitment-issues prepush --json       # structured push-check result
 npx commitment-issues --version
 
 npm run test:precommit  # run commit checks directly
@@ -317,6 +319,7 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 - [How it works](docs/how-it-works.md)
 - [Configuration and behavior](docs/configuration.md)
 - [External interface reference](docs/external-interface.md)
+- [JSON output schema and usage](docs/json-output.md)
 - [Message states](docs/message-states.md)
 
 **Operate and contribute**

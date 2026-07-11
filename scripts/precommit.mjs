@@ -42,6 +42,12 @@ import {
 import { buildAdvisoryMessage } from "./lib/message.mjs";
 import { runScript } from "./lib/package-manager.mjs";
 import {
+  createJsonOutput,
+  emitJsonArgumentError,
+  issueToJsonFinding,
+  parseJsonOutputArgs,
+} from "./lib/json-output.mjs";
+import {
   codeFilePattern,
   formatFilePattern,
   findTestFile,
@@ -51,6 +57,13 @@ import {
 } from "./lib/files.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
+
+const outputArgs = parseJsonOutputArgs(process.argv.slice(2));
+if (outputArgs.error) {
+  emitJsonArgumentError("precommit", outputArgs.error);
+  process.exit(1);
+}
+const jsonMode = outputArgs.enabled;
 
 function runEslint(files) {
   const { command, args } = toolInvocation("eslint", [
@@ -92,17 +105,44 @@ function runStagedTestCommand(testCommand, tests) {
 }
 
 const config = loadPrecommitConfig();
+const guardConfig = resolveGuardConfig(config);
+const secretScanConfig = resolveSecretScanConfig(config);
+const jsonOutput = createJsonOutput({
+  command: "precommit",
+  mode:
+    (guardConfig.blockProtectedBranches &&
+      guardConfig.protectedBranches.length > 0) ||
+    (secretScanConfig.scanSecrets && secretScanConfig.blockOnSecrets)
+      ? "blocking"
+      : "advisory",
+});
+
+function emitJsonResult({
+  status,
+  exitCode = 0,
+  summary,
+  findings = [],
+  suggestions = [],
+}) {
+  jsonOutput.emit({ status, exitCode, summary, findings, suggestions });
+  process.exit(exitCode);
+}
 
 // A typo'd key (e.g. requireTest) silently falls back to the default, which
 // reads as "the tool ignored my config". One concise advisory line — never a
 // box, never blocking — mirroring the pre-push config-conflict warning.
 const unknownKeys = unknownPrecommitConfigKeys(config);
 if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
+  const message = `Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`;
+  if (jsonMode) {
+    jsonOutput.addDiagnostic({
+      severity: "warning",
+      code: "config.unknown-keys",
+      message,
+    });
+  } else {
+    console.warn(pc.yellow(`⚠ ${message}`));
+  }
 }
 
 // A recognized key with a wrong-typed value is sanitized away and falls back to
@@ -110,14 +150,17 @@ if (unknownKeys.length > 0) {
 // one concise advisory line, never a box and never blocking.
 const invalidValueMessages = invalidPrecommitConfigMessages(config);
 if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
+  const message = `Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`;
+  if (jsonMode) {
+    jsonOutput.addDiagnostic({
+      severity: "warning",
+      code: "config.invalid-values",
+      message,
+    });
+  } else {
+    console.warn(pc.yellow(`⚠ ${message}`));
+  }
 }
-
-const guardConfig = resolveGuardConfig(config);
 
 function branchName(args) {
   const result = run("git", args);
@@ -143,6 +186,26 @@ if (
   guardConfig.blockProtectedBranches &&
   isProtectedBranch(branch, guardConfig.protectedBranches)
 ) {
+  const issue = {
+    autoFixable: false,
+    type: "branch",
+    message: `Commit blocked on protected branch "${branch}"`,
+    detail: "Create a branch: git switch -c <name>",
+  };
+  jsonOutput.addCheck({
+    id: "protected-branch",
+    status: "failed",
+    summary: `Protected branch "${branch}" is blocked`,
+    details: { branch },
+  });
+  if (jsonMode) {
+    emitJsonResult({
+      status: "blocked",
+      exitCode: 1,
+      summary: "Commit blocked by protected-branch policy",
+      findings: [issueToJsonFinding(issue, "error")],
+    });
+  }
   errorBox([
     pc.bold("Commit blocked: protected branch."),
     "",
@@ -166,6 +229,28 @@ if (gitFiles.error || gitFiles.status !== 0) {
   // Advisory philosophy: the hook cannot check anything, but it must not
   // block the commit either — warn (matching the pre-push advisory
   // uninspectable state) and continue.
+  const issue = {
+    autoFixable: false,
+    type: "git",
+    message: "Unable to inspect staged files",
+    detail: "Verify Git is available in PATH.",
+  };
+  jsonOutput.addCheck({
+    id: "staged-files",
+    status: "failed",
+    summary: "Git could not inspect staged files",
+    details: {
+      status: gitFiles.status,
+      error: gitFiles.error?.message || null,
+    },
+  });
+  if (jsonMode) {
+    emitJsonResult({
+      status: "advisory",
+      summary: "Commit allowed, but staged files could not be inspected",
+      findings: [issueToJsonFinding(issue)],
+    });
+  }
   warningBox([
     pc.bold("Unable to inspect staged files."),
     "",
@@ -192,6 +277,18 @@ if (rawStagedFiles.length === 0) {
     anyStagedResult.status === 0 &&
     anyStagedResult.stdout.trim().length > 0;
 
+  const summary = hasStagedChanges
+    ? "Deletion-only commit; no applicable files to check"
+    : "No staged files to check";
+  jsonOutput.addCheck({
+    id: "staged-files",
+    status: "skipped",
+    summary,
+    details: { deletionOnly: hasStagedChanges, files: [] },
+  });
+  if (jsonMode) {
+    emitJsonResult({ status: "skipped", summary });
+  }
   infoBox(
     hasStagedChanges
       ? [
@@ -209,16 +306,21 @@ if (rawStagedFiles.length === 0) {
   process.exit(0);
 }
 
+jsonOutput.addCheck({
+  id: "staged-files",
+  status: "passed",
+  summary: `${rawStagedFiles.length} staged file${rawStagedFiles.length === 1 ? "" : "s"} inspected`,
+  details: { files: rawStagedFiles },
+});
+
 const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
 
 // Staged-secrets scan: high-precision patterns against *added* lines only,
 // plus staged .env files. A failed diff probe skips the scan (fail-open, like
 // every commit-side guard) — blocking here is opt-in via blockOnSecrets.
-const secretScanConfig = resolveSecretScanConfig(config);
-
 function collectSecretFindings() {
   if (!secretScanConfig.scanSecrets) {
-    return [];
+    return { findings: [], diffInspected: false };
   }
   const findings = [...envFileFindings(rawStagedFiles)];
   const diff = run("git", [
@@ -231,12 +333,49 @@ function collectSecretFindings() {
   if (!diff.error && diff.status === 0) {
     findings.push(...scanDiffForSecrets(diff.stdout));
   }
-  return filterExemptFindings(findings, secretScanConfig.secretExempt);
+  return {
+    findings: filterExemptFindings(findings, secretScanConfig.secretExempt),
+    diffInspected: !diff.error && diff.status === 0,
+  };
 }
 
-const secretFindings = collectSecretFindings();
+const { findings: secretFindings, diffInspected: secretDiffInspected } =
+  collectSecretFindings();
+
+jsonOutput.addCheck({
+  id: "secrets",
+  status: !secretScanConfig.scanSecrets
+    ? "skipped"
+    : secretFindings.length > 0
+      ? secretScanConfig.blockOnSecrets
+        ? "failed"
+        : "advisory"
+      : !secretDiffInspected
+        ? "skipped"
+        : "passed",
+  summary: !secretScanConfig.scanSecrets
+    ? "Secret scanning is disabled"
+    : secretFindings.length > 0
+      ? `${secretFindings.length} possible secret${secretFindings.length === 1 ? "" : "s"} found`
+      : !secretDiffInspected
+        ? "Secret diff could not be inspected"
+        : "No possible secrets found",
+  details: {
+    findingCount: secretFindings.length,
+    diffInspected: secretDiffInspected,
+  },
+});
 
 if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
+  const issue = secretsIssue(secretFindings);
+  if (jsonMode) {
+    emitJsonResult({
+      status: "blocked",
+      exitCode: 1,
+      summary: "Commit blocked because possible secrets are staged",
+      findings: [issueToJsonFinding(issue, "error")],
+    });
+  }
   errorBox([
     pc.bold("Commit blocked: possible secret staged."),
     "",
@@ -320,11 +459,28 @@ function collectGuardIssues() {
 }
 
 const issues = collectGuardIssues();
+const guardIssues = issues.filter((issue) => issue.type !== "secrets");
+jsonOutput.addCheck({
+  id: "commit-guards",
+  status: guardIssues.length > 0 ? "advisory" : "passed",
+  summary:
+    guardIssues.length > 0
+      ? `${guardIssues.length} commit guard finding${guardIssues.length === 1 ? "" : "s"}`
+      : "Commit guards passed",
+  details: { findingCount: guardIssues.length },
+});
 
 // Early-exit states below still surface any guard findings: a commit made of
 // only node_modules files or only unlintable files can still be on the wrong
 // branch or staging build artifacts.
-function exitWithGuardSummary(infoLines) {
+function exitWithGuardSummary(infoLines, summary) {
+  if (jsonMode) {
+    emitJsonResult({
+      status: issues.length > 0 ? "advisory" : "skipped",
+      summary,
+      findings: issues.map((issue) => issueToJsonFinding(issue)),
+    });
+  }
   if (issues.length > 0) {
     warningBox(
       buildAdvisoryMessage({
@@ -340,11 +496,14 @@ function exitWithGuardSummary(infoLines) {
 }
 
 if (stagedFiles.length === 0) {
-  exitWithGuardSummary([
-    pc.bold("No project files to check."),
-    "",
-    pc.dim("Only package dependency files are staged."),
-  ]);
+  exitWithGuardSummary(
+    [
+      pc.bold("No project files to check."),
+      "",
+      pc.dim("Only package dependency files are staged."),
+    ],
+    "No project files to check",
+  );
 }
 
 const stagedJsFiles = stagedFiles.filter((file) => codeFilePattern.test(file));
@@ -353,13 +512,16 @@ const stagedFormatFiles = stagedFiles.filter((file) =>
 );
 
 if (stagedJsFiles.length === 0 && stagedFormatFiles.length === 0) {
-  exitWithGuardSummary([
-    pc.bold("No lintable or formattable files staged."),
-    "",
-    pc.dim(
-      `${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} will be committed without checks.`,
-    ),
-  ]);
+  exitWithGuardSummary(
+    [
+      pc.bold("No lintable or formattable files staged."),
+      "",
+      pc.dim(
+        `${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"} will be committed without checks.`,
+      ),
+    ],
+    "No lintable or formattable files staged",
+  );
 }
 
 // Missing-test detection is pure and instant; opt out with requireTests: false.
@@ -377,6 +539,29 @@ if (config.requireTests !== false && stagedJsFiles.length > 0) {
     });
   }
 }
+
+const missingTestIssues = issues.filter(
+  (issue) =>
+    issue.type === "tests" && issue.message.includes("missing unit tests"),
+);
+jsonOutput.addCheck({
+  id: "missing-tests",
+  status:
+    config.requireTests === false || stagedJsFiles.length === 0
+      ? "skipped"
+      : missingTestIssues.length > 0
+        ? "advisory"
+        : "passed",
+  summary:
+    config.requireTests === false
+      ? "Missing-test detection is disabled"
+      : stagedJsFiles.length === 0
+        ? "No staged source files need test discovery"
+        : missingTestIssues.length > 0
+          ? missingTestIssues[0].message
+          : "Staged source files have tests or exemptions",
+  details: { sourceFiles: stagedJsFiles },
+});
 
 const stagedTests = config.runStagedTests
   ? collectTestsForFiles(stagedFiles)
@@ -448,6 +633,28 @@ if (eslintResult) {
   }
 }
 
+const lintIssues = issues.filter((issue) => issue.type === "lint");
+jsonOutput.addCheck({
+  id: "eslint",
+  status:
+    stagedJsFiles.length === 0
+      ? "skipped"
+      : lintIssues.length > 0
+        ? "advisory"
+        : "passed",
+  summary:
+    stagedJsFiles.length === 0
+      ? "No staged JavaScript or TypeScript files"
+      : lintIssues.length > 0
+        ? `${lintIssues.length} ESLint finding${lintIssues.length === 1 ? "" : "s"}`
+        : "ESLint passed",
+  details: {
+    files: stagedJsFiles,
+    status: eslintResult?.status ?? null,
+    signal: eslintResult?.signal ?? null,
+  },
+});
+
 if (prettierResult) {
   if (prettierResult.error || prettierResult.signal) {
     issues.push({
@@ -485,6 +692,28 @@ if (prettierResult) {
   }
 }
 
+const formatIssues = issues.filter((issue) => issue.type === "format");
+jsonOutput.addCheck({
+  id: "prettier",
+  status:
+    stagedFormatFiles.length === 0
+      ? "skipped"
+      : formatIssues.length > 0
+        ? "advisory"
+        : "passed",
+  summary:
+    stagedFormatFiles.length === 0
+      ? "No staged formattable files"
+      : formatIssues.length > 0
+        ? `${formatIssues.length} Prettier finding${formatIssues.length === 1 ? "" : "s"}`
+        : "Prettier passed",
+  details: {
+    files: stagedFormatFiles,
+    status: prettierResult?.status ?? null,
+    signal: prettierResult?.signal ?? null,
+  },
+});
+
 if (testRun) {
   if (testRun.error || testRun.signal) {
     issues.push({
@@ -507,6 +736,32 @@ if (testRun) {
   }
 }
 
+const stagedTestIssues = issues.filter(
+  (issue) =>
+    issue.type === "tests" && !issue.message.includes("missing unit tests"),
+);
+jsonOutput.addCheck({
+  id: "staged-tests",
+  status:
+    stagedTests.length === 0
+      ? "skipped"
+      : stagedTestIssues.length > 0
+        ? "advisory"
+        : "passed",
+  summary:
+    stagedTests.length === 0
+      ? "Staged tests are disabled or no related tests were found"
+      : stagedTestIssues.length > 0
+        ? `${stagedTestIssues.length} staged-test finding${stagedTestIssues.length === 1 ? "" : "s"}`
+        : "Staged tests passed",
+  details: {
+    command: stagedTests.length > 0 ? [...testCommand, ...stagedTests] : [],
+    files: stagedTests,
+    status: testRun?.status ?? null,
+    signal: testRun?.signal ?? null,
+  },
+});
+
 const dirtyTrackedResult = run("git", [
   ...GIT_PATH_ARGS,
   "diff",
@@ -524,7 +779,22 @@ const dirtyTrackedFiles = canInspectUnstagedFiles
       .filter(Boolean)
   : [];
 
+jsonOutput.addCheck({
+  id: "worktree",
+  status: canInspectUnstagedFiles ? "passed" : "skipped",
+  summary: canInspectUnstagedFiles
+    ? "Unstaged tracked files inspected"
+    : "Unable to inspect unstaged tracked files",
+  details: { files: dirtyTrackedFiles },
+});
+
 if (issues.length === 0) {
+  if (jsonMode) {
+    emitJsonResult({
+      status: "clean",
+      summary: `All pre-commit checks passed for ${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"}`,
+    });
+  }
   successBox([
     pc.bold("All pre-commit checks passed."),
     "",
@@ -533,6 +803,28 @@ if (issues.length === 0) {
     ),
   ]);
   process.exit(0);
+}
+
+const canSuggestCommitFix =
+  issues.some((issue) => issue.autoFixable) &&
+  canInspectUnstagedFiles &&
+  dirtyTrackedFiles.length === 0;
+const suggestions = canSuggestCommitFix
+  ? [
+      {
+        command: runScript("commit:fix"),
+        description: "Apply automatic fixes and safely amend the latest commit",
+      },
+    ]
+  : [];
+
+if (jsonMode) {
+  emitJsonResult({
+    status: "advisory",
+    summary: `${issues.length} pre-commit finding${issues.length === 1 ? "" : "s"}; commit allowed`,
+    findings: issues.map((issue) => issueToJsonFinding(issue)),
+    suggestions,
+  });
 }
 
 warningBox(

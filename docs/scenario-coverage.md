@@ -69,6 +69,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-015** — CLI help and subcommand error reporting work outside a Git repo / Node project. Subprocess: `test/cli.test.mjs`.
 - **CLI-016** — shell-sensitive command tokens are not shell-expanded by the CLI wrapper. Subprocess: `test/cli.test.mjs`.
 - **CLI-017** — `uninstall` dispatches through the bin. Subprocess: `test/cli.test.mjs`.
+- **CLI-018** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
 
 ### Init
 
@@ -119,6 +120,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-009** — opt-in staged tests run and warn on failure or stay clean on success (pluralized). Fixture: `test/precommit.test.mjs`.
 - **PRE-010** — tool failures stay advisory: ESLint/Prettier/test errors, timeouts, and unreadable staged/unstaged probes never crash the commit. Fixture: `test/precommit.test.mjs`.
 - **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
+- **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
 
 ### Commit fix (amend)
 
@@ -169,6 +171,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PUSH-007** — non-node test commands run through the tee/summary fallback. Fixture: `test/prepush.test.mjs`.
 - **PUSH-008** — test-command failure blocks in blocking mode and warns/allows in advisory mode; a missing summary blocks. Fixture: `test/prepush.test.mjs`.
 - **PUSH-009** — pushed-file diff failure or malformed name/status output fails closed in blocking mode, warns/allows in advisory mode, and stays silent when disabled. Fixture: `test/prepush.test.mjs`.
+- **PUSH-010** — JSON mode preserves Git's pre-push positional arguments, keeps subprocess output off stdout, and reports advisory, clean, and blocking outcomes. Fixture: `test/json-output.test.mjs`.
 
 ### Advisory message and tone
 

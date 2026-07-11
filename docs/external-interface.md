@@ -28,7 +28,9 @@ npx commitment-issues uninstall --dry-run
 npx commitment-issues uninstall
 npx commitment-issues doctor
 npx commitment-issues precommit
+npx commitment-issues precommit --json
 npx commitment-issues prepush
+npx commitment-issues prepush --json
 npx commitment-issues --version
 ```
 
@@ -107,8 +109,15 @@ The tool prints compact terminal boxes with clear status and next steps:
 For concrete output states and screenshots, see
 [Message states](message-states.md).
 
+`precommit --json` and `prepush --json` replace terminal boxes on stdout with a
+single versioned payload. The schema, field semantics, stderr behavior, and
+examples are documented in [JSON output](json-output.md). Other subcommands do
+not support `--json`.
+
 ## Exit behavior
 
 - Default commit and push flows are advisory-first and non-blocking.
 - Blocking behavior is opt-in via `precommitChecks`.
 - Fix commands can fail non-zero when safety checks fail or manual fixes remain.
+- JSON mode reports the same exit code in its `exitCode` field and does not
+  change whether an advisory or enforcement result blocks.

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in `--json` results for `precommit` and `prepush`, with one shared,
+  versioned schema covering check outcomes, findings, safe command suggestions,
+  configuration diagnostics, and unchanged exit codes. JSON is the only stdout
+  content; pre-push test-runner output moves to stderr in this mode.
 - `commitment-issues uninstall` with a matching `--dry-run` preview. It removes
   only exact generated scripts and native hook bodies plus the package-specific
   configuration block; custom project wiring is preserved and reported for
