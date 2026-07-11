@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Optional bring-your-own commitlint integration under
+  `precommitChecks.commitMessage`: disabled by default, advisory after explicit
+  enablement, and blocking only with `blockOnFailure`. It owns a safely quoted
+  native `commit-msg` hook without overwriting custom hooks, resolves only the
+  project-local CLI (no implicit npx/network/global fallback), requires the
+  consumer's own rules config, and participates in init/doctor/uninstall and
+  fresh-clone repair.
 - `commitment-issues uninstall` with a matching `--dry-run` preview. It removes
   only exact generated scripts and native hook bodies plus the package-specific
   configuration block; custom project wiring is preserved and reported for

@@ -8,9 +8,8 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
-  unknownPrecommitConfigKeys,
+  precommitConfigWarningMessages,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles, parseNameStatusPaths } from "./lib/files.mjs";
@@ -32,27 +31,10 @@ const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const config = loadPrecommitConfig();
 
-// A typo'd key (e.g. advisePushTest) silently disables the mode the user
-// thinks is on. One concise advisory line, matching the conflict warning below.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    ),
-  );
-}
-
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default. Surface it on one concise advisory line, matching the unknown-key
-// and config-conflict warnings — never a box, never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  console.warn(
-    pc.yellow(
-      `⚠ Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    ),
-  );
+// Typo'd keys and invalid values fall back safely. Surface each diagnostic on
+// one concise advisory line without turning pre-push checks into a blocker.
+for (const message of precommitConfigWarningMessages(config)) {
+  console.warn(pc.yellow(`⚠ ${message}`));
 }
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is

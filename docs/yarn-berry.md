@@ -57,6 +57,10 @@ would require resolving every tool through the Yarn runtime instead of
 5. Commit and push normally. The hooks resolve their binaries from
    `node_modules/.bin`, just like in an npm or pnpm project.
 
+If you enable optional commit-message linting, also add `@commitlint/cli` and
+your chosen config package at the project root. That integration follows the
+same `node_modules/.bin` requirement and has no PnP/global/npx fallback.
+
 ## Verifying the setup
 
 - Confirm a `node_modules` directory exists at the project root.

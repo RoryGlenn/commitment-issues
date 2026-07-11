@@ -21,18 +21,17 @@ npx commitment-issues init
 root:
 
 - **Hooks live at the Git root.** `init` writes `.git/hooks/pre-commit` and
-  `.git/hooks/pre-push` in the repository's git directory, so they run once per
-  commit and push for the
-  whole repository.
+  `.git/hooks/pre-push` in the repository's git directory, plus the optional
+  `.git/hooks/commit-msg` when enabled, so they run once for the whole
+  repository.
 - **Staged files are checked across all packages.** The pre-commit check reads
   staged paths with `git diff --cached` relative to the repo root, so changes in
   any workspace package are included together.
 - **Configuration is read from the root `package.json`.** The `precommitChecks`
   options come from the root package, not from individual workspace packages.
 - **Tools resolve from the root `node_modules/.bin`.** In a typical workspace
-  setup the peer tools (`eslint`, `prettier`)
-  are hoisted to the
-  root, which is where the hooks resolve them.
+  setup the peer tools (`eslint`, `prettier`) and optional commitlint CLI are
+  hoisted to the root, which is where the hooks resolve them.
 
 ## Recommended setup
 
@@ -43,6 +42,8 @@ root:
    to specific packages when needed.
 4. Set `precommitChecks` in the root `package.json` to match how you want the
    whole repository checked.
+5. If commit-message linting is enabled, install commitlint and keep its config
+   at the root; per-workspace commitlint resolution is not attempted.
 
 ## Scoping checks per package
 

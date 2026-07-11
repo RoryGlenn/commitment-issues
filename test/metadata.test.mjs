@@ -91,6 +91,39 @@ test("husky and lint-staged stay out of the dependency tree", () => {
   }
 });
 
+test("optional commitlint integration adds no package dependency", () => {
+  const pkg = readJson("package.json");
+  for (const section of [
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "optionalDependencies",
+  ]) {
+    for (const name of Object.keys(pkg[section] ?? {})) {
+      assert.doesNotMatch(
+        name,
+        /^(?:@commitlint\/|commitlint$)/,
+        `${name} must remain consumer-provided, not a package ${section} entry`,
+      );
+    }
+  }
+  assert.equal(isPackaged("scripts/commit-msg.mjs", pkg), true);
+});
+
+test("commit-message schema and local-only boundary are documented", () => {
+  const docs = readText("docs/configuration.md");
+  for (const key of ["commitMessage", "enabled", "blockOnFailure"]) {
+    assert.match(docs, new RegExp(`\\b${key}\\b`));
+  }
+  assert.match(docs, /node_modules\/\.bin\/commitlint/);
+  assert.match(
+    docs,
+    /never falls back to `npx`, a global\s+binary, or the network/,
+  );
+  assert.match(docs, /does not add commitlint as a dependency/);
+  assert.match(docs, /does not.*built-in.*Conventional Commits/is);
+});
+
 test("bin entries are tracked with the executable bit", () => {
   const pkg = readJson("package.json");
   // npm's fix-bin chmods bins for registry installs, but git clones and
@@ -264,6 +297,7 @@ test("every terminal box title appears in the message-states gallery", () => {
   const sources = [
     "scripts/cli.mjs",
     "scripts/commit-fix.mjs",
+    "scripts/commit-msg.mjs",
     "scripts/doctor.mjs",
     "scripts/fix-staged.mjs",
     "scripts/fix-staged-js.mjs",

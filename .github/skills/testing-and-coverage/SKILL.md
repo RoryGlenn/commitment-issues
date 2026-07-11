@@ -20,7 +20,7 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 ## The two kinds of code, and how each is tested
 
 1. **Helper modules** (`scripts/lib/*.mjs`) are pure and side-effect-light. **Unit-test them in-process** with a direct `import`. Easy to cover.
-2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, `fix-staged-js`, `ci-lifecycle-smoke`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
+2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-msg`, `commit-fix`, `fix-staged`, `fix-staged-js`, `ci-lifecycle-smoke`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
 
 Typical subprocess test shape:
 

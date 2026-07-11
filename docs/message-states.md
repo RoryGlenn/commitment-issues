@@ -18,7 +18,7 @@ npm run states -- --list    # list state names
   <img src="../assets/init-success.svg" alt="Green output with the split-heart logo showing that Commitment Issues is set up" width="737">
 </p>
 
-Shown only when `init` finishes wiring up both active hooks along with the scripts, configuration, and gitignore defaults. Lists exactly what was added.
+Shown only when `init` finishes wiring every configured hook along with the scripts, configuration, and gitignore defaults. The optional commit-msg hook is included only when enabled. Lists exactly what was added.
 
 ### Dry-run preview
 
@@ -34,7 +34,7 @@ Shown for `init --dry-run`: the same change list, but nothing is written.
   <img src="../assets/init-already-configured.svg" alt="Green output showing that everything is already configured and nothing changed" width="737">
 </p>
 
-Shown when `init` is re-run, finds nothing to change, and verifies that both hooks invoke `commitment-issues`. Init is safe to re-run at any time.
+Shown when `init` is re-run, finds nothing to change, and verifies that every configured hook invokes `commitment-issues`. Init is safe to re-run at any time.
 
 ### No package.json
 
@@ -185,7 +185,7 @@ Shown when `precommitChecks.tone` is `"fun"`: every advisory state above keeps i
   <img src="../assets/config-unknown-key-warning.svg" alt="A single yellow console warning saying an unknown precommitChecks key is being ignored" width="646">
 </p>
 
-Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when `precommitChecks` contains a key the tool does not recognize — usually a typo like `requireTest` that would otherwise silently fall back to the default behavior.
+Shown as a diagnostic by hooks, `init`, and `doctor` when `precommitChecks` contains a key the tool does not recognize — including nested paths such as `commitMessage.enable` that would otherwise silently fall back to the default behavior.
 
 ### Invalid config value warning
 
@@ -193,7 +193,7 @@ Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push h
   <img src="../assets/config-invalid-value-warning.svg" alt="A single yellow console warning saying an invalid precommitChecks value is being ignored" width="646">
 </p>
 
-Shown (as a one-line stderr warning, not a box) by the pre-commit and pre-push hooks when a recognized `precommitChecks` key has an invalid value — for example a string where a boolean is expected, or a non-positive `timeoutMs`. The invalid value is ignored in favor of the default, and the commit or push still proceeds.
+Shown as a diagnostic by hooks, `init`, and `doctor` when a recognized `precommitChecks` key has an invalid value — for example a string where a boolean is expected, a non-positive `timeoutMs`, or a non-boolean `commitMessage.enabled`. The invalid value is ignored in favor of the default.
 
 ### Unable to inspect staged files
 
@@ -306,6 +306,53 @@ Shown only when `blockOnSecrets` is enabled and the scan found something. The co
 </p>
 
 Shown only when `blockProtectedBranches` is enabled and the current branch matches `protectedBranches`. The commit is refused; `git commit --no-verify` bypasses it once.
+
+## Commit message
+
+These states appear only after `precommitChecks.commitMessage.enabled` is set
+to `true`. A successful project-local commitlint run is silent.
+
+### Commit message needs attention
+
+`Commit message needs attention` reports commitlint output in advisory mode.
+The commit continues and the consumer's rule name/detail remains visible.
+
+### Commit blocked: commit message needs attention
+
+`Commit blocked: commit message needs attention` is the same reported problem
+with `commitMessage.blockOnFailure: true`. It exits non-zero and names
+`git commit --no-verify` as the explicit one-time bypass.
+
+### Commit-message check unavailable
+
+`Commit-message check unavailable` covers a missing project-local commitlint
+CLI or a local executable that could not start. The message states that no
+`npx`, network, or global fallback was attempted and gives a package-manager
+specific install command.
+
+### Commitlint configuration not found
+
+`Commitlint configuration not found` is shown for commitlint's missing-config
+result or its strict-mode `empty-rules` diagnostic.
+It asks the consumer to add its own rules and explicitly says no built-in
+Conventional Commits policy was substituted.
+
+### Unable to read the commit message
+
+`Unable to read the commit message` means the hook received no readable regular
+file. Message paths are passed as one quoted argument rather than interpreted
+as shell fragments.
+
+### Commitlint timed out
+
+`Commitlint timed out` uses the shared `timeoutMs` ceiling. Like every failure
+above it warns in advisory mode and blocks only after explicit enforcement.
+
+Fun tone provides corresponding relationship-themed titles and body copy
+without changing the result: `Commit message sent mixed signals`,
+`Commitlint stood this commit up`, `Commitlint needs relationship rules`,
+`The commit message went missing`, `Commitlint needed space`, and
+`Commitlint left this commit on read`.
 
 ## Commit fix and staged fixes
 
@@ -589,6 +636,12 @@ A real `git push` with no push-test mode configured prints nothing at all — th
 
 ## Doctor
 
+### Configuration needs attention
+
+`Configuration needs attention.` lists unknown or invalid package configuration,
+including nested commit-message paths, without preventing safe hook repair.
+`doctor --quiet` prints equivalent one-line diagnostics and still exits 0.
+
 ### Already healthy
 
 <p>
@@ -620,6 +673,13 @@ Shown when a custom hook exists but never invokes `commitment-issues`; `doctor` 
 </p>
 
 Shown when eslint or prettier cannot be resolved. Advisory only: missing tools never fail an otherwise-healthy repo.
+
+### Commit-message linting is not ready
+
+`Commit-message linting is not ready.` appears when the integration is enabled
+but `node_modules/.bin/commitlint` is absent. It suggests installing
+`@commitlint/cli` locally and adding a consumer-owned config; it never downloads
+anything or makes `doctor --quiet` fail an install.
 
 ### Foreign core.hooksPath
 

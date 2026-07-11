@@ -35,6 +35,9 @@ failures only block when `blockPushOnTestFailure` is enabled:
 }
 ```
 
+Optional commit-message failures block only when both
+`commitMessage.enabled` and `commitMessage.blockOnFailure` are `true`.
+
 The fix commands can still fail when they cannot run safely or when manual fixes
 remain. That is separate from the default commit and push hook behavior.
 
@@ -50,6 +53,8 @@ package can run from Git hooks. It can:
   project-owned `prepare` command, so hook wiring self-heals on install
 - create `.git/hooks/pre-commit` and `.git/hooks/pre-push` when they are
   missing (existing hook files are never overwritten)
+- create `.git/hooks/commit-msg` only when `commitMessage.enabled` is `true`
+  (custom commit-msg hooks are preserved like every other custom hook)
 - migrate a pre-3.0 setup: retire the husky-era `core.hooksPath` and remove
   the `.husky` wiring this tool generated (user-authored `.husky` hooks are
   kept and reported)
@@ -62,6 +67,40 @@ setup succeeds. This also works with Yarn Classic, which does not run an npm-sty
 
 It does not vendor package source into your repo. The hooks call the installed
 `commitment-issues` binary from `node_modules/.bin`.
+
+## How do I enable commit-message linting?
+
+Bring your own commitlint installation and rules. For example:
+
+```bash
+npm install -D @commitlint/cli @commitlint/config-conventional
+```
+
+```js
+// commitlint.config.js
+export default { extends: ["@commitlint/config-conventional"] };
+```
+
+Then enable advisory feedback:
+
+```json
+{
+  "precommitChecks": {
+    "commitMessage": {
+      "enabled": true,
+      "blockOnFailure": false
+    }
+  }
+}
+```
+
+Run `npx commitment-issues init` or `npm run doctor` after enabling it so the
+native commit-msg hook is created. Set `blockOnFailure` to `true` only after the
+team trusts the rules. The runner uses project-local
+`node_modules/.bin/commitlint` only—never implicit `npx`, a global install, or
+the network—and it never substitutes a built-in Conventional Commits policy.
+Missing CLI/config and lint failures warn in advisory mode and block in blocking
+mode. `git commit --no-verify` remains the explicit one-time bypass.
 
 ## Is it safe to run `init` more than once?
 
@@ -253,6 +292,12 @@ hook is not wired and leaves it alone.
 Add the `commitment-issues` command to the custom hook manually when you want it
 to run alongside your existing behavior.
 
+For a custom commit-msg hook, preserve Git's message file as one argument:
+
+```sh
+commitment-issues commit-msg "$1"
+```
+
 ## How do I make the output more playful?
 
 Set `tone` to `"fun"`:
@@ -288,7 +333,8 @@ npx commitment-issues uninstall
 ```
 
 The uninstaller removes exact generated package scripts, the
-`precommitChecks` configuration block, and exact generated native hook bodies.
+`precommitChecks` configuration block, and exact generated native hook bodies,
+including an owned optional commit-msg hook.
 It preserves customized scripts and hooks and reports any command that needs
 manual removal. It also preserves shared `.gitignore` entries, ESLint,
 Prettier, the package dependency, and the lockfile because the project may own

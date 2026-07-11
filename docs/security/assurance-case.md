@@ -4,7 +4,7 @@ This assurance case explains why the security requirements for `commitment-issue
 
 ## Scope
 
-`commitment-issues` is local Git-hook tooling for JavaScript and TypeScript projects. It reads local Git state and project files, runs local tools such as ESLint, Prettier, and test runners, and prints advisory or blocking terminal output depending on configuration.
+`commitment-issues` is local Git-hook tooling for JavaScript and TypeScript projects. It reads local Git state and project files, runs local tools such as ESLint, Prettier, optional consumer-provided commitlint, and test runners, and prints advisory or blocking terminal output depending on configuration.
 
 The project does not provide a network service, store user credentials, transmit repository contents, or manage cryptographic keys for users.
 
@@ -46,7 +46,7 @@ Important trust boundaries are:
 1. **User repository boundary** — project files, `package.json`, staged files, branch state, and test files are controlled by the repository and may be untrusted when running in an unfamiliar project.
 2. **Configuration boundary** — `precommitChecks` in `package.json` is user-controlled input and must be validated before use.
 3. **Git boundary** — Git output is external process output and must be parsed defensively.
-4. **Process boundary** — ESLint, Prettier, test runners, and package-manager commands are spawned as external tools.
+4. **Process boundary** — ESLint, Prettier, optional project-local commitlint, test runners, and package-manager commands are spawned as external tools.
 5. **Shell boundary** — file paths and command arguments must not be interpolated into a shell command.
 6. **CI/CD boundary** — GitHub Actions workflows operate on repository contents and pull request metadata.
 7. **Release boundary** — npm releases and GitHub release workflows must preserve package integrity and provenance.
@@ -82,7 +82,7 @@ Git state and configuration are checked at the point of hook execution. Configur
 
 ### Fail-safe defaults
 
-Default commit-time behavior is advisory rather than destructive. Push-time blocking is opt-in. If the tool cannot safely inspect staged files, it warns rather than mutating work unexpectedly. Blocking pre-push mode fails closed when pushed files cannot be inspected.
+Default commit-time behavior is advisory rather than destructive. Push-time and commit-message blocking are separate opt-ins. If the tool cannot safely inspect staged files, it warns rather than mutating work unexpectedly. Blocking pre-push mode fails closed when pushed files cannot be inspected; blocking commit-message mode likewise fails closed when its explicitly configured local tool or rules cannot run.
 
 ### Least astonishment
 
@@ -96,7 +96,7 @@ The project combines local validation, tests, linting, formatting, CI on multipl
 
 ### Command injection
 
-The project avoids shell interpolation for tool execution. Commands are spawned with argument vectors through Node.js process APIs and `cross-spawn`, so file paths are passed as arguments rather than shell code.
+The project avoids shell interpolation for tool execution. Commands are spawned with argument vectors through Node.js process APIs and `cross-spawn`, so file paths are passed as arguments rather than shell code. The generated commit-msg hook quotes Git's `$1`, and the entrypoint resolves it to one absolute argv value before invoking commitlint.
 
 ### Path handling and path traversal
 
@@ -113,6 +113,11 @@ The `precommitChecks` object is allowlisted by key and value. Unknown keys are r
 ### Dependency vulnerabilities
 
 Dependencies are declared in `package.json`, locked in `package-lock.json`, and monitored with Dependabot. Dependency changes are reviewed through pull requests and CI.
+
+Optional commit-message linting does not add commitlint to this dependency
+graph. It resolves only the consumer project's `node_modules/.bin/commitlint`
+and has no npx, global, or network fallback; the consumer explicitly owns and
+trusts both the tool and its executable configuration.
 
 ### CI/CD risks
 
