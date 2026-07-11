@@ -162,7 +162,7 @@ See [How commitment-issues works](docs/how-it-works.md) for the complete flow.
 | Git hooks               | Native `.git/hooks` files                                            |
 | Yarn Berry              | Supported with `nodeLinker: node-modules`                            |
 | Yarn Plug'n'Play        | Not supported; hooks resolve `node_modules/.bin`                     |
-| Monorepos               | Root-level workspaces supported; review the documented boundaries    |
+| Monorepos               | Root-owned npm/pnpm/Yarn/Bun workspaces and linked Git worktrees     |
 | Existing custom hooks   | Preserved; add the `commitment-issues` command manually              |
 | Commit-message linting  | Optional; bring your own local commitlint CLI and configuration      |
 | CI                      | Keep CI as the authoritative gate; local hooks can be disabled in CI |
