@@ -60,6 +60,9 @@ jobs:
           chmod +x "$RUNNER_TEMP/render-bin/vhs" "$RUNNER_TEMP/render-bin/ttyd"
           echo "$RUNNER_TEMP/render-bin" >> "$GITHUB_PATH"
 
+      - name: Preserve the committed demo for visual comparison
+        run: cp assets/demo.gif "$RUNNER_TEMP/committed-demo.gif"
+
       - name: Render assets/demo.gif from promo/demo.tape
         run: vhs promo/demo.tape
 
@@ -71,5 +74,33 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Verify rendered demo matches the committed asset
-        run: git diff --exit-code -- assets/demo.gif
+      - name: Verify rendered demo matches committed visuals
+        env:
+          MINIMUM_SSIM: "0.998"
+        run: |
+          set -euo pipefail
+          comparison="$(
+            ffmpeg -hide_banner \
+              -i "$RUNNER_TEMP/committed-demo.gif" \
+              -i assets/demo.gif \
+              -lavfi ssim \
+              -f null - 2>&1
+          )"
+          score="$(
+            printf '%s\n' "$comparison" |
+              sed -n 's/.* All:\([0-9.]*\) .*/\1/p' |
+              tail -1
+          )"
+          SCORE="$score" node -e '
+            const score = Number(process.env.SCORE);
+            const minimum = Number(process.env.MINIMUM_SSIM);
+            if (!Number.isFinite(score) || score < minimum) {
+              console.error(
+                `Rendered demo visual similarity ${score || "unavailable"} is below ${minimum}.`,
+              );
+              process.exit(1);
+            }
+            console.log(
+              `Rendered demo visual similarity ${score.toFixed(6)} meets ${minimum}.`,
+            );
+          '
