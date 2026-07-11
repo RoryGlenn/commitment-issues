@@ -106,6 +106,9 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     "git commit -q -am 'print hello world'",
   );
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
+  const metadataIndex = workflow.indexOf(
+    "name: Verify rendered demo dimensions and timing",
+  );
   const verifyIndex = workflow.indexOf(
     "name: Verify rendered demo matches committed visuals",
   );
@@ -115,6 +118,19 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /ln -s "\$REPO\/node_modules" node_modules/);
   assert.match(workflow, /npm ci --ignore-scripts/);
   assert.match(workflow, /node-version: "24\.14\.0"/);
+  for (const input of [
+    ".github/workflows/render-demo.yml",
+    "assets/demo.gif",
+    "promo/demo.tape",
+    "package.json",
+    "package-lock.json",
+    "scripts/**",
+  ]) {
+    assert.ok(
+      workflow.includes(`- "${input}"`),
+      `render workflow should run when ${input} changes`,
+    );
+  }
   assert.ok(renderIndex >= 0, "workflow should render the demo");
   assert.match(
     workflow,
@@ -122,9 +138,28 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   );
   assert.match(workflow, /MINIMUM_SSIM: "0\.998"/);
   assert.match(workflow, /-lavfi ssim/);
+  assert.match(workflow, /MAX_DURATION_DRIFT_SECONDS: "0\.05"/);
+  assert.match(workflow, /execFileSync\(\s*"ffprobe"/);
+  assert.match(workflow, /"-count_frames"/);
+  assert.match(
+    workflow,
+    /stream=width,height,nb_read_frames,duration:format=duration/,
+  );
+  assert.match(workflow, /rendered\.width !== committed\.width/);
+  assert.match(workflow, /rendered\.height !== committed\.height/);
+  assert.match(workflow, /rendered\.frames !== committed\.frames/);
+  assert.match(workflow, /durationDrift > tolerance/);
   assert.ok(
     verifyIndex > renderIndex,
     "workflow should compare the rendered GIF after rendering it",
+  );
+  assert.ok(
+    metadataIndex > uploadIndex,
+    "workflow should preserve the rendered artifact before metadata checks",
+  );
+  assert.ok(
+    verifyIndex > metadataIndex,
+    "workflow should reject metadata drift before evaluating SSIM",
   );
   assert.ok(
     uploadIndex > renderIndex,

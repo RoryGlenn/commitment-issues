@@ -8,6 +8,7 @@ on:
       - "promo/demo.tape"
       - "package.json"
       - "package-lock.json"
+      - "scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -73,6 +74,103 @@ jobs:
           path: assets/demo.gif
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify rendered demo dimensions and timing
+        env:
+          MAX_DURATION_DRIFT_SECONDS: "0.05"
+        run: |
+          set -euo pipefail
+          node - "$RUNNER_TEMP/committed-demo.gif" assets/demo.gif <<'NODE'
+          const { execFileSync } = require("node:child_process");
+
+          const [committedPath, renderedPath] = process.argv.slice(2);
+          const tolerance = Number(process.env.MAX_DURATION_DRIFT_SECONDS);
+
+          if (!Number.isFinite(tolerance) || tolerance < 0) {
+            throw new Error("MAX_DURATION_DRIFT_SECONDS must be non-negative.");
+          }
+
+          function probe(file) {
+            const raw = execFileSync(
+              "ffprobe",
+              [
+                "-v",
+                "error",
+                "-count_frames",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height,nb_read_frames,duration:format=duration",
+                "-of",
+                "json",
+                file,
+              ],
+              { encoding: "utf8" },
+            );
+            const data = JSON.parse(raw);
+            const stream = data.streams?.[0] ?? {};
+            const streamDuration = Number(stream.duration);
+            const formatDuration = Number(data.format?.duration);
+            const metrics = {
+              width: Number(stream.width),
+              height: Number(stream.height),
+              frames: Number(stream.nb_read_frames),
+              duration: Number.isFinite(streamDuration)
+                ? streamDuration
+                : formatDuration,
+            };
+
+            if (
+              !Number.isInteger(metrics.width) ||
+              metrics.width <= 0 ||
+              !Number.isInteger(metrics.height) ||
+              metrics.height <= 0 ||
+              !Number.isInteger(metrics.frames) ||
+              metrics.frames <= 0 ||
+              !Number.isFinite(metrics.duration) ||
+              metrics.duration <= 0
+            ) {
+              throw new Error(
+                `ffprobe returned invalid GIF metrics for ${file}: ${JSON.stringify(metrics)}`,
+              );
+            }
+            return metrics;
+          }
+
+          const committed = probe(committedPath);
+          const rendered = probe(renderedPath);
+          const failures = [];
+
+          if (
+            rendered.width !== committed.width ||
+            rendered.height !== committed.height
+          ) {
+            failures.push(
+              `dimensions differ (${committed.width}x${committed.height} committed, ${rendered.width}x${rendered.height} rendered)`,
+            );
+          }
+          if (rendered.frames !== committed.frames) {
+            failures.push(
+              `frame counts differ (${committed.frames} committed, ${rendered.frames} rendered)`,
+            );
+          }
+
+          const durationDrift = Math.abs(rendered.duration - committed.duration);
+          if (durationDrift > tolerance) {
+            failures.push(
+              `duration drift ${durationDrift.toFixed(6)}s exceeds ${tolerance.toFixed(6)}s (${committed.duration.toFixed(6)}s committed, ${rendered.duration.toFixed(6)}s rendered)`,
+            );
+          }
+
+          if (failures.length > 0) {
+            console.error(`Rendered demo metadata mismatch: ${failures.join("; ")}.`);
+            process.exit(1);
+          }
+
+          console.log(
+            `Rendered demo metadata matches: ${rendered.width}x${rendered.height}, ${rendered.frames} frames, ${rendered.duration.toFixed(6)}s.`,
+          );
+          NODE
 
       - name: Verify rendered demo matches committed visuals
         env:
