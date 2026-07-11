@@ -64,6 +64,12 @@ Ubuntu CI enforces the 90% threshold on Node 22.22.1 and Node 24. Node 24 is the
 canonical badge producer: `npm run coverage:check` runs the same gated command
 and fails if the committed README badge differs from the generated value.
 
+The badge rounds to one decimal place. Node's experimental coverage merger can
+occasionally add or remove one equivalent branch record when subprocess reports
+arrive in a different order; the coarser display keeps that runner jitter from
+making badge freshness flaky. The 90% CI threshold still evaluates Node's
+unrounded coverage result.
+
 To refresh it locally:
 
 ```bash

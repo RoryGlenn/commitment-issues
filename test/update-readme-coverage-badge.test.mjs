@@ -75,11 +75,11 @@ test("updates README badge from test:coverage output", (t) => {
   assert.equal(result.status, 0);
   assert.match(
     `${result.stdout}${result.stderr}`,
-    /Updated README branch coverage badge to 88.88%/,
+    /Updated README branch coverage badge to 88.9%/,
   );
   assert.match(
     fs.readFileSync(readmePath, "utf8"),
-    /Branch coverage: 88\.88%\]\(https:\/\/img\.shields\.io\/badge\/branch%20coverage-88\.88%25-green\.svg\)/,
+    /Branch coverage: 88\.9%\]\(https:\/\/img\.shields\.io\/badge\/branch%20coverage-88\.9%25-green\.svg\)/,
   );
 });
 
@@ -115,7 +115,7 @@ test("reports when the badge is already up to date", (t) => {
 
   const readmePath = path.join(tempDir, "README.md");
   const initialReadme =
-    "[![Branch coverage: 88.88%](https://img.shields.io/badge/branch%20coverage-88.88%25-green.svg)](docs/branch-coverage.md)\n";
+    "[![Branch coverage: 88.9%](https://img.shields.io/badge/branch%20coverage-88.9%25-green.svg)](docs/branch-coverage.md)\n";
   writeFile(readmePath, initialReadme);
 
   const result = run(
@@ -133,7 +133,7 @@ test("reports when the badge is already up to date", (t) => {
   assert.equal(result.status, 0);
   assert.match(
     `${result.stdout}${result.stderr}`,
-    /README branch coverage badge is up to date \(88\.88%\)/,
+    /README branch coverage badge is up to date \(88\.9%\)/,
   );
   assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
 });
@@ -252,7 +252,7 @@ test("--check accepts the exact generated badge", (t) => {
 
   const readmePath = path.join(tempDir, "README.md");
   const initialReadme =
-    "[![Branch coverage: 88.88%](https://img.shields.io/badge/branch%20coverage-88.88%25-green.svg)](docs/branch-coverage.md)\n";
+    "[![Branch coverage: 88.9%](https://img.shields.io/badge/branch%20coverage-88.9%25-green.svg)](docs/branch-coverage.md)\n";
   writeFile(readmePath, initialReadme);
 
   const result = run(
@@ -273,7 +273,7 @@ test("--check accepts the exact generated badge", (t) => {
   assert.equal(result.status, 0);
   assert.match(
     `${result.stdout}${result.stderr}`,
-    /README branch coverage badge is up to date \(88\.88%\)/,
+    /README branch coverage badge is up to date \(88\.9%\)/,
   );
   assert.equal(fs.readFileSync(readmePath, "utf8"), initialReadme);
 });
