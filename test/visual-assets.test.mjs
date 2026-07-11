@@ -99,7 +99,7 @@ test("README and how-it-works reference both refreshed flowchart themes", () => 
 
 test("demo tape records a reproducible feature-branch workflow", () => {
   const tape = read("promo/demo.tape");
-  const lock = JSON.parse(read("package-lock.json"));
+  const workflow = read(".github/workflows/render-demo.yml");
   const initIndex = tape.indexOf("npx --no-install commitment-issues init");
   const switchIndex = tape.indexOf("git switch -q -c feature/greeting");
   const visibleCommitIndex = tape.indexOf(
@@ -107,16 +107,15 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   );
 
   assert.match(tape, /^Output assets\/demo\.gif$/m);
-  assert.match(tape, /npm pack --quiet --ignore-scripts/);
-  assert.match(tape, /npm install --offline --ignore-scripts/);
-  assert.match(tape, /commitment-issues-demo\.tgz/);
-  assert.match(tape, /--save-exact/);
+  assert.match(tape, /ln -s "\$REPO\/node_modules" node_modules/);
+  assert.match(workflow, /npm ci --ignore-scripts/);
+  assert.match(workflow, /node-version: "24\.14\.0"/);
   assert.match(tape, /Set FontFamily "DejaVu Sans Mono"/);
   assert.match(tape, /Set TypingSpeed 1ms/);
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /npx --no-install commitment-issues init/);
   assert.match(tape, /PROMPT='READY> '/);
-  assert.match(tape, /Wait\+Line@1m \/READY>\$\//);
+  assert.match(tape, /Wait\+Line@30s \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
   assert.match(tape, /Wait\+Screen@30s \/Pre-commit suggestions found\//);
   assert.match(
@@ -127,14 +126,6 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     tape,
     /Wait\+Screen@30s \/feature\\\/greeting -> feature\\\/greeting\//,
   );
-  for (const dependency of ["eslint", "prettier", "@eslint/js", "globals"]) {
-    const version = lock.packages[`node_modules/${dependency}`]?.version;
-    assert.ok(version, `${dependency} should be present in package-lock.json`);
-    assert.ok(
-      tape.includes(`${dependency}@${version}`),
-      `demo should pin ${dependency} to the package-lock version`,
-    );
-  }
   assert.ok(switchIndex >= 0, "demo should create a named feature branch");
   assert.ok(
     tape.lastIndexOf("Show", initIndex) > tape.lastIndexOf("Hide", initIndex),

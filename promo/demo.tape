@@ -8,10 +8,10 @@
 #   macOS: `brew install vhs`  (pulls in ffmpeg + ttyd; zsh is already available by default)
 # Then run this tape from the repo root:  vhs promo/demo.tape
 #
-# Dependency setup is hidden and pins the direct tool versions used by the
-# repository lockfile. The visible scenario, terminal size, branch name, and
-# pauses stay fixed so reruns describe the same workflow. Output lands at
-# assets/demo.gif, which is already embedded in the README.
+# Run `npm ci --ignore-scripts` in this repository before VHS. Dependency setup
+# is hidden and uses that exact lockfile install. The visible scenario, terminal
+# size, branch name, and completion markers stay fixed so reruns describe the
+# same workflow. Output lands at assets/demo.gif, which is embedded in README.
 
 Output assets/demo.gif
 
@@ -52,13 +52,9 @@ Type "npm init -y >/dev/null 2>&1" Enter
 Wait+Line@30s /READY>$/
 Type "printf 'node_modules/\n' > .gitignore" Enter
 Wait+Line /READY>$/
-# Pack and install the local build (not the npm release) so the GIF reflects
-# current code without recording a machine-specific source path.
-Type `TARBALL=$(npm pack --quiet --ignore-scripts "$REPO" --pack-destination .) && mv "$TARBALL" commitment-issues-demo.tgz` Enter
-Wait+Line@1m /READY>$/
-Type `npm install --offline --ignore-scripts -D --save-exact ./commitment-issues-demo.tgz eslint@9.39.4 prettier@3.9.5 @eslint/js@9.39.4 globals@17.7.0 >/dev/null 2>&1` Enter
-Wait+Line@1m /READY>$/
-Type "rm commitment-issues-demo.tgz" Enter
+# Link the repository's lockfile-installed tools into the disposable fixture.
+# The source path never appears while recording because this happens under Hide.
+Type `ln -s "$REPO/node_modules" node_modules` Enter
 Wait+Line /READY>$/
 Type `printf 'import js from "@eslint/js";\nimport globals from "globals";\nexport default [js.configs.recommended, { languageOptions: { globals: globals.node } }];\n' > eslint.config.mjs` Enter
 Wait+Line /READY>$/
