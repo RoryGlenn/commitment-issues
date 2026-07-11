@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The npm package now excludes the promotional hero PNG and demo GIF while
+  keeping README images live through GitHub-hosted URLs; a package-content test
+  enforces both the required offline SVG/docs set and a documented size budget.
 - Release publishing now sends the exact tarball that was packed and hashed to
   npm, attaches that tarball and its SLSA provenance to the GitHub Release, and
   provides a collision-checking preflight plus an immutable-tag recovery

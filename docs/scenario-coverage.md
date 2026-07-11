@@ -21,9 +21,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-004** — package `files` entries exist. Unit: `test/metadata.test.mjs`.
 - **PKG-005** — package bin works from packed tarball across OS / Node matrix. CI smoke: `.github/workflows/ci.yml`.
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
-- **PKG-007** — package includes README gallery assets and docs in the tarball. Manual: `npm pack --dry-run`.
+- **PKG-007** — package includes README SVG gallery assets and installed docs in the tarball. Unit: `test/metadata.test.mjs` using `npm pack --dry-run --json`.
 - **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
 - **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
+- **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
 
 ### Path normalization
 
