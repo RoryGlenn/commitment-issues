@@ -39,6 +39,45 @@ Version:    commitment-issues --version
 Get started:  commitment-issues init`);
 }
 
+function editDistance(left, right) {
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost =
+        left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost,
+      );
+    }
+    previous = current;
+  }
+
+  return previous[right.length];
+}
+
+function closestCommand(input) {
+  // Bound work for an accidentally pasted argument while keeping every real
+  // command typo comfortably inside the comparison window.
+  if (input.length > 64) return null;
+
+  let closest = null;
+  let distance = Number.POSITIVE_INFINITY;
+  for (const command of Object.keys(COMMANDS)) {
+    const candidateDistance = editDistance(input, command);
+    if (candidateDistance < distance) {
+      closest = command;
+      distance = candidateDistance;
+    }
+  }
+
+  const threshold = Math.min(3, Math.max(1, Math.floor(closest.length / 3)));
+  return distance <= threshold ? closest : null;
+}
+
 if (subcommand === "-v" || subcommand === "--version") {
   console.log(packageJson.version);
   process.exit(0);
@@ -51,8 +90,10 @@ if (!subcommand || subcommand === "-h" || subcommand === "--help") {
 
 const file = COMMANDS[subcommand];
 if (!file) {
+  const suggestion = closestCommand(subcommand);
+  const hint = suggestion ? ` Did you mean '${suggestion}'?` : "";
   console.error(
-    `commitment-issues: unknown command '${subcommand}'. Run 'commitment-issues --help'.`,
+    `commitment-issues: unknown command '${subcommand}'.${hint} Run 'commitment-issues --help'.`,
   );
   process.exit(1);
 }
