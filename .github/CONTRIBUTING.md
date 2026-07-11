@@ -62,7 +62,7 @@ transpilation.
 | `scripts/lib/`       | Shared, unit-tested helper modules                                     |
 | `test/`              | `node:test` suites (`*.test.mjs`) and helpers                          |
 | `docs/`              | Configuration, FAQ, and message-state references                       |
-| `.github/workflows/` | CI (lint, format, tests, coverage, package-manager smokes)             |
+| `.github/workflows/` | CI (lint, format, tests, coverage, package-manager lifecycle checks)   |
 
 Entry scripts run top-level code and call `process.exit`, so they are tested by
 spawning subprocesses inside temporary git repos (see
@@ -101,7 +101,7 @@ spawning subprocesses inside temporary git repos (see
    Optionally, verify the end-to-end packaging lifecycle:
 
    ```bash
-   npm run test:smoke
+   npm run test:lifecycle:npm
    ```
 
 6. Update [`CHANGELOG.md`](../CHANGELOG.md) under the `## [Unreleased]` heading if
@@ -118,7 +118,7 @@ spawning subprocesses inside temporary git repos (see
 - Runtime branch coverage is gated at 90%: `npm run test:coverage`. See the
   [exact source/test scope](../docs/branch-coverage.md).
 - CI runs on Ubuntu, macOS, and Windows against Node 22.22.1 and 24, plus
-  lifecycle smokes for npm, pnpm, yarn, and bun. Please keep changes
+  lifecycle integrations for npm, pnpm, yarn, and bun. Please keep changes
   cross-platform (avoid shell-specific assumptions and hard-coded path
   separators).
 
@@ -163,7 +163,12 @@ Use this command to create the trailer automatically:
 git commit -s
 ```
 
-Pull requests are checked for DCO sign-offs in CI.
+Pull requests are checked for DCO sign-offs in CI. The aggregate required
+`CI Success` status includes that DCO job, and pushes to `main` are audited
+against the prospective baseline documented in [Governance](../GOVERNANCE.md).
+When squash-merging, verify that the generated squash commit message retains a
+valid `Signed-off-by` trailer; the post-merge audit will flag an unsigned squash
+commit even when every head-branch commit was signed.
 
 ## Code review standards
 
@@ -181,16 +186,26 @@ All pull requests are reviewed against the same baseline:
 For acceptance, a pull request must have passing CI and maintainer sign-off that
 these checks are satisfied.
 
-## Two-person review policy
+## Review and branch-protection policy
 
-The `main` branch uses pull requests as the default merge path. The project
-expects changes to be reviewed by someone other than the author whenever
-possible, and maintainers prioritize external review for user-facing or risky
-changes. In practice, this keeps at least half of merged modifications reviewed
-before release.
+The `main` branch uses pull requests as the normal merge path. Its live ruleset
+requires one approval, dismisses stale approvals after new commits, requires
+approval of the most recent push by someone other than the pusher, requires all
+review threads to be resolved, and strictly requires the aggregate
+`CI Success` status. Squash and rebase are the only allowed merge methods.
 
-Direct pushes to `main` are reserved for urgent maintainer-only fixes where a
-separate reviewer is not available.
+The repository currently has one trusted maintainer. Until a second trusted
+reviewer or maintainer is listed, the sole maintainer may use the documented
+temporary admin-bypass exception only for an otherwise green pull request when
+independent approval cannot be obtained. The pull request must say that the
+exception was used; DCO, CI, and thread resolution still apply. Self-approval
+does not count as independent review.
+
+Direct pushes or bypasses of failed checks are limited to incidents where the
+normal pull-request path cannot safely be used. They require signed commits, a
+record of the reason and skipped control, follow-up validation, and
+retrospective review. See [Governance](../GOVERNANCE.md) for the complete
+prospective baseline, emergency criteria, and continuity plan.
 
 ## Commit messages
 

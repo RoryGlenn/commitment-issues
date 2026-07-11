@@ -107,14 +107,18 @@ export function coverageBadgeColor(branchCoverage) {
   return "red";
 }
 
+export function formatCoverageBadgePercentage(branchCoverage) {
+  coverageBadgeColor(branchCoverage); // validate before rounding
+  return (Math.round(branchCoverage * 10) / 10).toFixed(1);
+}
+
 export function updateReadmeCoverageBadge(readmeContent, branchCoverage) {
   const existing = readmeContent.match(README_COVERAGE_BADGE_RE);
   if (!existing) {
     throw new Error("Could not find README branch coverage badge line.");
   }
 
-  coverageBadgeColor(branchCoverage); // validate before rounding
-  const rounded = branchCoverage.toFixed(2);
+  const rounded = formatCoverageBadgePercentage(branchCoverage);
   const color = coverageBadgeColor(Number(rounded));
   const replacement = `[![Branch coverage: ${rounded}%](https://img.shields.io/badge/branch%20coverage-${rounded}%25-${color}.svg)](docs/branch-coverage.md)`;
   return readmeContent.replace(README_COVERAGE_BADGE_RE, replacement);
