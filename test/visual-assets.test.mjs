@@ -106,7 +106,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     "git commit -q -am 'print hello world'",
   );
   const fixIndex = tape.indexOf("npm run commit:fix");
-  const pushIndex = tape.indexOf('Type "git push -q" Enter', fixIndex);
+  const pushIndex = tape.indexOf('Type "git push -q"', fixIndex);
   const resetIndex = tape.indexOf('Type "clear" Enter', fixIndex);
   const resetPromptIndex = tape.indexOf(
     "Wait+Line@30s /git:\\(feature.greeting\\) *$/",
@@ -186,8 +186,17 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /NPM_CONFIG_UPDATE_NOTIFIER=false/);
   assert.match(tape, /npx --no-install commitment-issues init/);
-  assert.match(tape, /Type "npm run commit:fix" Enter/);
-  assert.match(tape, /Type "git push -q" Enter/);
+  for (const hiddenExecution of [
+    'Type "npx --no-install commitment-issues init"\nHide\nEnter',
+    "Type \"git commit -q -am 'print hello world'\"\nHide\nEnter",
+    'Type "npm run commit:fix"\nHide\nEnter',
+    'Type "git push -q"\nHide\nEnter',
+  ]) {
+    assert.ok(
+      tape.includes(hiddenExecution),
+      `demo should hide variable command runtime for ${hiddenExecution.split("\\n")[0]}`,
+    );
+  }
   assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
   assert.match(tape, /Wait\+Screen@30s \/__BASELINE_READY__\//);
   assert.match(tape, /PROMPT='READY> '/);

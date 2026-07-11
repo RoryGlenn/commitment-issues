@@ -84,8 +84,11 @@ Set TypingSpeed 100ms
 Show
 
 # --- 1. One command sets everything up ---
-Type "npx --no-install commitment-issues init" Enter
+Type "npx --no-install commitment-issues init"
+Hide
+Enter
 Wait+Screen@30s /Your next push runs advisory tests/
+Show
 Sleep 4s
 # Commit the hook setup off-camera, then clear it so beat 2 starts on a clean
 # screen and the next commit shows a single file. --no-verify skips its hook box.
@@ -102,15 +105,20 @@ Sleep 500ms
 
 Set TypingSpeed 100ms
 Show
-Type "git commit -q -am 'print hello world'" Enter
+Type "git commit -q -am 'print hello world'"
+Hide
+Enter
 Wait+Screen@30s /Pre-commit suggestions found/
-Sleep 4s
 Show
+Sleep 4s
 
 # --- 3. Fix the latest commit, then push it ---
-Type "npm run commit:fix" Enter
+Type "npm run commit:fix"
+Hide
+Enter
 Wait+Screen@30s /Latest commit amended with automatic fixes/
 Wait+Line@30s /git:\(feature.greeting\) *$/
+Show
 Sleep 4s
 
 # Reset the full viewport off-camera so the push result remains visible.
@@ -121,7 +129,9 @@ Wait+Line@30s /git:\(feature.greeting\) *$/
 Sleep 500ms
 Set TypingSpeed 100ms
 Show
-Type "git push -q" Enter
+Type "git push -q"
+Hide
+Enter
 Wait+Screen@30s /Push allowed/
-Sleep 4s
 Show
+Sleep 4s
