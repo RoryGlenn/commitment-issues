@@ -46,6 +46,7 @@
     "fix:staged": "node scripts/fix-staged.mjs",
     "doctor": "node scripts/doctor.mjs",
     "states": "node tools/show-message-states.mjs",
+    "release:preflight": "node tools/release-preflight.mjs",
     "test": "node --test test/*.test.mjs test/*.test.js",
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs test/*.test.js",
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",

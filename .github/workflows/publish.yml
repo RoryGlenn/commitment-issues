@@ -77,7 +77,7 @@ jobs:
           retention-days: 5
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish "./${{ steps.pack.outputs.tarball }}" --access public
 
   # SLSA3 provenance for the packed tarball. The reusable workflow MUST be
   # referenced by a semantic version tag (never a SHA) per SLSA's design so it
@@ -91,7 +91,8 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.publish.outputs.hashes }}
-      upload-assets: false
+      upload-assets: true
+      upload-tag-name: ${{ github.ref_name }}
 
   attach-tarball:
     needs: [publish, provenance]
