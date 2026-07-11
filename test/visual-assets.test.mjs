@@ -108,7 +108,10 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const fixIndex = tape.indexOf(
     "./node_modules/.bin/commitment-issues commit-fix",
   );
-  const fixPromptIndex = tape.indexOf("Wait+Line@30s /git:/", fixIndex);
+  const fixPromptIndex = tape.indexOf(
+    "Wait+Line@30s /git:\\(feature.greeting\\) *$/",
+    fixIndex,
+  );
   const pushIndex = tape.indexOf('Type "git push" Enter');
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
   const metadataIndex = workflow.indexOf(
