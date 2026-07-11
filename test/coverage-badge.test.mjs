@@ -12,6 +12,7 @@ import {
   BRANCH_COVERAGE_THRESHOLD,
   coverageBadgeColor,
   deriveBranchCoverageSourceFiles,
+  formatCoverageBadgePercentage,
   parseBranchCoverageFromNodeTestOutput,
   updateReadmeCoverageBadge,
 } from "../scripts/lib/coverage-badge.mjs";
@@ -64,8 +65,13 @@ test("updateReadmeCoverageBadge replaces alt text and badge URL percentage", () 
   const updated = updateReadmeCoverageBadge(readme, 82.55);
   assert.match(
     updated,
-    /^\[!\[Branch coverage: 82\.55%\]\(https:\/\/img\.shields\.io\/badge\/branch%20coverage-82\.55%25-green\.svg\)\]\(docs\/branch-coverage\.md\)$/m,
+    /^\[!\[Branch coverage: 82\.6%\]\(https:\/\/img\.shields\.io\/badge\/branch%20coverage-82\.6%25-green\.svg\)\]\(docs\/branch-coverage\.md\)$/m,
   );
+});
+
+test("badge percentage absorbs one-branch coverage jitter", () => {
+  assert.equal(formatCoverageBadgePercentage(91.65687427), "91.7");
+  assert.equal(formatCoverageBadgePercentage(91.66666667), "91.7");
 });
 
 test("coverageBadgeColor derives stable colors from the percentage", () => {
@@ -95,7 +101,7 @@ test("badge color follows the displayed rounded value", () => {
     "[![Branch coverage: 80.00%](https://img.shields.io/badge/branch%20coverage-80.00%25-green.svg)](docs/branch-coverage.md)\n";
   assert.match(
     updateReadmeCoverageBadge(readme, 89.999),
-    /Branch coverage: 90\.00%.*90\.00%25-brightgreen/,
+    /Branch coverage: 90\.0%.*90\.0%25-brightgreen/,
   );
 });
 

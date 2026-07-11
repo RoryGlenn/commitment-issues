@@ -29,7 +29,9 @@ npx commitment-issues uninstall --dry-run
 npx commitment-issues uninstall
 npx commitment-issues doctor
 npx commitment-issues precommit
+npx commitment-issues precommit --json
 npx commitment-issues prepush
+npx commitment-issues prepush --json
 npx commitment-issues commit-msg .git/COMMIT_EDITMSG
 npx commitment-issues --version
 ```
@@ -91,17 +93,31 @@ mutation. If a valid standalone file already exists, `init` puts its generated
 advisory push default there; otherwise its existing `package.json` behavior is
 unchanged.
 
-| Key                      | Type                    | Default              | Effect                                                                           |
-| ------------------------ | ----------------------- | -------------------- | -------------------------------------------------------------------------------- |
-| `testExempt`             | string[]                | `[]`                 | Extra glob exemptions for missing-test checks.                                   |
-| `requireTests`           | boolean                 | `true`               | Turns missing-test advisories on or off.                                         |
-| `runStagedTests`         | boolean                 | `false`              | Runs related tests during `git commit`.                                          |
-| `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.                           |
-| `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.                               |
-| `testCommand`            | string[]                | `["node", "--test"]` | Verbatim command used to run related tests; must accept file paths.              |
-| `timeoutMs`              | number                  | `120000`             | Timeout for a command and its attached process tree; maximum `2,147,483,647` ms. |
-| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                                           |
-| `commitMessage`          | object                  | disabled             | Optional project-local commitlint settings described below.                      |
+| Key                      | Type                    | Default              | Effect                                                                            |
+| ------------------------ | ----------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                | `[]`                 | Extra glob exemptions for missing-test checks.                                    |
+| `requireTests`           | boolean                 | `true`               | Turns missing-test advisories on or off.                                          |
+| `runStagedTests`         | boolean                 | `false`              | Runs related tests during `git commit`.                                           |
+| `advisePushTests`        | boolean                 | `true` after `init`  | Runs related tests during `git push` in advisory mode.                            |
+| `blockPushOnTestFailure` | boolean                 | `false`              | Blocks pushes when related pushed-file tests fail.                                |
+| `testCommand`            | string[]                | `["node", "--test"]` | Verbatim command used to run related tests; must accept file paths.               |
+| `timeoutMs`              | number                  | `120000`             | Timeout for a command and its attached process tree; max `2,147,483,647` ms.      |
+| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Advisory message tone.                                                            |
+| `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger commit/push advisories; `[]` disables them.    |
+| `blockProtectedBranches` | boolean                 | `false`              | Blocks commits and pushes to protected branches instead of warning.               |
+| `adviseBehindUpstream`   | boolean                 | `true`               | Warns at commit time when the branch is behind its upstream as of the last fetch. |
+| `maxCommitFiles`         | number                  | `30`                 | Warns when more files are staged; `0` disables the guard.                         |
+| `maxCommitLines`         | number                  | `2000`               | Warns when more changed lines are staged; `0` disables the guard.                 |
+| `maxFileSizeMb`          | number                  | `5`                  | Warns when a staged file exceeds the size in MB; `0` disables the guard.          |
+| `generatedPaths`         | string[]                | build-artifact globs | Replaces the glob list used to flag generated files.                              |
+| `scanSecrets`            | boolean                 | `true`               | Scans added staged lines and dotenv files for likely credentials.                 |
+| `blockOnSecrets`         | boolean                 | `false`              | Blocks commits when the secret scan finds a likely credential.                    |
+| `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secret scan, such as fixture paths.               |
+| `commitMessage`          | object                  | disabled             | Optional project-local commitlint settings described below.                       |
+
+Unknown keys and invalid values are ignored with an advisory naming the
+problem. The complete behavior and validation rules are in
+[Configuration and behavior](configuration.md).
 
 `commitMessage` accepts exactly two optional boolean keys:
 
@@ -153,12 +169,19 @@ The tool prints compact terminal boxes with clear status and next steps:
 For concrete output states and screenshots, see
 [Message states](message-states.md).
 
+`precommit --json` and `prepush --json` replace terminal boxes on stdout with a
+single versioned payload. The schema, field semantics, stderr behavior, and
+examples are documented in [JSON output](json-output.md). Other subcommands do
+not support `--json`.
+
 ## Exit behavior
 
 - Default commit and push flows are advisory-first and non-blocking.
 - Blocking behavior is opt-in through either configuration source, including
   the nested `commitMessage.blockOnFailure` switch.
 - Fix commands can fail non-zero when safety checks fail or manual fixes remain.
+- JSON mode reports the same exit code in its `exitCode` field and does not
+  change whether an advisory or enforcement result blocks.
 - Missing ESLint/Prettier peers are advisory in hooks and never invoke an
   implicit `npx` fallback; fix commands fail nonzero and print an install hint.
 - Configured test commands are executed verbatim, including an explicitly

@@ -85,7 +85,23 @@ Never assume `/` separators when consuming git paths — normalize (`replace(/\\
 
 ## `precommitChecks` config surface
 
-Read via `loadPrecommitConfig()`. Known keys include `tone` (`"standard"`|`"fun"`), `blockPushOnTestFailure` (bool), `runStagedTests` (bool), `testExempt` (glob array), `timeoutMs` (positive number), and nested `commitMessage` (`enabled`/`blockOnFailure` booleans). If you add a new key, document it in [`docs/configuration.md`](../../../docs/configuration.md) and add a default-behavior test.
+Read via `loadPrecommitConfig()`. The supported keys are grouped by behavior:
+
+- Test execution: `requireTests`, `runStagedTests`, `advisePushTests`,
+  `blockPushOnTestFailure`, `testCommand`, and `testExempt`.
+- Branch and commit guards: `protectedBranches`, `blockProtectedBranches`,
+  `adviseBehindUpstream`, `maxCommitFiles`, `maxCommitLines`,
+  `maxFileSizeMb`, and `generatedPaths`.
+- Commit messages: nested `commitMessage` settings (enabled and
+  blockOnFailure).
+- Secret scanning: `scanSecrets`, `blockOnSecrets`, and `secretExempt`.
+- Shared behavior: `timeoutMs` and `tone`.
+
+`KNOWN_PRECOMMIT_CONFIG_KEYS` in `scripts/lib/config.mjs` is the source of
+truth. If you add a key, update [`docs/configuration.md`](../../../docs/configuration.md),
+[`docs/external-interface.md`](../../../docs/external-interface.md), this list,
+and the default-behavior tests. `test/metadata.test.mjs` prevents those three
+documentation surfaces from drifting away from the source allowlist.
 
 ## Checklist for a new/changed check
 

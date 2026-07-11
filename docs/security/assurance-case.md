@@ -6,7 +6,10 @@ This assurance case explains why the security requirements for `commitment-issue
 
 `commitment-issues` is local Git-hook tooling for JavaScript and TypeScript projects. It reads local Git state and project files, runs local tools such as ESLint, Prettier, optional consumer-provided commitlint, and test runners, and prints advisory or blocking terminal output depending on configuration.
 
-The project does not provide a network service, store user credentials, transmit repository contents, or manage cryptographic keys for users.
+The project does not provide a network service, add telemetry, store user
+credentials, transmit repository contents, or manage cryptographic keys for
+users. Explicit repository-configured commands execute within that repository's
+trust boundary and may have behavior of their own.
 
 ## Assets
 
@@ -104,7 +107,7 @@ The project avoids shell interpolation for tool execution. Commands are spawned 
 
 ### Path handling and path traversal
 
-The project treats Git file lists as data, normalizes paths where needed, and includes cross-platform path tests for spaces, Windows-style separators, and unusual path cases.
+The project treats Git file lists as data, normalizes paths where needed, and includes cross-platform path tests for spaces, Windows-style separators, and unusual path cases. The staged-secret parser tracks diff hunks separately from file headers so source lines that resemble diff metadata are still scanned.
 
 ### Unsafe working-tree mutation
 
@@ -129,7 +132,7 @@ trusts both the tool and its executable configuration.
 
 ### CI/CD risks
 
-Workflows use explicit permissions and pinned actions where practical. CI runs linting, formatting, tests, coverage, package lifecycle smoke tests, and package-manager smoke tests.
+Workflows use explicit permissions and pinned actions where practical. CI runs DCO validation, linting, formatting, tests, coverage, npm package lifecycle integration, and the pnpm/Yarn/bun lifecycle matrix. The single strict `CI Success` context aggregates those required jobs.
 
 ### Release integrity risks
 
@@ -149,9 +152,15 @@ Relevant evidence includes:
 - [Dependency management](../dependency-management.md)
 - [Release verification](../release-verification.md)
 - [Vulnerability history](../vulnerability-history.md)
+- [Governance and prospective DCO baseline](../../GOVERNANCE.md)
 - [CI workflow](../../.github/workflows/ci.yml)
 - [CodeQL workflow](../../.github/workflows/codeql.yml)
 - [Dependabot configuration](../../.github/dependabot.yml)
+- Guard integration evidence: `test/commit-guards-integration.test.mjs`
+- Secret scanner evidence: `test/secret-scan.test.mjs` and
+  `test/secret-scan-integration.test.mjs`
+- Configuration allowlist evidence: `scripts/lib/config.mjs` and
+  `test/config.test.mjs`
 
 ## Maintenance
 

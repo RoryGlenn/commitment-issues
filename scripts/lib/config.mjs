@@ -384,27 +384,30 @@ export function precommitConfigSourceLabel(config, keys) {
 }
 
 /**
- * User-facing, non-blocking diagnostics for malformed files and values.
+ * Structured, non-blocking diagnostics for malformed files and values.
  * @param {object} config - Config returned by loadPrecommitConfig().
- * @returns {string[]} Warning messages without color or a warning prefix.
+ * @returns {{code: string, message: string}[]} Warning diagnostics.
  */
-export function precommitConfigWarningMessages(config) {
-  const messages = [];
+export function precommitConfigDiagnostics(config) {
+  const diagnostics = [];
   const state = config?.[CONFIG_STATE];
 
   if (state?.standalone.error) {
-    messages.push(
-      `Ignoring ${STANDALONE_CONFIG_FILE} because it ${state.standalone.error}. ` +
+    diagnostics.push({
+      code: "config.invalid-source",
+      message:
+        `Ignoring ${STANDALONE_CONFIG_FILE} because it ${state.standalone.error}. ` +
         "Using package.json precommitChecks or defaults instead.",
-    );
+    });
   }
 
   const unknownKeys = unknownPrecommitConfigKeys(config);
   if (unknownKeys.length > 0) {
     const source = precommitConfigSourceLabel(config, unknownKeys);
-    messages.push(
-      `Ignoring unknown precommitChecks key(s) in ${source}: ${unknownKeys.join(", ")}. Check for typos.`,
-    );
+    diagnostics.push({
+      code: "config.unknown-keys",
+      message: `Ignoring unknown precommitChecks key(s) in ${source}: ${unknownKeys.join(", ")}. Check for typos.`,
+    });
   }
 
   const invalidValues = invalidPrecommitConfigMessages(config);
@@ -413,19 +416,31 @@ export function precommitConfigWarningMessages(config) {
       (message) => message.split(" ", 1)[0],
     );
     const source = precommitConfigSourceLabel(config, invalidKeys);
-    messages.push(
-      `Ignoring invalid precommitChecks value(s) in ${source}: ${invalidValues.join("; ")}.`,
-    );
+    diagnostics.push({
+      code: "config.invalid-values",
+      message: `Ignoring invalid precommitChecks value(s) in ${source}: ${invalidValues.join("; ")}.`,
+    });
   }
 
   const commitMessage = resolveCommitMessageConfig(config);
   if (commitMessage.blockOnFailure && !commitMessage.enabled) {
-    messages.push(
-      "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
-    );
+    diagnostics.push({
+      code: "config.ineffective-value",
+      message:
+        "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+    });
   }
 
-  return messages;
+  return diagnostics;
+}
+
+/**
+ * User-facing warning messages without color or a warning prefix.
+ * @param {object} config - Config returned by loadPrecommitConfig().
+ * @returns {string[]} Warning messages.
+ */
+export function precommitConfigWarningMessages(config) {
+  return precommitConfigDiagnostics(config).map(({ message }) => message);
 }
 
 /**

@@ -330,7 +330,6 @@ All options are optional and use the same types in either configuration file:
 | `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
 | `commitMessage`          | object                  | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
 
-Unrecognized configuration keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them and the effective source — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
 Unrecognized configuration keys, including nested `commitMessage` keys, are ignored and named with their effective source in diagnostics from hooks, `init`, and `doctor` — so typos like `requireTest` or `commitMessage.enable` cannot silently disable, enable, or enforce a check.
 
 Recognized keys with the wrong value type (for example a string where a boolean is expected, or an out-of-range `timeoutMs`) are likewise ignored and fall back to their defaults, and the hooks print a one-line warning naming each invalid value — so a mistyped value cannot silently change behavior either. Both warnings are advisory only: the commit or push still proceeds.
