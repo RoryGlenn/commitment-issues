@@ -16,6 +16,10 @@ import {
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
 import { run } from "./lib/process.mjs";
+import {
+  readStandalonePrecommitConfig,
+  STANDALONE_CONFIG_FILE,
+} from "./lib/config.mjs";
 
 // Remove only setup that commitment-issues can identify as its own. Exact
 // generated scripts and hook bodies are safe to delete; customized scripts,
@@ -42,6 +46,19 @@ try {
     pc.bold("Invalid package.json."),
     "",
     pc.dim("Fix package.json so it contains valid JSON, then try again."),
+  ]);
+  process.exit(1);
+}
+
+const standalone = readStandalonePrecommitConfig();
+if (standalone.error) {
+  errorBox([
+    pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
+    "",
+    pc.dim(`The file ${standalone.error}.`),
+    pc.dim(
+      "Fix or remove it, then run uninstall again. No files were changed.",
+    ),
   ]);
   process.exit(1);
 }
@@ -101,7 +118,7 @@ function inspectHookDirectory(directory) {
       );
       continue;
     }
-    if (status === "wired") {
+    if (status === "wired" || status === "stale-wired") {
       hookCandidates.push(hookPath);
     } else if (status === "custom-with-command") {
       manualCleanup.push(
@@ -135,13 +152,25 @@ if (isGitRepo) {
   );
 }
 
-const planned = [...plannedPackageChanges, ...hookCandidates.map(displayPath)];
+const planned = [
+  ...plannedPackageChanges,
+  ...(standalone.exists ? [STANDALONE_CONFIG_FILE] : []),
+  ...hookCandidates.map(displayPath),
+];
 const removed = [];
 
 if (!dryRun) {
   if (plannedPackageChanges.length > 0) {
     fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
     removed.push(...plannedPackageChanges);
+  }
+  if (standalone.exists) {
+    try {
+      fs.rmSync(STANDALONE_CONFIG_FILE);
+      removed.push(STANDALONE_CONFIG_FILE);
+    } catch {
+      manualCleanup.push(`Could not remove ${STANDALONE_CONFIG_FILE}.`);
+    }
   }
   for (const hookPath of hookCandidates) {
     try {

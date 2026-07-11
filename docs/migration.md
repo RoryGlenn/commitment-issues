@@ -79,7 +79,7 @@ npx lint-staged
 commitment-issues precommit
 
 # .git/hooks/pre-push (generated, not committed)
-commitment-issues prepush
+commitment-issues prepush "$@"
 ```
 
 Expect to review `package.json` (new helper scripts + `precommitChecks`) and `.gitignore` (cache and `node_modules/` ignores). `.git/hooks` is per-clone and self-heals on every install via the generated or composed `prepare` repair script.
@@ -114,7 +114,7 @@ pre-commit:
 commitment-issues precommit
 
 # .git/hooks/pre-push (generated, not committed)
-commitment-issues prepush
+commitment-issues prepush "$@"
 ```
 
 Files to review: `package.json` and `.gitignore` — then delete the now-unused `lefthook.yml`.
@@ -151,7 +151,7 @@ repos:
 commitment-issues precommit
 
 # .git/hooks/pre-push (generated, not committed)
-commitment-issues prepush
+commitment-issues prepush "$@"
 ```
 
 Files to review: `package.json` and `.gitignore` — then remove `.pre-commit-config.yaml` and any `pre-commit` install hook.

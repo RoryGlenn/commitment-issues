@@ -27,8 +27,9 @@ root:
 - **Staged files are checked across all packages.** The pre-commit check reads
   staged paths with `git diff --cached` relative to the repo root, so changes in
   any workspace package are included together.
-- **Configuration is read from the root `package.json`.** The `precommitChecks`
-  options come from the root package, not from individual workspace packages.
+- **Configuration is read from the repository root.** Use root
+  `.commitmentrc.json` and/or root `package.json` `precommitChecks`; individual
+  workspace package configuration is not discovered.
 - **Tools resolve locally from the root `node_modules`.** Install
   `commitment-issues`, ESLint, Prettier, and optional commitlint as root
   development dependencies. Hooks read peer-tool package bins directly and
@@ -84,8 +85,8 @@ issue.
 2. Run `npx commitment-issues init` from the root.
 3. Keep a root-level ESLint flat config. Use its `files` patterns to scope rules
    to specific packages when needed.
-4. Set `precommitChecks` in the root `package.json` to match how you want the
-   whole repository checked.
+4. Set the root `.commitmentrc.json` or root `package.json` `precommitChecks` to
+   match how you want the whole repository checked.
 5. If commit-message linting is enabled, install commitlint and keep its config
    at the root; per-workspace commitlint resolution is not attempted.
 
@@ -112,6 +113,32 @@ Because configuration is root-level, use the tools' own path scoping:
 - **`precommitChecks.testCommand`** sets the runner used for staged and pushed
   tests across the repository.
 
+## Related-test selection
+
+Each workspace should have its own `package.json`; the closest parent
+`package.json` defines the package boundary for a changed source file. Test
+lookup uses the first non-empty tier below:
+
+1. sibling tests and the source directory's `__tests__/` directory;
+2. the source path mirrored under the package's `test/` or `tests/` directory
+   (for example, `packages/a/src/api.mjs` →
+   `packages/a/test/src/api.test.mjs`);
+3. the same package-local path with a leading `src/` or `lib/` removed (for
+   example, `packages/a/src/api.mjs` →
+   `packages/a/test/api.test.mjs`);
+4. only for the root package, the legacy `test/<basename>` or
+   `tests/<basename>` fallback.
+
+All existing `.test.*` and `.spec.*` candidates in the winning tier run in a
+stable order. Lower tiers are ignored once a more specific tier matches. This
+means `packages/a/src/index.mjs` and `packages/b/src/index.mjs` cannot silently
+select each other's test, and a root `test/index.test.mjs` cannot steal the
+selection from either workspace.
+
+This focused related-test isolation complements the tested root-owned lifecycle
+contract above. It does not add per-package configuration, per-package tool
+versions, or separate hooks; those boundaries below are unchanged.
+
 ## Linked Git worktrees
 
 Linked worktrees share the primary repository's native hooks because Git stores
@@ -124,8 +151,8 @@ hook wiring.
 
 The following are outside the current design:
 
-- **Per-package `precommitChecks` configuration.** Only the root package's
-  `precommitChecks` is read.
+- **Per-package configuration.** Only the root standalone/package configuration
+  is read.
 - **Per-package tool versions.** The hooks resolve a single set of tools from the
   root `node_modules` rather than a different version per workspace.
 - **Separate hooks per workspace package.** Hooks are wired once at the Git root,
@@ -148,6 +175,8 @@ root-level advisory hooks.
   tool as a root development dependency or run that package-specific check in
   CI.
 - Run `npx commitment-issues doctor` from the root to verify the hook wiring.
+- Keep a `package.json` at every workspace root so related-test lookup can stop
+  at the intended package boundary.
 
 See the [FAQ](faq.md) and [Configuration and Behavior](configuration.md) docs for
 more detail on the check behavior and CI enforcement.

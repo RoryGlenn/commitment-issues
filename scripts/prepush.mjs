@@ -8,11 +8,9 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
+  precommitConfigDiagnostics,
   precommitConfigWarningMessages,
-  resolveCommitMessageConfig,
-  unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles, parseNameStatusPaths } from "./lib/files.mjs";
@@ -29,10 +27,9 @@ import {
   parseJsonOutputArgs,
 } from "./lib/json-output.mjs";
 
-const ZERO_SHA = "0".repeat(40);
-// Git's well-known empty-tree object, used as the diff base for a brand-new
-// branch (no remote sha yet) so every file in the pushed history counts.
-const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+// Git's well-known empty-tree object, used as the conservative fallback for a
+// genuinely unrelated/new history (or when no safe existing base is known).
+const SHA1_EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 // Force literal, unquoted paths (as the pre-commit/fix flows already do) so
 // pushed files with spaces or non-ASCII names still match their associated
@@ -84,31 +81,11 @@ function emitJsonResult({
 
 const configWarnings = precommitConfigWarningMessages(config);
 if (jsonMode) {
-  const unknownKeys = unknownPrecommitConfigKeys(config);
-  if (unknownKeys.length > 0) {
+  for (const { code, message } of precommitConfigDiagnostics(config)) {
     jsonOutput.addDiagnostic({
       severity: "warning",
-      code: "config.unknown-keys",
-      message: `Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    });
-  }
-
-  const invalidValueMessages = invalidPrecommitConfigMessages(config);
-  if (invalidValueMessages.length > 0) {
-    jsonOutput.addDiagnostic({
-      severity: "warning",
-      code: "config.invalid-values",
-      message: `Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    });
-  }
-
-  const commitMessage = resolveCommitMessageConfig(config);
-  if (commitMessage.blockOnFailure && !commitMessage.enabled) {
-    jsonOutput.addDiagnostic({
-      severity: "warning",
-      code: "config.ineffective-value",
-      message:
-        "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+      code,
+      message,
     });
   }
 } else {
@@ -130,6 +107,12 @@ const interactive =
   process.stdin.isTTY === true ||
   process.env.COMMITMENT_ISSUES_ASSUME_TTY === "1";
 
+// Git represents an absent object with an all-zero object ID whose length
+// follows the repository hash format (40 for SHA-1, 64 for SHA-256).
+function isZeroObjectId(value) {
+  return typeof value === "string" && /^0{40,}$/.test(value);
+}
+
 // The two modes are mutually exclusive; if a repo sets both, surface the
 // conflict (one concise line on stderr) so it's clearly a config mistake rather
 // than silently ignored — without shoving a full box in front of every push.
@@ -137,7 +120,7 @@ if (blocking && config.advisePushTests === true) {
   const message =
     "Both blockPushOnTestFailure and advisePushTests are set; using " +
     "blockPushOnTestFailure (block on failure). Remove advisePushTests " +
-    "from package.json to silence this.";
+    "from .commitmentrc.json or package.json to silence this.";
   if (jsonMode) {
     jsonOutput.addDiagnostic({
       severity: "warning",
@@ -247,7 +230,7 @@ if (!blocking && !advisory) {
       pc.bold("Pre-push test checks are disabled."),
       "",
       pc.dim("Nothing ran because no pre-push test mode is enabled in"),
-      pc.dim("package.json. Enable one under precommitChecks:"),
+      pc.dim(".commitmentrc.json or package.json precommitChecks. Enable one:"),
       "",
       `  ${pc.bold('"blockPushOnTestFailure": true')} ${pc.dim("— run tests and block on failure")}`,
       `  ${pc.bold('"advisePushTests": true')} ${pc.dim("— run tests but only warn")}`,
@@ -321,12 +304,13 @@ async function readPushRefs() {
     .filter(Boolean)
     .map((line) => line.split(/\s+/))
     .filter((parts) => parts.length >= 4)
-    .map(([, localSha, remoteRef, remoteSha]) => ({
+    .map(([localRef, localSha, remoteRef, remoteSha]) => ({
+      localRef,
       localSha,
       remoteRef,
       remoteSha,
     }))
-    .filter((ref) => ref.localSha && ref.localSha !== ZERO_SHA);
+    .filter((ref) => ref.localSha && !isZeroObjectId(ref.localSha));
 }
 
 function diffFiles(base, head) {
@@ -363,6 +347,145 @@ function diffFiles(base, head) {
     : { ok: true, files };
 }
 
+function outputLines(output) {
+  return (output || "").split("\n").filter(Boolean);
+}
+
+let emptyTreeObject;
+function emptyTree() {
+  if (emptyTreeObject) {
+    return emptyTreeObject;
+  }
+  const result = run("git", ["hash-object", "-t", "tree", "--stdin"], {
+    input: "",
+  });
+  emptyTreeObject =
+    !result.error && result.status === 0
+      ? outputLines(result.stdout)[0]
+      : SHA1_EMPTY_TREE;
+  return emptyTreeObject || SHA1_EMPTY_TREE;
+}
+
+function remoteBaseRefs(localRef) {
+  const candidates = new Map();
+  let upstreamRef = null;
+  const add = (ref, priority) => {
+    if (ref && !candidates.has(ref)) {
+      candidates.set(ref, priority);
+    }
+  };
+
+  // An explicitly configured upstream is the strongest signal for the branch
+  // point, even when the destination branch itself does not exist yet.
+  if (localRef?.startsWith("refs/heads/")) {
+    const localBranch = localRef.slice("refs/heads/".length);
+    const upstream = run("git", [
+      "rev-parse",
+      "--verify",
+      "--symbolic-full-name",
+      `${localBranch}@{upstream}`,
+    ]);
+    if (!upstream.error && upstream.status === 0) {
+      [upstreamRef] = outputLines(upstream.stdout);
+    }
+  }
+
+  // New generated hooks forward Git's destination remote as argv[2]. Older
+  // hooks and manual/test runs may not, so infer it only when exactly one remote
+  // is configured. A destination-ambiguous repository falls back to the empty
+  // tree rather than borrowing a base from the wrong remote.
+  let remoteName = process.argv[2];
+  if (!remoteName) {
+    const remotes = run("git", ["remote"]);
+    if (remotes.error || remotes.status !== 0) {
+      return [];
+    }
+    const names = outputLines(remotes.stdout);
+    if (names.length > 1) {
+      return [];
+    }
+    [remoteName] = names;
+  }
+  if (
+    upstreamRef?.startsWith("refs/heads/") ||
+    (remoteName && upstreamRef?.startsWith(`refs/remotes/${remoteName}/`))
+  ) {
+    add(upstreamRef, 0);
+  }
+  const prefix = remoteName ? `refs/remotes/${remoteName}/` : "refs/remotes/";
+  const refs = run("git", ["for-each-ref", "--format=%(refname)", prefix]);
+  if (!refs.error && refs.status === 0) {
+    const remoteRefs = outputLines(refs.stdout);
+    for (const ref of remoteRefs) {
+      add(ref, ref.endsWith("/HEAD") ? 1 : 2);
+    }
+  }
+
+  return [...candidates].map(([ref, priority]) => ({ ref, priority }));
+}
+
+function firstPushBase(localRef, localSha) {
+  const viable = [];
+
+  for (const candidate of remoteBaseRefs(localRef)) {
+    const mergeBase = run("git", [
+      "merge-base",
+      "--all",
+      localSha,
+      candidate.ref,
+    ]);
+    if (mergeBase.error || mergeBase.status !== 0) {
+      continue;
+    }
+
+    // Multiple merge bases (possible after criss-cross merges) do not identify
+    // one unambiguous diff boundary. Falling back to the empty tree is more
+    // expensive but cannot skip tests.
+    const bases = outputLines(mergeBase.stdout);
+    if (bases.length !== 1) {
+      continue;
+    }
+
+    const distance = run("git", [
+      "rev-list",
+      "--count",
+      `${bases[0]}..${localSha}`,
+    ]);
+    const count = Number(outputLines(distance.stdout)[0]);
+    if (
+      distance.error ||
+      distance.status !== 0 ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      continue;
+    }
+
+    viable.push({
+      base: bases[0],
+      distance: count,
+      priority: candidate.priority,
+      ref: candidate.ref,
+    });
+  }
+
+  viable.sort(
+    (left, right) =>
+      left.distance - right.distance ||
+      left.priority - right.priority ||
+      (left.ref < right.ref ? -1 : left.ref > right.ref ? 1 : 0),
+  );
+  if (viable.length === 0) {
+    return emptyTree();
+  }
+  const closestBases = new Set(
+    viable
+      .filter((candidate) => candidate.distance === viable[0].distance)
+      .map((candidate) => candidate.base),
+  );
+  return closestBases.size === 1 ? viable[0].base : emptyTree();
+}
+
 function getPushedFiles() {
   const refs = pushRefs;
   const files = new Set();
@@ -379,8 +502,11 @@ function getPushedFiles() {
   };
 
   if (refs.length > 0) {
-    for (const { localSha, remoteSha } of refs) {
-      const base = remoteSha && remoteSha !== ZERO_SHA ? remoteSha : EMPTY_TREE;
+    for (const { localRef, localSha, remoteSha } of refs) {
+      const base =
+        remoteSha && !isZeroObjectId(remoteSha)
+          ? remoteSha
+          : firstPushBase(localRef, localSha);
       collect(diffFiles(base, localSha));
     }
     return { files: [...files], diffErrors };
@@ -586,7 +712,7 @@ if (testDidNotComplete) {
         ? `The test command stopped after ${
             result.signal || "an unknown signal"
           }.`
-        : "Check precommitChecks.testCommand in package.json.";
+        : "Check testCommand in .commitmentrc.json or package.json precommitChecks.";
   const reason = pc.dim(reasonText);
   const issue = {
     autoFixable: false,

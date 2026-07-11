@@ -11,7 +11,7 @@ import {
   BIN,
   classifyHook,
   gitHooksDir,
-  hookCommand,
+  hookInvocation,
   hookNamesForConfig,
   hooksPathConfig,
   isHuskyHooksPath,
@@ -94,7 +94,6 @@ const hookSummary =
   hookNames.length === 3
     ? "pre-commit, pre-push, and commit-msg are wired up and active."
     : "pre-commit and pre-push are wired up and active.";
-
 if (configWarnings.length > 0) {
   if (quiet) {
     for (const message of configWarnings) {
@@ -243,7 +242,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
     ...(huskyEraLive
       ? unwired.map((name) => `  .husky/${name}`)
       : unwired.map(
-          (name) => `  ${hookCommand(name)}   ${pc.dim(`(${name})`)}`,
+          (name) => `  ${hookInvocation(name)}   ${pc.dim(`(${name})`)}`,
         )),
     "",
     ...(huskyEraLive
@@ -279,6 +278,9 @@ const hookReports = hookNames.map((name) => ({
 const missingHooks = hookReports
   .filter((report) => report.status === "missing")
   .map((report) => report.name);
+const staleHooks = hookReports
+  .filter((report) => report.status === "stale-wired")
+  .map((report) => report.name);
 const unwiredHooks = hookReports
   .filter((report) => report.status === "custom-without-command")
   .map((report) => report.name);
@@ -289,6 +291,9 @@ if (huskyEraHooksPath) {
 }
 if (missingHooks.length > 0) {
   problems.push(`missing hook file(s): ${missingHooks.join(", ")}`);
+}
+if (staleHooks.length > 0) {
+  problems.push(`outdated generated hook file(s): ${staleHooks.join(", ")}`);
 }
 if (unwiredHooks.length > 0) {
   problems.push(
@@ -357,8 +362,9 @@ if (huskyEraHooksPath) {
   repaired.push("retired husky-era core.hooksPath");
 }
 
-// Recreate any missing hook files (never overwrite an existing one).
-for (const name of missingHooks) {
+// Recreate missing hooks and refresh only exact older generated bodies. A
+// customized hook never receives the stale-wired classification.
+for (const name of [...missingHooks, ...staleHooks]) {
   try {
     writeHook(hooksDir, name);
   } catch {
@@ -374,7 +380,9 @@ for (const name of missingHooks) {
 
 if (
   hooksPathConfig() !== "" ||
-  hookNames.some((name) => classifyHook(hooksDir, name) === "missing")
+  hookNames.some((name) =>
+    ["missing", "stale-wired"].includes(classifyHook(hooksDir, name)),
+  )
 ) {
   repairFailed([
     pc.bold("Hook wiring still looks broken after repair."),
@@ -406,7 +414,7 @@ if (unwiredHooks.length > 0) {
     "",
     ...unwiredHooks.map((name) =>
       pc.dim(
-        `${displayHookPath(hooksDir, name)} never runs \`${hookCommand(name)}\`.`,
+        `${displayHookPath(hooksDir, name)} never runs \`${hookInvocation(name)}\`.`,
       ),
     ),
     "",

@@ -190,6 +190,43 @@ test("doctor recreates a missing hook file", (t) => {
   assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
 });
 
+test("doctor refreshes the exact older generated pre-push hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  const hookPath = gitHook(tempDir, "pre-push");
+  const current = fs.readFileSync(hookPath, "utf8");
+  const stale = current.replace(
+    'commitment-issues prepush "$@"',
+    "commitment-issues prepush",
+  );
+  fs.writeFileSync(hookPath, stale);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Repaired the git hook wiring/);
+  assert.match(output, /outdated generated hook file\(s\): pre-push/);
+  assert.equal(fs.readFileSync(hookPath, "utf8"), current);
+});
+
+test("doctor preserves a customized pre-push hook without forwarded args", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  const hookPath = gitHook(tempDir, "pre-push");
+  const custom = "#!/bin/sh\necho custom\ncommitment-issues prepush\n";
+  fs.writeFileSync(hookPath, custom);
+
+  const result = runDoctor(tempDir);
+
+  assert.equal(result.status, 0);
+  assert.equal(fs.readFileSync(hookPath, "utf8"), custom);
+});
+
 test("doctor respects live husky-era wiring and only nudges", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -375,6 +412,45 @@ test("doctor --quiet stays silent when the wiring is healthy", (t) => {
 
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
+});
+
+test("doctor warns about malformed standalone config without blocking repair", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.writeFileSync(
+    path.join(tempDir, ".commitmentrc.json"),
+    "{ invalid json\n",
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Configuration needs attention/);
+  assert.match(output, /\.commitmentrc\.json/);
+  assert.match(output, /contains invalid JSON/);
+  assert.match(output, /Repaired the git hook wiring/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".commitmentrc.json"), "utf8"),
+    "{ invalid json\n",
+  );
+});
+
+test("doctor --quiet reports malformed standalone config in one line", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  runDoctor(tempDir);
+  fs.writeFileSync(path.join(tempDir, ".commitmentrc.json"), "[]\n");
+
+  const result = runDoctor(tempDir, ["--quiet"]);
+  const output = `${result.stdout}${result.stderr}`.trim();
+
+  assert.equal(result.status, 0);
+  assert.match(output, /\.commitmentrc\.json/);
+  assert.match(output, /must contain a JSON object/);
+  assert.equal(output.split(/\r?\n/).length, 1);
 });
 
 test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {

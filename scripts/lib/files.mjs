@@ -54,14 +54,37 @@ export function normalizeRepoPath(file) {
 }
 
 /**
+ * Parse a NUL-terminated list emitted by a Git `-z` pathname query.
+ * Path bytes are preserved exactly; a non-empty unterminated or internally
+ * empty record is malformed because Git never emits an empty pathname.
+ *
+ * @param {string} output - Raw NUL-delimited output from Git.
+ * @returns {string[]|null} Exact paths, or null when output is malformed.
+ */
+export function parseNulPaths(output) {
+  if (output === "") {
+    return [];
+  }
+  if (typeof output !== "string" || !output.endsWith("\0")) {
+    return null;
+  }
+
+  const paths = output.slice(0, -1).split("\0");
+  return paths.some((file) => file.length === 0) ? null : paths;
+}
+
+/**
  * Parse NUL-delimited `git diff --name-status -z` output into paths that can
- * affect related-test discovery. Deletions remain present; renames retain both
- * sides; copies only contribute the new path because the source is unchanged.
+ * affect related-test discovery. Deletions remain present, and rename/copy
+ * records retain both path fields exactly.
  *
  * @param {string} output - Raw name-status output from Git.
  * @returns {string[]|null} Paths, or null when the output is malformed.
  */
 export function parseNameStatusPaths(output) {
+  if (output !== "" && !output.endsWith("\0")) {
+    return null;
+  }
   const fields = output.split("\0");
   if (fields.at(-1) === "") {
     fields.pop();
@@ -71,19 +94,22 @@ export function parseNameStatusPaths(output) {
   for (let index = 0; index < fields.length;) {
     const status = fields[index++];
     const firstPath = fields[index++];
-    if (!status || firstPath === undefined) {
+    if (
+      !status ||
+      !/^[ACDMRTUXB](?:\d+)?$/.test(status) ||
+      firstPath === undefined ||
+      firstPath.length === 0
+    ) {
       return null;
     }
 
     const changeType = status[0];
     if (changeType === "R" || changeType === "C") {
       const secondPath = fields[index++];
-      if (secondPath === undefined) {
+      if (secondPath === undefined || secondPath.length === 0) {
         return null;
       }
-      if (changeType === "R") {
-        files.push(firstPath);
-      }
+      files.push(firstPath);
       files.push(secondPath);
     } else {
       files.push(firstPath);
@@ -91,6 +117,43 @@ export function parseNameStatusPaths(output) {
   }
 
   return files;
+}
+
+/**
+ * Parse `git ls-files --stage -z` records without interpreting pathname
+ * whitespace. The metadata header is separated from the path by Git's first
+ * tab; any later tabs belong to the pathname.
+ *
+ * @param {string} output - Raw staged-index listing.
+ * @returns {Array<{mode: string, object: string, stage: number, file: string}>|null}
+ *   Parsed entries, or null for malformed output.
+ */
+export function parseLsFilesStage(output) {
+  const records = parseNulPaths(output);
+  if (records === null) {
+    return null;
+  }
+
+  const entries = [];
+  for (const record of records) {
+    const separator = record.indexOf("\t");
+    if (separator < 0) {
+      return null;
+    }
+    const header = record.slice(0, separator);
+    const file = record.slice(separator + 1);
+    const match = header.match(/^([0-7]{6}) ([0-9a-f]+) ([0-3])$/i);
+    if (!match || file.length === 0) {
+      return null;
+    }
+    entries.push({
+      mode: match[1],
+      object: match[2],
+      stage: Number(match[3]),
+      file,
+    });
+  }
+  return entries;
 }
 
 /**
@@ -216,13 +279,72 @@ export function isTestExemptFile(file) {
   );
 }
 
+function packageRootFor(file) {
+  let current = path.posix.dirname(file);
+  while (current !== ".") {
+    if (fs.existsSync(path.posix.join(current, "package.json"))) {
+      return current;
+    }
+    const parent = path.posix.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  // A package.json can itself be deleted in the pushed change. Preserve its
+  // workspace boundary from the root declaration so a deleted source does not
+  // suddenly fall through to an unrelated root basename test.
+  try {
+    const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
+    const workspaceGlobs = Array.isArray(rootPackage.workspaces)
+      ? rootPackage.workspaces
+      : Array.isArray(rootPackage.workspaces?.packages)
+        ? rootPackage.workspaces.packages
+        : [];
+    const matchers = workspaceGlobs
+      .filter((glob) => typeof glob === "string")
+      .map((glob) => globToRegExp(glob.replace(/\/$/, "")));
+    current = path.posix.dirname(file);
+    while (current !== ".") {
+      if (matchers.some((matcher) => matcher.test(current))) {
+        return current;
+      }
+      current = path.posix.dirname(current);
+    }
+  } catch {
+    // A missing/malformed root package simply means no declared boundary.
+  }
+
+  return "";
+}
+
+function existingTests(candidateBases) {
+  const matches = [];
+  for (const candidateBase of candidateBases) {
+    for (const suffix of testSuffixes) {
+      const candidate = `${candidateBase}${suffix}`;
+      if (fs.existsSync(candidate)) {
+        matches.push(normalizeRepoPath(candidate));
+      }
+    }
+  }
+  return [...new Set(matches)];
+}
+
 /**
- * Find the matching test for a source file (sibling, adjacent __tests__/, or a
- * top-level test/ or tests/ dir).
+ * Find the most-specific matching test set for a source file.
+ *
+ * Candidate tiers are deterministic: colocated tests, package-relative mirror
+ * paths, package-local source-root fallbacks, then the legacy root basename
+ * fallback. Every existing candidate in the first non-empty tier is returned.
+ * A nested package never falls through to a root basename, preventing another
+ * workspace with the same source basename from stealing its test selection.
+ *
  * @param {string} file - Repo-relative source path.
- * @returns {string|null} The test file path, or null if none exists.
+ * @returns {string[]} Matching test file paths.
  */
-export function findTestFile(file) {
+export function findTestFiles(file) {
   const normalized = normalizeRepoPath(file);
   const dirname = path.posix.dirname(normalized);
   const basename = path.posix.basename(
@@ -230,26 +352,59 @@ export function findTestFile(file) {
     path.posix.extname(normalized),
   );
 
-  const candidateDirs = [
-    dirname,
-    path.posix.join(dirname, "__tests__"),
-    "test",
-    "tests",
-  ];
+  const colocated = existingTests([
+    path.posix.join(dirname, basename),
+    path.posix.join(dirname, "__tests__", basename),
+  ]);
+  if (colocated.length > 0) {
+    return colocated;
+  }
 
-  for (const dir of candidateDirs) {
-    for (const suffix of testSuffixes) {
-      const candidate = path.posix.join(dir, `${basename}${suffix}`);
-      if (fs.existsSync(candidate)) {
-        // Normalize to POSIX separators so the returned path matches git's
-        // forward-slash output (dedupes cleanly in collectTestsForFiles and
-        // keeps the displayed test command consistent on Windows).
-        return normalizeRepoPath(candidate);
-      }
+  const packageRoot = packageRootFor(normalized);
+  const relative = path.posix.relative(packageRoot || ".", normalized);
+  const relativeBase = relative.slice(0, -path.posix.extname(relative).length);
+  const testRoots = ["test", "tests"].map((dir) =>
+    packageRoot ? path.posix.join(packageRoot, dir) : dir,
+  );
+
+  const mirrored = existingTests(
+    testRoots.map((dir) => path.posix.join(dir, relativeBase)),
+  );
+  if (mirrored.length > 0) {
+    return mirrored;
+  }
+
+  const relativeParts = relativeBase.split("/");
+  if (["src", "lib"].includes(relativeParts[0]) && relativeParts.length > 1) {
+    const withoutSourceRoot = relativeParts.slice(1).join("/");
+    const packageFallback = existingTests(
+      testRoots.map((dir) => path.posix.join(dir, withoutSourceRoot)),
+    );
+    if (packageFallback.length > 0) {
+      return packageFallback;
     }
   }
 
-  return null;
+  // Backward compatibility for single-package repositories that historically
+  // used test/<basename>. A nested package is intentionally not allowed to
+  // escape its package boundary and claim this root-level fallback.
+  return packageRoot === ""
+    ? existingTests([
+        path.posix.join("test", basename),
+        path.posix.join("tests", basename),
+      ])
+    : [];
+}
+
+/**
+ * Find the first deterministic test match for compatibility with callers that
+ * only need to know whether a test exists.
+ *
+ * @param {string} file - Repo-relative source path.
+ * @returns {string|null} First test file path, or null if none exists.
+ */
+export function findTestFile(file) {
+  return findTestFiles(file)[0] ?? null;
 }
 
 /**
@@ -270,8 +425,7 @@ export function collectTestsForFiles(files) {
     if (isTestFile(normalized)) {
       tests.add(normalized);
     } else if (codeFilePattern.test(normalized)) {
-      const match = findTestFile(normalized);
-      if (match) {
+      for (const match of findTestFiles(normalized)) {
         tests.add(match);
       }
     }

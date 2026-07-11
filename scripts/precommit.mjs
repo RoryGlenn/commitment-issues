@@ -6,11 +6,9 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
 import {
-  invalidPrecommitConfigMessages,
   loadPrecommitConfig,
+  precommitConfigDiagnostics,
   precommitConfigWarningMessages,
-  resolveCommitMessageConfig,
-  unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
 import { eslintManualIssues, summarizeEslintJson } from "./lib/checks.mjs";
 import {
@@ -48,6 +46,8 @@ import {
   isTestExemptFile,
   isThirdPartyPath,
   collectTestsForFiles,
+  parseLsFilesStage,
+  parseNulPaths,
 } from "./lib/files.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
@@ -130,31 +130,11 @@ function emitJsonResult({
 
 const configWarnings = precommitConfigWarningMessages(config);
 if (jsonMode) {
-  const unknownKeys = unknownPrecommitConfigKeys(config);
-  if (unknownKeys.length > 0) {
+  for (const { code, message } of precommitConfigDiagnostics(config)) {
     jsonOutput.addDiagnostic({
       severity: "warning",
-      code: "config.unknown-keys",
-      message: `Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
-    });
-  }
-
-  const invalidValueMessages = invalidPrecommitConfigMessages(config);
-  if (invalidValueMessages.length > 0) {
-    jsonOutput.addDiagnostic({
-      severity: "warning",
-      code: "config.invalid-values",
-      message: `Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
-    });
-  }
-
-  const commitMessage = resolveCommitMessageConfig(config);
-  if (commitMessage.blockOnFailure && !commitMessage.enabled) {
-    jsonOutput.addDiagnostic({
-      severity: "warning",
-      code: "config.ineffective-value",
-      message:
-        "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+      code,
+      message,
     });
   }
 } else {
@@ -223,10 +203,13 @@ const gitFiles = run("git", [
   "diff",
   "--cached",
   "--name-only",
+  "-z",
   "--diff-filter=ACMRT",
 ]);
 
-if (gitFiles.error || gitFiles.status !== 0) {
+const rawStagedFiles = parseNulPaths(gitFiles.stdout);
+
+if (gitFiles.error || gitFiles.status !== 0 || rawStagedFiles === null) {
   // Advisory philosophy: the hook cannot check anything, but it must not
   // block the commit either — warn (matching the pre-push advisory
   // uninspectable state) and continue.
@@ -261,22 +244,15 @@ if (gitFiles.error || gitFiles.status !== 0) {
   process.exit(0);
 }
 
-const rawStagedFiles = gitFiles.stdout
-  .split("\n")
-  .map((file) => file.trim())
-  .filter(Boolean);
-
 if (rawStagedFiles.length === 0) {
   const anyStagedResult = run("git", [
     ...GIT_PATH_ARGS,
     "diff",
     "--cached",
-    "--name-only",
+    "--quiet",
   ]);
   const hasStagedChanges =
-    !anyStagedResult.error &&
-    anyStagedResult.status === 0 &&
-    anyStagedResult.stdout.trim().length > 0;
+    !anyStagedResult.error && anyStagedResult.status === 1;
 
   const summary = hasStagedChanges
     ? "Deletion-only commit; no applicable files to check"
@@ -429,24 +405,48 @@ function collectGuardIssues() {
     "diff",
     "--cached",
     "--numstat",
+    "-z",
   ]);
   if (!numstat.error && numstat.status === 0) {
-    guardIssues.push(
-      ...largeCommitIssues(parseNumstat(numstat.stdout), guardConfig),
-    );
+    const shape = parseNumstat(numstat.stdout);
+    if (shape !== null) {
+      guardIssues.push(...largeCommitIssues(shape, guardConfig));
+    }
   }
 
   if (guardConfig.maxFileSizeMb > 0) {
-    const batch = run("git", [...GIT_PATH_ARGS, "cat-file", "--batch-check"], {
-      input: rawStagedFiles.map((file) => `:0:${file}`).join("\n"),
-    });
-    if (!batch.error && batch.status === 0) {
-      const sizeIssue = largeFileIssue(
-        parseBatchCheckSizes(batch.stdout, rawStagedFiles),
-        guardConfig,
+    const index = run("git", [
+      ...GIT_PATH_ARGS,
+      "ls-files",
+      "--stage",
+      "-z",
+      "--",
+      ...rawStagedFiles,
+    ]);
+    const indexEntries = parseLsFilesStage(index.stdout);
+    if (!index.error && index.status === 0 && indexEntries !== null) {
+      const objectByFile = new Map(
+        indexEntries
+          .filter((entry) => entry.stage === 0)
+          .map((entry) => [entry.file, entry.object]),
       );
-      if (sizeIssue) {
-        guardIssues.push(sizeIssue);
+      const stagedBlobs = rawStagedFiles
+        .filter((file) => objectByFile.has(file))
+        .map((file) => ({ file, object: objectByFile.get(file) }));
+      const batch = run("git", ["cat-file", "--batch-check"], {
+        input: stagedBlobs.map(({ object }) => object).join("\n"),
+      });
+      if (!batch.error && batch.status === 0) {
+        const sizeIssue = largeFileIssue(
+          parseBatchCheckSizes(
+            batch.stdout,
+            stagedBlobs.map(({ file }) => file),
+          ),
+          guardConfig,
+        );
+        if (sizeIssue) {
+          guardIssues.push(sizeIssue);
+        }
       }
     }
   }
@@ -790,7 +790,7 @@ if (testRun) {
             }`
           : stagedTestOutcome === "signal"
             ? `Process ended from ${testRun.signal || "an unknown signal"}`
-            : "Check precommitChecks.testCommand in package.json",
+            : "Check testCommand in .commitmentrc.json or package.json precommitChecks",
     });
   } else if (stagedTestOutcome === "nonzero") {
     issues.push({
@@ -833,17 +833,17 @@ const dirtyTrackedResult = run("git", [
   ...GIT_PATH_ARGS,
   "diff",
   "--name-only",
+  "-z",
 ]);
 // When the probe fails we cannot verify the worktree is clean. Tell the
 // message builder explicitly instead of letting an empty file list read as
 // "clean", which would recommend an unverified post-commit amend.
 const canInspectUnstagedFiles =
-  !dirtyTrackedResult.error && dirtyTrackedResult.status === 0;
+  !dirtyTrackedResult.error &&
+  dirtyTrackedResult.status === 0 &&
+  parseNulPaths(dirtyTrackedResult.stdout) !== null;
 const dirtyTrackedFiles = canInspectUnstagedFiles
-  ? dirtyTrackedResult.stdout
-      .split("\n")
-      .map((file) => file.trim())
-      .filter(Boolean)
+  ? parseNulPaths(dirtyTrackedResult.stdout)
   : [];
 
 jsonOutput.addCheck({
