@@ -94,6 +94,7 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
     fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
     /commitment-issues prepush/,
   );
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
   // Native wiring: hooks live in .git/hooks with no core.hooksPath set.
   assert.equal(hooksPath(tempDir), "");
   assert.match(readFile(tempDir, ".gitignore"), /\.prettiercache/);
@@ -102,6 +103,91 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   const second = runInit(tempDir);
   assert.equal(second.status, 0);
   assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
+});
+
+test("init wires commit-msg only for an explicit commitMessage opt-in", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    precommitChecks: {
+      commitMessage: { enabled: true, blockOnFailure: false },
+    },
+  });
+
+  const preview = runInit(tempDir, ["--dry-run"]);
+  assert.equal(preview.status, 0);
+  assert.match(
+    `${preview.stdout}${preview.stderr}`,
+    /\.git\/hooks\/commit-msg/,
+  );
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /advisory project commitlint feedback/);
+  assert.match(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    /commitment-issues commit-msg "\$1"/,
+  );
+  if (process.platform !== "win32") {
+    assert.ok(fs.statSync(gitHook(tempDir, "commit-msg")).mode & 0o111);
+  }
+  assert.deepEqual(readPackage(tempDir).precommitChecks.commitMessage, {
+    enabled: true,
+    blockOnFailure: false,
+  });
+});
+
+test("init preserves custom commit-msg hooks and requires safe forwarding", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    precommitChecks: { commitMessage: { enabled: true } },
+  });
+  writeFile(gitHook(tempDir, "commit-msg"), "echo custom message policy\n");
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /Hook wiring needs your attention/);
+  assert.match(output, /commit-msg: commitment-issues commit-msg "\$1"/);
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    "echo custom message policy\n",
+  );
+
+  fs.writeFileSync(
+    gitHook(tempDir, "commit-msg"),
+    'echo custom\ncommitment-issues commit-msg "$1"\n',
+  );
+  const safe = runInit(tempDir);
+  assert.equal(safe.status, 0);
+  assert.match(`${safe.stdout}${safe.stderr}`, /Already configured/);
+});
+
+test("init diagnoses invalid nested commitMessage config without wiring it", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    precommitChecks: {
+      commitMessage: { enable: true, blockOnFailure: "yes" },
+    },
+  });
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /Configuration needs attention/);
+  assert.match(output, /commitMessage\.enable/);
+  assert.match(output, /commitMessage\.blockOnFailure/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
 });
 
 test("init upgrades a legacy 1.x (vendored) setup to the bin", (t) => {
