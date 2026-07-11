@@ -251,7 +251,13 @@ and is not one of the known legacy generated hooks, `doctor` reports that the
 hook is not wired and leaves it alone.
 
 Add the `commitment-issues` command to the custom hook manually when you want it
-to run alongside your existing behavior.
+to run alongside your existing behavior. Put it on an executable command line;
+a comment, `echo`/`printf` message, or quoted example is intentionally not
+treated as wiring. On POSIX, also make the hook executable, for example:
+
+```bash
+chmod +x .git/hooks/pre-commit .git/hooks/pre-push
+```
 
 ## How do I make the output more playful?
 

@@ -91,6 +91,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-017** — init warns when run outside a git repository but still writes scripts/config. Fixture: `test/init.test.mjs`.
 - **INIT-018** — init preserves custom native hooks, accepts those that invoke `commitment-issues`, and withholds setup-complete claims while listing exact commands for those that do not. Fixture: `test/init.test.mjs`.
 - **INIT-019** — init preserves an unrelated `postprepare` while composing repair into the project-owned `prepare`. Fixture: `test/init.test.mjs`.
+- **INIT-020** — init rejects primitive, null, and array package roots or `scripts`/`precommitChecks` containers before writing; missing and empty object containers remain valid. Fixture: `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -157,6 +158,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **HOOK-009** — `doctor --quiet` never breaks an install (no git repo, or repair cannot complete). Fixture: `test/doctor.test.mjs`.
 - **HOOK-010** — interactive doctor errors clearly: no `package.json`, unrepairable wiring, or still broken after repair. Fixture: `test/doctor.test.mjs`.
 - **HOOK-011** — a foreign `core.hooksPath` is respected: healthy when its hooks invoke the tool, reported (never rewired) when they do not. Fixture: `test/doctor.test.mjs`.
+- **HOOK-012** — comments, echo/printf output, assignments, and quoted examples do not count as hook wiring; executable custom invocations and exact generated hooks remain healthy for both hook names. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`.
+- **HOOK-013** — non-executable custom hooks are reported with `chmod +x` guidance on POSIX and are never modified by init or doctor. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`.
 
 ### Pre-push modes
 

@@ -143,11 +143,20 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
   const checkDir = huskyEraLive
     ? path.resolve(".husky")
     : path.resolve(configuredHooksPath);
-  const unwired = HOOK_NAMES.filter((name) => {
-    const status = classifyHook(checkDir, name);
-    return status === "missing" || status === "custom-without-command";
-  });
-  if (unwired.length === 0) {
+  const hookReports = HOOK_NAMES.map((name) => ({
+    name,
+    // Husky's shim sources `.husky/<name>` with `sh`; the delegated file does
+    // not itself need an executable bit. Native/foreign Git hook files do.
+    status: classifyHook(checkDir, name, {
+      requireExecutable: !huskyEraLive,
+    }),
+  }));
+  const inactive = hookReports.filter((report) =>
+    ["missing", "custom-without-command", "non-executable"].includes(
+      report.status,
+    ),
+  );
+  if (inactive.length === 0) {
     if (!quiet) {
       successBox([
         pc.bold("Git hooks are healthy."),
@@ -169,7 +178,8 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
     console.warn(
       pc.yellow(
         `commitment-issues: core.hooksPath is set to ${configuredHooksPath} ` +
-          `and its hooks do not invoke commitment-issues — run \`${runScript("doctor")}\`.`,
+          `and its hooks are missing, inactive, or do not invoke ` +
+          `commitment-issues — run \`${runScript("doctor")}\`.`,
       ),
     );
     process.exit(0);
@@ -185,9 +195,11 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
     ),
     "",
     ...(huskyEraLive
-      ? unwired.map((name) => `  .husky/${name}`)
-      : unwired.map(
-          (name) => `  ${hookCommand(name)}   ${pc.dim(`(${name})`)}`,
+      ? inactive.map((report) => `  .husky/${report.name}`)
+      : inactive.map((report) =>
+          report.status === "non-executable"
+            ? `  chmod +x ${displayHookPath(checkDir, report.name)}`
+            : `  ${hookCommand(report.name)}   ${pc.dim(`(${report.name})`)}`,
         )),
     "",
     ...(huskyEraLive
@@ -226,6 +238,9 @@ const missingHooks = hookReports
 const unwiredHooks = hookReports
   .filter((report) => report.status === "custom-without-command")
   .map((report) => report.name);
+const nonExecutableHooks = hookReports
+  .filter((report) => report.status === "non-executable")
+  .map((report) => report.name);
 
 const problems = [];
 if (huskyEraHooksPath) {
@@ -237,6 +252,13 @@ if (missingHooks.length > 0) {
 if (unwiredHooks.length > 0) {
   problems.push(
     `hook(s) not invoking commitment-issues: ${unwiredHooks
+      .map((name) => displayHookPath(hooksDir, name))
+      .join(", ")}`,
+  );
+}
+if (nonExecutableHooks.length > 0) {
+  problems.push(
+    `non-executable hook(s): ${nonExecutableHooks
       .map((name) => displayHookPath(hooksDir, name))
       .join(", ")}`,
   );
@@ -328,34 +350,49 @@ if (
   ]);
 }
 
-// A user-owned hook that never calls commitment-issues can't be repaired
-// without clobbering their script, so surface it instead of silently claiming
-// health. Quiet mode still exits 0 (an install must never break) but warns
-// rather than staying silent; interactive mode explains the manual fix and
-// exits non-zero because the tool is genuinely not wired in.
-if (unwiredHooks.length > 0) {
+// A user-owned hook that never calls commitment-issues or is not executable
+// cannot be repaired without changing the user's file or mode, so surface it
+// instead of silently claiming health. Quiet mode still exits 0 (an install
+// must never break); interactive mode explains the manual fix and exits
+// non-zero because the tool is genuinely not wired in.
+if (unwiredHooks.length > 0 || nonExecutableHooks.length > 0) {
   if (quiet) {
+    const inactivePaths = [...unwiredHooks, ...nonExecutableHooks].map((name) =>
+      displayHookPath(hooksDir, name),
+    );
     console.warn(
       pc.yellow(
-        `commitment-issues: ${unwiredHooks
-          .map((name) => displayHookPath(hooksDir, name))
-          .join(", ")} do not invoke commitment-issues — run ` +
+        `commitment-issues: ${inactivePaths.join(", ")} are inactive or do not ` +
+          `invoke commitment-issues — run ` +
           `\`${runScript("doctor")}\`.`,
       ),
     );
     process.exit(0);
   }
   warningBox([
-    pc.bold("A git hook does not invoke commitment-issues."),
+    pc.bold(
+      nonExecutableHooks.length > 0
+        ? "A git hook is inactive."
+        : "A git hook does not invoke commitment-issues.",
+    ),
     "",
     ...unwiredHooks.map((name) =>
       pc.dim(
         `${displayHookPath(hooksDir, name)} never runs \`${hookCommand(name)}\`.`,
       ),
     ),
+    ...nonExecutableHooks.flatMap((name) => [
+      pc.dim(`${displayHookPath(hooksDir, name)} is not executable.`),
+      pc.dim(`Run: chmod +x ${displayHookPath(hooksDir, name)}`),
+    ]),
     "",
-    pc.dim("Add the command above to each hook, or delete the hook file so"),
-    pc.dim("doctor can recreate it. Existing hooks are never overwritten."),
+    ...(unwiredHooks.length > 0
+      ? [
+          pc.dim("Add the command above to each unwired hook, or delete the"),
+          pc.dim("hook file so doctor can recreate it."),
+        ]
+      : []),
+    pc.dim("Existing hooks are never overwritten or made executable for you."),
     ...(repaired.length > 0
       ? ["", pc.dim(`Also repaired: ${repaired.join(", ")}.`)]
       : []),

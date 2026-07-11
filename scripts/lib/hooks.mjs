@@ -108,24 +108,212 @@ export function gitHooksDir(cwd = process.cwd()) {
  *   missing                → recreate from hookBody
  *   wired                  → our exact generated body; healthy
  *   custom-with-command    → user's own hook that still calls us; healthy
+ *   non-executable         → hook contents may be wired, but Git will not run
+ *                            the file on POSIX
  *   custom-without-command → user's own hook that never calls us; a problem to
  *                            report but never overwrite.
  * @param {string} hooksDir - Directory containing the hook files.
  * @param {string} name - Hook name (e.g. "pre-commit").
- * @returns {"missing"|"wired"|"custom-with-command"|"custom-without-command"} Classification.
+ * @param {{requireExecutable?: boolean}} [options] - Whether POSIX mode bits
+ *   participate in health classification. Ownership-only callers can disable
+ *   this while comparing generated/custom hook contents.
+ * @returns {"missing"|"wired"|"custom-with-command"|"non-executable"|"custom-without-command"} Classification.
  */
-export function classifyHook(hooksDir, name) {
+export function classifyHook(
+  hooksDir,
+  name,
+  { requireExecutable = true } = {},
+) {
   const hookPath = path.join(hooksDir, name);
   if (!fs.existsSync(hookPath)) {
     return "missing";
   }
+
+  // Git for Windows executes hooks through its bundled shell without relying
+  // on POSIX mode bits. Everywhere else, a present but non-executable file is
+  // ignored by Git and must never be reported as active.
+  if (
+    requireExecutable &&
+    process.platform !== "win32" &&
+    (fs.statSync(hookPath).mode & 0o111) === 0
+  ) {
+    return "non-executable";
+  }
+
   const content = fs.readFileSync(hookPath, "utf8");
   if (content === hookBody(name)) {
     return "wired";
   }
-  return content.includes(hookCommand(name))
+
+  return hasExecutableHookCommand(content, name)
     ? "custom-with-command"
     : "custom-without-command";
+}
+
+/**
+ * Recognize a deliberately conservative shell invocation. The expected
+ * command must begin an executable line (optionally through `command` or
+ * `exec`), so comments, echo/printf output, assignments, and quoted examples
+ * cannot masquerade as active wiring.
+ * @param {string} content - Hook file contents.
+ * @param {string} name - Hook name (e.g. "pre-commit").
+ * @returns {boolean} Whether an executable line invokes the expected command.
+ */
+function hasExecutableHookCommand(content, name) {
+  const expected = hookCommand(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const invocation = new RegExp(
+    `^(?:(?:command|exec)\\s+)?${expected}(?=$|[\\s;&|<>])`,
+  );
+
+  let quote = null;
+  let continued = false;
+  const heredocs = [];
+
+  for (const line of content.split(/\r?\n/)) {
+    if (heredocs.length > 0) {
+      const current = heredocs[0];
+      const candidate = current.stripTabs ? line.replace(/^\t+/, "") : line;
+      if (candidate === current.delimiter) {
+        heredocs.shift();
+      }
+      continue;
+    }
+
+    // A command-looking line is inert while it is part of a multiline quoted
+    // value, a heredoc body, or the continued argument list of the prior line.
+    if (quote === null && !continued && invocation.test(line.trimStart())) {
+      return true;
+    }
+
+    const state = scanShellLine(line, quote);
+    quote = state.quote;
+    continued = state.continued;
+    heredocs.push(...state.heredocs);
+  }
+
+  return false;
+}
+
+/**
+ * Track only the shell lexical state needed to reject inert multiline examples.
+ * This is intentionally not a full shell parser: uncertain constructs produce
+ * false negatives (manual remediation) rather than false healthy claims.
+ * @param {string} line - One hook source line.
+ * @param {"'"|'\"'|'`'|null} initialQuote - Quote carried from the prior line.
+ * @returns {{quote: "'"|'\"'|'`'|null, continued: boolean, heredocs: Array<{delimiter: string, stripTabs: boolean}>}} State for following lines.
+ */
+function scanShellLine(line, initialQuote) {
+  let quote = initialQuote;
+  let continued = false;
+  const heredocs = [];
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+
+    if (quote !== null) {
+      if (char === quote) {
+        quote = null;
+      } else if (quote !== "'" && char === "\\") {
+        // Backslashes escape the following character in double quotes and
+        // legacy backtick substitutions. A final backslash continues the line.
+        if (index === line.length - 1) {
+          continued = true;
+        } else {
+          index += 1;
+        }
+      }
+      continue;
+    }
+
+    if (char === "#" && isShellWordBoundary(line, index)) {
+      break;
+    }
+    if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+      continue;
+    }
+    if (char === "\\") {
+      if (index === line.length - 1) {
+        continued = true;
+      } else {
+        index += 1;
+      }
+      continue;
+    }
+    if (char === "<" && line[index + 1] === "<" && line[index + 2] !== "<") {
+      const parsed = parseHeredocDelimiter(line, index + 2);
+      if (parsed.delimiter) {
+        heredocs.push({
+          delimiter: parsed.delimiter,
+          stripTabs: parsed.stripTabs,
+        });
+      }
+      index = parsed.endIndex - 1;
+    }
+  }
+
+  return { quote, continued, heredocs };
+}
+
+/**
+ * Whether an unquoted # starts a shell comment rather than continuing a word.
+ * @param {string} line - Hook source line.
+ * @param {number} index - Index of the # character.
+ * @returns {boolean} Whether the remainder of the line is a comment.
+ */
+function isShellWordBoundary(line, index) {
+  return index === 0 || /[\s;&|()]/.test(line[index - 1]);
+}
+
+/**
+ * Read a simple POSIX heredoc delimiter and apply shell quote removal.
+ * @param {string} line - Hook source line.
+ * @param {number} startIndex - First character after the << operator.
+ * @returns {{delimiter: string, stripTabs: boolean, endIndex: number}} Parsed delimiter.
+ */
+function parseHeredocDelimiter(line, startIndex) {
+  let index = startIndex;
+  let stripTabs = false;
+  let quote = null;
+  let delimiter = "";
+
+  if (line[index] === "-") {
+    stripTabs = true;
+    index += 1;
+  }
+  while (line[index] === " " || line[index] === "\t") {
+    index += 1;
+  }
+
+  for (; index < line.length; index += 1) {
+    const char = line[index];
+    if (quote !== null) {
+      if (char === quote) {
+        quote = null;
+      } else if (quote !== "'" && char === "\\" && index + 1 < line.length) {
+        index += 1;
+        delimiter += line[index];
+      } else {
+        delimiter += char;
+      }
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    if (char === "\\" && index + 1 < line.length) {
+      index += 1;
+      delimiter += line[index];
+      continue;
+    }
+    if (/\s|[;&|<>()]/.test(char)) {
+      break;
+    }
+    delimiter += char;
+  }
+
+  return { delimiter, stripTabs, endIndex: index };
 }
 
 /**

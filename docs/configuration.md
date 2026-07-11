@@ -17,6 +17,18 @@ For the short install path, start with the [README](../README.md). For terminal 
 
 Nothing is copied into your repo from the package source. The hooks are plain `.git/hooks` files that call the installed `commitment-issues` bin — no hook manager is involved.
 
+Before changing any file, `init` validates that the `package.json` root and any
+existing `scripts` and `precommitChecks` values are JSON objects (not `null`,
+arrays, or primitive values). An invalid shape exits with the exact property to
+fix and leaves `package.json` unchanged.
+
+Existing custom hooks are considered active only when an executable command
+line invokes the expected `commitment-issues` subcommand. Comments,
+echo/printf-only messages, assignments, and quoted examples do not count. On
+POSIX, the hook file must also have an executable mode bit. `init` and `doctor`
+never alter these user-owned hooks; they report the command or `chmod +x`
+remediation instead.
+
 ## What happens on commit and push?
 
 | Action       | Default behavior                                                                            | Stricter option                                                |

@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` now verifies that both active hooks invoke `commitment-issues` before claiming setup is complete. User-authored hooks remain untouched; unwired hooks suppress the green commit/push promises and list the exact commands to add.
 - `init` now preserves an unrelated `prepare` command and appends automatic fresh-clone hook repair to the same lifecycle script, including on Yarn Classic. `uninstall` removes only the generated repair suffix.
 - The staged-secret diff parser now treats `+++ ` as file metadata only outside a hunk, so added source lines beginning with `++ ` cannot evade secret detection.
+- `init` now rejects non-object package roots and non-object `scripts` or
+  `precommitChecks` containers before writing anything, with an actionable
+  error instead of an internal `TypeError`.
+- Hook health checks now require a conservative executable command line and,
+  on POSIX, an executable hook file. Comments, echo/printf output, and quoted
+  examples no longer produce false healthy/setup-success claims.
 
 ## [3.2.0] - 2026-07-10
 
