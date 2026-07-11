@@ -20,9 +20,7 @@ aggregate branch metric.
 Every published `scripts/**/*.mjs` file is included in the public-runtime
 denominator automatically unless it appears in the exact maintenance-only list
 below. This keeps the scope closed by default: adding a new hook, command, or
-runtime helper cannot silently escape the threshold. The current tree contains
-20 included runtime files.
-
+runtime helper cannot silently escape the threshold.
 These repository/package-maintenance files are deliberately outside the
 published runtime percentage:
 
