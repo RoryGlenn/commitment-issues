@@ -73,11 +73,15 @@ const detail = [result.stdout, result.stderr]
   .filter(Boolean)
   .join("\n");
 
-if (result.signal) {
+if (
+  result.outcome === "timeout" ||
+  result.timedOut === true ||
+  result.signal
+) {
   finish("timeout", detail);
 }
-if (result.error) {
-  finish("unavailable", result.error.message || detail);
+if (result.outcome === "spawn-error" || result.error) {
+  finish("unavailable", result.error?.message || detail);
 }
 // Commitlint normally uses result code 9 when no rules configuration can be
 // found. In --strict mode, current releases remap that same empty-rules error
