@@ -22,6 +22,10 @@ Pushes run tests associated with pushed files in advisory mode when matching
 files exist. If those tests fail, the push still continues and a warning is
 printed.
 
+ESLint and Prettier are resolved only from the project's installed
+`node_modules`. A missing peer tool produces an advisory with the detected
+package manager's install command; hooks do not ask `npx` to fetch it.
+
 ## When does it block anything?
 
 Commit-time checks are advisory and exit successfully by default. Push-time test
@@ -218,6 +222,23 @@ Jest:
 ```
 
 The same `testCommand` is used for staged tests and push-time tests.
+
+`testCommand` is explicit user intent and runs exactly as configured. The `npx`
+examples above may use npx's normal package-resolution behavior. Install the
+runner locally or use `npx --no-install`/`--offline` as supported by your npx
+version when the hook must remain network-isolated.
+
+## Will a hook download ESLint or Prettier if one is missing?
+
+No. Built-in ESLint and Prettier checks resolve only project-local package bins.
+If one is absent, the commit check remains advisory and names the missing tool
+plus the correct npm, pnpm, Yarn, or Bun dev-install command. `doctor` reports
+the same condition. Fix commands exit nonzero because they cannot safely claim
+the requested fix completed.
+
+Explicitly configured commands are a separate trust boundary. For example,
+`testCommand: ["npx", "vitest", "run"]` is preserved as written and opts into
+npx's behavior.
 
 ## Does it support TypeScript?
 

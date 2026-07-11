@@ -4,12 +4,7 @@
 import path from "node:path";
 import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
-import {
-  TOOL_TIMEOUT_MS,
-  toolInvocation,
-  spawnAsync,
-  run,
-} from "./lib/process.mjs";
+import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigWarningMessages,
@@ -39,7 +34,7 @@ import {
   secretsIssue,
 } from "./lib/secret-scan.mjs";
 import { buildAdvisoryMessage } from "./lib/message.mjs";
-import { runScript } from "./lib/package-manager.mjs";
+import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
@@ -52,31 +47,37 @@ import {
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 function runEslint(files) {
-  const { command, args } = toolInvocation("eslint", [
-    "--cache",
-    "--cache-strategy",
-    "content",
-    "--format",
-    "json",
-    "--",
-    ...files,
-  ]);
-  return spawnAsync(command, args, { stdio: ["pipe", "pipe", "pipe"] });
+  return runTool(
+    "eslint",
+    [
+      "--cache",
+      "--cache-strategy",
+      "content",
+      "--format",
+      "json",
+      "--",
+      ...files,
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] },
+  );
 }
 
 function runPrettier(files) {
-  const { command, args } = toolInvocation("prettier", [
-    "--cache",
-    "--cache-location",
-    ".prettiercache",
-    "--cache-strategy",
-    "content",
-    "--list-different",
-    "--ignore-unknown",
-    "--",
-    ...files,
-  ]);
-  return spawnAsync(command, args, { stdio: ["pipe", "pipe", "pipe"] });
+  return runTool(
+    "prettier",
+    [
+      "--cache",
+      "--cache-location",
+      ".prettiercache",
+      "--cache-strategy",
+      "content",
+      "--list-different",
+      "--ignore-unknown",
+      "--",
+      ...files,
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] },
+  );
 }
 
 function runStagedTestCommand(testCommand, tests) {
@@ -376,18 +377,55 @@ const [eslintResult, prettierResult, testRun] = await Promise.all([
     : null,
 ]);
 
-if (eslintResult) {
-  if (eslintResult.error || eslintResult.signal) {
-    issues.push({
+function unavailableToolIssue(result, displayName, packageName, type) {
+  if (result.outcome === "missing-tool") {
+    return {
       autoFixable: false,
-      type: "lint",
-      message: eslintResult.signal
-        ? "ESLint timed out"
-        : "Unable to run ESLint",
-      detail: eslintResult.signal
-        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-        : "Check ESLint install and project config",
-    });
+      type,
+      message: `${displayName} is not installed locally`,
+      detail: `Install it: ${devInstallCommand([packageName])}`,
+    };
+  }
+  if (result.outcome === "timeout") {
+    const cleanupDetail =
+      result.cleanup === "direct-child"
+        ? "the direct child was stopped; descendant cleanup was unavailable"
+        : "attached process-tree cleanup completed";
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} timed out`,
+      detail: `No result within ${TOOL_TIMEOUT_MS / 1000}s; ${cleanupDetail}`,
+    };
+  }
+  if (result.outcome === "spawn-error") {
+    return {
+      autoFixable: false,
+      type,
+      message: `Unable to run ${displayName}`,
+      detail: `Check ${displayName} install and project config`,
+    };
+  }
+  if (result.outcome === "signal") {
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} stopped before completing`,
+      detail: `Process ended from ${result.signal || "an unknown signal"}`,
+    };
+  }
+  return null;
+}
+
+if (eslintResult) {
+  const unavailable = unavailableToolIssue(
+    eslintResult,
+    "ESLint",
+    "eslint",
+    "lint",
+  );
+  if (unavailable) {
+    issues.push(unavailable);
   } else {
     const { issueCount: eslintIssueCount, fixableCount: eslintFixableCount } =
       summarizeEslintJson(eslintResult.stdout);
@@ -430,21 +468,18 @@ if (eslintResult) {
 }
 
 if (prettierResult) {
-  if (prettierResult.error || prettierResult.signal) {
-    issues.push({
-      autoFixable: false,
-      type: "format",
-      message: prettierResult.signal
-        ? "Prettier timed out"
-        : "Unable to run Prettier",
-      detail: prettierResult.signal
-        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-        : "Check Prettier install and project config",
-    });
+  const unavailable = unavailableToolIssue(
+    prettierResult,
+    "Prettier",
+    "prettier",
+    "format",
+  );
+  if (unavailable) {
+    issues.push(unavailable);
   } else {
     const { failed, files } = parsePrettierList(
+      prettierResult.status,
       prettierResult.stdout,
-      prettierResult.stderr,
     );
     if (failed) {
       // A crash (parse error, broken install) is not a formatting issue:
@@ -467,18 +502,32 @@ if (prettierResult) {
 }
 
 if (testRun) {
-  if (testRun.error || testRun.signal) {
+  if (
+    testRun.outcome === "timeout" ||
+    testRun.outcome === "spawn-error" ||
+    testRun.outcome === "signal"
+  ) {
+    const timedOut = testRun.outcome === "timeout";
+    const signaled = testRun.outcome === "signal";
+    const timeoutCleanup =
+      testRun.cleanup === "direct-child"
+        ? "the direct child was stopped; descendant cleanup was unavailable"
+        : "attached process-tree cleanup completed";
     issues.push({
       autoFixable: false,
       type: "tests",
-      message: testRun.signal
+      message: timedOut
         ? "Staged tests timed out"
-        : "Unable to run staged tests",
-      detail: testRun.signal
-        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s`
-        : "Check precommitChecks.testCommand in package.json",
+        : signaled
+          ? "Staged tests stopped before completing"
+          : "Unable to run staged tests",
+      detail: timedOut
+        ? `No result within ${TOOL_TIMEOUT_MS / 1000}s; ${timeoutCleanup}`
+        : signaled
+          ? `Process ended from ${testRun.signal || "an unknown signal"}`
+          : "Check precommitChecks.testCommand in package.json",
     });
-  } else if ((testRun.status || 0) !== 0) {
+  } else if (testRun.outcome === "nonzero") {
     issues.push({
       autoFixable: false,
       type: "tests",

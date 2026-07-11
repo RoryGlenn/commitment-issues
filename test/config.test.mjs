@@ -10,6 +10,7 @@ import {
   invalidPrecommitConfigMessages,
   KNOWN_COMMIT_MESSAGE_CONFIG_KEYS,
   KNOWN_PRECOMMIT_CONFIG_KEYS,
+  MAX_TIMEOUT_MS,
   loadPrecommitConfig,
   precommitConfigWarningMessages,
   resolveCommitMessageConfig,
@@ -253,7 +254,23 @@ test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
       'tone must be "standard" or "fun"',
       "testExempt must be an array of strings",
       "testCommand must be a non-empty array of non-empty strings",
-      "timeoutMs must be a positive finite number",
+      `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
+    ],
+  );
+});
+
+test("timeoutMs accepts Node's timer ceiling and rejects larger values", () => {
+  assert.deepEqual(sanitizePrecommitConfig({ timeoutMs: MAX_TIMEOUT_MS }), {
+    timeoutMs: MAX_TIMEOUT_MS,
+  });
+  assert.deepEqual(
+    sanitizePrecommitConfig({ timeoutMs: MAX_TIMEOUT_MS + 1 }),
+    {},
+  );
+  assert.deepEqual(
+    invalidPrecommitConfigMessages({ timeoutMs: MAX_TIMEOUT_MS + 1 }),
+    [
+      `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
     ],
   );
 });

@@ -29,9 +29,10 @@ root:
   any workspace package are included together.
 - **Configuration is read from the root `package.json`.** The `precommitChecks`
   options come from the root package, not from individual workspace packages.
-- **Tools resolve from the root `node_modules/.bin`.** In a typical workspace
+- **Tools resolve locally from the root `node_modules`.** In a typical workspace
   setup the peer tools (`eslint`, `prettier`) and optional commitlint CLI are
-  hoisted to the root, which is where the hooks resolve them.
+  hoisted to the root. Hooks read peer-tool package bins directly and resolve
+  optional commitlint through the root `node_modules/.bin` tree.
 
 ## Recommended setup
 
@@ -63,7 +64,7 @@ The following are outside the current design:
 - **Per-package `precommitChecks` configuration.** Only the root package's
   `precommitChecks` is read.
 - **Per-package tool versions.** The hooks resolve a single set of tools from the
-  root `node_modules/.bin` rather than a different version per workspace.
+  root `node_modules` rather than a different version per workspace.
 - **Separate hooks per workspace package.** Hooks are wired once at the Git root,
   not per package.
 

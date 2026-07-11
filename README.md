@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Branch coverage: 95.03%](https://img.shields.io/badge/branch%20coverage-95.03%25-brightgreen.svg)](docs/branch-coverage.md)
+[![Branch coverage: 93.77%](https://img.shields.io/badge/branch%20coverage-93.77%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -28,6 +28,11 @@ npm install -D commitment-issues eslint prettier
 ```
 
 `commitment-issues` also supports pnpm, Yarn, and Bun and adjusts its command hints to the package manager it detects.
+
+Hooks resolve ESLint and Prettier only from the project's installed
+`node_modules`. If either peer tool is missing, the check stays advisory and
+prints the matching npm, pnpm, Yarn, or Bun install command; it never falls back
+to `npx` to query a registry or install a package.
 
 ### 2. Preview and initialize
 
@@ -226,7 +231,7 @@ A stricter team configuration can start with:
 }
 ```
 
-If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence. The test command must accept test file paths as arguments, and every spawned tool is capped by a configurable timeout.
+If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence. The test command must accept test file paths as arguments, and every spawned tool is capped by a configurable timeout that cleans up its attached process tree.
 
 ### Optional commit-message linting
 
@@ -288,13 +293,18 @@ It does not overwrite unrelated scripts, custom hook bodies, foreign hook direct
 
 ## Privacy and trust
 
-Everything runs locally through Git, ESLint, Prettier, optional project-local
-commitlint, and your configured test command.
+Everything runs locally through Git, project-installed ESLint and Prettier,
+optional project-local commitlint, and your configured test command.
 
 - No telemetry or usage collection
 - No phone-home request
 - No repository data upload
 - No account or hosted service
+- No implicit `npx` or registry fallback for missing ESLint/Prettier peers
+
+`precommitChecks.testCommand` is explicit user configuration and is executed
+verbatim. Configuring it with `npx`, a package-manager runner, or another
+network-capable command opts into that command's own resolution behavior.
 
 Project quality and security evidence:
 

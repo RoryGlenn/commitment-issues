@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import pc from "picocolors";
 import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
-import { run, isPackageInstalled } from "./lib/process.mjs";
+import { run, isPackageInstalled, isToolInstalled } from "./lib/process.mjs";
 import {
   BIN,
   classifyHook,
@@ -113,10 +113,10 @@ if (configWarnings.length > 0) {
 // orchestrates eslint and prettier without bundling them; peerDependencies
 // nudge at install time, but a tool can still be absent at runtime (removed
 // later, installed with --no-save, or hoisted oddly in a monorepo). Surface it
-// here, before toolInvocation silently degrades to a slow, network-dependent
-// npx fallback mid-commit. This never fails: a missing tool is reported, never
-// treated as a repairable problem or a non-zero exit.
-const missingTools = REQUIRED_TOOLS.filter((name) => !isPackageInstalled(name));
+// here before a hook needs it. Runtime resolution is deliberately local-only:
+// no implicit npx/registry fallback is attempted. This never fails: a missing
+// tool is reported, never treated as a repairable problem or a non-zero exit.
+const missingTools = REQUIRED_TOOLS.filter((name) => !isToolInstalled(name));
 if (missingTools.length > 0) {
   const installHint = devInstallCommand(missingTools);
   if (quiet) {
@@ -133,7 +133,10 @@ if (missingTools.length > 0) {
       "",
       ...missingTools.map((name) => pc.dim(`• ${name}`)),
       "",
-      pc.dim("commitment-issues runs these during pre-commit and pre-push."),
+      pc.dim(
+        "commitment-issues only runs project-local copies of these tools.",
+      ),
+      pc.dim("Hooks never ask npx to download a missing peer dependency."),
       pc.dim(`Install them: ${installHint}`),
     ]);
   }

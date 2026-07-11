@@ -38,6 +38,11 @@ The init command is idempotent. It wires plain Git hooks, adds helper npm script
 
 The hook files call the package binary from `node_modules/.bin`, so the behavior stays local to the project.
 
+ESLint and Prettier are also resolved directly from the project's
+`node_modules`; a missing peer is reported with an install hint and never
+delegated to an implicit `npx` fallback. The configured `testCommand` is user
+owned and runs verbatim.
+
 ## Pre-commit flow
 
 On commit, the pre-commit hook inspects staged files first.
@@ -86,6 +91,12 @@ The pre-push hook reads pushed refs, detects changed files, collects related tes
 | No related tests are found | Push allowed              | Push allowed  |
 
 If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
+
+Spawned tools return structured outcomes for success, normal nonzero exit,
+external signal, timeout, and spawn failure. Missing built-in peer tools are a
+separate outcome. Timeout cleanup terminates the attached process group on
+Ubuntu/macOS and process tree on Windows; see the documented
+[timeout cleanup boundary](configuration.md#timeout-cleanup-boundary).
 
 ## Configuration defaults
 
