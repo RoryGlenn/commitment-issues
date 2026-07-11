@@ -5,10 +5,10 @@ import path from "node:path";
 import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import {
+  run,
+  spawnAsync,
   TOOL_TIMEOUT_MS,
   toolInvocation,
-  spawnAsync,
-  run,
 } from "./lib/process.mjs";
 import {
   invalidPrecommitConfigMessages,
