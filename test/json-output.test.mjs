@@ -18,6 +18,7 @@ import {
   JSON_OUTPUT_SCHEMA_VERSION,
   createJsonOutput,
   issueToJsonFinding,
+  normalizeProcessOutcome,
   parseJsonOutputArgs,
 } from "../scripts/lib/json-output.mjs";
 
@@ -136,6 +137,26 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
     "1",
     "two",
   ]);
+
+  assert.equal(
+    normalizeProcessOutcome({
+      outcome: "timeout",
+      timedOut: true,
+      status: null,
+      signal: null,
+    }),
+    "timeout",
+  );
+  assert.equal(
+    normalizeProcessOutcome({ timedOut: true, status: null, signal: null }),
+    "timeout",
+  );
+  assert.equal(
+    normalizeProcessOutcome({ error: { code: "ENOENT" }, status: null }),
+    "spawn-error",
+  );
+  assert.equal(normalizeProcessOutcome({ status: 2 }), "nonzero");
+  assert.equal(normalizeProcessOutcome({ status: 0 }), "success");
 
   const output = createJsonOutput({ command: "precommit", mode: "advisory" });
   output.addCheck({ id: "example", status: "unknown", summary: "fallback" });
