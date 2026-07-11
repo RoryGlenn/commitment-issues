@@ -152,6 +152,14 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
     "timeout",
   );
   assert.equal(
+    normalizeProcessOutcome({ status: null, signal: "SIGTERM" }),
+    "timeout",
+  );
+  assert.equal(
+    normalizeProcessOutcome({ outcome: "signal", signal: "SIGTERM" }),
+    "signal",
+  );
+  assert.equal(
     normalizeProcessOutcome({ error: { code: "ENOENT" }, status: null }),
     "spawn-error",
   );
