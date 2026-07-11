@@ -60,6 +60,7 @@ Show
 
 # --- 1. One command sets everything up ---
 Type "npx --no-install commitment-issues init" Enter
+Wait+Screen /Your next push runs advisory tests/
 Sleep 4s
 # Commit the hook setup off-camera, then clear it so beat 2 starts on a clean
 # screen and the next commit shows a single file. --no-verify skips its hook box.
@@ -74,15 +75,18 @@ Type "clear" Enter
 Set TypingSpeed 100ms
 Show
 Type "git commit -q -am 'print hello world'" Enter
+Wait+Screen /Pre-commit suggestions found/
 Sleep 4s
 Show
 
 # --- 3. Run command to fix changes ---
 Type "npm run commit:fix" Enter
+Wait+Screen /Latest commit amended with automatic fixes/
 Sleep 4s
 Show
 
 # --- 4. Push changes ---
 Type "git push" Enter
+Wait+Screen /feature\/greeting -> feature\/greeting/
 Sleep 4s
 Show
