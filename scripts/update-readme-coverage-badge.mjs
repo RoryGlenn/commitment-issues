@@ -12,6 +12,7 @@ import {
 
 const root = process.cwd();
 const readmePath = path.join(root, "README.md");
+const checkOnly = process.argv.includes("--check");
 
 const result = run("npm", ["run", "test:coverage"], { cwd: root });
 
@@ -44,10 +45,19 @@ const updatedReadme = updateReadmeCoverageBadge(currentReadme, branchCoverage);
 
 if (updatedReadme === currentReadme) {
   console.log(
-    `README coverage badge already up to date (${branchCoverage.toFixed(2)}%).`,
+    `README branch coverage badge is up to date (${branchCoverage.toFixed(2)}%).`,
   );
   process.exit(0);
 }
 
+if (checkOnly) {
+  console.error(
+    `README branch coverage badge is stale. Run \`npm run coverage:badge\` and commit the result (${branchCoverage.toFixed(2)}%).`,
+  );
+  process.exit(1);
+}
+
 fs.writeFileSync(readmePath, updatedReadme);
-console.log(`Updated README coverage badge to ${branchCoverage.toFixed(2)}%.`);
+console.log(
+  `Updated README branch coverage badge to ${branchCoverage.toFixed(2)}%.`,
+);

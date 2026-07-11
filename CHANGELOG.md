@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Optional bring-your-own commitlint integration under
+  `precommitChecks.commitMessage`: disabled by default, advisory after explicit
+  enablement, and blocking only with `blockOnFailure`. It owns a safely quoted
+  native `commit-msg` hook without overwriting custom hooks, resolves only the
+  project-local CLI (no implicit npx/network/global fallback), requires the
+  consumer's own rules config, and participates in init/doctor/uninstall and
+  fresh-clone repair.
 - `commitment-issues uninstall` with a matching `--dry-run` preview. It removes
   only exact generated scripts and native hook bodies plus the package-specific
   configuration block; custom project wiring is preserved and reported for
@@ -18,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The README now reports explicitly scoped **branch coverage** for the
+  user-facing runtime. `npm run test:coverage` enumerates the complete runtime
+  source set, fails if a source is absent from LCOV, and enforces a 90% branch
+  threshold on Node 22.22.1 and 24. Package lifecycle tests remain a separately
+  named pass/fail gate, badge color is value-derived, and CI rejects a stale
+  committed badge.
 - Reorganized the README around a two-command trial, product fit, comparison,
   team rollout, progressive enforcement, ownership boundaries, and reversible
   removal. Detailed output and compliance evidence remain available lower in

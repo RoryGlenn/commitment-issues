@@ -33,7 +33,7 @@ Version 3.0 dropped the husky and lint-staged dependencies: hooks are now plain 
 
 Notes:
 
-- **Custom `.husky` hooks** (e.g. `commit-msg`) no longer run once the husky wiring is retired. `init` and `doctor` list them; move the logic into `.git/hooks` or keep husky yourself — while the husky package stays installed, `doctor` respects its wiring and only nudges toward migration.
+- **Custom `.husky` hooks** (e.g. `commit-msg`) no longer run once the husky wiring is retired. `init` and `doctor` list them; move the logic into `.git/hooks` or keep husky yourself — while the husky package stays installed, `doctor` respects its wiring and only nudges toward migration. If that hook ran commitlint, you can instead enable `precommitChecks.commitMessage` after keeping your project-local commitlint dependency and config. Composite custom hooks are preserved; add `commitment-issues commit-msg "$1"` manually rather than replacing their other logic.
 - **Custom `lint-staged` configs** are left untouched — `fix:staged` no longer reads them. Keep running lint-staged yourself if you rely on custom tasks.
 - **CI recipes**: `COMMITMENT_ISSUES=0` is the new hook-skip variable; the old `HUSKY=0` is still honored.
 

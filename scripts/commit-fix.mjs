@@ -1,18 +1,16 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
-import { run, runTool, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
+import { run, runTool, spawnAsync } from "./lib/process.mjs";
+import { devInstallCommand } from "./lib/package-manager.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
   shortFileList,
 } from "./lib/files.mjs";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const headResult = run("git", ["rev-parse", "--verify", "HEAD"]);
@@ -151,24 +149,57 @@ if (fixableFiles.length === 0) {
 }
 
 let hasRemainingIssues = false;
+const missingTools = new Set();
 
-if (committedJsFiles.length > 0) {
-  const jsFixResult = run(
-    process.execPath,
-    [path.join(scriptDir, "fix-staged-js.mjs"), ...committedJsFiles],
-    {
-      stdio: "inherit",
-      timeout: TOOL_TIMEOUT_MS,
-    },
-  );
-
-  if (jsFixResult.error || (jsFixResult.status || 0) !== 0) {
+function recordToolResult(result) {
+  if (result.outcome !== "success") {
     hasRemainingIssues = true;
+  }
+  if (result.outcome === "missing-tool") {
+    missingTools.add(result.missingTool);
   }
 }
 
+if (committedJsFiles.length > 0) {
+  // Run each tool directly from this process. Wrapping fix-staged-js in its own
+  // timed process group would create a nested group when that script launched
+  // the tools, allowing the inner group to escape an outer timeout on POSIX.
+  const eslintResult = await runTool(
+    "eslint",
+    [
+      "--cache",
+      "--cache-strategy",
+      "content",
+      "--fix",
+      "--",
+      ...committedJsFiles,
+    ],
+    {
+      stdio: "inherit",
+    },
+  );
+  recordToolResult(eslintResult);
+
+  const prettierResult = await runTool(
+    "prettier",
+    [
+      "--cache",
+      "--cache-location",
+      ".prettiercache",
+      "--cache-strategy",
+      "content",
+      "--write",
+      "--ignore-unknown",
+      "--",
+      ...committedJsFiles,
+    ],
+    { stdio: "inherit" },
+  );
+  recordToolResult(prettierResult);
+}
+
 if (formatOnlyFiles.length > 0) {
-  const prettierResult = runTool(
+  const prettierResult = await runTool(
     "prettier",
     [
       "--cache",
@@ -186,9 +217,15 @@ if (formatOnlyFiles.length > 0) {
     },
   );
 
-  if (prettierResult.error || (prettierResult.status || 0) !== 0) {
-    hasRemainingIssues = true;
-  }
+  recordToolResult(prettierResult);
+}
+
+if (missingTools.size > 0) {
+  const missingToolList = [...missingTools];
+  console.error(
+    `commitment-issues: missing local tool(s): ${missingToolList.join(", ")} — ` +
+      `install with \`${devInstallCommand(missingToolList)}\`.`,
+  );
 }
 
 const addResult = run("git", ["add", "--", ...fixableFiles]);
@@ -277,18 +314,17 @@ if (!parentRef.error && parentRef.status === 0) {
   }
 }
 
-const amendResult = run(
+const amendResult = await spawnAsync(
   "git",
   // Skip the pre-commit hook: commit:fix already lint/format-checked these
   // files, so re-running the advisory hook here would only print a duplicate box.
   ["commit", "--amend", "--no-edit", "--no-verify"],
   {
     stdio: "inherit",
-    timeout: TOOL_TIMEOUT_MS,
   },
 );
 
-if (amendResult.error || (amendResult.status || 0) !== 0) {
+if (amendResult.outcome !== "success") {
   errorBox([
     pc.bold(
       "Automatic fixes were staged, but the latest commit could not be amended.",

@@ -46,12 +46,16 @@ jobs:
 
       - run: npm test
 
-      - name: Package lifecycle integration
+      - name: Package lifecycle integration (separate from branch coverage)
         run: npm run test:lifecycle:npm
 
-      - name: Test coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
+      - name: Branch coverage threshold (Node 22.22.1)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.22.1'
         run: npm run test:coverage
+
+      - name: Branch coverage threshold and badge freshness (Node 24)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
+        run: npm run coverage:check
 
   pm-lifecycle:
     name: ${{ matrix.pm }} lifecycle integration
@@ -84,7 +88,7 @@ jobs:
 
       - run: npm ci
 
-      - name: ${{ matrix.pm }} lifecycle integration
+      - name: ${{ matrix.pm }} lifecycle integration (separate from branch coverage)
         run: npm run test:lifecycle:${{ matrix.pm }}
 
   # Single aggregate gate for branch protection. Requiring this one context

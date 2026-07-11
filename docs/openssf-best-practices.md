@@ -57,11 +57,13 @@ Project badge page:
 - `test_continuous_integration`:
   - [CI workflow](../.github/workflows/ci.yml)
 - `test_statement_coverage90`:
-  - [README coverage badge](../README.md)
-  - [Coverage script](../package.json)
-- `test_branch_coverage80`:
+  - [Canonical coverage report and source scope](branch-coverage.md)
   - [Coverage script](../package.json)
   - [CI coverage run](../.github/workflows/ci.yml)
+- `test_branch_coverage80`:
+  - [90% branch threshold and source scope](branch-coverage.md)
+  - [Gated coverage script](../package.json)
+  - [CI threshold and badge-freshness run](../.github/workflows/ci.yml)
 
 ## Security
 
