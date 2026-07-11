@@ -112,7 +112,7 @@ Feedback and disagreement welcome.
 
 ## Posting checklist
 
-- [ ] Generate and embed the demo GIF (`vhs promo/demo.tape` → `assets/demo.gif`).
+- [x] Generate and embed the demo GIF (`vhs promo/demo.tape` → `assets/demo.gif`).
 - [ ] Add GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
 - [ ] Add a social preview image (Settings → General → Social preview).
 - [ ] Publish the blog on your site; cross-post to dev.to and Hashnode with a canonical link back.
