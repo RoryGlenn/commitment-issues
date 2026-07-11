@@ -714,7 +714,10 @@ test("reports a staged-test timeout", (t) => {
   });
   writeFile(
     path.join(tempDir, "test", "slow.test.mjs"),
-    'import test from "node:test";\ntest("slow", () => {});\n',
+    'import test from "node:test";\n' +
+      'test("slow", async () => {\n' +
+      "  await new Promise((resolve) => setTimeout(resolve, 30_000));\n" +
+      "});\n",
   );
   run("git", ["add", "test/slow.test.mjs"], tempDir);
 
