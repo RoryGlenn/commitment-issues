@@ -13,7 +13,8 @@ import {
 } from "./lib/config.mjs";
 import { buildCommitMessageCheckMessage } from "./lib/message.mjs";
 import { devInstallCommand } from "./lib/package-manager.mjs";
-import { localToolInvocation, spawnAsync } from "./lib/process.mjs";
+import { localToolInvocation } from "./lib/local-tool.mjs";
+import { spawnAsync } from "./lib/process.mjs";
 
 const config = loadPrecommitConfig();
 for (const message of precommitConfigWarningMessages(config)) {
