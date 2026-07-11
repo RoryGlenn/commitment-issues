@@ -100,6 +100,39 @@ test("husky and lint-staged stay out of the dependency tree", () => {
   }
 });
 
+test("optional commitlint integration adds no package dependency", () => {
+  const pkg = readJson("package.json");
+  for (const section of [
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "optionalDependencies",
+  ]) {
+    for (const name of Object.keys(pkg[section] ?? {})) {
+      assert.doesNotMatch(
+        name,
+        /^(?:@commitlint\/|commitlint$)/,
+        `${name} must remain consumer-provided, not a package ${section} entry`,
+      );
+    }
+  }
+  assert.equal(isPackaged("scripts/commit-msg.mjs", pkg), true);
+});
+
+test("commit-message schema and local-only boundary are documented", () => {
+  const docs = readText("docs/configuration.md");
+  for (const key of ["commitMessage", "enabled", "blockOnFailure"]) {
+    assert.match(docs, new RegExp(`\\b${key}\\b`));
+  }
+  assert.match(docs, /node_modules\/\.bin\/commitlint/);
+  assert.match(
+    docs,
+    /never falls back to `npx`, a global\s+binary, or the network/,
+  );
+  assert.match(docs, /does not add commitlint as a dependency/);
+  assert.match(docs, /does not.*built-in.*Conventional Commits/is);
+});
+
 test("bin entries are tracked with the executable bit", () => {
   const pkg = readJson("package.json");
   // npm's fix-bin chmods bins for registry installs, but git clones and
@@ -146,6 +179,31 @@ test("supported Node version stays consistent across docs and workflows", () => 
       `${file} should reference the supported Node version ${version} from package.json engines.node`,
     );
   }
+});
+
+test("CI enforces branch coverage on both Node lines and badge freshness", () => {
+  const pkg = readJson("package.json");
+  const workflow = readText(".github/workflows/ci.yml");
+  const readme = readText("README.md");
+
+  assert.equal(
+    pkg.scripts["test:coverage"],
+    "node scripts/run-branch-coverage.mjs",
+  );
+  assert.equal(
+    pkg.scripts["coverage:check"],
+    "node scripts/update-readme-coverage-badge.mjs --check",
+  );
+  assert.match(
+    workflow,
+    /Branch coverage threshold \(Node 22\.22\.1\)[\s\S]*matrix\.node-version == '22\.22\.1'[\s\S]*npm run test:coverage/,
+  );
+  assert.match(
+    workflow,
+    /Branch coverage threshold and badge freshness \(Node 24\)[\s\S]*matrix\.node-version == '24'[\s\S]*npm run coverage:check/,
+  );
+  assert.match(readme, /\[!\[Branch coverage: [0-9.]+%\]/);
+  assert.match(readme, /docs\/branch-coverage\.md/);
 });
 
 test("package description does not contradict configurable blocking", () => {
@@ -348,6 +406,7 @@ test("every terminal box title appears in the message-states gallery", () => {
   const sources = [
     "scripts/cli.mjs",
     "scripts/commit-fix.mjs",
+    "scripts/commit-msg.mjs",
     "scripts/doctor.mjs",
     "scripts/fix-staged.mjs",
     "scripts/fix-staged-js.mjs",

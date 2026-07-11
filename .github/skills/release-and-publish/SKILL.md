@@ -9,9 +9,14 @@ Package: **`commitment-issues`**, npm owner **`roryglenn`**, **public** registry
 
 ## Operational safety — read first
 
-Publishing and tagging are **hard to reverse**. Before running any release-mutating step (`npm version`, `git push origin vX.Y.Z`, or a manual `npm publish`), confirm intent with the user and state the target version.
+Publishing and tagging are **hard to reverse**. Before running any release-mutating step (`npm version`, `git push origin vX.Y.Z`, or a manual `npm publish`), confirm intent with the user, state the exact target version, and run the preflight below.
 
 - **Pushing a `vX.Y.Z` tag is the publish trigger.** With trusted publishing enabled, pushing that tag starts an npm publish from CI — treat the tag push itself as "publish now."
+- **Never move or reuse a pushed or consumed release tag.** If a publish fails
+  after the tag is pushed, fix forward with a new patch version and tag. The
+  only deletion exception is a tag proven unconsumed by any workflow or public
+  artifact. The historical `v3.1.0` reuse is a frozen baseline exception, not
+  a precedent.
 - **The agent cannot run `npm login`** — it needs credentials and browser 2FA. For the manual fallback, always have the **user** log in, then verify with `npm whoami`.
 - Prefer to let the user run the tag push (or a manual `npm publish`), or run them only on explicit confirmation.
 
@@ -21,7 +26,7 @@ Automated publishing uses **npm Trusted Publishing** (OIDC), so CI publishes wit
 
 - On npmjs.com → package `commitment-issues` → **Settings → Trusted Publishing** → add a GitHub Actions publisher: user `RoryGlenn`, repository `commitment-issues`, workflow `publish.yml` (leave environment blank unless one is added).
 
-The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for it: it triggers on `v*` tags, sets `permissions: id-token: write`, verifies the npm bundled with Node supports trusted publishing, checks the tag matches `package.json`, packs the package for its SLSA subject, and runs `npm publish` (npm provenance is generated automatically). Until the trusted publisher is registered, use the **manual fallback** below.
+The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for it: it triggers on `v*` tags, sets `permissions: id-token: write`, verifies the bundled npm supports trusted publishing, checks the tag matches `package.json`, runs the full suite and explicit npm lifecycle smoke, then packs the release artifact once and publishes that exact tarball (npm provenance is generated automatically). It also attaches the tarball and SLSA provenance to the GitHub Release. Until the trusted publisher is registered, use the **manual fallback** below.
 
 ## Release flow (in order)
 
@@ -32,24 +37,32 @@ The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for
    npm run format:check
    npm run test:lifecycle:npm  # end-to-end npm packaging lifecycle
    ```
-2. **Update the changelog.** Move items under `## [Unreleased]` in [`CHANGELOG.md`](../../../CHANGELOG.md) to a new `## [X.Y.Z] - YYYY-MM-DD` heading. Keep an empty `## [Unreleased]` at the top and commit it together with the version files in the next step.
-3. **Bump the version on a release branch without creating a tag yet.** This
+2. **Choose and preflight the exact version.** This is read-only and fails if
+   the version or tag already exists locally, on the remote, in GitHub
+   Releases, or on npm:
+   ```bash
+   npm run release:preflight -- <version>
+   ```
+3. **Update the changelog.** Move items under `## [Unreleased]` in [`CHANGELOG.md`](../../../CHANGELOG.md) to a new `## [X.Y.Z] - YYYY-MM-DD` heading. Keep an empty `## [Unreleased]` at the top and commit it together with the version files in the next step.
+4. **Bump to that exact version on a release branch without creating a tag yet.** This
    updates `package.json` and `package-lock.json`; the normal PR/DCO/review path
    still applies to release preparation:
    ```bash
-   npm version <patch|minor|major> --no-git-tag-version
+   npm version <version> --no-git-tag-version
    git commit -s -am "chore: release vX.Y.Z"
    ```
    Open a pull request, pass `CI Success`, obtain approval (or record the
    temporary single-maintainer exception), and merge it.
-4. **From the exact merged `main` commit, create and push only the immutable
+5. **From the exact merged `main` commit, create and push only the immutable
    release tag — this publishes:**
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z"
    git push origin vX.Y.Z
    ```
    Pushing the `vX.Y.Z` tag triggers [`publish.yml`](../../workflows/publish.yml), which publishes to npm via OIDC trusted publishing with automatic provenance. No `npm login`, no token.
-5. **Verify** the version is live: `npm view commitment-issues version`, and confirm the provenance badge on the npm page.
+6. **Verify** the exact version is live, confirm the npm provenance badge, and
+   confirm the GitHub Release contains both `.tgz` and `.intoto.jsonl` assets:
+   `npm view commitment-issues@<version> version dist.integrity`.
 
 `main` is protected (strict CI, DCO, review, linear history; squash/rebase
 merges only). Version and changelog changes go through a PR. Pushing the tag
@@ -63,18 +76,21 @@ no per-release skip switch, so a manual release cannot produce a completely
 green tag workflow. Once trusted publishing is active, repair the automated
 workflow and fix forward with a new version instead of creating a
 manual/automated duplicate-publish race. Prepare and merge the release PR in
-steps 1–3 above, then:
+steps 1–4 above, then:
 
-4. **User logs in to npm** (credentials + 2FA — agent cannot do this):
+5. **User logs in to npm** (credentials + 2FA — agent cannot do this):
    ```bash
    npm login
    npm whoami        # verify: should print roryglenn
    ```
-5. **Publish.** `prepublishOnly` runs `npm test && npm run test:lifecycle:npm` automatically as a gate:
+6. **Run the gates explicitly, pack once, then publish that tarball.** Publishing a tarball does not run this root package's `prepublishOnly`, so repeat both gates immediately before creating the release artifact:
    ```bash
-   npm publish
+   npm test
+   npm run test:lifecycle:npm
+   tarball="$(npm pack --silent | tail -n1)"
+   npm publish "./$tarball"
    ```
-6. **Create and push the release tag from the same merged commit:**
+7. **Create and push the release tag from the same merged commit:**
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z"
    git push origin vX.Y.Z
@@ -91,7 +107,11 @@ steps 1–3 above, then:
 - **Trusted publishing needs the tag to match `package.json`.** `publish.yml` fails fast if the pushed tag (e.g. `v2.4.0`) doesn't equal `v$(package.json version)`. Always bump with `npm version` so the tag and manifest agree.
 - **Trusted publishing requires npm ≥ 11.5.1 and `id-token: write`.** `publish.yml` verifies the bundled npm version and sets the permission; it does not self-update npm during a release. If a publish job errors with an OIDC/authentication message, confirm the trusted publisher is registered on npm for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`.
 - **Manual `npm publish` → `E404 Not Found - PUT ... or you do not have permission`** is almost always an **auth** problem, not a bad package name — npm masks 403/permission errors as 404. Check `npm whoami` (an `E401` there means not logged in). Fix by logging in as `roryglenn`; do **not** rename the package or fabricate a scope.
-- **`prepublishOnly` failing** blocks publish by design — it runs the full test suite and the npm package lifecycle integration. Fix the failure; do not bypass it.
+- **Never retry a failed publish by moving its tag.** Fix the cause, bump to a
+  new patch version, rerun the preflight, and push the new tag. A local or
+  remote tag may be deleted only if no workflow has consumed it and no GitHub
+  Release or npm version exists.
+- **Publishing a tarball does not run this root package's `prepublishOnly`.** The automated and manual exact-tarball flows explicitly run `npm test` and `npm run test:lifecycle:npm` before packing. Keep both gates; `prepublishOnly` remains defense in depth for a direct root-directory publish.
 - **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/`, `docs/`, `README.md`, `CHANGELOG.md`, `LICENSE`. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
 
 ## CI / required checks

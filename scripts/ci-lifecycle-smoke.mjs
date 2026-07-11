@@ -37,6 +37,7 @@ const EXPECTED_SCRIPTS = {
 const HOOK_SUBCOMMANDS = {
   "pre-commit": "precommit",
   "pre-push": "prepush",
+  "commit-msg": 'commit-msg "$1"',
 };
 
 // Install the packed tarball plus the peer tools using the selected manager.
@@ -156,6 +157,10 @@ function assertPackageJsonConfigured(repoDir) {
     pkg.precommitChecks?.advisePushTests === true,
     "package.json should enable advisory pre-push tests by default",
   );
+  assertSmoke(
+    pkg.precommitChecks?.commitMessage?.enabled === true,
+    "package.json should preserve the opt-in commit-message configuration",
+  );
 }
 
 function assertGitignoreConfigured(repoDir) {
@@ -255,6 +260,7 @@ try {
         type: "module",
         private: true,
         scripts: { prepare: EXISTING_PREPARE },
+        precommitChecks: { commitMessage: { enabled: true } },
       },
       null,
       2,
@@ -278,6 +284,7 @@ try {
   assertGitignoreConfigured(smokeDir);
   assertHookWired(smokeDir, "pre-commit");
   assertHookWired(smokeDir, "pre-push");
+  assertHookWired(smokeDir, "commit-msg");
 
   writeFile(
     path.join(smokeDir, "eslint.config.js"),
@@ -323,7 +330,7 @@ try {
 
   // .git/hooks is intentionally clone-local and is not present in a fresh
   // checkout. A normal install must run the preserved prepare followed by the
-  // appended repair and recreate both hooks without another init call.
+  // appended repair and recreate the default hooks without another init call.
   run("git", ["clone", "--branch", "main", remoteDir, cloneDir], tempRoot);
   for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
     assertSmoke(
@@ -336,6 +343,7 @@ try {
   assertPackageJsonConfigured(cloneDir);
   assertHookWired(cloneDir, "pre-commit");
   assertHookWired(cloneDir, "pre-push");
+  assertHookWired(cloneDir, "commit-msg");
 
   const [uninstallPreviewCommand, uninstallPreviewArgs] = execBin([
     "uninstall",
@@ -345,6 +353,7 @@ try {
   assertPackageJsonConfigured(smokeDir);
   assertHookWired(smokeDir, "pre-commit");
   assertHookWired(smokeDir, "pre-push");
+  assertHookWired(smokeDir, "commit-msg");
 
   const [uninstallCommand, uninstallArgs] = execBin(["uninstall"]);
   run(uninstallCommand, uninstallArgs, smokeDir);
