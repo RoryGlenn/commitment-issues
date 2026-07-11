@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
 </p>
 
 # Commitment Issues
@@ -20,7 +20,7 @@ No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 ## Commit normally. Fix safely. Push with confidence.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
 </p>
 
 **Advisory by default. Fixes run only when requested and proven safe. Pushes run only tests related to files that changed.**
