@@ -218,8 +218,26 @@ function hookPath(repoDir, name) {
 }
 
 function comparablePath(filePath) {
-  const resolved = fs.realpathSync(filePath);
+  const resolved = fs.realpathSync.native(filePath);
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function sameFilesystemEntry(leftPath, rightPath) {
+  const left = fs.statSync(leftPath, { bigint: true });
+  const right = fs.statSync(rightPath, { bigint: true });
+
+  // File identity avoids false mismatches between Windows short (8.3) and
+  // long spellings of the same Git directory. Some filesystems report zero
+  // identifiers, so retain canonical path comparison as a portable fallback.
+  if (
+    (left.dev !== 0n || left.ino !== 0n) &&
+    left.dev === right.dev &&
+    left.ino === right.ino
+  ) {
+    return true;
+  }
+
+  return comparablePath(leftPath) === comparablePath(rightPath);
 }
 
 function assertHookWired(repoDir, name) {
@@ -551,8 +569,7 @@ try {
     smokeDir,
   );
   assertSmoke(
-    comparablePath(gitCommonDir(worktreeDir)) ===
-      comparablePath(gitCommonDir(smokeDir)),
+    sameFilesystemEntry(gitCommonDir(worktreeDir), gitCommonDir(smokeDir)),
     "linked worktree should use the primary checkout's common Git directory",
   );
   assertHookWired(worktreeDir, "pre-commit");
