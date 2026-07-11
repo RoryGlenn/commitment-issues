@@ -9,6 +9,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { globToRegExp } from "../scripts/lib/files.mjs";
+import { run } from "../scripts/lib/process.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -235,13 +236,13 @@ test("README relative image assets exist and are included in npm package files",
 test("npm package excludes promotional media and stays within its size budget", (t) => {
   const cache = fs.mkdtempSync(path.join(os.tmpdir(), "npm-pack-cache-"));
   t.after(() => fs.rmSync(cache, { recursive: true, force: true }));
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const output = execFileSync(
-    npm,
+  const result = run(
+    "npm",
     ["pack", "--dry-run", "--json", "--ignore-scripts", "--cache", cache],
     { cwd: root, encoding: "utf8" },
   );
-  const [pack] = JSON.parse(output);
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  const [pack] = JSON.parse(result.stdout);
   const files = new Set(pack.files.map((file) => file.path));
   const docs = readText("docs/package-contents.md");
   const readme = readText("README.md");
