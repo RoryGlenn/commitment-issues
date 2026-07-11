@@ -351,10 +351,42 @@ test(
 
     assert.equal(result.status, 1);
     assert.match(output, /not executable/);
-    assert.match(output, /chmod \+x/);
+    assert.match(output, /Run: chmod \+x '\.git\/hooks\/pre-commit'/);
     assert.match(output, /\.git\/hooks\/pre-commit/);
     assert.equal(fs.readFileSync(hookPath, "utf8"), body);
     assert.equal(fs.statSync(hookPath).mode & 0o111, 0);
+  },
+);
+
+test(
+  "doctor shell-quotes a non-executable foreign hook path",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const configuredHooksPath = "-hooks with spaces;$(touch injected)'quoted";
+    const hookPath = path.join(tempDir, configuredHooksPath, "pre-commit");
+    const hookBody = "#!/bin/sh\ncommitment-issues precommit\n";
+    writeFile(hookPath, hookBody);
+    fs.chmodSync(hookPath, 0o644);
+    run("git", ["config", "core.hooksPath", configuredHooksPath], tempDir);
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+    const quotedPath = `'./-hooks with spaces;$(touch injected)'"'"'quoted/pre-commit'`;
+    const fixCommand = `chmod +x ${quotedPath}`;
+
+    assert.equal(result.status, 1);
+    assert.ok(output.includes(fixCommand));
+    assert.equal(fs.readFileSync(hookPath, "utf8"), hookBody);
+    assert.equal(fs.statSync(hookPath).mode & 0o111, 0);
+    assert.equal(fs.existsSync(path.join(tempDir, "injected")), false);
+
+    const fixed = run("sh", ["-c", fixCommand], tempDir);
+    assert.equal(fixed.status, 0, fixed.stderr);
+    assert.notEqual(fs.statSync(hookPath).mode & 0o111, 0);
+    assert.equal(fs.existsSync(path.join(tempDir, "injected")), false);
   },
 );
 

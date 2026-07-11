@@ -188,6 +188,20 @@ function displayHookPath(hooksDir, name) {
     : path.join(hooksDir, name).replace(/\\/g, "/");
 }
 
+// These commands are copy/pasted into a POSIX shell. Always single-quote the
+// pathname, escaping embedded single quotes with the standard close/quote/open
+// sequence, so spaces and shell metacharacters remain one literal argument.
+function executableFixCommand(hooksDir, name) {
+  let hookPath = displayHookPath(hooksDir, name);
+  // Quoting preserves a leading dash, but chmod would still parse it as an
+  // option. Keep relative paths relative while making the first argument safe.
+  if (!path.isAbsolute(hookPath) && hookPath.startsWith("-")) {
+    hookPath = `./${hookPath}`;
+  }
+  const quotedPath = `'${hookPath.replaceAll("'", `'"'"'`)}'`;
+  return `chmod +x ${quotedPath}`;
+}
+
 // A foreign core.hooksPath (another hook manager, or the user's own hooks dir)
 // means git never reads `.git/hooks`. That configuration is the user's — never
 // unset or write into it. It counts as healthy when its hook files already
@@ -254,7 +268,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
       ? inactive.map((report) => `  .husky/${report.name}`)
       : inactive.map((report) =>
           report.status === "non-executable"
-            ? `  chmod +x ${displayHookPath(checkDir, report.name)}`
+            ? `  ${executableFixCommand(checkDir, report.name)}`
             : `  ${hookCommand(report.name)}   ${pc.dim(`(${report.name})`)}`,
         )),
     "",
@@ -439,7 +453,7 @@ if (unwiredHooks.length > 0 || nonExecutableHooks.length > 0) {
     ),
     ...nonExecutableHooks.flatMap((name) => [
       pc.dim(`${displayHookPath(hooksDir, name)} is not executable.`),
-      pc.dim(`Run: chmod +x ${displayHookPath(hooksDir, name)}`),
+      pc.dim(`Run: ${executableFixCommand(hooksDir, name)}`),
     ]),
     "",
     ...(unwiredHooks.length > 0
