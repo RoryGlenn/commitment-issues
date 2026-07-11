@@ -30,8 +30,6 @@ Set TypingSpeed 1ms
 Hide
 Type "PROMPT='READY> '" Enter
 Wait+Line /READY>$/
-Type "set -e" Enter
-Wait+Line /READY>$/
 Type "REPO=$(pwd)" Enter
 Wait+Line /READY>$/
 Type `WORKDIR=$(mktemp -d)/hello-world && mkdir -p "$WORKDIR"` Enter
