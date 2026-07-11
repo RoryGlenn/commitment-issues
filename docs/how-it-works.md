@@ -6,7 +6,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/project-flowchart-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="../assets/project-flowchart-light.svg">
-    <img src="../assets/project-flowchart-light.svg" alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" width="100%">
+    <img src="../assets/project-flowchart-light.svg" alt="commitment-issues project flowchart showing setup, Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests" width="100%">
   </picture>
 </p>
 
@@ -49,7 +49,8 @@ On commit, the pre-commit hook inspects staged files first.
 
 - If there are no relevant project files, the commit continues.
 - If relevant files are staged, the hook runs configured checks.
-- Default checks can report lint issues, formatting drift, missing tests, and optional staged-related test failures.
+- Code checks can report lint issues, formatting drift, missing tests, and optional staged-related test failures.
+- Guard checks cover the branch and its upstream, commit shape and size, generated files, and likely staged secrets.
 - In default advisory mode, issues are shown as warnings and the commit still continues.
 
 Blocking commit behavior is only used when explicitly configured.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
 </p>
 
 # Commitment Issues
@@ -20,7 +20,7 @@ No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 ## Commit normally. Fix safely. Push with confidence.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
 </p>
 
 **Advisory by default. Fixes run only when requested and proven safe. Pushes run only tests related to files that changed.**
@@ -144,7 +144,7 @@ Missing-test and pushed-test discovery use nearby filename conventions. See [Con
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/project-flowchart-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/project-flowchart-light.svg">
-  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" src="assets/project-flowchart-light.svg">
+  <img alt="commitment-issues project flowchart showing setup, Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests" src="assets/project-flowchart-light.svg">
 </picture>
 
 `commitment-issues` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files. When commit-message linting is enabled, it also owns `.git/hooks/commit-msg`. Those hooks invoke the installed binary from `node_modules/.bin`; package source is not copied into your repository.
@@ -162,7 +162,7 @@ See [How commitment-issues works](docs/how-it-works.md) for the complete flow.
 | Git hooks               | Native `.git/hooks` files                                            |
 | Yarn Berry              | Supported with `nodeLinker: node-modules`                            |
 | Yarn Plug'n'Play        | Not supported; hooks resolve `node_modules/.bin`                     |
-| Monorepos               | Root-level workspaces supported; review the documented boundaries    |
+| Monorepos               | Root-owned npm/pnpm/Yarn/Bun workspaces and linked Git worktrees     |
 | Existing custom hooks   | Preserved; add the `commitment-issues` command manually              |
 | Commit-message linting  | Optional; bring your own local commitlint CLI and configuration      |
 | CI                      | Keep CI as the authoritative gate; local hooks can be disabled in CI |
