@@ -7,11 +7,11 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Coverage: 95.31%](https://img.shields.io/badge/coverage-95.31%25-brightgreen.svg)](docs/scenario-coverage.md)
+[![Branch coverage: 91.66%](https://img.shields.io/badge/branch%20coverage-91.66%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Advisory-first Git guardrails for JavaScript and TypeScript projects.** Catch lint, formatting, missing-test, secret, branch, commit-shape, and related-test problems before commits and pushes—without blocking or rewriting work unless you opt in.
+**Advisory-first Git guardrails for JavaScript and TypeScript projects.** Catch lint, formatting, missing-test, secret, branch, commit-shape, optional commit-message, and related-test problems before commits and pushes—without blocking or rewriting work unless you opt in.
 
 No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 
@@ -123,18 +123,19 @@ npm run fix:staged
 
 ## What it catches
 
-| Check                                  | Default result                        | Optional enforcement         |
-| -------------------------------------- | ------------------------------------- | ---------------------------- |
-| Lint and formatting drift              | Reports issues and safe fix paths     | Fix commands remain explicit |
-| Missing nearby tests                   | Warns and supports path exemptions    | —                            |
-| Related staged tests                   | Off until `runStagedTests` is enabled | —                            |
-| Related pushed-file tests              | Advisory after `init`                 | `blockPushOnTestFailure`     |
-| Protected branches                     | Warns on direct commits and pushes    | `blockProtectedBranches`     |
-| Likely staged secrets and dotenv files | Warns with file and line detail       | `blockOnSecrets`             |
-| Branch behind its upstream             | Suggests pulling or rebasing          | —                            |
-| Oversized commits and large files      | Suggests splitting or Git LFS         | —                            |
-| Generated files and dependency folders | Warns before they land                | —                            |
-| Broken generated hook wiring           | `doctor` reports and repairs it       | —                            |
+| Check                                  | Default result                        | Optional enforcement           |
+| -------------------------------------- | ------------------------------------- | ------------------------------ |
+| Lint and formatting drift              | Reports issues and safe fix paths     | Fix commands remain explicit   |
+| Missing nearby tests                   | Warns and supports path exemptions    | —                              |
+| Related staged tests                   | Off until `runStagedTests` is enabled | —                              |
+| Related pushed-file tests              | Advisory after `init`                 | `blockPushOnTestFailure`       |
+| Protected branches                     | Warns on direct commits and pushes    | `blockProtectedBranches`       |
+| Likely staged secrets and dotenv files | Warns with file and line detail       | `blockOnSecrets`               |
+| Branch behind its upstream             | Suggests pulling or rebasing          | —                              |
+| Oversized commits and large files      | Suggests splitting or Git LFS         | —                              |
+| Generated files and dependency folders | Warns before they land                | —                              |
+| Commit messages through commitlint     | Off until explicitly enabled          | `commitMessage.blockOnFailure` |
+| Broken generated hook wiring           | `doctor` reports and repairs it       | —                              |
 
 Missing-test and pushed-test discovery use nearby filename conventions. See [Configuration and behavior](docs/configuration.md) for the matching rules, exemptions, supported test commands, and every guard option.
 
@@ -146,7 +147,7 @@ Missing-test and pushed-test discovery use nearby filename conventions. See [Con
   <img alt="commitment-issues project flowchart showing setup, Git hook wiring, pre-commit checks, safe fix paths, and pre-push checks" src="assets/project-flowchart-light.svg">
 </picture>
 
-`commitment-issues` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files. Those hooks invoke the installed binary from `node_modules/.bin`; package source is not copied into your repository.
+`commitment-issues` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files. When commit-message linting is enabled, it also owns `.git/hooks/commit-msg`. Those hooks invoke the installed binary from `node_modules/.bin`; package source is not copied into your repository.
 
 See [How commitment-issues works](docs/how-it-works.md) for the complete flow.
 
@@ -163,6 +164,7 @@ See [How commitment-issues works](docs/how-it-works.md) for the complete flow.
 | Yarn Plug'n'Play        | Not supported; hooks resolve `node_modules/.bin`                     |
 | Monorepos               | Root-level workspaces supported; review the documented boundaries    |
 | Existing custom hooks   | Preserved; add the `commitment-issues` command manually              |
+| Commit-message linting  | Optional; bring your own local commitlint CLI and configuration      |
 | CI                      | Keep CI as the authoritative gate; local hooks can be disabled in CI |
 
 This project is a strong fit when you want opinionated JS/TS commit guardrails with a gentle rollout. A general-purpose hook runner may fit better when your repository primarily needs arbitrary cross-language hook orchestration.
@@ -176,17 +178,18 @@ Popular setup paths:
 
 ## How it compares
 
-| Capability                      | commitment-issues  | Husky + lint-staged                                         | Lefthook                            | pre-commit                       |
-| ------------------------------- | ------------------ | ----------------------------------------------------------- | ----------------------------------- | -------------------------------- |
-| Setup model                     | One `init` command | Combine and configure two tools                             | Install binary and config           | Install app and config           |
-| Default posture                 | Advisory-first     | Defined by your scripts                                     | Commands normally control hook exit | Hooks normally control hook exit |
-| Separate hook manager           | No                 | Husky                                                       | Lefthook binary                     | pre-commit runtime               |
-| Staged ESLint/Prettier fixes    | Built in           | Built into lint-staged tasks                                | Configure commands                  | Configure hooks                  |
-| Partially staged files          | Refuses the fix    | Temporarily hides and reapplies unstaged changes by default | Command-dependent                   | Hook-dependent                   |
-| Related pushed-file tests       | Built in           | Custom wiring                                               | Custom wiring                       | Custom wiring                    |
-| Safe latest-commit amend helper | Built in           | Custom wiring                                               | Custom wiring                       | Custom wiring                    |
-| Repair missing generated hooks  | `doctor`           | Reinstall or custom repair                                  | Reinstall                           | Reinstall                        |
-| Primary audience                | JS/TS projects     | JS/TS projects                                              | Cross-language repositories         | Cross-language repositories      |
+| Capability                      | commitment-issues               | Husky + lint-staged                                         | Lefthook                            | pre-commit                       |
+| ------------------------------- | ------------------------------- | ----------------------------------------------------------- | ----------------------------------- | -------------------------------- |
+| Setup model                     | One `init` command              | Combine and configure two tools                             | Install binary and config           | Install app and config           |
+| Default posture                 | Advisory-first                  | Defined by your scripts                                     | Commands normally control hook exit | Hooks normally control hook exit |
+| Separate hook manager           | No                              | Husky                                                       | Lefthook binary                     | pre-commit runtime               |
+| Staged ESLint/Prettier fixes    | Built in                        | Built into lint-staged tasks                                | Configure commands                  | Configure hooks                  |
+| Partially staged files          | Refuses the fix                 | Temporarily hides and reapplies unstaged changes by default | Command-dependent                   | Hook-dependent                   |
+| Related pushed-file tests       | Built in                        | Custom wiring                                               | Custom wiring                       | Custom wiring                    |
+| Commit-message linting          | Optional commitlint integration | Custom wiring                                               | Custom wiring                       | Custom wiring                    |
+| Safe latest-commit amend helper | Built in                        | Custom wiring                                               | Custom wiring                       | Custom wiring                    |
+| Repair missing generated hooks  | `doctor`                        | Reinstall or custom repair                                  | Reinstall                           | Reinstall                        |
+| Primary audience                | JS/TS projects                  | JS/TS projects                                              | Cross-language repositories         | Cross-language repositories      |
 
 Already using another tool? Follow the step-by-step [migration guide](docs/migration.md) for Husky + lint-staged, Lefthook, or pre-commit. You do not need to reverse-engineer your current setup first.
 
@@ -210,6 +213,7 @@ In CI, keep the normal CI test suite as the authoritative gate. Set `COMMITMENT_
 | ----------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `git commit`      | Reports lint, formatting, missing-test, secret, branch, and commit-shape issues | Enable the relevant secret or protected-branch blockers |
 | `git push`        | Runs related pushed-file tests in advisory mode                                 | Enable `blockPushOnTestFailure`                         |
+| Commit message    | No check until `commitMessage.enabled` is `true`; then advisory                 | Enable `commitMessage.blockOnFailure`                   |
 | Automatic changes | Never run implicitly                                                            | Run `fix:staged` or `commit:fix` explicitly             |
 
 A stricter team configuration can start with:
@@ -229,6 +233,40 @@ A stricter team configuration can start with:
 
 If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence. The test command must accept test file paths as arguments, and every spawned tool is capped by a configurable timeout that cleans up its attached process tree.
 
+### Optional commit-message linting
+
+Commit-message linting is deliberately bring-your-own and disabled by default.
+Install commitlint in the consuming project, add a commitlint configuration
+with the rules your team chooses, then enable the advisory hook:
+
+```bash
+npm install -D @commitlint/cli @commitlint/config-conventional
+```
+
+```js
+// commitlint.config.js
+export default { extends: ["@commitlint/config-conventional"] };
+```
+
+```json
+{
+  "precommitChecks": {
+    "commitMessage": {
+      "enabled": true,
+      "blockOnFailure": false
+    }
+  }
+}
+```
+
+`commitment-issues` does not bundle commitlint, invent a Conventional Commits
+ruleset, use a global binary, or fall back to `npx`. A missing local CLI,
+missing rules config, timeout, or lint finding warns and allows the commit in
+advisory mode; `blockOnFailure: true` makes those outcomes block. Git's standard
+`git commit --no-verify` bypass remains available. See the
+[configuration reference](docs/configuration.md#optional-commit-message-linting)
+for custom-hook wiring and package-manager-specific install commands.
+
 ### Safety model
 
 - Commit and push checks do not mutate tracked files.
@@ -246,7 +284,8 @@ Depending on the repository's existing state, `init` can:
 - add `doctor`, `fix:staged`, `commit:fix`, and `test:precommit` package scripts;
 - add a self-healing `prepare` script, preserving and composing after an existing project command;
 - add the `precommitChecks` configuration namespace and default advisory push mode;
-- create missing native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files;
+- create missing native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files,
+  plus `.git/hooks/commit-msg` only when commit-message linting is enabled;
 - add `.eslintcache`, `.prettiercache`, and `node_modules/` to `.gitignore` when absent;
 - migrate exact legacy wiring generated by commitment-issues 1.x or 2.x.
 
@@ -254,8 +293,8 @@ It does not overwrite unrelated scripts, custom hook bodies, foreign hook direct
 
 ## Privacy and trust
 
-Everything runs locally through Git, project-installed ESLint and Prettier, and
-your configured test command.
+Everything runs locally through Git, project-installed ESLint and Prettier,
+optional project-local commitlint, and your configured test command.
 
 - No telemetry or usage collection
 - No phone-home request
@@ -282,7 +321,7 @@ npx commitment-issues uninstall --dry-run
 ```
 
 Remove generated scripts, the package-specific configuration block, and exact
-generated native hook bodies:
+generated native hook bodies (including an owned `commit-msg` hook):
 
 ```bash
 npx commitment-issues uninstall
@@ -336,6 +375,8 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 **Operate and contribute**
 
 - [CI provider recipes](docs/ci-recipes.md)
+- [Branch coverage policy](docs/branch-coverage.md) — exact source/test scope,
+  threshold, lifecycle boundary, and badge freshness
 - [Roadmap](ROADMAP.md)
 - [Contributing](.github/CONTRIBUTING.md)
 - [OpenSSF evidence](docs/openssf-best-practices.md)

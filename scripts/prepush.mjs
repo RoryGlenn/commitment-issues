@@ -10,6 +10,8 @@ import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
   invalidPrecommitConfigMessages,
   loadPrecommitConfig,
+  precommitConfigWarningMessages,
+  resolveCommitMessageConfig,
   unknownPrecommitConfigKeys,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
@@ -80,35 +82,37 @@ function emitJsonResult({
   process.exit(exitCode);
 }
 
-// A typo'd key (e.g. advisePushTest) silently disables the mode the user
-// thinks is on. One concise advisory line, matching the conflict warning below.
-const unknownKeys = unknownPrecommitConfigKeys(config);
-if (unknownKeys.length > 0) {
-  const message = `Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`;
-  if (jsonMode) {
+const configWarnings = precommitConfigWarningMessages(config);
+if (jsonMode) {
+  const unknownKeys = unknownPrecommitConfigKeys(config);
+  if (unknownKeys.length > 0) {
     jsonOutput.addDiagnostic({
       severity: "warning",
       code: "config.unknown-keys",
-      message,
+      message: `Ignoring unknown precommitChecks key(s) in package.json: ${unknownKeys.join(", ")}. Check for typos.`,
     });
-  } else {
-    console.warn(pc.yellow(`⚠ ${message}`));
   }
-}
 
-// A recognized key with a wrong-typed value is sanitized away and falls back to
-// the default. Surface it on one concise advisory line, matching the unknown-key
-// and config-conflict warnings — never a box, never blocking.
-const invalidValueMessages = invalidPrecommitConfigMessages(config);
-if (invalidValueMessages.length > 0) {
-  const message = `Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`;
-  if (jsonMode) {
+  const invalidValueMessages = invalidPrecommitConfigMessages(config);
+  if (invalidValueMessages.length > 0) {
     jsonOutput.addDiagnostic({
       severity: "warning",
       code: "config.invalid-values",
-      message,
+      message: `Ignoring invalid precommitChecks value(s) in package.json: ${invalidValueMessages.join("; ")}.`,
     });
-  } else {
+  }
+
+  const commitMessage = resolveCommitMessageConfig(config);
+  if (commitMessage.blockOnFailure && !commitMessage.enabled) {
+    jsonOutput.addDiagnostic({
+      severity: "warning",
+      code: "config.ineffective-value",
+      message:
+        "commitMessage.blockOnFailure has no effect unless commitMessage.enabled is true.",
+    });
+  }
+} else {
+  for (const message of configWarnings) {
     console.warn(pc.yellow(`⚠ ${message}`));
   }
 }

@@ -3,7 +3,10 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAdvisoryMessage } from "../scripts/lib/message.mjs";
+import {
+  buildAdvisoryMessage,
+  buildCommitMessageCheckMessage,
+} from "../scripts/lib/message.mjs";
 
 // picocolors emits plain text when stdout is not a TTY (as under `node --test`),
 // so these assertions can match the message content directly.
@@ -109,4 +112,65 @@ test("maps the Prettier failure message across tones", () => {
 
   const fun = buildAdvisoryMessage([issue], { tone: "fun" }).lines.join("\n");
   assert.ok(fun.includes("Prettier left you on read"));
+});
+
+test("commit-message copy is advisory by default and blocking only on opt-in", () => {
+  const advisory = buildCommitMessageCheckMessage({
+    outcome: "reported",
+    detail: "type must be one of feat, fix",
+  });
+  assert.equal(advisory.severity, "warning");
+  assert.match(advisory.lines.join("\n"), /Commit message needs attention/);
+  assert.match(advisory.lines.join("\n"), /Commit will continue/);
+  assert.match(advisory.lines.join("\n"), /type must be one of feat, fix/);
+
+  const blocking = buildCommitMessageCheckMessage({
+    outcome: "reported",
+    blocking: true,
+  });
+  assert.equal(blocking.severity, "error");
+  assert.match(blocking.lines.join("\n"), /Commit blocked/);
+  assert.match(blocking.lines.join("\n"), /git commit --no-verify/);
+});
+
+test("commit-message copy explains local-only tools and bring-your-own rules", () => {
+  const missingTool = buildCommitMessageCheckMessage({
+    outcome: "missing-tool",
+    installCommand: "pnpm add -D @commitlint/cli",
+  }).lines.join("\n");
+  assert.match(missingTool, /No npx, network, or global-tool fallback/);
+  assert.match(missingTool, /pnpm add -D @commitlint\/cli/);
+
+  const missingConfig = buildCommitMessageCheckMessage({
+    outcome: "missing-config",
+  }).lines.join("\n");
+  assert.match(missingConfig, /Add a commitlint config/);
+  assert.match(missingConfig, /No built-in Conventional Commits rules/);
+});
+
+test("commit-message failures have complete fun-tone variants", () => {
+  for (const outcome of [
+    "reported",
+    "missing-tool",
+    "missing-config",
+    "unreadable",
+    "timeout",
+    "unavailable",
+  ]) {
+    const text = buildCommitMessageCheckMessage({
+      outcome,
+      tone: "fun",
+    }).lines.join("\n");
+    assert.match(text, /relationship|stood|space|left|missing/i);
+    assert.match(text, /relationship note/);
+  }
+
+  const blocking = buildCommitMessageCheckMessage({
+    outcome: "unavailable",
+    tone: "fun",
+    blocking: true,
+  });
+  assert.equal(blocking.severity, "error");
+  assert.match(blocking.lines.join("\n"), /blocking mode is official/);
+  assert.match(blocking.lines.join("\n"), /git commit --no-verify/);
 });

@@ -271,7 +271,11 @@ test("JSON configuration diagnostics stay structured", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  setPrecommitConfig(tempDir, { requireTest: false, requireTests: "nope" });
+  setPrecommitConfig(tempDir, {
+    requireTest: false,
+    requireTests: "nope",
+    commitMessage: { blockOnFailure: true },
+  });
   const result = cli(tempDir, ["precommit", "--json"]);
   const payload = jsonPayload(result);
 
@@ -280,6 +284,8 @@ test("JSON configuration diagnostics stay structured", (t) => {
   assert.match(payload.diagnostics[0].message, /requireTest/);
   assert.equal(payload.diagnostics[1].code, "config.invalid-values");
   assert.match(payload.diagnostics[1].message, /requireTests/);
+  assert.equal(payload.diagnostics[2].code, "config.ineffective-value");
+  assert.match(payload.diagnostics[2].message, /blockOnFailure/);
 });
 
 test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
@@ -433,6 +439,129 @@ test("prepush JSON covers disabled mode, argument errors, and node test output",
   );
   assert.doesNotMatch(result.stdout, /✔|ℹ tests/);
   assert.match(result.stderr, /widget\.test\.mjs/);
+});
+
+test("prepush JSON covers configuration, policy, and failure edge outcomes", (t) => {
+  const configDir = createTempRepo();
+  const guardDir = createTempRepo();
+  const advisoryDiffDir = createTempRepo();
+  const blockingDiffDir = createTempRepo();
+  const noTestsDir = createTempRepo();
+  const advisoryRunnerDir = createTempRepo();
+  const blockingRunnerDir = createTempRepo();
+  for (const dir of [
+    configDir,
+    guardDir,
+    advisoryDiffDir,
+    blockingDiffDir,
+    noTestsDir,
+    advisoryRunnerDir,
+    blockingRunnerDir,
+  ]) {
+    t.after(() => cleanupTempRepo(dir));
+  }
+
+  commitConfig(configDir, {
+    unknownMode: true,
+    requireTests: "nope",
+    commitMessage: { blockOnFailure: true },
+    advisePushTests: true,
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  let result = cli(configDir, ["prepush", "--json"], {
+    input: pushInput(configDir),
+  });
+  let payload = jsonPayload(result);
+  assert.deepEqual(
+    payload.diagnostics.map(({ code }) => code),
+    [
+      "config.unknown-keys",
+      "config.invalid-values",
+      "config.ineffective-value",
+      "config.push-mode-conflict",
+    ],
+  );
+
+  commitConfig(guardDir, {
+    blockProtectedBranches: true,
+    protectedBranches: ["main"],
+  });
+  result = cli(guardDir, ["prepush", "--json"], {
+    input: pushInput(guardDir),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 1);
+  assert.equal(payload.status, "blocked");
+  assert.equal(payload.findings[0].check, "branch");
+
+  commitConfig(advisoryDiffDir, {
+    advisePushTests: true,
+    protectedBranches: [],
+  });
+  result = cli(advisoryDiffDir, ["prepush", "--json"], {
+    input: pushInput(advisoryDiffDir),
+    env: fakeGitEnv(advisoryDiffDir, "--name-status -z"),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 0);
+  assert.equal(payload.status, "advisory");
+  assert.equal(payload.findings[0].check, "git");
+
+  commitConfig(blockingDiffDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  result = cli(blockingDiffDir, ["prepush", "--json"], {
+    input: pushInput(blockingDiffDir),
+    env: fakeGitEnv(blockingDiffDir, "--name-status -z"),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 1);
+  assert.equal(payload.status, "blocked");
+  assert.equal(payload.findings[0].check, "git");
+
+  commitConfig(noTestsDir, {
+    advisePushTests: true,
+    protectedBranches: [],
+  });
+  writeFile(path.join(noTestsDir, "docs", "note.md"), "docs only\n");
+  run("git", ["add", "docs/note.md"], noTestsDir);
+  run("git", ["commit", "-m", "add docs"], noTestsDir);
+  result = cli(noTestsDir, ["prepush", "--json"], {
+    input: pushInput(noTestsDir),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 0);
+  assert.equal(payload.status, "skipped");
+
+  commitConfig(advisoryRunnerDir, {
+    advisePushTests: true,
+    protectedBranches: [],
+    testCommand: ["definitely-not-installed-json-runner"],
+  });
+  addPushedTestFixture(advisoryRunnerDir);
+  result = cli(advisoryRunnerDir, ["prepush", "--json"], {
+    input: pushInput(advisoryRunnerDir),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 0);
+  assert.equal(payload.status, "advisory");
+  assert.equal(payload.findings.at(-1).check, "tests");
+
+  commitConfig(blockingRunnerDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+    testCommand: ["definitely-not-installed-json-runner"],
+  });
+  addPushedTestFixture(blockingRunnerDir);
+  result = cli(blockingRunnerDir, ["prepush", "--json"], {
+    input: pushInput(blockingRunnerDir),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 1);
+  assert.equal(payload.status, "blocked");
+  assert.equal(payload.findings.at(-1).check, "tests");
 });
 
 test("the published schema and documentation stay version-aligned", () => {

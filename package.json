@@ -46,9 +46,11 @@
     "fix:staged": "node scripts/fix-staged.mjs",
     "doctor": "node scripts/doctor.mjs",
     "states": "node tools/show-message-states.mjs",
+    "release:preflight": "node tools/release-preflight.mjs",
     "test": "node --test test/*.test.mjs test/*.test.js",
-    "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs test/*.test.js",
+    "test:coverage": "node scripts/run-branch-coverage.mjs",
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",
+    "coverage:check": "node scripts/update-readme-coverage-badge.mjs --check",
     "test:precommit": "node scripts/precommit.mjs",
     "test:lifecycle": "node scripts/run-lifecycle-test.mjs npm",
     "test:lifecycle:npm": "node scripts/run-lifecycle-test.mjs npm",
@@ -64,6 +66,7 @@
     "testExempt": [
       "scripts/lib/**",
       "scripts/ci-lifecycle-smoke.mjs",
+      "scripts/run-branch-coverage.mjs",
       "tools/**"
     ],
     "tone": "fun",

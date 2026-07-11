@@ -10,6 +10,8 @@ For the short install path, start with the [README](../README.md). For terminal 
 
 - wires the pre-commit hook to `commitment-issues precommit`
 - wires the pre-push hook to `commitment-issues prepush`
+- wires `commitment-issues commit-msg "$1"` only when optional
+  commit-message linting is explicitly enabled
 - adds npm scripts for `doctor`, `fix:staged`, `commit:fix`, and direct pre-commit checks
 - enables advisory push tests through `precommitChecks.advisePushTests`
 - migrates pre-3.0 husky-era wiring (retires the old `core.hooksPath`, removes the generated `.husky` files)
@@ -32,10 +34,11 @@ network behavior.
 
 ## What happens on commit and push?
 
-| Action       | Default behavior                                                                            | Stricter option                                                |
-| ------------ | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `git commit` | Reports lint, formatting, missing-test, test, branch, and commit-shape issues               | Enable `runStagedTests` to run staged-related tests            |
-| `git push`   | Runs pushed-file tests in advisory mode after `init`; warns when pushing a protected branch | Enable `blockPushOnTestFailure` to stop pushes on test failure |
+| Action         | Default behavior                                                                            | Stricter option                                                |
+| -------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `git commit`   | Reports lint, formatting, missing-test, test, branch, and commit-shape issues               | Enable `runStagedTests` to run staged-related tests            |
+| `git push`     | Runs pushed-file tests in advisory mode after `init`; warns when pushing a protected branch | Enable `blockPushOnTestFailure` to stop pushes on test failure |
+| commit message | No check until `commitMessage.enabled` is true; then warns on commitlint failures           | Set `commitMessage.blockOnFailure` to stop the commit          |
 
 ## Active flow
 
@@ -43,6 +46,8 @@ network behavior.
 - `scripts/precommit.mjs` inspects staged files and prints one consolidated summary box.
 - The pre-push hook runs `commitment-issues prepush`.
 - `scripts/prepush.mjs` runs tests associated with pushed files in advisory mode by default.
+- An enabled commit-msg hook passes Git's message file as one quoted argument to
+  `commitment-issues commit-msg`; it stays silent when commitlint succeeds.
 - `blockPushOnTestFailure` turns pushed-file test failures into a hard gate.
 - When automatic fixes can still be applied safely after a commit, the hook suggests `npm run commit:fix`.
 - `npm run fix:staged` applies staged-only ESLint and Prettier fixes directly and restages the result.
@@ -191,6 +196,72 @@ Beyond tool checks, the hooks run instant, git-only advisory guards. All of them
 }
 ```
 
+## Optional commit-message linting
+
+Commit-message linting is disabled by default and uses the consumer's own
+[commitlint](https://commitlint.js.org/) installation and configuration. The
+package does not add commitlint as a dependency or supply a built-in
+Conventional Commits ruleset.
+
+1. Install the CLI and whichever rules package your project chooses. For
+   example:
+
+   ```bash
+   npm install -D @commitlint/cli @commitlint/config-conventional
+   ```
+
+2. Add a consumer-owned commitlint config. This example is optional; any
+   commitlint-supported config with at least one rule is valid:
+
+   ```js
+   // commitlint.config.js
+   export default { extends: ["@commitlint/config-conventional"] };
+   ```
+
+3. Enable the advisory integration:
+
+   ```json
+   {
+     "precommitChecks": {
+       "commitMessage": {
+         "enabled": true,
+         "blockOnFailure": false
+       }
+     }
+   }
+   ```
+
+The generated `.git/hooks/commit-msg` body invokes
+`commitment-issues commit-msg "$1"`, preserving the message-file path as one
+literal argument. If a custom commit-msg hook already exists, `init` and
+`doctor` leave it unchanged and show that exact command for manual composition.
+Git's `git commit --no-verify` bypasses the hook in the standard way.
+
+Resolution is intentionally local-only: the runner walks upward for
+`node_modules/.bin/commitlint`, passes its absolute path and literal argv through
+the cross-platform process helper, and never falls back to `npx`, a global
+binary, or the network. Yarn Plug'n'Play is
+therefore outside this integration's boundary, matching the package's existing
+`node_modules` requirement.
+
+| Nested key       | Type    | Default | Description                                                         |
+| ---------------- | ------- | ------- | ------------------------------------------------------------------- |
+| `enabled`        | boolean | `false` | Create/repair the commit-msg hook and run project-local commitlint. |
+| `blockOnFailure` | boolean | `false` | Block on lint, setup, missing-config, or unavailable-tool failures. |
+
+`blockOnFailure` never implies enablement; setting it alone produces a
+configuration warning and leaves commit-message linting disabled.
+
+In advisory mode, a lint finding, missing local CLI, missing commitlint config,
+unreadable message file, timeout, or launch failure prints a warning and allows
+the commit. With `blockOnFailure: true`, the same outcomes exit non-zero. The
+runner recognizes both commitlint's missing-config result code and the
+strict-mode `empty-rules` diagnostic. It uses `--strict` so warning-level rules
+are surfaced instead of disappearing behind exit code 0.
+A successful run is silent. `doctor` also warns when
+the feature is enabled but the project-local CLI is absent, while still exiting
+successfully from install-time `doctor --quiet`.
+
 ## Configuration reference
 
 All options live under `precommitChecks` in `package.json`; all are optional:
@@ -215,8 +286,9 @@ All options live under `precommitChecks` in `package.json`; all are optional:
 | `scanSecrets`            | boolean                 | `true`               | Scan added staged lines and dotenv files for likely credentials.                                               |
 | `blockOnSecrets`         | boolean                 | `false`              | Block the commit when the secrets scan finds something.                                                        |
 | `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
+| `commitMessage`          | object                  | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
 
-Unrecognized `precommitChecks` keys are ignored, and the pre-commit and pre-push hooks print a one-line warning naming them — so a typo like `requireTest` cannot silently disable the behavior you meant to configure.
+Unrecognized `precommitChecks` keys, including nested `commitMessage` keys, are ignored and named in diagnostics from hooks, `init`, and `doctor` — so a typo like `commitMessage.enable` cannot silently enable or enforce a check.
 
 Recognized keys with the wrong value type (for example a string where a boolean is expected, or an out-of-range `timeoutMs`) are likewise ignored and fall back to their defaults, and the hooks print a one-line warning naming each invalid value — so a mistyped value cannot silently change behavior either. Both warnings are advisory only: the commit or push still proceeds.
 
@@ -233,8 +305,9 @@ Recognized keys with the wrong value type (for example a string where a boolean 
 
 ## Project structure
 
-- `scripts/cli.mjs` — the `commitment-issues` bin; dispatches subcommands: `init`, `doctor`, `precommit`, `prepush`, `commit-fix`, `fix-staged`, and `fix-staged-js`.
+- `scripts/cli.mjs` — the `commitment-issues` bin; dispatches subcommands: `init`, `doctor`, `precommit`, `prepush`, `commit-msg`, `commit-fix`, `fix-staged`, and `fix-staged-js`.
 - `scripts/precommit.mjs` — the pre-commit hook entrypoint.
+- `scripts/commit-msg.mjs` — the optional advisory-or-blocking commitlint entrypoint.
 - `scripts/init.mjs` — one-command setup for a consuming repo.
 - `scripts/prepush.mjs` — the advisory-by-default pre-push test runner; can become a blocking gate through configuration.
 - `scripts/doctor.mjs` — verifies and repairs the hook wiring.
@@ -247,6 +320,6 @@ Recognized keys with the wrong value type (for example a string where a boolean 
 
 These scripts are Git-hook tooling, so set `COMMITMENT_ISSUES=0` in CI to skip hook runs.
 
-This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. Locally, `npm run test:coverage` runs the same suite with `--experimental-test-coverage` for a coverage report.
+This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.22.1 and 24. `npm run test:coverage` measures the explicitly scoped user-facing runtime and enforces 90% branch coverage on both Node lines. Package lifecycle integration remains a separately named pass/fail gate. See the [branch coverage policy](branch-coverage.md) for the exact included and excluded files, badge freshness rule, and rationale.
 
 For ready-to-use pipelines, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.
