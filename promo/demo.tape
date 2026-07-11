@@ -103,9 +103,9 @@ Sleep 4s
 Show
 
 # --- 3. Run command to fix changes ---
-Type "npm run commit:fix" Enter
+Type "npx --no-install commitment-issues commit-fix" Enter
 Wait+Screen@30s /Latest commit amended with automatic fixes/
-Sleep 4s
+Sleep 2s
 Show
 
 # --- 4. Push changes ---
