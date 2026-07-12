@@ -4,8 +4,8 @@
 
 ## Hard constraints
 
-- **Pure ESM `.mjs`, no build step, no transpile.** Node `>=22.22.1`. Uses the built-in `node --test` runner and `node:assert/strict` — no Jest/Mocha/Vitest. The one extra test library is `fast-check` (property-based tests in `test/property.test.js`, kept `.js` so the OpenSSF Scorecard fuzzing check detects it).
-- **Cross-platform.** CI runs on Ubuntu/macOS/Windows × Node 22.22.1/24. No shell-specific assumptions, no hard-coded path separators (normalize `\\` → `/` before matching).
+- **Pure ESM `.mjs`, no build step, no transpile.** Node `>=22.11.0`. Uses the built-in `node --test` runner and `node:assert/strict` — no Jest/Mocha/Vitest. The one extra test library is `fast-check` (property-based tests in `test/property.test.js`, kept `.js` so the OpenSSF Scorecard fuzzing check detects it).
+- **Cross-platform.** CI runs on Ubuntu/macOS/Windows × Node 22.11.0/24. No shell-specific assumptions, no hard-coded path separators (normalize `\\` → `/` before matching).
 - `scripts/*.mjs` = entry commands (top-level code + `process.exit`); `scripts/lib/*.mjs` = pure, unit-tested helpers. Push logic down into `lib/`.
 - Community-health, governance, and these agent files live in `.github/` so they stay out of the npm tarball (`package.json` `files` allowlists only `scripts/ assets/*.svg docs/ README.md CHANGELOG.md LICENSE`).
 

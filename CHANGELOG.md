@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Lowered the supported Node.js runtime floor from 22.22.1 to 22.11.0, the first
+  Node 22 LTS release. Package metadata, CI, documentation, fixtures, and
+  repository guidance now agree on the minimum, with a metadata test preventing
+  future version drift.
 - Governance and maintainer guidance now match the live strict `main` ruleset:
   one approval, stale/last-push review controls, resolved threads, DCO inside
   the aggregate CI gate, a prospective signed-history baseline, and a narrow,
@@ -47,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The README now reports explicitly scoped **branch coverage** for the
   user-facing runtime. `npm run test:coverage` enumerates the complete runtime
   source set, fails if a source is absent from LCOV, and enforces a 90% branch
-  threshold on Node 22.22.1 and 24. Package lifecycle tests remain a separately
+  threshold on Node 22.11.0 and 24. Package lifecycle tests remain a separately
   named pass/fail gate, badge color is value-derived, and CI rejects a stale
   committed badge.
 - Reorganized the README around a two-command trial, product fit, comparison,

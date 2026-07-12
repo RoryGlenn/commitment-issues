@@ -392,9 +392,9 @@ npm remove commitment-issues
 Run the commands in that order so the installed binary can remove its generated
 `prepare` command or repair suffix before the package is removed.
 
-## Why does it require Node.js 22.22.1 or newer?
+## Why does it require Node.js 22.11.0 or newer?
 
 The package uses modern ESM behavior and the built-in `node --test` runner by
-default. Node.js 22.22.1 is the minimum Node 22 release exercised by the CI
-matrix; Node 24 is tested as well. Older runtimes are outside the supported and
-release-tested range.
+default. Node.js 22.11.0, the first Node 22 LTS release, is the minimum exercised
+by the CI matrix; Node 24 is tested as well. Older runtimes are outside the
+supported and release-tested range.

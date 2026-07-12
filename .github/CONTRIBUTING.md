@@ -22,7 +22,7 @@ responsibilities are documented in [Governance](../GOVERNANCE.md) and
 
 ### Prerequisites
 
-- **Node.js >= 22.22.1** (the scripts use modern ESM features and the built-in
+- **Node.js >= 22.11.0** (the scripts use modern ESM features and the built-in
   `node --test` runner). Check with `node --version`.
 - **git** and a GitHub account.
 
@@ -117,7 +117,7 @@ spawning subprocesses inside temporary git repos (see
   `node --test test/<name>.test.mjs`.
 - Runtime branch coverage is gated at 90%: `npm run test:coverage`. See the
   [exact source/test scope](../docs/branch-coverage.md).
-- CI runs on Ubuntu, macOS, and Windows against Node 22.22.1 and 24, plus
+- CI runs on Ubuntu, macOS, and Windows against Node 22.11.0 and 24, plus
   lifecycle integrations for npm, pnpm, yarn, and bun. Please keep changes
   cross-platform (avoid shell-specific assumptions and hard-coded path
   separators).

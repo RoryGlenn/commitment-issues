@@ -170,9 +170,13 @@ test("supported Node version stays consistent across docs and workflows", () => 
     "README.md",
     "docs/faq.md",
     "docs/configuration.md",
+    "docs/branch-coverage.md",
     ".github/CONTRIBUTING.md",
     ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/copilot-instructions.md",
     ".github/workflows/ci.yml",
+    ".github/skills/authoring-checks/SKILL.md",
+    ".github/skills/github-governance/SKILL.md",
     "ADOPTION.md",
   ];
 
@@ -220,6 +224,9 @@ test("CI enforces branch coverage on both Node lines and badge freshness", () =>
   const pkg = readJson("package.json");
   const workflow = readText(".github/workflows/ci.yml");
   const readme = readText("README.md");
+  const minimumVersion = pkg.engines.node.match(/\d+\.\d+\.\d+/)?.[0];
+  assert.ok(minimumVersion, "engines.node should pin a concrete version");
+  const escapedMinimumVersion = escapeRegExp(minimumVersion);
 
   assert.equal(
     pkg.scripts["test:coverage"],
@@ -231,7 +238,9 @@ test("CI enforces branch coverage on both Node lines and badge freshness", () =>
   );
   assert.match(
     workflow,
-    /Branch coverage threshold \(Node 22\.22\.1\)[\s\S]*matrix\.node-version == '22\.22\.1'[\s\S]*npm run test:coverage/,
+    new RegExp(
+      `Branch coverage threshold \\(Node ${escapedMinimumVersion}\\)[\\s\\S]*matrix\\.node-version == '${escapedMinimumVersion}'[\\s\\S]*npm run test:coverage`,
+    ),
   );
   assert.match(
     workflow,

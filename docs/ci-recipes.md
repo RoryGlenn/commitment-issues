@@ -71,7 +71,7 @@ version: 2.1
 jobs:
   test:
     docker:
-      - image: cimg/node:22.22
+      - image: cimg/node:22.11
     environment:
       COMMITMENT_ISSUES: "0"
     steps:

@@ -8,7 +8,7 @@
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
 [![Branch coverage: 90.5%](https://img.shields.io/badge/branch%20coverage-90.5%25-brightgreen.svg)](docs/branch-coverage.md)
-[![Node >=22.22.1](https://img.shields.io/badge/node-%3E%3D22.22.1-brightgreen.svg)](https://nodejs.org/)
+[![Node >=22.11.0](https://img.shields.io/badge/node-%3E%3D22.11.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Advisory-first Git guardrails for JavaScript and TypeScript projects.** Catch lint, formatting, missing-test, secret, branch, commit-shape, optional commit-message, and related-test problems before commits and pushes—without blocking or rewriting work unless you opt in.
@@ -58,7 +58,7 @@ See [Message states](docs/message-states.md) for the complete gallery.
 
 ## Quickstart
 
-You need **Node.js >=22.22.1**, Git, ESLint 9+ with a flat config, and Prettier 3+.
+You need **Node.js >=22.11.0**, Git, ESLint 9+ with a flat config, and Prettier 3+.
 
 ### 1. Install
 
@@ -156,7 +156,7 @@ See [How commitment-issues works](docs/how-it-works.md) for the complete flow.
 | Requirement or boundary | Support                                                              |
 | ----------------------- | -------------------------------------------------------------------- |
 | Primary ecosystem       | JavaScript and TypeScript projects                                   |
-| Runtime                 | Node.js >=22.22.1                                                    |
+| Runtime                 | Node.js >=22.11.0                                                    |
 | Linting and formatting  | ESLint >=9 flat config and Prettier >=3                              |
 | Package managers        | npm, pnpm, Yarn, and Bun                                             |
 | Git hooks               | Native `.git/hooks` files                                            |
