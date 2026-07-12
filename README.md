@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Branch coverage: 90.5%](https://img.shields.io/badge/branch%20coverage-90.5%25-brightgreen.svg)](docs/branch-coverage.md)
+[![Branch coverage: 90.3%](https://img.shields.io/badge/branch%20coverage-90.3%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.11.0](https://img.shields.io/badge/node-%3E%3D22.11.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 

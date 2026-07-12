@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import pc from "picocolors";
-import { errorBox, successBox, warningBox } from "./lib/ui.mjs";
+import { printBoxModel } from "./lib/ui.mjs";
 import { run, isPackageInstalled, isToolInstalled } from "./lib/process.mjs";
 import {
   BIN,
@@ -38,6 +38,20 @@ import { localToolInvocation } from "./lib/local-tool.mjs";
 // `npm install`, including CI/Docker with no `.git`).
 
 const quiet = process.argv.includes("--quiet");
+const advisorySections = [];
+
+function finishBox(severity, lines, exitCode) {
+  const hasAdvisories = advisorySections.length > 0;
+  const combinedLines = hasAdvisories
+    ? [...lines, ...advisorySections.flatMap((section) => ["", ...section])]
+    : lines;
+  printBoxModel({
+    severity:
+      severity === "error" ? "error" : hasAdvisories ? "warning" : severity,
+    lines: combinedLines,
+  });
+  process.exit(exitCode);
+}
 
 // Peer tools commitment-issues runs but deliberately does not bundle. They are
 // declared as peerDependencies (an install-time nudge); this same list drives
@@ -48,8 +62,7 @@ const REQUIRED_TOOLS = ["eslint", "prettier"];
 // and fail. Quiet: skip silently and succeed so installs never break.
 function notApplicable(lines) {
   if (!quiet) {
-    errorBox(lines);
-    process.exit(1);
+    finishBox("error", lines, 1);
   }
   process.exit(0);
 }
@@ -65,8 +78,7 @@ function repairFailed(lines) {
     );
     process.exit(0);
   }
-  errorBox(lines);
-  process.exit(1);
+  finishBox("error", lines, 1);
 }
 
 if (!fs.existsSync("package.json")) {
@@ -100,7 +112,7 @@ if (configWarnings.length > 0) {
       console.warn(pc.yellow(`commitment-issues: ${message}`));
     }
   } else {
-    warningBox([
+    advisorySections.push([
       pc.bold("Configuration needs attention."),
       "",
       ...configWarnings.map((message) => pc.dim(`• ${message}`)),
@@ -127,7 +139,7 @@ if (missingTools.length > 0) {
       ),
     );
   } else {
-    warningBox([
+    advisorySections.push([
       pc.bold("Some required tools are not installed."),
       "",
       ...missingTools.map((name) => pc.dim(`• ${name}`)),
@@ -153,7 +165,7 @@ if (commitMessage.enabled && !localToolInvocation("commitlint", [])) {
       ),
     );
   } else {
-    warningBox([
+    advisorySections.push([
       pc.bold("Commit-message linting is not ready."),
       "",
       pc.dim("precommitChecks.commitMessage.enabled is true, but the"),
@@ -227,19 +239,25 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
   );
   if (inactive.length === 0) {
     if (!quiet) {
-      successBox([
-        pc.bold("Git hooks are healthy."),
-        "",
-        pc.dim(`core.hooksPath → ${configuredHooksPath}`),
-        pc.dim(hookSummary),
-        ...(huskyEraLive
-          ? [
-              "",
-              pc.dim("This is husky-era wiring. Migrate to native .git/hooks"),
-              pc.dim(`anytime with: npx ${BIN} init`),
-            ]
-          : []),
-      ]);
+      finishBox(
+        "success",
+        [
+          pc.bold("Git hooks are healthy."),
+          "",
+          pc.dim(`core.hooksPath → ${configuredHooksPath}`),
+          pc.dim(hookSummary),
+          ...(huskyEraLive
+            ? [
+                "",
+                pc.dim(
+                  "This is husky-era wiring. Migrate to native .git/hooks",
+                ),
+                pc.dim(`anytime with: npx ${BIN} init`),
+              ]
+            : []),
+        ],
+        0,
+      );
     }
     process.exit(0);
   }
@@ -253,32 +271,37 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
     );
     process.exit(0);
   }
-  warningBox([
-    pc.bold("core.hooksPath points somewhere else."),
-    "",
-    pc.dim(`git core.hooksPath is set to ${configuredHooksPath}, so git only`),
-    pc.dim(
-      huskyEraLive
-        ? "runs hooks managed by husky. These hooks are not wired up:"
-        : "runs hooks from that directory. Add these commands there:",
-    ),
-    "",
-    ...(huskyEraLive
-      ? inactive.map((report) => `  .husky/${report.name}`)
-      : inactive.map((report) =>
-          report.status === "non-executable"
-            ? `  ${executableFixCommand(checkDir, report.name)}`
-            : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
-        )),
-    "",
-    ...(huskyEraLive
-      ? [pc.dim(`Migrate to native .git/hooks wiring: npx ${BIN} init`)]
-      : [
-          pc.dim("Or unset it to use native .git/hooks wiring:"),
-          pc.dim("  git config --unset core.hooksPath"),
-        ]),
-  ]);
-  process.exit(1);
+  finishBox(
+    "warning",
+    [
+      pc.bold("core.hooksPath points somewhere else."),
+      "",
+      pc.dim(
+        `git core.hooksPath is set to ${configuredHooksPath}, so git only`,
+      ),
+      pc.dim(
+        huskyEraLive
+          ? "runs hooks managed by husky. These hooks are not wired up:"
+          : "runs hooks from that directory. Add these commands there:",
+      ),
+      "",
+      ...(huskyEraLive
+        ? inactive.map((report) => `  .husky/${report.name}`)
+        : inactive.map((report) =>
+            report.status === "non-executable"
+              ? `  ${executableFixCommand(checkDir, report.name)}`
+              : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
+          )),
+      "",
+      ...(huskyEraLive
+        ? [pc.dim(`Migrate to native .git/hooks wiring: npx ${BIN} init`)]
+        : [
+            pc.dim("Or unset it to use native .git/hooks wiring:"),
+            pc.dim("  git config --unset core.hooksPath"),
+          ]),
+    ],
+    1,
+  );
 }
 
 const hooksDir = gitHooksDir();
@@ -356,7 +379,7 @@ function reportStrandedHuskyHooks() {
     );
     return;
   }
-  warningBox([
+  advisorySections.push([
     pc.bold("Leftover .husky hooks no longer run."),
     "",
     ...strandedHuskyHooks.map((hook) => pc.dim(`• ${hook}`)),
@@ -369,12 +392,16 @@ function reportStrandedHuskyHooks() {
 if (problems.length === 0) {
   reportStrandedHuskyHooks();
   if (!quiet) {
-    successBox([
-      pc.bold("Git hooks are healthy."),
-      "",
-      pc.dim(".git/hooks is active — no hook manager needed."),
-      pc.dim(hookSummary),
-    ]);
+    finishBox(
+      "success",
+      [
+        pc.bold("Git hooks are healthy."),
+        "",
+        pc.dim(".git/hooks is active — no hook manager needed."),
+        pc.dim(hookSummary),
+      ],
+      0,
+    );
   }
   process.exit(0);
 }
@@ -447,35 +474,40 @@ if (unwiredHooks.length > 0 || nonExecutableHooks.length > 0) {
     );
     process.exit(0);
   }
-  warningBox([
-    pc.bold(
-      nonExecutableHooks.length > 0
-        ? "A git hook is inactive."
-        : "A git hook does not invoke commitment-issues.",
-    ),
-    "",
-    ...unwiredHooks.map((name) =>
-      pc.dim(
-        `${displayHookPath(hooksDir, name)} never runs \`${hookInvocation(name)}\`.`,
+  finishBox(
+    "warning",
+    [
+      pc.bold(
+        nonExecutableHooks.length > 0
+          ? "A git hook is inactive."
+          : "A git hook does not invoke commitment-issues.",
       ),
-    ),
-    ...nonExecutableHooks.flatMap((name) => [
-      pc.dim(`${displayHookPath(hooksDir, name)} is not executable.`),
-      pc.dim(`Run: ${executableFixCommand(hooksDir, name)}`),
-    ]),
-    "",
-    ...(unwiredHooks.length > 0
-      ? [
-          pc.dim("Add the command above to each unwired hook, or delete the"),
-          pc.dim("hook file so doctor can recreate it."),
-        ]
-      : []),
-    pc.dim("Existing hooks are never overwritten or made executable for you."),
-    ...(repaired.length > 0
-      ? ["", pc.dim(`Also repaired: ${repaired.join(", ")}.`)]
-      : []),
-  ]);
-  process.exit(1);
+      "",
+      ...unwiredHooks.map((name) =>
+        pc.dim(
+          `${displayHookPath(hooksDir, name)} never runs \`${hookInvocation(name)}\`.`,
+        ),
+      ),
+      ...nonExecutableHooks.flatMap((name) => [
+        pc.dim(`${displayHookPath(hooksDir, name)} is not executable.`),
+        pc.dim(`Run: ${executableFixCommand(hooksDir, name)}`),
+      ]),
+      "",
+      ...(unwiredHooks.length > 0
+        ? [
+            pc.dim("Add the command above to each unwired hook, or delete the"),
+            pc.dim("hook file so doctor can recreate it."),
+          ]
+        : []),
+      pc.dim(
+        "Existing hooks are never overwritten or made executable for you.",
+      ),
+      ...(repaired.length > 0
+        ? ["", pc.dim(`Also repaired: ${repaired.join(", ")}.`)]
+        : []),
+    ],
+    1,
+  );
 }
 
 reportStrandedHuskyHooks();
@@ -485,14 +517,18 @@ if (quiet) {
     pc.dim(`commitment-issues: repaired git hooks (${repaired.join(", ")}).`),
   );
 } else {
-  warningBox([
-    pc.bold("Repaired the git hook wiring."),
-    "",
-    pc.dim(`Was broken: ${problems.join("; ")}.`),
-    pc.dim(`Fixed: ${repaired.join(", ")}.`),
-    "",
-    pc.dim(hookSummary.replace("wired up and ", "")),
-  ]);
+  finishBox(
+    "warning",
+    [
+      pc.bold("Repaired the git hook wiring."),
+      "",
+      pc.dim(`Was broken: ${problems.join("; ")}.`),
+      pc.dim(`Fixed: ${repaired.join(", ")}.`),
+      "",
+      pc.dim(hookSummary.replace("wired up and ", "")),
+    ],
+    0,
+  );
 }
 
 process.exit(0);

@@ -422,3 +422,67 @@ export function buildCommitMessageCheckMessage(options = {}) {
 
   return { severity: blocking ? "error" : "warning", lines };
 }
+
+/**
+ * Build the single final box for an allowed push with one or more advisory
+ * findings. Test-runner output stays outside the box; this is the compact
+ * command-level summary printed after it.
+ * @param {{warnings?: string[], notes?: string[], details?: string[]}} options - Advisory findings and supporting context.
+ * @returns {{severity: "warning", lines: string[]}} Box model.
+ */
+export function buildPushAllowedMessage(options = {}) {
+  const warnings = Array.isArray(options.warnings)
+    ? options.warnings.filter(Boolean)
+    : [];
+  const notes = Array.isArray(options.notes)
+    ? options.notes.filter(Boolean)
+    : [];
+  const details = Array.isArray(options.details)
+    ? options.details.filter(Boolean)
+    : [];
+  const count = warnings.length;
+  const lines = [
+    pc.bold(`Push allowed with ${count} warning${count === 1 ? "" : "s"}.`),
+  ];
+
+  if (warnings.length > 0) {
+    lines.push(
+      "",
+      ...warnings.map((warning) => `${pc.yellow("→")} ${warning}`),
+    );
+  }
+  if (details.length > 0) {
+    lines.push("", ...details.map((detail) => pc.dim(detail)));
+  }
+  if (notes.length > 0) {
+    lines.push("", ...notes.map((note) => pc.dim(note)));
+  }
+
+  return { severity: "warning", lines };
+}
+
+/**
+ * Fold secondary push warnings into an existing blocking outcome without
+ * weakening its severity or printing another box.
+ * @param {{severity: "info"|"success"|"warning"|"error", lines: string[]}} model - Primary push outcome.
+ * @param {string[]} warnings - Secondary advisory findings.
+ * @returns {{severity: "warning"|"error", lines: string[]}} Combined model.
+ */
+export function appendPushWarnings(model, warnings = []) {
+  const filtered = Array.isArray(warnings) ? warnings.filter(Boolean) : [];
+  if (filtered.length === 0) {
+    return model;
+  }
+
+  return {
+    severity: model.severity === "error" ? "error" : "warning",
+    lines: [
+      ...model.lines,
+      "",
+      pc.dim(
+        filtered.length === 1 ? "Additional warning:" : "Additional warnings:",
+      ),
+      ...filtered.map((warning) => `${pc.yellow("→")} ${warning}`),
+    ],
+  };
+}

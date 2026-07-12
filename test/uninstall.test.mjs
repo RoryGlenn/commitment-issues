@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { hookBody } from "../scripts/lib/hooks.mjs";
+import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -91,8 +92,9 @@ test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /uninstall preview/i);
   assert.match(output, /Would remove:/);
-  assert.match(output, /package\.json script prepare/);
+  assert.match(output, /package scripts: prepare/);
   assert.match(output, /\.git\/hooks\/pre-commit/);
+  assert.equal(countTerminalBoxes(output), 1);
   assert.equal(readFile(tempDir, "package.json"), beforePackage);
   assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), beforeCommitHook);
 });
@@ -186,9 +188,29 @@ test("uninstall preserves customized commit-msg hooks for manual cleanup", (t) =
   const output = `${result.stdout}${result.stderr}`;
   assert.equal(result.status, 0);
   assert.match(output, /commit-msg is customized/);
+  assert.equal(countTerminalBoxes(output), 1);
   assert.equal(
     readFile(tempDir, ".git/hooks/commit-msg"),
     'echo custom\ncommitment-issues commit-msg "$1"\n',
+  );
+});
+
+test("uninstall dry-run consolidates customized-hook cleanup", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const hook = gitHook(tempDir, "pre-commit");
+  writeFile(hook, "echo custom\ncommitment-issues precommit\n");
+
+  const result = runScript(tempDir, "uninstall", ["--dry-run"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /uninstall preview/i);
+  assert.match(output, /Manual cleanup would still be needed/);
+  assert.equal(countTerminalBoxes(output), 1);
+  assert.equal(
+    readFile(tempDir, ".git/hooks/pre-commit"),
+    "echo custom\ncommitment-issues precommit\n",
   );
 });
 
@@ -249,8 +271,9 @@ test("uninstall preserves customized scripts and hooks", (t) => {
     readFile(tempDir, ".git/hooks/pre-commit"),
     "echo custom check\ncommitment-issues precommit\n",
   );
-  assert.match(output, /Manual cleanup may still be needed/);
+  assert.match(output, /Manual cleanup still needed/);
   assert.match(output, /pre-commit is customized/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("uninstall inspects an active custom hooks directory safely", (t) => {

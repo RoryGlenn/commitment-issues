@@ -1,6 +1,6 @@
 # Message States
 
-`commitment-issues` uses compact terminal boxes to keep Git hook output readable. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
+`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
 To watch representative states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run. The static gallery below is the exhaustive catalog; the runner intentionally keeps a smaller, maintainable set of executable examples.
 
@@ -72,7 +72,7 @@ gitignore state.
   <img src="../assets/init-hook-wiring-warning.svg" alt="Warning output printed after the init summary when hook wiring needs manual attention" width="675">
 </p>
 
-Shown after the summary when `init` cannot fully wire the hooks by itself: an existing native hook does not invoke `commitment-issues`, a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Existing hooks are preserved, and missing integration lists the exact command to add. When the active hooks themselves cannot be verified, setup-complete commit/push claims are also withheld.
+Included in the same warning summary when `init` cannot fully wire the hooks by itself: an existing native hook does not invoke `commitment-issues`, a foreign `core.hooksPath` is configured, user-authored `.husky` hooks are stranded by the husky-era migration, or the directory is not a git repository yet. Existing hooks are preserved, and missing integration lists the exact command to add. When the active hooks themselves cannot be verified, setup-complete commit/push claims are also withheld.
 
 ## Uninstall
 
@@ -88,12 +88,16 @@ removed without writing anything.
 detected package-manager command that removes the remaining dependency and
 updates its lockfile.
 
-### Manual cleanup may still be needed
+### Manual cleanup still needed
 
-`Manual cleanup may still be needed.` is shown when a hook or script invokes
-`commitment-issues` but has been customized, or when the command cannot inspect
-local Git hooks. User-owned content is reported and preserved instead of being
-edited heuristically.
+<p>
+  <img src="../assets/uninstall-manual-cleanup.svg" alt="Warning output combining completed managed uninstall work with manual cleanup for a customized hook" width="706">
+</p>
+
+`Manual cleanup still needed:` is included in the same removal summary when a
+hook or script invokes `commitment-issues` but has been customized, or when the
+command cannot inspect local Git hooks. User-owned content is reported and
+preserved instead of being edited heuristically.
 
 ## Pre-commit
 
@@ -565,6 +569,11 @@ Shown when the fixers ran but the final `git add` failed: the fixes are safe in 
 </p>
 
 Shown when push-time tests are enabled and the associated pushed-file tests pass.
+When the same push targets a protected branch, both facts are consolidated:
+
+<p>
+  <img src="../assets/prepush-protected-tests-passed.svg" alt="Warning output combining passing pre-push tests with a protected-branch advisory" width="520">
+</p>
 
 ### No tests to run
 
@@ -589,6 +598,12 @@ Shown when the pre-push hook is run by hand and no push-test mode is configured.
 </p>
 
 Shown when `advisePushTests` is enabled and pushed-file tests fail; the push is still allowed.
+When the same push targets a protected branch, the final warning summarizes
+both findings after the test-runner output:
+
+<p>
+  <img src="../assets/prepush-protected-tests-failed.svg" alt="Warning output combining an advisory test failure with a protected-branch advisory" width="819">
+</p>
 
 ### Blocking push failure
 
@@ -644,7 +659,9 @@ Shown when Git cannot list the pushed files in blocking mode; the gate fails clo
   <img src="../assets/prepush-protected-branch-advisory.svg" alt="Warning output showing an advisory that the push updates a protected branch directly" width="459">
 </p>
 
-Shown when the push updates a branch matching `protectedBranches` and `blockProtectedBranches` is off. The push continues.
+Shown when the push updates a branch matching `protectedBranches` and
+`blockProtectedBranches` is off. The push continues. If tests run, their result
+is folded into this same final box instead of producing a second box.
 
 ### Push blocked: protected branch
 
@@ -664,7 +681,9 @@ A real `git push` with no push-test mode configured prints nothing at all — th
 
 `Configuration needs attention.` reports malformed standalone JSON, unknown
 keys (including nested commit-message paths), or invalid values without
-preventing hook diagnosis and repair.
+preventing hook diagnosis and repair. Interactive doctor output consolidates
+these diagnostics, missing-tool notices, stranded-hook findings, and the final
+hook-health result into one box.
 `doctor --quiet` prints the same diagnostics as plain one-line warnings and
 still exits successfully so an install is never broken.
 

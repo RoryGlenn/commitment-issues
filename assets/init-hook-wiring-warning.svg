@@ -1,13 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="675" height="186" viewBox="0 0 675 186" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="799" height="274" viewBox="0 0 799 274" role="img" aria-labelledby="title desc">
   <title id="title">Init hook wiring warning terminal output</title>
-  <desc id="desc">A terminal-style warning box printed after the init summary when the hook wiring needs manual attention.</desc>
-  <rect width="675" height="186" rx="8" ry="8" fill="#181818"/>
+  <desc id="desc">A terminal-style warning summary combining init progress with hook wiring that needs manual attention.</desc>
+  <rect width="799" height="274" rx="8" ry="8" fill="#181818"/>
   <g transform="translate(20 24)">
-    <rect x="0" y="0" width="635" height="142" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
-    <rect x="269" y="-10" width="97" height="20" fill="#181818"/>
-    <text x="317.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
-    <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Hook wiring needs your attention.</text>
-    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Leftover .husky hooks no longer run: .husky/commit-msg.</text>
-    <text x="34" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Move the logic into .git/hooks, or delete the files.</text>
+    <rect x="0" y="0" width="759" height="230" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
+    <rect x="331" y="-10" width="97" height="20" fill="#181818"/>
+    <text x="379.5" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
+    <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Commitment Issues needs hook wiring.</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Package settings are configured; hook wiring still needs attention.</text>
+    <text x="34" y="132" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Hook wiring needs your attention.</text>
+    <text x="34" y="176" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Leftover .husky hooks no longer run: .husky/commit-msg.</text>
+    <text x="34" y="206" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Move the logic into .git/hooks, or delete the files.</text>
   </g>
 </svg>

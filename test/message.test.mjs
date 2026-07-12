@@ -4,8 +4,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  appendPushWarnings,
   buildAdvisoryMessage,
   buildCommitMessageCheckMessage,
+  buildPushAllowedMessage,
 } from "../scripts/lib/message.mjs";
 
 // picocolors emits plain text when stdout is not a TTY (as under `node --test`),
@@ -173,4 +175,54 @@ test("commit-message failures have complete fun-tone variants", () => {
   assert.equal(blocking.severity, "error");
   assert.match(blocking.lines.join("\n"), /blocking mode is official/);
   assert.match(blocking.lines.join("\n"), /git commit --no-verify/);
+});
+
+test("push summary consolidates allowed advisory findings", () => {
+  const model = buildPushAllowedMessage({
+    warnings: [
+      "Tests failed (advisory): 1 related test failed",
+      'Direct push to protected branch "main"',
+    ],
+    notes: ["Review the failing test output above."],
+  });
+  const text = model.lines.join("\n");
+
+  assert.equal(model.severity, "warning");
+  assert.match(text, /Push allowed with 2 warnings/);
+  assert.match(text, /Tests failed \(advisory\)/);
+  assert.match(text, /protected branch "main"/);
+  assert.match(text, /Review the failing test output above/);
+});
+
+test("secondary push warnings preserve a blocking outcome", () => {
+  const model = appendPushWarnings(
+    {
+      severity: "error",
+      lines: ["Push blocked: tests failed"],
+    },
+    ['Direct push to protected branch "main"'],
+  );
+
+  assert.equal(model.severity, "error");
+  assert.match(model.lines.join("\n"), /Additional warning/);
+  assert.match(model.lines.join("\n"), /protected branch "main"/);
+});
+
+test("push warning composition leaves an outcome unchanged when none exist", () => {
+  const primary = {
+    severity: "success",
+    lines: ["All tests passed"],
+  };
+
+  assert.equal(appendPushWarnings(primary, []), primary);
+});
+
+test("secondary push warnings promote a non-error outcome to warning", () => {
+  const model = appendPushWarnings(
+    { severity: "success", lines: ["All tests passed"] },
+    ['Direct push to protected branch "main"'],
+  );
+
+  assert.equal(model.severity, "warning");
+  assert.match(model.lines.join("\n"), /protected branch "main"/);
 });

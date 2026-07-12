@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -307,6 +308,7 @@ test("doctor warns about user-authored .husky hooks that no longer run", (t) => 
   assert.equal(result.status, 0);
   assert.match(output, /Leftover \.husky hooks no longer run/);
   assert.match(output, /\.husky\/commit-msg/);
+  assert.equal(countTerminalBoxes(output), 1);
   // Advisory only: the user's file is never deleted.
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "commit-msg")));
 });
@@ -513,6 +515,7 @@ test("doctor warns about malformed standalone config without blocking repair", (
   assert.match(output, /\.commitmentrc\.json/);
   assert.match(output, /contains invalid JSON/);
   assert.match(output, /Repaired the git hook wiring/);
+  assert.equal(countTerminalBoxes(output), 1);
   assert.equal(
     fs.readFileSync(path.join(tempDir, ".commitmentrc.json"), "utf8"),
     "{ invalid json\n",
@@ -627,6 +630,7 @@ test("doctor warns (interactive) when required tools are not installed", (t) => 
     assert.match(output, new RegExp(tool));
   }
   assert.match(output, /npm install -D/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("doctor --quiet warns about missing tools in one line but exits 0", (t) => {

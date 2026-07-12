@@ -8,6 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -315,9 +316,32 @@ test("prepush warns when pushing to a protected branch (advisory)", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
-  assert.match(output, /Pushing to a protected branch\./);
+  assert.match(output, /Push allowed with 1 warning/);
+  assert.match(output, /Direct push to protected branch/);
   assert.match(output, /"main"/);
-  assert.match(output, /Push will continue/);
+  assert.equal(countTerminalBoxes(output), 1);
+});
+
+test("prepush consolidates multiple protected targets into one warning", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    protectedBranches: ["main", "release/*"],
+  });
+  const sha = headSha(tempDir);
+  const zero = "0".repeat(40);
+  const result = runPrepush(
+    tempDir,
+    `refs/heads/main ${sha} refs/heads/main ${zero}\n` +
+      `refs/heads/release/next ${sha} refs/heads/release/next ${zero}\n`,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Push allowed with 1 warning/);
+  assert.match(output, /protected branches "main", "release\/next"/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("prepush blocks protected-branch pushes only when opted in", (t) => {

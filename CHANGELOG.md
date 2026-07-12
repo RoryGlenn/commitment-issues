@@ -64,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Every user-facing command now renders at most one terminal box per invocation.
+  Pre-push test results and protected-branch advisories share one final summary,
+  while `init`, `doctor`, and `uninstall` fold secondary findings into their
+  primary outcome instead of stacking competing boxes.
 - OpenSSF Scorecard now runs only for default-branch-relevant events, including
   branch-protection changes, instead of uploading repository-level SARIF from
   every pull request and producing misleading missing-configuration warnings.
