@@ -100,6 +100,7 @@ test("README and how-it-works reference both refreshed flowchart themes", () => 
 test("demo tape records a reproducible feature-branch workflow", () => {
   const tape = read("promo/demo.tape");
   const workflow = read(".github/workflows/render-demo.yml");
+  const comparator = read("tools/compare-demo-gifs.mjs");
   const initIndex = tape.indexOf("npx --no-install commitment-issues init");
   const switchIndex = tape.indexOf("git switch -q -c feature/greeting");
   const visibleCommitIndex = tape.indexOf(
@@ -135,6 +136,8 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     "package.json",
     "package-lock.json",
     "scripts/**",
+    "test/demo-visual-comparison.test.mjs",
+    "tools/compare-demo-gifs.mjs",
   ]) {
     assert.ok(
       workflow.includes(`- "${input}"`),
@@ -147,7 +150,24 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     /cp assets\/demo\.gif "\$RUNNER_TEMP\/committed-demo\.gif"/,
   );
   assert.match(workflow, /MINIMUM_SSIM: "0\.997"/);
-  assert.match(workflow, /-lavfi ssim/);
+  assert.match(workflow, /MAX_TEMPORAL_SHIFT_FRAMES: "2"/);
+  assert.match(workflow, /node --test test\/demo-visual-comparison\.test\.mjs/);
+  assert.match(
+    workflow,
+    /node tools\/compare-demo-gifs\.mjs\s+"\$RUNNER_TEMP\/committed-demo\.gif"\s+assets\/demo\.gif/,
+  );
+  assert.match(comparator, /\[committed\]\[rendered\]ssim/);
+  for (const region of [
+    "formatter duration",
+    "amended commit abbreviation",
+    "test-case duration",
+    "test-suite duration",
+  ]) {
+    assert.ok(
+      comparator.includes(`name: "${region}"`),
+      `demo comparator should normalize ${region}`,
+    );
+  }
   assert.match(workflow, /MAX_FRAME_COUNT_DRIFT: "2"/);
   assert.match(workflow, /MAX_DURATION_DRIFT_SECONDS: "0\.10"/);
   assert.match(workflow, /execFileSync\(\s*"ffprobe"/);

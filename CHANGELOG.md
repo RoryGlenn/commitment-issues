@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   behavior. Broken internal anchors and stale shipped/deferred coverage entries
   were corrected as part of the audit.
 
+### Fixed
+
+- Demo rendering CI now ignores only the volatile commit abbreviation and
+  runtime values during SSIM comparison, evaluates the existing metadata-bounded
+  two-frame timing variance, and keeps the strict visual threshold and original
+  rendered artifact intact. Focused synthetic regressions guard against masking
+  meaningful missing-scene, color, layout, or clipping changes.
+
 ## [3.3.2] - 2026-07-12
 
 ### Fixed
