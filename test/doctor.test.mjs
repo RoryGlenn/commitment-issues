@@ -833,9 +833,10 @@ test("doctor displays shared worktree hooks outside the checkout", (t) => {
   assert.equal(added.status, 0);
 
   const result = runDoctor(worktree);
-  const expectedHooks = path
-    .join(fs.realpathSync(tempDir), ".git", "hooks")
-    .replace(/\\/g, "/");
+  // Git and Node may spell the same Windows/macOS temp parent differently
+  // (8.3 names or /private/var), but the owning repo basename is stable and
+  // distinguishes the shared hooks directory from the linked worktree.
+  const expectedHooks = `${path.basename(tempDir)}/.git/hooks`;
 
   assert.equal(result.status, 0);
   assert.match(

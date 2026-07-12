@@ -3,6 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import {
   summarizeEslintJson,
   parsePrettierList,
@@ -128,14 +129,14 @@ test("formatEslintManualIssue handles locations, rules, and path fallbacks", () 
       },
       "/repo",
     ),
-    "src/a.js:2:7 (no-undef)",
+    `${path.join("src", "a.js")}:2:7 (no-undef)`,
   );
   assert.equal(
     formatEslintManualIssue(
       { filePath: "/repo/src/b.js", ruleId: null },
       "/repo",
     ),
-    "src/b.js",
+    path.join("src", "b.js"),
   );
   assert.equal(
     formatEslintManualIssue(

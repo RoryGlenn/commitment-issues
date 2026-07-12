@@ -320,9 +320,10 @@ test("uninstall displays absolute hook paths outside the project", (t) => {
   const result = runScript(tempDir, "uninstall", ["--dry-run"]);
 
   assert.equal(result.status, 0);
+  const expectedPath = external.replace(/\\/g, "/");
   assert.match(
     compactTerminalBoxText(`${result.stdout}${result.stderr}`),
-    new RegExp(external.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    new RegExp(expectedPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
   );
 });
 
