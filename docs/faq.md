@@ -66,6 +66,28 @@ Optional commit-message failures block only when both
 The fix commands can still fail when they cannot run safely or when manual fixes
 remain. That is separate from the default commit and push hook behavior.
 
+## Why is it advisory-first instead of blocking by default?
+
+A newly installed hook should not unexpectedly stop an established commit or
+push workflow. Advisory mode lets a team observe the findings, tune its
+configuration and exemptions, and decide which checks are reliable enough to
+enforce before enabling individual blocking options.
+
+The warnings also never trigger an automatic rewrite. Fixes remain separate,
+explicit commands with their own safety checks. Local hooks shorten the feedback
+loop; CI remains the authoritative shared gate.
+
+## Can developers bypass it with `--no-verify`?
+
+Yes. Git's standard `git commit --no-verify` bypasses the commit hooks once, and
+`git push --no-verify` bypasses the pre-push hook once. This escape hatch is
+deliberate, and `commitment-issues` does not try to conceal or defeat normal Git
+behavior.
+
+Rules that must not be bypassable on a developer machine belong in CI, branch
+protection, or another server-side control. A local blocking option is useful
+for immediate feedback, but it is not an organization-wide security boundary.
+
 ## What does `init` change?
 
 `npx commitment-issues init` updates the consuming project so the installed
@@ -159,6 +181,19 @@ npm run commit:fix
 result. `commit:fix` fixes files
 from the latest commit and amends that commit only when the latest commit has not
 already been pushed and the working tree is safe.
+
+## Can `init` or a fix command overwrite existing work?
+
+`init` does not rewrite source files or overwrite an unrecognized custom hook.
+Use `npx commitment-issues init --dry-run` to inspect its proposed package,
+configuration, ignore-file, and hook changes first. It replaces hook or script
+wiring only when that wiring exactly matches a generated form it owns.
+
+The explicitly invoked fix commands do modify their target files. `fix:staged`
+refuses partially staged files rather than risk mixing staged and unstaged work.
+`commit:fix` refuses tracked working-tree changes and commits that have already
+been pushed. If ownership or a safe mutation cannot be proven, the command
+stops and reports the manual next step.
 
 ## Why did `fix:staged` refuse to run?
 
@@ -272,6 +307,31 @@ Explicitly configured commands are a separate trust boundary. For example,
 `testCommand: ["npx", "vitest", "run"]` is preserved as written and opts into
 npx's behavior.
 
+## Does it collect telemetry, upload code, or make runtime network requests?
+
+No. The package does not add telemetry, transmit repository contents, store
+credentials, or provide a network service. Its hooks inspect local Git and
+project state and run local tools.
+
+Installing packages and performing the underlying `git push` can naturally use
+the network. An explicitly configured command can also have its own network
+behavior; for example, a `testCommand` beginning with `npx` opts into that
+executable's normal resolution behavior. See the
+[security assurance case](security/assurance-case.md) for the complete boundary.
+
+## What is the trust boundary for configured commands?
+
+Configuration is read from JSON, validated, and never imported as JavaScript.
+Built-in ESLint, Prettier, and optional commitlint integrations resolve only
+project-local executables and receive argument arrays without shell
+interpolation.
+
+`testCommand` is different: it is an explicit, repository-owned command array
+that runs exactly as configured, without a shell. Its executable still runs with
+the developer's permissions and can have behavior of its own. Review the
+configuration and installed tools before running hooks in an unfamiliar
+repository, just as you would review its package scripts.
+
 ## Does it support TypeScript?
 
 Yes. TypeScript extensions such as `.ts`, `.tsx`, `.mts`, and `.cts` are treated
@@ -279,6 +339,17 @@ as code files. Linting still delegates to your project's ESLint configuration, s
 TypeScript projects need a TypeScript-aware ESLint parser and config.
 
 Declaration files such as `.d.ts` are excluded from the missing-test check.
+
+## Can I use it outside JavaScript or TypeScript, or without Node.js?
+
+The supported v3 product boundary is JavaScript and TypeScript projects running
+Node.js. Some repository guards are language-neutral, but installation, hook
+execution, local tool discovery, and the lint/format integrations currently
+assume a Node project and `node_modules/.bin`.
+
+A standalone, language-neutral executable is being explored in
+[#84](https://github.com/RoryGlenn/commitment-issues/issues/84), but it is not a
+capability or compatibility promise for the current release.
 
 ## Which package managers work?
 
@@ -289,6 +360,20 @@ pnpm project.
 Yarn Berry projects should use `nodeLinker: node-modules`. Plug'n'Play is not
 supported because the hooks resolve binaries from `node_modules/.bin`. See the
 [Yarn Berry guide](yarn-berry.md) for step-by-step setup.
+
+## Which shells and GUI Git clients are currently supported?
+
+The package test and lifecycle matrix runs on Ubuntu, macOS, and Windows with
+the supported Node.js versions. Generated hooks are POSIX `sh` scripts; Git for
+Windows runs them through its bundled shell, so the interactive shell that
+launched Git does not interpret the hook body. Node.js and the project's local
+binary still need to be reachable in the environment Git receives.
+
+Dedicated black-box coverage for Bash, Zsh, Fish, PowerShell, Command Prompt,
+VS Code Source Control, JetBrains IDEs, and GitHub Desktop is not complete. That
+work is tracked in [#83](https://github.com/RoryGlenn/commitment-issues/issues/83),
+so the project does not yet make a blanket compatibility claim for every GUI
+client and launch environment.
 
 ## Does it work in a monorepo or workspaces?
 
@@ -315,8 +400,10 @@ TypeScript library setups.
 
 ## Should I use this in CI?
 
-Use CI for the real enforcement path: run your normal lint, format, and test
-commands directly in the workflow.
+Use CI for the real enforcement path. Local hooks can be bypassed, missing, or
+run in a different environment, so they improve the developer feedback loop but
+cannot replace a shared gate. Run your normal lint, format, and test commands
+directly in the workflow.
 
 `commitment-issues` is Git-hook tooling. In CI, set `COMMITMENT_ISSUES=0` to
 skip the hooks when needed and run explicit commands such as:
@@ -381,6 +468,18 @@ checks, automatic fixes, push behavior, or blocking behavior.
 
 See [Message states](message-states.md) for the full gallery of pre-commit,
 fixer, pre-push, and `doctor` output examples.
+
+## How can I verify the published package and its provenance?
+
+Follow the [release verification guide](release-verification.md). It uses
+supported npm signature and attestation commands, compares the npm and GitHub
+release tarballs, and verifies that the attached SLSA provenance names the same
+artifact digest and source tag.
+
+Releases are produced from version tags through trusted npm publishing. The
+GitHub release contains the exact packed tarball plus its `.intoto.jsonl`
+provenance asset so both distribution paths can be checked against the same
+bytes.
 
 ## How do I remove it?
 
