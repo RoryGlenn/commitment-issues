@@ -14,6 +14,11 @@ import {
   setPrecommitConfig,
   writeFile,
 } from "./helpers/temp-repo.mjs";
+import {
+  compactTerminalBoxText,
+  countTerminalBoxes,
+  stripAnsi,
+} from "./helpers/output.mjs";
 
 function cli(tempDir, args, options = {}) {
   const { cwd = tempDir, ...runOptions } = options;
@@ -42,6 +47,65 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function snapshotWorktree(tempDir) {
+  const entries = [];
+
+  function visit(directory, prefix = "") {
+    const children = fs
+      .readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    for (const child of children) {
+      const relativePath = prefix ? path.join(prefix, child.name) : child.name;
+      if (relativePath === ".git") continue;
+
+      const absolutePath = path.join(directory, child.name);
+      if (child.isSymbolicLink()) {
+        entries.push([relativePath, "symlink", fs.readlinkSync(absolutePath)]);
+      } else if (child.isDirectory()) {
+        entries.push([relativePath, "directory"]);
+        visit(absolutePath, relativePath);
+      } else {
+        entries.push([
+          relativePath,
+          "file",
+          fs.readFileSync(absolutePath).toString("base64"),
+        ]);
+      }
+    }
+  }
+
+  visit(tempDir);
+  return entries;
+}
+
+function snapshotRepositoryState(tempDir) {
+  const hooksDir = path.join(tempDir, ".git", "hooks");
+  const hooks = fs
+    .readdirSync(hooksDir, { withFileTypes: true })
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((entry) => [
+      entry.name,
+      entry.isFile()
+        ? fs.readFileSync(path.join(hooksDir, entry.name)).toString("base64")
+        : entry.isDirectory()
+          ? "directory"
+          : "other",
+    ]);
+
+  return {
+    worktree: snapshotWorktree(tempDir),
+    status: run(
+      "git",
+      ["status", "--porcelain=v1", "--untracked-files=all"],
+      tempDir,
+    ).stdout,
+    config: fs.readFileSync(path.join(tempDir, ".git", "config"), "utf8"),
+    head: fs.readFileSync(path.join(tempDir, ".git", "HEAD"), "utf8"),
+    hooks,
+  };
+}
+
 test("cli prints usage and exits 0 for --help", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -63,6 +127,13 @@ test("cli prints usage and exits 0 for --help", (t) => {
   ]) {
     assert.match(result.stdout, new RegExp(`\\b${escapeRegExp(command)}\\b`));
   }
+
+  const commandList = result.stdout
+    .split(/\r?\n/)
+    .find((line) => line.startsWith("Commands:"));
+  assert.ok(commandList);
+  assert.doesNotMatch(commandList, /\bvows\b/);
+  assert.match(result.stdout, /Some commitments come with vows\./);
 });
 
 test("cli prints the package version for --version and -v", (t) => {
@@ -233,6 +304,77 @@ test("cli dispatches to fix-staged-js", (t) => {
   const result = cli(tempDir, ["fix-staged-js"]);
   assert.equal(result.status, 0);
   assert.equal(combinedOutput(result).trim(), "");
+});
+
+test("cli dispatches the deterministic, read-only vows Easter egg", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const env = { ...process.env, COLUMNS: "80", NO_COLOR: "1" };
+  delete env.FORCE_COLOR;
+  const before = snapshotRepositoryState(tempDir);
+
+  const first = cli(tempDir, ["vows"], { env });
+  const second = cli(tempDir, ["vows"], { env });
+  const json = cli(tempDir, ["vows", "--json"], { env });
+
+  assert.equal(first.status, 0);
+  assert.equal(first.stderr, "");
+  assert.equal(first.stdout, second.stdout);
+  assert.equal(countTerminalBoxes(first.stdout), 1);
+  for (const line of [
+    "💍 The commitment-issues vows",
+    "Warn before blocking.",
+    "Fix only with consent.",
+    "Keep your code local.",
+    "Never rewrite what we cannot prove is safe.",
+  ]) {
+    assert.ok(first.stdout.includes(line));
+  }
+  assert.equal(json.status, 1);
+  assert.equal(json.stdout, "");
+  assert.match(json.stderr, /--json is only supported by/);
+  assert.equal(countTerminalBoxes(json.stderr), 0);
+  assert.deepEqual(snapshotRepositoryState(tempDir), before);
+});
+
+test("vows uses color when enabled and honors NO_COLOR", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const colorEnv = { ...process.env, COLUMNS: "80", FORCE_COLOR: "1" };
+  delete colorEnv.NO_COLOR;
+  const noColorEnv = { ...process.env, COLUMNS: "80", NO_COLOR: "1" };
+  delete noColorEnv.FORCE_COLOR;
+
+  const colored = cli(tempDir, ["vows"], { env: colorEnv });
+  const plain = cli(tempDir, ["vows"], { env: noColorEnv });
+
+  assert.equal(colored.status, 0);
+  assert.notEqual(colored.stdout, stripAnsi(colored.stdout));
+  assert.equal(plain.status, 0);
+  assert.equal(plain.stdout, stripAnsi(plain.stdout));
+});
+
+test("vows remains readable in a narrow terminal", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const env = { ...process.env, COLUMNS: "24", NO_COLOR: "1" };
+  delete env.FORCE_COLOR;
+
+  const result = cli(tempDir, ["vows"], { env });
+  const output = stripAnsi(result.stdout).trim();
+  const compact = compactTerminalBoxText(output).replace(/\s/g, "");
+
+  assert.equal(result.status, 0);
+  assert.equal(countTerminalBoxes(output), 1);
+  assert.ok(output.split(/\r?\n/).every((line) => line.length <= 24));
+  for (const vow of [
+    "Warn before blocking.",
+    "Fix only with consent.",
+    "Keep your code local.",
+    "Never rewrite what we cannot prove is safe.",
+  ]) {
+    assert.ok(compact.includes(vow.replace(/\s/g, "")));
+  }
 });
 
 test("cli forwards arguments to the subcommand", (t) => {

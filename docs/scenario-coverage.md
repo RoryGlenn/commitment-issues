@@ -78,6 +78,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-017** — `uninstall` dispatches through the bin. Subprocess: `test/cli.test.mjs`.
 - **CLI-018** — `commit-msg` dispatches through the bin and preserves its message-file argument. Subprocess: `test/cli.test.mjs`.
 - **CLI-019** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
+- **CLI-020** — the hidden `vows` command dispatches successfully, renders one deterministic color-aware box, wraps in narrow terminals, and leaves worktree, package, Git config, and hook state unchanged. Unit/subprocess: `test/vows.test.mjs`, `test/cli.test.mjs`.
 
 ### Init
 

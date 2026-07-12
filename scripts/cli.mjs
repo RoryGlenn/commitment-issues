@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // installed package, so consumers run `commitment-issues <command>` from their
 // hooks and npm scripts — no vendoring, no node_modules paths.
 
-const COMMANDS = {
+const PUBLIC_COMMANDS = {
   init: "init.mjs",
   uninstall: "uninstall.mjs",
   doctor: "doctor.mjs",
@@ -23,20 +23,28 @@ const COMMANDS = {
   "fix-staged-js": "fix-staged-js.mjs",
 };
 
+// Easter eggs are intentionally dispatchable without becoming part of the
+// documented command or typo-suggestion compatibility surface.
+const HIDDEN_COMMANDS = {
+  vows: "vows.mjs",
+};
+
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = path.join(path.dirname(scriptsDir), "package.json");
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
 const [subcommand, ...rest] = process.argv.slice(2);
 
 function printUsage(stream) {
-  const names = Object.keys(COMMANDS).join(", ");
+  const names = Object.keys(PUBLIC_COMMANDS).join(", ");
   stream(`commitment-issues <command> [args]
 
 Commands: ${names}
 
 Version:    commitment-issues --version
 
-Get started:  commitment-issues init`);
+Get started:  commitment-issues init
+
+Some commitments come with vows.`);
 }
 
 function editDistance(left, right) {
@@ -66,7 +74,7 @@ function closestCommand(input) {
 
   let closest = null;
   let distance = Number.POSITIVE_INFINITY;
-  for (const command of Object.keys(COMMANDS)) {
+  for (const command of Object.keys(PUBLIC_COMMANDS)) {
     const candidateDistance = editDistance(input, command);
     if (candidateDistance < distance) {
       closest = command;
@@ -88,7 +96,7 @@ if (!subcommand || subcommand === "-h" || subcommand === "--help") {
   process.exit(subcommand ? 0 : 1);
 }
 
-const file = COMMANDS[subcommand];
+const file = PUBLIC_COMMANDS[subcommand] ?? HIDDEN_COMMANDS[subcommand];
 if (!file) {
   const suggestion = closestCommand(subcommand);
   const hint = suggestion ? ` Did you mean '${suggestion}'?` : "";
