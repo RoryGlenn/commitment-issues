@@ -20,15 +20,12 @@ import {
 } from "./lib/hooks.mjs";
 import {
   precommitConfigWarningMessages,
-  sanitizePrecommitConfig,
+  readStandalonePrecommitConfig,
+  resolvePrecommitConfigSources,
+  STANDALONE_CONFIG_FILE,
 } from "./lib/config.mjs";
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
-import {
-  loadRawPrecommitConfig,
-  readStandalonePrecommitConfig,
-  STANDALONE_CONFIG_FILE,
-} from "./lib/config.mjs";
 
 // One-command setup for a consuming repo: wires up the git hooks, npm scripts,
 // and gitignored caches without clobbering existing values. Hooks are plain
@@ -153,13 +150,16 @@ for (const [name, value] of Object.entries(scripts)) {
 
 let standaloneChanged = false;
 if (standalone.exists) {
-  const effectiveConfig = {
-    ...loadRawPrecommitConfig(),
+  // Presence, not validity, decides whether init supplies a default. Keep an
+  // explicitly configured invalid value intact so diagnostics can identify it
+  // instead of silently rewriting the user's higher-precedence setting.
+  const rawEffectiveConfig = {
+    ...(pkg.precommitChecks ?? {}),
     ...standalone.config,
   };
   if (
-    !("advisePushTests" in effectiveConfig) &&
-    !("blockPushOnTestFailure" in effectiveConfig)
+    !("advisePushTests" in rawEffectiveConfig) &&
+    !("blockPushOnTestFailure" in rawEffectiveConfig)
   ) {
     standalone.config.advisePushTests = true;
     standaloneChanged = true;
@@ -180,7 +180,10 @@ if (standalone.exists) {
   }
 }
 
-const effectiveConfig = sanitizePrecommitConfig(pkg.precommitChecks);
+const effectiveConfig = resolvePrecommitConfigSources(
+  pkg.precommitChecks ?? {},
+  standalone,
+);
 const hookNames = hookNamesForConfig(effectiveConfig);
 const configWarnings = precommitConfigWarningMessages(effectiveConfig);
 

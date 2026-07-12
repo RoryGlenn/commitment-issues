@@ -265,6 +265,30 @@ export function sanitizePrecommitConfig(config) {
 }
 
 /**
+ * Resolve the effective config from the two supported sources. Standalone
+ * top-level keys shallowly override package.json keys before sanitization, so
+ * an invalid higher-precedence value cannot revive a lower-precedence value.
+ * The attached source state keeps diagnostics accurate for in-memory callers
+ * such as init as well as file-backed runtime loading.
+ * @param {object} packageConfig - Raw package.json precommitChecks config.
+ * @param {{config: object, error: string|null}} standalone - Standalone read result.
+ * @returns {object} Sanitized effective config with source metadata.
+ */
+export function resolvePrecommitConfigSources(packageConfig, standalone) {
+  const rawConfig = standalone.error
+    ? packageConfig
+    : { ...packageConfig, ...standalone.config };
+  const config = sanitizePrecommitConfig(rawConfig);
+
+  Object.defineProperty(config, CONFIG_STATE, {
+    enumerable: false,
+    value: { packageConfig, standalone },
+  });
+
+  return config;
+}
+
+/**
  * Reads the optional raw `precommitChecks` object from package.json in the cwd.
  * @param {string} [cwd] - Project root containing package.json.
  * @returns {object} The raw config object, or {} if absent/unreadable/malformed.
@@ -337,16 +361,8 @@ export function readStandalonePrecommitConfig(cwd = process.cwd()) {
 export function loadPrecommitConfigState(cwd = process.cwd()) {
   const packageConfig = loadRawPrecommitConfig(cwd);
   const standalone = readStandalonePrecommitConfig(cwd);
-  const rawConfig = standalone.error
-    ? packageConfig
-    : { ...packageConfig, ...standalone.config };
-  const config = sanitizePrecommitConfig(rawConfig);
+  const config = resolvePrecommitConfigSources(packageConfig, standalone);
   const state = { packageConfig, standalone };
-
-  Object.defineProperty(config, CONFIG_STATE, {
-    enumerable: false,
-    value: state,
-  });
 
   return { config, ...state };
 }

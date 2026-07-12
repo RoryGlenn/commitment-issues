@@ -6,7 +6,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import {
+  compactTerminalBoxText,
+  countTerminalBoxes,
+} from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -386,6 +389,101 @@ test("init uses an existing standalone file as the configuration target", (t) =>
     advisePushTests: true,
   });
   assert.equal("precommitChecks" in readPackage(tempDir), false);
+});
+
+test("init wires commit-msg from standalone config in dry-run and normal modes", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  writeFile(
+    path.join(tempDir, ".commitmentrc.json"),
+    `${JSON.stringify(
+      {
+        commitMessage: { enabled: true, blockOnFailure: true },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const preview = runInit(tempDir, ["--dry-run"]);
+  const previewOutput = `${preview.stdout}${preview.stderr}`;
+  assert.equal(preview.status, 0);
+  assert.match(previewOutput, /\.git\/hooks\/commit-msg/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(
+    output,
+    /Commit messages must pass your project commitlint rules/,
+  );
+  assert.match(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    /commitment-issues commit-msg "\$1"/,
+  );
+  assert.deepEqual(JSON.parse(readFile(tempDir, ".commitmentrc.json")), {
+    commitMessage: { enabled: true, blockOnFailure: true },
+    advisePushTests: true,
+  });
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+
+  const repeated = runInit(tempDir);
+  assert.equal(repeated.status, 0);
+  assert.match(`${repeated.stdout}${repeated.stderr}`, /Already configured/);
+});
+
+test("standalone commitMessage values override package hook wiring", (t) => {
+  const disabledDir = createTempRepo();
+  const invalidDir = createTempRepo();
+  t.after(() => cleanupTempRepo(disabledDir));
+  t.after(() => cleanupTempRepo(invalidDir));
+
+  for (const tempDir of [disabledDir, invalidDir]) {
+    writePackage(tempDir, {
+      name: "x",
+      version: "1.0.0",
+      precommitChecks: {
+        tone: "standard",
+        commitMessage: { enabled: true, blockOnFailure: true },
+      },
+    });
+  }
+
+  writeFile(
+    path.join(disabledDir, ".commitmentrc.json"),
+    '{\n  "commitMessage": { "enabled": false }\n}\n',
+  );
+  const disabled = runInit(disabledDir);
+  assert.equal(disabled.status, 0);
+  assert.equal(fs.existsSync(gitHook(disabledDir, "commit-msg")), false);
+  assert.doesNotMatch(
+    `${disabled.stdout}${disabled.stderr}`,
+    /project commitlint/,
+  );
+
+  writeFile(
+    path.join(invalidDir, ".commitmentrc.json"),
+    '{\n  "advisePushTests": "yes",\n  "commitMessage": { "enabled": "yes" }\n}\n',
+  );
+  const invalid = runInit(invalidDir);
+  const invalidOutput = `${invalid.stdout}${invalid.stderr}`;
+  const compactInvalidOutput = compactTerminalBoxText(invalidOutput);
+  assert.equal(invalid.status, 0);
+  assert.equal(fs.existsSync(gitHook(invalidDir, "commit-msg")), false);
+  assert.match(compactInvalidOutput, /advisePushTests must be a boolean/);
+  assert.match(
+    compactInvalidOutput,
+    /commitMessage\.enabled must be a\s*boolean/,
+  );
+  assert.match(compactInvalidOutput, /\.commitmentrc\.json/);
+  assert.deepEqual(JSON.parse(readFile(invalidDir, ".commitmentrc.json")), {
+    advisePushTests: "yes",
+    commitMessage: { enabled: "yes" },
+  });
 });
 
 test("init respects an effective package blocking mode with a standalone file", (t) => {

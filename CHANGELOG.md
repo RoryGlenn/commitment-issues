@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `init` now derives optional `commit-msg` hook wiring and its setup summary
+  from the same merged package/standalone configuration used at runtime.
+  Standalone `commitMessage.enabled` policies are installed immediately, while
+  disabled or invalid higher-precedence standalone values no longer inherit a
+  package-level opt-in accidentally.
+
 ### Changed
 
 - Refreshed the complete documentation set for the verified v3.3.2 baseline:
