@@ -7,7 +7,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { hookBody } from "../scripts/lib/hooks.mjs";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import {
+  compactTerminalBoxText,
+  countTerminalBoxes,
+} from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -318,7 +321,7 @@ test("uninstall displays absolute hook paths outside the project", (t) => {
 
   assert.equal(result.status, 0);
   assert.match(
-    `${result.stdout}${result.stderr}`,
+    compactTerminalBoxText(`${result.stdout}${result.stderr}`),
     new RegExp(external.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
   );
 });

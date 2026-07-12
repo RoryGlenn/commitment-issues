@@ -6,7 +6,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import {
+  compactTerminalBoxText,
+  countTerminalBoxes,
+} from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -830,11 +833,13 @@ test("doctor displays shared worktree hooks outside the checkout", (t) => {
   assert.equal(added.status, 0);
 
   const result = runDoctor(worktree);
-  const expectedHooks = path.join(tempDir, ".git", "hooks").replace(/\\/g, "/");
+  const expectedHooks = path
+    .join(fs.realpathSync(tempDir), ".git", "hooks")
+    .replace(/\\/g, "/");
 
   assert.equal(result.status, 0);
   assert.match(
-    `${result.stdout}${result.stderr}`,
+    compactTerminalBoxText(`${result.stdout}${result.stderr}`),
     new RegExp(expectedHooks.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
   );
 });
