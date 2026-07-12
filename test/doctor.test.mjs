@@ -569,6 +569,32 @@ test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
   assert.equal(hooksPath(tempDir), "githooks");
 });
 
+test("doctor resolves a tilde-based core.hooksPath through Git", (t) => {
+  const tempDir = createTempRepo();
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-home-"));
+  t.after(() => cleanupTempRepo(tempDir));
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  const hooksDir = path.join(homeDir, "shared hooks");
+  for (const [name, command] of [
+    ["pre-commit", "commitment-issues precommit"],
+    ["pre-push", "commitment-issues prepush"],
+  ]) {
+    writeFile(path.join(hooksDir, name), `#!/bin/sh\n${command}\n`);
+    fs.chmodSync(path.join(hooksDir, name), 0o755);
+  }
+  run("git", ["config", "core.hooksPath", "~/shared hooks"], tempDir);
+
+  const result = runDoctor(tempDir, [], {
+    env: { ...process.env, HOME: homeDir },
+  });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+  assert.match(output, /~\/shared hooks/);
+});
+
 test("doctor reports an unwired foreign core.hooksPath without touching it", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -604,6 +630,28 @@ test("doctor --quiet warns but exits 0 for an unwired foreign core.hooksPath", (
   assert.equal(result.status, 0);
   assert.match(output, /core\.hooksPath is set to githooks/);
   assert.equal(hooksPath(tempDir), "githooks");
+});
+
+test("doctor reports an uninspectable hook in a foreign core.hooksPath", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const customDir = path.join(tempDir, "custom-hooks");
+  fs.mkdirSync(path.join(customDir, "pre-commit"), { recursive: true });
+  assert.equal(
+    run("git", ["config", "core.hooksPath", "custom-hooks"], tempDir).status,
+    0,
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /pre-commit.*could not be inspected/i);
+  assert.equal(
+    fs.statSync(path.join(customDir, "pre-commit")).isDirectory(),
+    true,
+  );
 });
 
 // Detach the node_modules symlink (createTempRepo points it at the real repo's,
@@ -678,6 +726,87 @@ test("doctor --quiet never breaks an install outside a git repo", (t) => {
 
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`.trim(), "");
+});
+
+test("doctor treats a bare repository as unsupported local-hook wiring", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-bare-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  assert.equal(run("git", ["init", "--bare"], dir).status, 0);
+  fs.writeFileSync(path.join(dir, "package.json"), '{"name":"x"}\n');
+
+  const interactive = run(
+    "node",
+    [path.join(repoRoot, "scripts", "doctor.mjs")],
+    dir,
+  );
+  const quiet = run(
+    "node",
+    [path.join(repoRoot, "scripts", "doctor.mjs"), "--quiet"],
+    dir,
+  );
+
+  assert.equal(interactive.status, 1);
+  assert.match(
+    `${interactive.stdout}${interactive.stderr}`,
+    /bare git repository/i,
+  );
+  assert.equal(quiet.status, 0);
+  assert.equal(`${quiet.stdout}${quiet.stderr}`.trim(), "");
+  assert.equal(fs.existsSync(path.join(dir, "hooks", "pre-commit")), false);
+});
+
+test("doctor fails safely when core.hooksPath cannot be inspected", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const env = fakeGitEnv(tempDir, "config --get core.hooksPath", 128);
+  const interactive = runDoctor(tempDir, [], { env });
+  const quiet = runDoctor(tempDir, ["--quiet"], { env });
+
+  assert.equal(interactive.status, 1);
+  assert.match(
+    `${interactive.stdout}${interactive.stderr}`,
+    /Could not determine core\.hooksPath/,
+  );
+  assert.equal(quiet.status, 0);
+  assert.match(`${quiet.stdout}${quiet.stderr}`, /could not wire up git hooks/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
+test("doctor fails safely when the configured hooks directory cannot be resolved", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  assert.equal(
+    run("git", ["config", "core.hooksPath", "custom-hooks"], tempDir).status,
+    0,
+  );
+  const env = fakeGitEnv(tempDir, "rev-parse --git-path hooks", 128);
+  const interactive = runDoctor(tempDir, [], { env });
+  const quiet = runDoctor(tempDir, ["--quiet"], { env });
+
+  assert.equal(interactive.status, 1);
+  assert.match(
+    `${interactive.stdout}${interactive.stderr}`,
+    /Could not locate the configured git hooks directory/,
+  );
+  assert.equal(quiet.status, 0);
+  assert.match(`${quiet.stdout}${quiet.stderr}`, /could not wire up git hooks/);
+});
+
+test("doctor reports an uninspectable hook instead of crashing", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  fs.mkdirSync(gitHook(tempDir, "pre-commit"), { recursive: true });
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /could not be inspected/i);
+  assert.equal(fs.statSync(gitHook(tempDir, "pre-commit")).isDirectory(), true);
 });
 
 test("doctor errors (interactive) when there is no package.json", (t) => {

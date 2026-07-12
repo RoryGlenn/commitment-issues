@@ -10,10 +10,12 @@ import { run, isPackageInstalled, isToolInstalled } from "./lib/process.mjs";
 import {
   BIN,
   classifyHook,
+  effectiveHooksDir,
+  gitWorkTreeState,
   gitHooksDir,
   hookInvocation,
   hookNamesForConfig,
-  hooksPathConfig,
+  hooksPathConfigState,
   isHuskyHooksPath,
   leftoverHuskyHooks,
   writeHook,
@@ -89,12 +91,26 @@ if (!fs.existsSync("package.json")) {
   ]);
 }
 
-const insideRepo = run("git", ["rev-parse", "--is-inside-work-tree"]);
-if (insideRepo.error || insideRepo.status !== 0) {
+const gitState = gitWorkTreeState();
+if (!gitState.inside) {
   notApplicable([
-    pc.bold("Not a git repository."),
+    pc.bold(gitState.bare ? "Bare git repository." : "Not a git repository."),
     "",
-    pc.dim("Run this from inside your git project."),
+    pc.dim(
+      gitState.bare
+        ? "Run this from a non-bare working tree; local commit and push hooks do not run here."
+        : "Run this from inside your git project.",
+    ),
+  ]);
+}
+
+const hooksPathState = hooksPathConfigState();
+if (hooksPathState.error) {
+  repairFailed([
+    pc.bold("Could not determine core.hooksPath."),
+    "",
+    pc.dim("Git could not identify the effective hooks directory."),
+    pc.dim("Fix the Git configuration error, then retry."),
   ]);
 }
 
@@ -177,7 +193,7 @@ if (commitMessage.enabled && !localToolInvocation("commitlint", [])) {
   }
 }
 
-const configuredHooksPath = hooksPathConfig();
+const configuredHooksPath = hooksPathState.value;
 const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
 // A husky-era hooksPath with the husky package still installed is LIVE
 // wiring: the user is keeping husky deliberately (e.g. for a commit-msg
@@ -221,9 +237,15 @@ function executableFixCommand(hooksDir, name) {
 // runs live in `.husky/` (husky's `_` shims delegate there) and the suggested
 // fix is the `init` migration.
 if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
-  const checkDir = huskyEraLive
-    ? path.resolve(".husky")
-    : path.resolve(configuredHooksPath);
+  const checkDir = huskyEraLive ? path.resolve(".husky") : effectiveHooksDir();
+  if (!checkDir) {
+    repairFailed([
+      pc.bold("Could not locate the configured git hooks directory."),
+      "",
+      pc.dim("Git could not resolve the effective core.hooksPath."),
+      pc.dim("Fix the Git configuration error, then retry."),
+    ]);
+  }
   const hookReports = hookNames.map((name) => ({
     name,
     // Husky's shim sources `.husky/<name>` with `sh`; the delegated file does
@@ -233,9 +255,12 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
     }),
   }));
   const inactive = hookReports.filter((report) =>
-    ["missing", "custom-without-command", "non-executable"].includes(
-      report.status,
-    ),
+    [
+      "missing",
+      "custom-without-command",
+      "non-executable",
+      "uninspectable",
+    ].includes(report.status),
   );
   if (inactive.length === 0) {
     if (!quiet) {
@@ -288,9 +313,11 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
       ...(huskyEraLive
         ? inactive.map((report) => `  .husky/${report.name}`)
         : inactive.map((report) =>
-            report.status === "non-executable"
-              ? `  ${executableFixCommand(checkDir, report.name)}`
-              : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
+            report.status === "uninspectable"
+              ? `  ${displayHookPath(checkDir, report.name)} ${pc.dim("(could not be inspected)")}`
+              : report.status === "non-executable"
+                ? `  ${executableFixCommand(checkDir, report.name)}`
+                : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
           )),
       "",
       ...(huskyEraLive
@@ -305,9 +332,6 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
 }
 
 const hooksDir = gitHooksDir();
-// Defensive: rev-parse --git-common-dir cannot fail after the work-tree check
-// above succeeded.
-/* node:coverage disable */
 if (!hooksDir) {
   repairFailed([
     pc.bold("Could not locate the git hooks directory."),
@@ -315,7 +339,6 @@ if (!hooksDir) {
     pc.dim("Check that this is a working git repository, then retry."),
   ]);
 }
-/* node:coverage enable */
 
 // Classify every hook once so existence, content, and "is it actually wired"
 // are all considered — reporting healthy on the mere presence of a hook file
@@ -335,6 +358,9 @@ const unwiredHooks = hookReports
   .map((report) => report.name);
 const nonExecutableHooks = hookReports
   .filter((report) => report.status === "non-executable")
+  .map((report) => report.name);
+const uninspectableHooks = hookReports
+  .filter((report) => report.status === "uninspectable")
   .map((report) => report.name);
 
 const problems = [];
@@ -357,6 +383,13 @@ if (unwiredHooks.length > 0) {
 if (nonExecutableHooks.length > 0) {
   problems.push(
     `non-executable hook(s): ${nonExecutableHooks
+      .map((name) => displayHookPath(hooksDir, name))
+      .join(", ")}`,
+  );
+}
+if (uninspectableHooks.length > 0) {
+  problems.push(
+    `uninspectable hook(s): ${uninspectableHooks
       .map((name) => displayHookPath(hooksDir, name))
       .join(", ")}`,
   );
@@ -441,8 +474,10 @@ for (const name of [...missingHooks, ...staleHooks]) {
   repaired.push(displayHookPath(hooksDir, name));
 }
 
+const repairedHooksPathState = hooksPathConfigState();
 if (
-  hooksPathConfig() !== "" ||
+  repairedHooksPathState.error ||
+  repairedHooksPathState.value !== "" ||
   hookNames.some((name) =>
     ["missing", "stale-wired"].includes(classifyHook(hooksDir, name)),
   )
@@ -455,16 +490,22 @@ if (
   ]);
 }
 
-// A user-owned hook that never calls commitment-issues or is not executable
-// cannot be repaired without changing the user's file or mode, so surface it
-// instead of silently claiming health. Quiet mode still exits 0 (an install
-// must never break); interactive mode explains the manual fix and exits
-// non-zero because the tool is genuinely not wired in.
-if (unwiredHooks.length > 0 || nonExecutableHooks.length > 0) {
+// A user-owned hook that never calls commitment-issues, is not executable, or
+// cannot be inspected cannot be repaired without changing the user's path or
+// file. Surface it instead of silently claiming health. Quiet mode still exits
+// 0 (an install must never break); interactive mode explains the manual fix and
+// exits non-zero because the tool is genuinely not wired in.
+if (
+  unwiredHooks.length > 0 ||
+  nonExecutableHooks.length > 0 ||
+  uninspectableHooks.length > 0
+) {
   if (quiet) {
-    const inactivePaths = [...unwiredHooks, ...nonExecutableHooks].map((name) =>
-      displayHookPath(hooksDir, name),
-    );
+    const inactivePaths = [
+      ...unwiredHooks,
+      ...nonExecutableHooks,
+      ...uninspectableHooks,
+    ].map((name) => displayHookPath(hooksDir, name));
     console.warn(
       pc.yellow(
         `commitment-issues: ${inactivePaths.join(", ")} are inactive or do not ` +
@@ -478,9 +519,11 @@ if (unwiredHooks.length > 0 || nonExecutableHooks.length > 0) {
     "warning",
     [
       pc.bold(
-        nonExecutableHooks.length > 0
-          ? "A git hook is inactive."
-          : "A git hook does not invoke commitment-issues.",
+        uninspectableHooks.length > 0
+          ? "A git hook could not be inspected."
+          : nonExecutableHooks.length > 0
+            ? "A git hook is inactive."
+            : "A git hook does not invoke commitment-issues.",
       ),
       "",
       ...unwiredHooks.map((name) =>
@@ -492,11 +535,22 @@ if (unwiredHooks.length > 0 || nonExecutableHooks.length > 0) {
         pc.dim(`${displayHookPath(hooksDir, name)} is not executable.`),
         pc.dim(`Run: ${executableFixCommand(hooksDir, name)}`),
       ]),
+      ...uninspectableHooks.map((name) =>
+        pc.dim(
+          `${displayHookPath(hooksDir, name)} could not be inspected; it was left unchanged.`,
+        ),
+      ),
       "",
       ...(unwiredHooks.length > 0
         ? [
             pc.dim("Add the command above to each unwired hook, or delete the"),
             pc.dim("hook file so doctor can recreate it."),
+          ]
+        : []),
+      ...(uninspectableHooks.length > 0
+        ? [
+            pc.dim("Replace each path with a readable hook file, then rerun"),
+            pc.dim(`${runScript("doctor")}.`),
           ]
         : []),
       pc.dim(

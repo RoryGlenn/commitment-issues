@@ -24,7 +24,11 @@ Then initialize the project:
 npx commitment-issues init
 ```
 
-The init command is idempotent. It wires plain Git hooks, adds helper npm scripts, enables advisory push tests, and adds safe ignore defaults for local tool output.
+Run this from the project root of a non-bare Git working tree. Bare repositories
+cannot run the local commit and push workflow and are reported as unsupported
+instead of being marked healthy. The init command is idempotent. It wires plain
+Git hooks, adds helper npm scripts, enables advisory push tests, and adds safe
+ignore defaults for local tool output.
 
 ## Core hook wiring
 

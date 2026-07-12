@@ -10,12 +10,13 @@ import {
   BIN,
   HOOK_NAMES,
   classifyHook,
+  effectiveHooksDir,
+  gitWorkTreeState,
   gitHooksDir,
-  hooksPathConfig,
+  hooksPathConfigState,
   isHuskyHooksPath,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
-import { run } from "./lib/process.mjs";
 import { removeOwnedPath } from "./lib/files.mjs";
 import {
   readStandalonePrecommitConfig,
@@ -95,8 +96,8 @@ if (Object.hasOwn(pkg, "precommitChecks")) {
   plannedPackageChanges.push("package.json precommitChecks config");
 }
 
-const insideRepo = run("git", ["rev-parse", "--is-inside-work-tree"]);
-const isGitRepo = !insideRepo.error && insideRepo.status === 0;
+const gitState = gitWorkTreeState();
+const isGitRepo = gitState.inside;
 const hookCandidates = [];
 const manualCleanup = [];
 
@@ -110,49 +111,66 @@ function displayPath(filePath) {
 function inspectHookDirectory(directory) {
   for (const name of HOOK_NAMES) {
     const hookPath = path.resolve(directory, name);
-    let status;
-    try {
-      // Removal is an ownership/content decision, not a health decision. An
-      // exact generated body remains safe to remove even if its executable bit
-      // was lost, and a customized invocation still needs manual cleanup.
-      status = classifyHook(directory, name, { requireExecutable: false });
-    } catch {
-      manualCleanup.push(
-        `${displayPath(hookPath)} could not be inspected; it was left unchanged.`,
-      );
-      continue;
-    }
+    // Removal is an ownership/content decision, not a health decision. An
+    // exact generated body remains safe to remove even if its executable bit
+    // was lost, and a customized invocation still needs manual cleanup.
+    // classifyHook also folds filesystem inspection failures into its
+    // uninspectable state, so cleanup remains non-destructive.
+    const status = classifyHook(directory, name, {
+      requireExecutable: false,
+    });
     if (status === "wired" || status === "stale-wired") {
       hookCandidates.push(hookPath);
     } else if (status === "custom-with-command") {
       manualCleanup.push(
         `${displayPath(hookPath)} is customized; remove its ${BIN} command manually.`,
       );
+    } else if (status === "uninspectable") {
+      manualCleanup.push(
+        `${displayPath(hookPath)} could not be inspected; it was left unchanged.`,
+      );
     }
   }
 }
 
 if (isGitRepo) {
-  const inspected = new Set();
-  const nativeHooksDir = gitHooksDir();
-  if (nativeHooksDir) {
-    const absolute = path.resolve(nativeHooksDir);
-    inspected.add(absolute);
-    inspectHookDirectory(absolute);
-  }
-
-  const configuredHooksPath = hooksPathConfig();
-  if (configuredHooksPath) {
-    const configuredDir = path.resolve(
-      isHuskyHooksPath(configuredHooksPath) ? ".husky" : configuredHooksPath,
+  const hooksPathState = hooksPathConfigState();
+  if (hooksPathState.error) {
+    manualCleanup.push(
+      "Git could not determine core.hooksPath, so hook files were left unchanged.",
     );
-    if (!inspected.has(configuredDir)) {
-      inspectHookDirectory(configuredDir);
+  } else {
+    const inspected = new Set();
+    const nativeHooksDir = gitHooksDir();
+    if (nativeHooksDir) {
+      const absolute = path.resolve(nativeHooksDir);
+      inspected.add(absolute);
+      inspectHookDirectory(absolute);
+    } else {
+      manualCleanup.push(
+        "Git could not locate the hooks directory, so hook files were left unchanged.",
+      );
+    }
+
+    const configuredHooksPath = hooksPathState.value;
+    if (configuredHooksPath) {
+      const configuredDir = isHuskyHooksPath(configuredHooksPath)
+        ? path.resolve(".husky")
+        : effectiveHooksDir();
+      if (!configuredDir) {
+        manualCleanup.push(
+          "Git could not resolve the configured hooks directory, so those hooks were left unchanged.",
+        );
+      } else if (!inspected.has(configuredDir)) {
+        inspectHookDirectory(configuredDir);
+      }
     }
   }
 } else {
   manualCleanup.push(
-    "This is not a git repository, so local hook files could not be inspected.",
+    gitState.bare
+      ? "This is a bare git repository, so local commit and push hooks were not inspected."
+      : "This is not a git repository, so local hook files could not be inspected.",
   );
 }
 

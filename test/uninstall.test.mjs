@@ -14,17 +14,19 @@ import {
 import {
   cleanupTempRepo,
   createTempRepo,
+  fakeGitEnv,
   readFile,
   repoRoot,
   run,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function runScript(tempDir, script, args = []) {
+function runScript(tempDir, script, args = [], options = {}) {
   return run(
     "node",
     [path.join(tempDir, "scripts", `${script}.mjs`), ...args],
     tempDir,
+    options,
   );
 }
 
@@ -307,6 +309,29 @@ test("uninstall inspects an active custom hooks directory safely", (t) => {
   assert.match(output, /githooks\/pre-push is customized/);
 });
 
+test("uninstall resolves a tilde-based active hooks directory through Git", (t) => {
+  const tempDir = createTempRepo();
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-home-"));
+  t.after(() => cleanupTempRepo(tempDir));
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  const hooksDir = path.join(homeDir, "shared hooks");
+  fs.mkdirSync(hooksDir, { recursive: true });
+  for (const name of ["pre-commit", "pre-push"]) {
+    fs.writeFileSync(path.join(hooksDir, name), hookBody(name));
+    fs.chmodSync(path.join(hooksDir, name), 0o755);
+  }
+  run("git", ["config", "core.hooksPath", "~/shared hooks"], tempDir);
+
+  const result = runScript(tempDir, "uninstall", [], {
+    env: { ...process.env, HOME: homeDir },
+  });
+
+  assert.equal(result.status, 0);
+  assert.equal(fs.existsSync(path.join(hooksDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(path.join(hooksDir, "pre-push")), false);
+});
+
 test("uninstall displays absolute hook paths outside the project", (t) => {
   const tempDir = createTempRepo();
   const external = fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-hooks-"));
@@ -376,6 +401,68 @@ test("uninstall preserves a hook path it cannot inspect", (t) => {
   assert.match(output, /left unchanged/);
 });
 
+test("uninstall leaves hooks untouched when core.hooksPath cannot be inspected", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  assert.equal(runScript(tempDir, "init").status, 0);
+  const preCommit = fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8");
+  const env = fakeGitEnv(tempDir, "config --get core.hooksPath", 128);
+
+  const result = runScript(tempDir, "uninstall", [], { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not determine core\.hooksPath/i);
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    preCommit,
+  );
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+});
+
+test("uninstall leaves hooks untouched when the native hooks directory cannot be resolved", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  assert.equal(runScript(tempDir, "init").status, 0);
+  const preCommit = fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8");
+  const env = fakeGitEnv(tempDir, "rev-parse --git-common-dir", 128);
+
+  const result = runScript(tempDir, "uninstall", [], { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not locate the hooks directory/i);
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    preCommit,
+  );
+});
+
+test("uninstall leaves configured hooks untouched when their directory cannot be resolved", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const customDir = path.join(tempDir, "custom-hooks");
+  fs.mkdirSync(customDir);
+  const preCommit = path.join(customDir, "pre-commit");
+  fs.writeFileSync(preCommit, hookBody("pre-commit"));
+  fs.chmodSync(preCommit, 0o755);
+  assert.equal(
+    run("git", ["config", "core.hooksPath", "custom-hooks"], tempDir).status,
+    0,
+  );
+  const env = fakeGitEnv(tempDir, "rev-parse --git-path hooks", 128);
+
+  const result = runScript(tempDir, "uninstall", [], { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not resolve the configured hooks directory/i);
+  assert.equal(fs.readFileSync(preCommit, "utf8"), hookBody("pre-commit"));
+});
+
 test("uninstall cleans package.json outside a git repository and warns", (t) => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-nongit-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
@@ -398,6 +485,32 @@ test("uninstall cleans package.json outside a git repository and warns", (t) => 
   assert.equal("scripts" in readPackage(tempDir), false);
   assert.equal("precommitChecks" in readPackage(tempDir), false);
   assert.match(output, /not a git repository/);
+});
+
+test("uninstall cleans package.json in a bare repository without inspecting hooks", (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-bare-"));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+
+  assert.equal(run("git", ["init", "--bare"], tempDir).status, 0);
+  writePackage(tempDir, {
+    name: "consumer",
+    version: "1.0.0",
+    scripts: { doctor: "commitment-issues doctor" },
+    precommitChecks: { advisePushTests: true },
+  });
+
+  const result = run(
+    "node",
+    [path.join(repoRoot, "scripts", "uninstall.mjs")],
+    tempDir,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal("scripts" in readPackage(tempDir), false);
+  assert.equal("precommitChecks" in readPackage(tempDir), false);
+  assert.match(output, /bare git repository/i);
+  assert.equal(fs.existsSync(path.join(tempDir, "hooks", "pre-commit")), false);
 });
 
 test("uninstall errors clearly without a valid package.json", (t) => {

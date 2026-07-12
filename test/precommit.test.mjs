@@ -180,6 +180,22 @@ test("pre-commit warns and falls back for malformed standalone config", (t) => {
   assert.doesNotMatch(output, /missing unit tests/);
 });
 
+test("pre-commit warns when malformed package.json disables package config", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "package.json"), "{ invalid\n");
+  writeFile(path.join(tempDir, "README.md"), "# Updated\n");
+  run("git", ["add", "README.md"], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Ignoring package\.json precommitChecks/);
+  assert.match(output, /contains invalid JSON/);
+});
+
 test("pre-commit attributes standalone key diagnostics", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

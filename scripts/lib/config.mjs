@@ -272,9 +272,14 @@ export function sanitizePrecommitConfig(config) {
  * such as init as well as file-backed runtime loading.
  * @param {object} packageConfig - Raw package.json precommitChecks config.
  * @param {{config: object, error: string|null}} standalone - Standalone read result.
+ * @param {string|null} [packageError] - Package source read/shape error.
  * @returns {object} Sanitized effective config with source metadata.
  */
-export function resolvePrecommitConfigSources(packageConfig, standalone) {
+export function resolvePrecommitConfigSources(
+  packageConfig,
+  standalone,
+  packageError = null,
+) {
   const rawConfig = standalone.error
     ? packageConfig
     : { ...packageConfig, ...standalone.config };
@@ -282,10 +287,53 @@ export function resolvePrecommitConfigSources(packageConfig, standalone) {
 
   Object.defineProperty(config, CONFIG_STATE, {
     enumerable: false,
-    value: { packageConfig, standalone },
+    value: { packageConfig, packageError, standalone },
   });
 
   return config;
+}
+
+/**
+ * Read package.json while preserving source failures for hook-time
+ * diagnostics. Hooks still fall back to standalone/default values so a broken
+ * manifest can be repaired in a commit, but the policy change is never silent.
+ * @param {string} [cwd] - Project root containing package.json.
+ * @returns {{config: object, error: string|null}} Package config state.
+ */
+function readPackagePrecommitConfig(cwd = process.cwd()) {
+  const filePath = path.join(cwd, "package.json");
+  let content;
+  try {
+    content = fs.readFileSync(filePath, "utf8");
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { config: {}, error: null }
+      : { config: {}, error: "could not be read" };
+  }
+
+  let pkg;
+  try {
+    pkg = JSON.parse(content);
+  } catch {
+    return { config: {}, error: "contains invalid JSON" };
+  }
+
+  if (!isPlainConfig(pkg)) {
+    return {
+      config: {},
+      error: "must contain a JSON object at the top level",
+    };
+  }
+  if (!Object.hasOwn(pkg, "precommitChecks")) {
+    return { config: {}, error: null };
+  }
+  if (!isPlainConfig(pkg.precommitChecks)) {
+    return {
+      config: {},
+      error: "precommitChecks must be a JSON object",
+    };
+  }
+  return { config: pkg.precommitChecks, error: null };
 }
 
 /**
@@ -294,15 +342,7 @@ export function resolvePrecommitConfigSources(packageConfig, standalone) {
  * @returns {object} The raw config object, or {} if absent/unreadable/malformed.
  */
 export function loadRawPrecommitConfig(cwd = process.cwd()) {
-  try {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
-    );
-    const config = pkg && pkg.precommitChecks;
-    return isPlainConfig(config) ? config : {};
-  } catch {
-    return {};
-  }
+  return readPackagePrecommitConfig(cwd).config;
 }
 
 /**
@@ -356,13 +396,22 @@ export function readStandalonePrecommitConfig(cwd = process.cwd()) {
  * A malformed standalone file cannot participate, so package.json remains the
  * backward-compatible fallback and the caller can surface `error`.
  * @param {string} [cwd] - Project root containing the configuration sources.
- * @returns {{config: object, packageConfig: object, standalone: {exists: boolean, config: object, error: string|null}}} Loaded state.
+ * @returns {{config: object, packageConfig: object, packageError: string|null, standalone: {exists: boolean, config: object, error: string|null}}} Loaded state.
  */
 export function loadPrecommitConfigState(cwd = process.cwd()) {
-  const packageConfig = loadRawPrecommitConfig(cwd);
+  const packageState = readPackagePrecommitConfig(cwd);
+  const packageConfig = packageState.config;
   const standalone = readStandalonePrecommitConfig(cwd);
-  const config = resolvePrecommitConfigSources(packageConfig, standalone);
-  const state = { packageConfig, standalone };
+  const config = resolvePrecommitConfigSources(
+    packageConfig,
+    standalone,
+    packageState.error,
+  );
+  const state = {
+    packageConfig,
+    packageError: packageState.error,
+    standalone,
+  };
 
   return { config, ...state };
 }
@@ -421,6 +470,15 @@ export function precommitConfigSourceLabel(config, keys) {
 export function precommitConfigDiagnostics(config) {
   const diagnostics = [];
   const state = config?.[CONFIG_STATE];
+
+  if (state?.packageError) {
+    diagnostics.push({
+      code: "config.invalid-source",
+      message:
+        `Ignoring package.json precommitChecks because package.json ${state.packageError}. ` +
+        `Using valid ${STANDALONE_CONFIG_FILE} values or defaults instead.`,
+    });
+  }
 
   if (state?.standalone.error) {
     diagnostics.push({

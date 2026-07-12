@@ -64,6 +64,12 @@ pre-push print an advisory warning and fall back to `package.json` or defaults.
 install. Mutating commands are stricter: `init` and `uninstall` stop before any
 write until the file is fixed or removed.
 
+Hook-time readers also warn when `package.json` cannot be read, contains invalid
+JSON, has a non-object root, or provides a non-object `precommitChecks` value.
+Valid `.commitmentrc.json` settings remain active; otherwise the hooks use safe
+defaults so the malformed manifest can still be repaired in a commit. The
+fallback never happens silently.
+
 `init` keeps its backward-compatible default of creating `precommitChecks` in
 `package.json`. If `.commitmentrc.json` already exists, it instead adds the
 default `advisePushTests` setting there when neither push mode is configured.

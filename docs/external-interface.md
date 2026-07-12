@@ -36,6 +36,10 @@ npx commitment-issues commit-msg .git/COMMIT_EDITMSG
 npx commitment-issues --version
 ```
 
+Setup and hook-health commands expect the project root of a non-bare Git
+working tree. Bare repositories do not run this package's local commit/push
+workflow and are never reported as having active hooks.
+
 ## Scripts added by `init`
 
 `init` wires common scripts in `package.json`:
@@ -94,6 +98,11 @@ warning and `package.json` fallback. `init` and `uninstall` reject it before
 mutation. If a valid standalone file already exists, `init` puts its generated
 advisory push default there; otherwise its existing `package.json` behavior is
 unchanged.
+
+An unreadable or malformed `package.json` source also produces an advisory at
+hook time. Valid standalone values continue to apply; remaining options fall
+back to built-in defaults so policy changes are visible without preventing a
+commit that repairs the manifest.
 
 | Key                      | Type                            | Default              | Effect                                                                            |
 | ------------------------ | ------------------------------- | -------------------- | --------------------------------------------------------------------------------- |

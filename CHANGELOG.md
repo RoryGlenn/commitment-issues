@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Hook setup, repair, and removal now distinguish a non-bare Git working tree
+  from a bare repository, distinguish an unset `core.hooksPath` from a failed
+  Git probe, resolve configured hook paths through Git (including `~/...`), and
+  preserve uninspectable or unwritable hook paths with actionable diagnostics
+  instead of success claims or raw Node.js exceptions.
+- Hook-time configuration loading now warns when `package.json` is unreadable,
+  invalid JSON, or contains a malformed `precommitChecks` container while
+  continuing with valid standalone settings or safe defaults.
 - `init` now derives optional `commit-msg` hook wiring and its setup summary
   from the same merged package/standalone configuration used at runtime.
   Standalone `commitMessage.enabled` policies are installed immediately, while
