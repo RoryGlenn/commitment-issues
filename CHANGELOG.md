@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An opt-in `commitment-issues vows` Easter egg that renders the project's four
+  safety promises in one deterministic, read-only box. A subtle help clue
+  points curious users toward it, while the command remains outside the public
+  command list and README reference.
 - A validated `hookOutput` policy for `precommit`, `prepush`, and `commit-msg`.
   The new `"problems-only"` default suppresses final success/info boxes while
   preserving every warning, error, mixed-severity result, check, exit code,
