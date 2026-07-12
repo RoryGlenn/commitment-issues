@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-07-12
+
+### Fixed
+
+- The SLSA caller now retains the `contents: write` permission required by the
+  reusable workflow's nested upload-job contract, even while direct generator
+  uploads remain disabled. Changes to `publish.yml` also trigger a harmless
+  non-publishing pull-request validation run, while release jobs stay
+  tag-gated, so GitHub catches reusable-workflow startup failures before merge
+  instead of after an immutable tag is pushed.
+
 ## [3.3.1] - 2026-07-12
 
 ### Fixed

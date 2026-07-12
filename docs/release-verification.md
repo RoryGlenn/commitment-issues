@@ -125,6 +125,11 @@ unconsumed: no workflow observed it and no public GitHub or npm artifact exists.
 Once any public system has consumed the tag, recovery is always a new patch
 version.
 
+Changes to the release workflow trigger a non-publishing pull-request job. This
+forces GitHub to validate referenced reusable workflows and their permission
+contracts before the change can merge; all package and release jobs remain
+restricted to version-tag pushes.
+
 ## Signing keys
 
 For npm provenance and GitHub Actions trusted publishing, the signing and identity material is managed by the publishing platform rather than by a long-lived project private key stored on the distribution site.

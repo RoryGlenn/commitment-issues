@@ -1,6 +1,9 @@
 name: Publish Package
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/publish.yml"
   push:
     tags:
       - "v*"
@@ -9,7 +12,18 @@ permissions:
   contents: read
 
 jobs:
+  # Loading this workflow on pull requests makes GitHub validate the complete
+  # reusable-workflow permission contract before a release tag can consume it.
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Confirm release workflow validation
+        run: echo "GitHub validated the release workflow and its reusable workflow contracts."
+
   publish:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,7 +106,9 @@ jobs:
     permissions:
       actions: read # detect the workflow path for provenance
       id-token: write # sign the provenance
-      contents: read
+      # The reusable workflow declares a nested contents:write upload job.
+      # GitHub validates that contract even though upload-assets is false.
+      contents: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.publish.outputs.hashes }}
