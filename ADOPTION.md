@@ -15,7 +15,7 @@ in `package.json` `files`.)
 ## Trust signals
 
 - [x] `CHANGELOG.md` in Keep a Changelog format, shipped in the tarball.
-- [x] GitHub Releases with notes (v2.2.0, v2.3.0).
+- [x] Current GitHub Release with notes and immutable assets (v3.3.2).
 - [x] Cross-platform CI (Ubuntu/macOS/Windows × Node 22.11.0/24) with coverage.
 - [x] Scenario-coverage tracker mapping the full test suite.
 - [x] `CONTRIBUTING.md`, issue/PR templates, and a Code of Conduct.
@@ -27,7 +27,10 @@ The hooks execute inside a consumer's commit/push flow, so "safe to run" is a
 direct adoption lever.
 
 - [x] `SECURITY.md` with a private vulnerability-disclosure policy.
-- [x] Publish via npm **Trusted Publishing** (OIDC from the `publish.yml` release workflow) — tokenless, with SLSA provenance and the provenance badge. Live as of v2.4.0, the first release published from CI via OIDC.
+- [x] Publish via npm **Trusted Publishing** (OIDC from the `publish.yml`
+      release workflow) — tokenless, with npm provenance. Live since v2.4.0.
+- [x] Publish the exact npm tarball and matching signed SLSA provenance on one
+      immutable GitHub Release. End-to-end validated with v3.3.2.
 - [x] `.github/dependabot.yml` (or Renovate) for automated dependency-update PRs.
 - [x] OpenSSF Scorecard workflow + badge.
 - [x] Coverage badge in the README — surfaces the CI coverage result.
@@ -35,7 +38,8 @@ direct adoption lever.
 ## Reach & compatibility (remove adoption blockers)
 
 - [x] npm, pnpm, yarn, and bun supported — each with an end-to-end CI lifecycle smoke.
-- [x] Yarn Berry (Plug'n'Play): documented boundary today (`nodeLinker: node-modules`); add real PnP support or a dedicated guide (PM-004).
+- [x] Yarn Berry: documented `nodeLinker: node-modules` support path and
+      Plug'n'Play boundary (PM-006).
 - [x] Monorepo / workspaces support (MONO-001/002).
 - [x] Framework recipes: Next.js, Vite, a TypeScript library.
 - [x] CI-provider recipes for skipping hooks in CI (GitHub Actions / GitLab / CircleCI).
@@ -61,7 +65,10 @@ direct adoption lever.
 
 ## Content & community
 
-- [ ] "Show HN: Commitment Issues — advisory-first git hooks." Draft ready in `promo/launch.md`.
+- [ ] Prepare and execute the human-written Show HN launch tracked in
+      [#78](https://github.com/RoryGlenn/commitment-issues/issues/78). The factual
+      checklist is in `promo/launch.md`; the title, first comment, and replies must
+      be written personally rather than generated or AI-edited.
 - [ ] Blog post: "Why I stopped letting pre-commit hooks block my commits." Draft ready in `promo/launch.md`.
 - [ ] Answer relevant threads (r/javascript, r/node, StackOverflow, "husky is annoying" discussions) — genuinely, not spammy.
 - [ ] Cross-post to dev.to / Hashnode.
@@ -74,6 +81,8 @@ See [`docs/adoption-metrics.md`](docs/adoption-metrics.md) for a lightweight wee
 
 - [ ] Track npm weekly downloads and GitHub traffic/referrers.
 - [ ] Note where first-run drop-off happens and smooth it.
-- [x] "No telemetry by design" — the [README Privacy section](README.md#privacy) states the posture explicitly.
+- [x] "No telemetry by design" — the
+      [README Privacy section](README.md#privacy-and-trust) states the posture
+      explicitly.
 - [x] Maintainer adoption-metrics note ([`docs/adoption-metrics.md`](docs/adoption-metrics.md)).
 - [ ] Revisit this checklist after each release.

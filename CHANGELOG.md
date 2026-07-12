@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed the complete documentation set for the verified v3.3.2 baseline:
+  launch preparation now requires human-authored HN copy, the roadmap and
+  feature backlog reflect the open v4/platform/adapter proposals, release
+  instructions use the working npm and SLSA verification flow, and trust,
+  compatibility, OpenSSF, maintenance, and supply-chain guidance match current
+  behavior. Broken internal anchors and stale shipped/deferred coverage entries
+  were corrected as part of the audit.
+
 ## [3.3.2] - 2026-07-12
 
 ### Fixed

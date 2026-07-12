@@ -1,10 +1,13 @@
 # Launch kit
 
-Drafts for putting `commitment-issues` in front of people. Not shipped in the npm
-package (the `promo/` folder is not listed in `package.json` `files`).
+Maintainer material for putting `commitment-issues` in front of people. It is
+not shipped in the npm package because `promo/` is outside the `package.json`
+`files` allowlist.
 
-Before posting: add GitHub repo topics and a social preview image (link previews
-matter), and generate the demo GIF (`vhs promo/demo.tape`) so it can lead the README.
+Current technical baseline: v3.3.2 is live on npm, its immutable GitHub Release
+contains the exact npm tarball and matching SLSA provenance, issue #39 is
+closed, and the demo GIF, repository topics, and social preview are complete.
+Recheck those signals on launch day rather than relying on this snapshot.
 
 ---
 
@@ -62,8 +65,8 @@ wiring through `prepare`, composing it after a project-owned command when
 needed, so it self-heals without overwriting project setup and works with Yarn
 Classic too.
 
-It works with npm, pnpm, yarn, and bun (each proven by an end-to-end CI smoke), on
-Linux, macOS, and Windows, on Node 22+.
+It works with npm, pnpm, yarn, and bun (each proven by an end-to-end CI smoke),
+on Linux, macOS, and Windows, on Node >=22.11.0.
 
 ### The point
 
@@ -77,44 +80,50 @@ Repo: https://github.com/RoryGlenn/commitment-issues
 
 ---
 
-## Show HN
+## Show HN preparation
 
-**Title:** Show HN: Commitment Issues – advisory-first Git hooks that nudge instead of blocking
+Do not reuse generated launch copy. Write the Show HN title, first comment, and
+every reply personally, from scratch, and follow the official Show HN and
+Hacker News guidelines linked from issue #78.
 
-**First comment (post immediately for context):**
+The human-written title should:
 
-Hi HN — I built commitment-issues because I was tired of pre-commit hooks that
-block my commit at the worst moment and train me to type `--no-verify`.
+- begin with `Show HN:`;
+- describe the project neutrally and concisely;
+- link directly to the GitHub repository; and
+- avoid superlatives, marketing language, or an upvote request.
 
-It runs the usual checks (ESLint, Prettier, missing tests, pushed-file tests) but
-is advisory by default: it prints a compact box telling you what it found and how
-to fix it, and lets the commit through. When you want a hard gate, you opt in
-(`blockPushOnTestFailure`).
+The first comment should explain, in the maintainer's own words:
 
-A few things I tried to get right:
+- what the project does and who it is for;
+- the blocking-hook and habitual `--no-verify` problem;
+- why advisory-first is the default;
+- the safe-fix, local-only, and native-hook design choices;
+- current JS/TS, Node, Yarn Plug'n'Play, shell, and GUI-client boundaries; and
+- the specific tradeoffs on which feedback would be useful.
 
-- Safe fixes: `fix:staged` refuses partially-staged files; `commit:fix` only amends
-  when it can't rewrite pushed history or clobber unstaged work.
-- Self-healing: a `doctor` command repairs broken hook wiring and runs quietly on
-  install.
-- Works across npm/pnpm/yarn/bun (each has an end-to-end CI smoke), Linux/macOS/
-  Windows, Node 22+.
-
-Setup is one command: `npx commitment-issues init`.
-
-Honest limitations: it's JS/TS only, and yarn Berry needs `nodeLinker: node-modules`
-(no Plug'n'Play yet).
-
-Repo: https://github.com/RoryGlenn/commitment-issues — npm: `commitment-issues`.
-Feedback and disagreement welcome.
+Prepare personal answers for likely questions about Husky/lint-staged and CI,
+bypasses, partial staging, telemetry and configured-command trust, monorepos,
+platform compatibility, the proposed v4 direction, release verification, and
+the v3.3.0/v3.3.1 fix-forward history. The durable product answers live in the
+FAQ; launch replies must still be written personally.
 
 ---
 
 ## Posting checklist
 
 - [x] Generate and embed the demo GIF (`vhs promo/demo.tape` → `assets/demo.gif`).
-- [ ] Add GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
-- [ ] Add a social preview image (Settings → General → Social preview).
+- [x] Add GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
+- [x] Add a social preview image (Settings → General → Social preview).
+- [x] Publish and independently verify v3.3.2, including matching npm/GitHub
+      tarballs and signed SLSA provenance.
+- [ ] Re-run the clean-install launch path: `init`, advisory commit warning,
+      `commit:fix`, and related push-time tests.
+- [ ] Recheck npm, the immutable GitHub Release assets, CI, CodeQL, DCO,
+      Scorecard, README media, and repository availability on launch day.
 - [ ] Publish the blog on your site; cross-post to dev.to and Hashnode with a canonical link back.
-- [ ] Post Show HN Tue–Thu, ~8–10am ET; add the first comment immediately.
-- [ ] Be available for the first 2–3 hours to answer replies.
+- [ ] Confirm the personal HN account can submit and the title/first comment are
+      human-written and ready.
+- [ ] Post Show HN in the chosen launch window and add the first comment within
+      approximately one or two minutes.
+- [ ] Reserve at least three uninterrupted hours for personal replies.

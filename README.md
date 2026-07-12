@@ -403,6 +403,8 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 **Operate and contribute**
 
 - [CI provider recipes](docs/ci-recipes.md)
+- [Release verification](docs/release-verification.md) — npm signatures, exact
+  tarballs, SLSA provenance, and immutable-tag recovery
 - [Runtime coverage policy](docs/branch-coverage.md) — exact source/test scope,
   threshold, lifecycle boundary, and badge freshness
 - [Roadmap](ROADMAP.md)

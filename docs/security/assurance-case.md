@@ -141,7 +141,12 @@ Workflows use explicit permissions and pinned actions where practical. CI runs D
 
 ### Release integrity risks
 
-Releases use unique version identifiers, changelog entries, npm trusted publishing/provenance where available, and documented verification guidance.
+Releases use unique version identifiers, changelog entries, npm trusted
+publishing, the exact packed npm tarball, signed SLSA provenance attached before
+the GitHub Release becomes immutable, collision preflight, and documented
+independent verification guidance. Release-workflow pull requests also force
+GitHub to validate the reusable-workflow permission contract before a tag can
+consume it.
 
 ### Vulnerability disclosure risks
 

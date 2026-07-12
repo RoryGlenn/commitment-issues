@@ -7,6 +7,10 @@ Project badge page:
 
 - <https://www.bestpractices.dev/projects/13528>
 
+The public badge currently reports **Passing**. Silver- and Gold-level entries
+below are an evidence-preparation map, not a claim that those higher levels have
+already been awarded.
+
 ## Gold prerequisite
 
 - `achieve_silver`:
@@ -47,7 +51,8 @@ Project badge page:
   - [Code review standards](../.github/CONTRIBUTING.md#code-review-standards)
   - [Pull request template](../.github/PULL_REQUEST_TEMPLATE.md)
 - `two_person_review`:
-  - [Two-person review policy](../.github/CONTRIBUTING.md#two-person-review-policy)
+  - [Review and branch-protection policy](../.github/CONTRIBUTING.md#review-and-branch-protection-policy)
+  - [Temporary single-maintainer exception](../GOVERNANCE.md#temporary-single-maintainer-exception)
   - [Pull requests list](https://github.com/RoryGlenn/commitment-issues/pulls?q=is%3Apr)
 - `build_reproducible`:
   - N/A for this package: no compiled build output, source `.mjs` files execute directly
@@ -77,6 +82,10 @@ Project badge page:
 - `security_review`:
   - [Security review report (2026-07)](security-review-2026-07.md)
   - [Security policy cadence](../.github/SECURITY.md#security-review-cadence)
+- Release integrity:
+  - [Release verification guide](release-verification.md)
+  - [v3.3.2 immutable release with tarball and SLSA provenance](https://github.com/RoryGlenn/commitment-issues/releases/tag/v3.3.2)
+  - [Trusted publishing workflow](../.github/workflows/publish.yml)
 
 ## Analysis
 

@@ -22,9 +22,17 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-005** — package bin works from a packed tarball across the OS / Node matrix. CI lifecycle integration: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`.
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
 - **PKG-007** — package includes README SVG gallery assets and installed docs in the tarball. Unit: `test/metadata.test.mjs` using `npm pack --dry-run --json`.
-- **PKG-008** — published npm package installs and exposes the CLI bin. Manual: fresh temp project with `npm install -D commitment-issues@latest` and `npx commitment-issues --help`.
 - **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
 - **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
+- **PKG-011** — the publish workflow sends the exact packed/hashed tarball to
+  npm, keeps SLSA generation separate, and uses one final immutable-release
+  uploader for the tarball and provenance. Unit: `test/release-integrity.test.mjs`.
+- **PKG-012** — release preflight rejects local/remote tag, GitHub Release, and
+  npm-version collisions and fails closed when a registry cannot be checked.
+  Unit: `test/release-integrity.test.mjs`.
+- **PKG-013** — release verification uses supported npm signature/attestation
+  surfaces rather than the absent `npm view ... provenance` field. Unit:
+  `test/release-integrity.test.mjs`.
 
 ### Path normalization
 
@@ -254,7 +262,6 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
-- **LIFE-005** — user installs from npm, runs help, initializes, and runs the pre-commit command with no staged files. Manual: fresh temp project with `commitment-issues@latest`.
 - **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 
 ### Package managers
@@ -278,6 +285,21 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - **PM-006** — Yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
 - **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
+## Manual and production validation
+
+- **PKG-008** — the published npm package installs and exposes the CLI bin.
+  Recheck in a clean project before launch with
+  `npm install -D commitment-issues@latest` and
+  `npx commitment-issues --help`.
+- **LIFE-005** — the complete clean-registry launch path (`init`, advisory
+  commit warning, `commit:fix`, and related push-time tests) remains a launch
+  gate in issue #78.
+- **REL-001** — the production v3.3.2 tag workflow published the exact npm
+  tarball and both immutable GitHub Release assets. The npm/GitHub tarballs and
+  SLSA subject share one SHA-256; independent npm signature and
+  `slsa-verifier` checks passed. See the
+  [release-verification baseline](release-verification.md#validated-release-baseline).
+
 ## Not covered yet
 
 ### Init / install fixture matrix
@@ -285,23 +307,20 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - Read-only `package.json` / `.gitignore` where practical.
 - More custom hook variants if users report specific merge expectations.
 
-### Safety path matrix
-
-- Newlines in filenames, if Git and the platform can create the filename reliably.
-
 ### Release and lifecycle
 
-- Release from a tag.
-- Release from GitHub Actions.
-- Upgrade from older package versions.
-- Downgrade behavior.
+- Registry-installed upgrade and downgrade behavior across published versions.
 - Corporate locked-down environment behavior.
+- Dedicated shell and GUI-client launch coverage tracked in
+  [#83](https://github.com/RoryGlenn/commitment-issues/issues/83).
 
 ## Next batches
 
-### Batch 5: deferred support boundaries
+### Post-launch support boundaries
 
 - Yarn Berry Plug'n'Play.
 - Custom no-hoist or non-`node_modules` workspace layouts outside the tested
   package-manager defaults.
-- Release-from-tag / release-from-CI workflows.
+- Registry-installed upgrade/downgrade fixtures.
+- The cross-shell and Git-client matrix in #83, coordinated with the proposed
+  v4 contract in #84.
