@@ -16,6 +16,7 @@ import {
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
 import { run } from "./lib/process.mjs";
+import { removeOwnedPath } from "./lib/files.mjs";
 import {
   readStandalonePrecommitConfig,
   STANDALONE_CONFIG_FILE,
@@ -168,12 +169,12 @@ if (!dryRun) {
     removed.push(...plannedPackageChanges);
   }
   if (standalone.exists) {
-    try {
-      fs.rmSync(STANDALONE_CONFIG_FILE);
-      removed.push(STANDALONE_CONFIG_FILE);
-    } catch {
-      manualCleanup.push(`Could not remove ${STANDALONE_CONFIG_FILE}.`);
-    }
+    const cleanup = removeOwnedPath(
+      STANDALONE_CONFIG_FILE,
+      STANDALONE_CONFIG_FILE,
+    );
+    removed.push(...cleanup.removed);
+    manualCleanup.push(...cleanup.manualCleanup);
   }
   for (const hookPath of hookCandidates) {
     try {

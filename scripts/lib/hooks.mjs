@@ -105,10 +105,14 @@ const STALE_GENERATED_HOOK_BODIES = {
  * The configured core.hooksPath value, or "" when unset. When this is set, git
  * ignores .git/hooks entirely, so wiring must account for it.
  * @param {string} [cwd] - Repo directory to read config from.
+ * @param {NodeJS.ProcessEnv} [env] - Process environment for the Git probe.
  * @returns {string} Configured value, trimmed, or "".
  */
-export function hooksPathConfig(cwd = process.cwd()) {
-  const result = run("git", ["config", "--get", "core.hooksPath"], { cwd });
+export function hooksPathConfig(cwd = process.cwd(), env = process.env) {
+  const result = run("git", ["config", "--get", "core.hooksPath"], {
+    cwd,
+    env,
+  });
   if (result.error || result.status !== 0) {
     return "";
   }
@@ -135,10 +139,11 @@ export function isHuskyHooksPath(value) {
  * The directory git reads native hooks from, independent of core.hooksPath:
  * `<common dir>/hooks` (linked worktrees share the main repo's hooks).
  * @param {string} [cwd] - Repo directory to resolve from.
+ * @param {NodeJS.ProcessEnv} [env] - Process environment for the Git probe.
  * @returns {string|null} Hooks directory path, or null outside a repo.
  */
-export function gitHooksDir(cwd = process.cwd()) {
-  const result = run("git", ["rev-parse", "--git-common-dir"], { cwd });
+export function gitHooksDir(cwd = process.cwd(), env = process.env) {
+  const result = run("git", ["rev-parse", "--git-common-dir"], { cwd, env });
   if (result.error || result.status !== 0) {
     return null;
   }

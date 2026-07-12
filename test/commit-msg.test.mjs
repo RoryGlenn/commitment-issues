@@ -48,6 +48,9 @@ const delay = Number(process.env.FAKE_COMMITLINT_DELAY_MS || "0");
 if (delay > 0) {
   await new Promise((resolve) => setTimeout(resolve, delay));
 }
+if (process.env.FAKE_COMMITLINT_SIGNAL) {
+  process.kill(process.pid, process.env.FAKE_COMMITLINT_SIGNAL);
+}
 const status = Number(process.env.FAKE_COMMITLINT_STATUS || "0");
 if (process.env.FAKE_COMMITLINT_OUTPUT) {
   process.stderr.write(process.env.FAKE_COMMITLINT_OUTPUT + "\\n");
@@ -285,6 +288,74 @@ test("missing message-file arguments follow advisory and blocking modes", (t) =>
   const blocking = runCommitMsg(tempDir, ["missing message file.txt"]);
   assert.equal(blocking.status, 1);
   assert.match(`${blocking.stdout}${blocking.stderr}`, /Could not open/);
+});
+
+test("commit-msg rejects a directory in place of a message file", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+
+  const result = runCommitMsg(tempDir, [tempDir]);
+
+  assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /Not a file:/);
+});
+
+test(
+  "commit-msg reports a project-local tool terminated by a signal",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    installFakeCommitlint(tempDir);
+    setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+
+    const result = runCommitMsg(tempDir, [messageFile(tempDir)], {
+      env: {
+        ...process.env,
+        FAKE_COMMITLINT_SIGNAL: "SIGKILL",
+      },
+    });
+
+    assert.equal(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /check unavailable/i);
+  },
+);
+
+test(
+  "commit-msg reports a project-local tool that cannot be spawned",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const binDir = localBinDir(tempDir);
+    fs.writeFileSync(path.join(binDir, "commitlint"), "not executable\n", {
+      mode: 0o644,
+    });
+    setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+
+    const result = runCommitMsg(tempDir, [messageFile(tempDir)]);
+
+    assert.equal(result.status, 0);
+    assert.match(
+      `${result.stdout}${result.stderr}`,
+      /EACCES|permission denied/i,
+    );
+  },
+);
+
+test("commit-msg supplies a status fallback when commitlint writes nothing", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  installFakeCommitlint(tempDir);
+  setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
+
+  const result = runCommitMsg(tempDir, [messageFile(tempDir)], {
+    env: { ...process.env, FAKE_COMMITLINT_STATUS: "2" },
+  });
+
+  assert.equal(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /exited with status 2/);
 });
 
 test("nested config diagnostics run even when a typo leaves the check disabled", (t) => {

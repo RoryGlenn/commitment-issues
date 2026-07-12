@@ -16,14 +16,6 @@ import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 function getIndexSnapshot(files) {
-  // Defensive guard for a reusable helper: every caller passes the non-empty
-  // fixable-file set, so the empty case is not reached in practice.
-  /* node:coverage disable */
-  if (files.length === 0) {
-    return "";
-  }
-  /* node:coverage enable */
-
   const snapshotResult = run("git", [
     ...GIT_PATH_ARGS,
     "ls-files",

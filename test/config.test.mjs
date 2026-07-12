@@ -109,6 +109,10 @@ test("standalone keys shallowly override package.json and keep other keys", (t) 
     precommitConfigSourceLabel(config),
     ".commitmentrc.json and package.json",
   );
+  assert.equal(
+    precommitConfigSourceLabel(config, ["requireTests", "timeoutMs"]),
+    ".commitmentrc.json and package.json",
+  );
 });
 
 test("hookOutput accepts only the documented values and defaults quiet", () => {
@@ -151,6 +155,7 @@ test("malformed standalone JSON warns and falls back to package.json", (t) => {
   assert.deepEqual(precommitConfigWarningMessages(state.config), [
     "Ignoring .commitmentrc.json because it contains invalid JSON. Using package.json precommitChecks or defaults instead.",
   ]);
+  assert.equal(precommitConfigSourceLabel(state.config), "package.json");
 });
 
 test("non-object standalone roots warn and fall back to package.json", (t) => {
@@ -187,6 +192,40 @@ test("standalone reader reports absent and valid files explicitly", (t) => {
     config: { advisePushTests: true },
     error: null,
   });
+});
+
+test("standalone reader reports an existing path that cannot be read", (t) => {
+  withTempPackage(t, { name: "x" });
+  fs.mkdirSync(path.join(process.cwd(), STANDALONE_CONFIG_FILE));
+
+  assert.deepEqual(readStandalonePrecommitConfig(), {
+    exists: true,
+    config: {},
+    error: "could not be read",
+  });
+});
+
+test("config source labels distinguish standalone-only and package-only state", (t) => {
+  withTempPackage(t, { precommitChecks: {} });
+  writeStandaloneConfig({ requireTests: false });
+  const standalone = loadPrecommitConfig();
+  assert.equal(precommitConfigSourceLabel(standalone), STANDALONE_CONFIG_FILE);
+  assert.equal(
+    precommitConfigSourceLabel(standalone, ["requireTests"]),
+    STANDALONE_CONFIG_FILE,
+  );
+
+  fs.rmSync(path.join(process.cwd(), STANDALONE_CONFIG_FILE));
+  fs.writeFileSync(
+    path.join(process.cwd(), "package.json"),
+    JSON.stringify({ precommitChecks: { requireTests: false } }),
+  );
+  const fromPackage = loadPrecommitConfig();
+  assert.equal(precommitConfigSourceLabel(fromPackage), "package.json");
+  assert.equal(
+    precommitConfigSourceLabel(fromPackage, ["requireTests"]),
+    "package.json",
+  );
 });
 
 test("unknownPrecommitConfigKeys flags typo'd keys and keeps their order", () => {
@@ -406,6 +445,12 @@ test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
       `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
     ],
   );
+});
+
+test("invalidPrecommitConfigMessages ignores malformed config containers", () => {
+  for (const value of [undefined, null, false, "config", []]) {
+    assert.deepEqual(invalidPrecommitConfigMessages(value), []);
+  }
 });
 
 test("timeoutMs accepts Node's timer ceiling and rejects larger values", () => {

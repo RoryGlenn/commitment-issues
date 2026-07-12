@@ -19,6 +19,7 @@ import {
   parseLsFilesStage,
   parseNameStatusPaths,
   parseNulPaths,
+  removeOwnedPath,
   shortFileList,
 } from "../scripts/lib/files.mjs";
 
@@ -127,6 +128,8 @@ test("parseLsFilesStage separates metadata from tab-bearing paths", () => {
     },
   ]);
   assert.equal(parseLsFilesStage("100644 bad\tfile\0"), null);
+  assert.equal(parseLsFilesStage("100644 bad\tunterminated"), null);
+  assert.equal(parseLsFilesStage("100644 deadbeef 0 file\0"), null);
 });
 
 test("isTestExemptFile honors package.json testExempt globs", () => {
@@ -166,6 +169,28 @@ test("shortFileList compacts long lists and handles empty input", () => {
   );
 });
 
+test("removeOwnedPath reports successful and failed cleanup", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "owned-path-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "owned.json");
+  fs.writeFileSync(file, "{}\n");
+
+  assert.deepEqual(removeOwnedPath(file, "owned config"), {
+    removed: ["owned config"],
+    manualCleanup: [],
+  });
+  assert.equal(fs.existsSync(file), false);
+  assert.deepEqual(
+    removeOwnedPath(file, "owned config", () => {
+      throw new Error("permission denied");
+    }),
+    {
+      removed: [],
+      manualCleanup: ["Could not remove owned config."],
+    },
+  );
+});
+
 test("findTestFile and collectTestsForFiles locate sibling tests", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "files-"));
   const cwd = process.cwd();
@@ -177,9 +202,16 @@ test("findTestFile and collectTestsForFiles locate sibling tests", (t) => {
   fs.mkdirSync("src", { recursive: true });
   fs.writeFileSync("src/widget.mjs", "export const w = 1;\n");
   fs.writeFileSync("src/widget.test.mjs", "export {};\n");
+  fs.mkdirSync("test/src", { recursive: true });
+  fs.writeFileSync("src/mirrored.mjs", "export const m = 1;\n");
+  fs.writeFileSync("test/src/mirrored.test.mjs", "export {};\n");
 
   assert.equal(findTestFile("src/widget.mjs"), "src/widget.test.mjs");
+  assert.deepEqual(findTestFiles("src/mirrored.mjs"), [
+    "test/src/mirrored.test.mjs",
+  ]);
   assert.equal(findTestFile("src/missing.mjs"), null);
+  assert.deepEqual(findTestFiles("/absolute-orphan.mjs"), []);
 
   assert.deepEqual(collectTestsForFiles(["src/widget.mjs"]), [
     "src/widget.test.mjs",
@@ -230,4 +262,25 @@ test("related-test lookup stays inside the nearest monorepo package", (t) => {
   ]);
   assert.equal(findTestFile("packages/c/src/index.mjs"), null);
   assert.deepEqual(collectTestsForFiles(["packages/c/src/index.mjs"]), []);
+});
+
+test("deleted package discovery supports object-form workspace declarations", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "files-workspaces-"));
+  const cwd = process.cwd();
+  t.after(() => {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  process.chdir(dir);
+
+  fs.writeFileSync(
+    "package.json",
+    JSON.stringify({ workspaces: { packages: ["packages/*"] } }),
+  );
+  fs.mkdirSync("packages/app/test", { recursive: true });
+  fs.writeFileSync("packages/app/test/widget.test.mjs", "export {};\n");
+
+  assert.deepEqual(findTestFiles("packages/app/src/widget.mjs"), [
+    "packages/app/test/widget.test.mjs",
+  ]);
 });

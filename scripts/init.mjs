@@ -424,8 +424,6 @@ if (warningSections.length > 0) {
   warningBox(body);
 } else if (dryRun) {
   infoBox(body);
-} else if (!hooksActive) {
-  infoBox(body);
 } else {
   printBox(body.join("\n"), (value) => value, { borderColor: "green" });
 }

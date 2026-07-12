@@ -7,6 +7,7 @@ import {
   summarizeEslintJson,
   parsePrettierList,
   eslintManualIssues,
+  formatEslintManualIssue,
   parseNodeTestSummary,
 } from "../scripts/lib/checks.mjs";
 
@@ -114,6 +115,35 @@ test("eslintManualIssues skips file results that have no messages array", () => 
   // must treat that as no manual issues rather than throwing.
   const json = JSON.stringify([{ filePath: "/repo/src/c.js" }]);
   assert.deepEqual(eslintManualIssues(json), []);
+});
+
+test("formatEslintManualIssue handles locations, rules, and path fallbacks", () => {
+  assert.equal(
+    formatEslintManualIssue(
+      {
+        filePath: "/repo/src/a.js",
+        line: 2,
+        column: 7,
+        ruleId: "no-undef",
+      },
+      "/repo",
+    ),
+    "src/a.js:2:7 (no-undef)",
+  );
+  assert.equal(
+    formatEslintManualIssue(
+      { filePath: "/repo/src/b.js", ruleId: null },
+      "/repo",
+    ),
+    "src/b.js",
+  );
+  assert.equal(
+    formatEslintManualIssue(
+      { filePath: "/repo", line: 1, column: 1, ruleId: null },
+      "/repo",
+    ),
+    "/repo:1:1",
+  );
 });
 
 test("parseNodeTestSummary reads TAP and spec reporter counts", () => {

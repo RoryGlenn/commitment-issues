@@ -41,7 +41,7 @@ function normalizeInput(issuesOrOptions, context) {
   return { issues, context: normalizedContext };
 }
 
-function plural(count, singular, pluralValue = `${singular}s`) {
+export function plural(count, singular, pluralValue = `${singular}s`) {
   return count === 1 ? singular : pluralValue;
 }
 
@@ -472,6 +472,125 @@ export function advisoryTestFailureWarning(summary) {
   }
   const failedCount = summary.failed;
   return `Tests failed (advisory): ${failedCount} related test${failedCount === 1 ? "" : "s"} failed (${summary.passed} passed, ${failedCount} failed)`;
+}
+
+/**
+ * Build a pre-commit issue for a peer tool that could not complete.
+ * @param {{result: object, outcome: string, displayName: string, type: string, installCommand: string, timeoutSeconds: number}} options - Process and display context.
+ * @returns {{autoFixable: false, type: string, message: string, detail: string}} Advisory issue.
+ */
+export function unavailableToolIssue(options) {
+  const { result, outcome, displayName, type, installCommand, timeoutSeconds } =
+    options;
+  if (outcome === "missing-tool") {
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} is not installed locally`,
+      detail: `Install it: ${installCommand}`,
+    };
+  }
+  if (outcome === "timeout") {
+    const cleanupDetail =
+      result.cleanup === "direct-child"
+        ? "the direct child was stopped; descendant cleanup was unavailable"
+        : result.cleanup
+          ? "attached process-tree cleanup completed"
+          : null;
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} timed out`,
+      detail: `No result within ${timeoutSeconds}s${cleanupDetail ? `; ${cleanupDetail}` : ""}`,
+    };
+  }
+  if (outcome === "signal") {
+    return {
+      autoFixable: false,
+      type,
+      message: `${displayName} stopped before completing`,
+      detail: `Process ended from ${result.signal || "an unknown signal"}`,
+    };
+  }
+  return {
+    autoFixable: false,
+    type,
+    message: `Unable to run ${displayName}`,
+    detail: `Check ${displayName} install and project config`,
+  };
+}
+
+/**
+ * Build the message/detail pair for an interrupted staged-test command.
+ * @param {object} result - Structured process result.
+ * @param {string} outcome - Normalized process outcome.
+ * @param {number} timeoutSeconds - Configured timeout in seconds.
+ * @returns {{message: string, detail: string}} Staged-test finding fields.
+ */
+export function stagedTestInterruption(result, outcome, timeoutSeconds) {
+  if (outcome === "timeout") {
+    const cleanup =
+      result.cleanup === "direct-child"
+        ? "; the direct child was stopped; descendant cleanup was unavailable"
+        : result.cleanup
+          ? "; attached process-tree cleanup completed"
+          : "";
+    return {
+      message: "Staged tests timed out",
+      detail: `No result within ${timeoutSeconds}s${cleanup}`,
+    };
+  }
+  if (outcome === "signal") {
+    return {
+      message: "Staged tests stopped before completing",
+      detail: `Process ended from ${result.signal || "an unknown signal"}`,
+    };
+  }
+  return {
+    message: "Unable to run staged tests",
+    detail:
+      "Check testCommand in .commitmentrc.json or package.json precommitChecks",
+  };
+}
+
+/**
+ * Build the failure reason and issue for a pre-push test command that did not
+ * complete.
+ * @param {object} result - Structured process result.
+ * @param {string} outcome - Normalized process outcome.
+ * @param {number} timeoutSeconds - Configured timeout in seconds.
+ * @param {boolean} blocking - Whether failure blocks the push.
+ * @returns {{reasonText: string, issue: object}} Presentation model.
+ */
+export function prepushTestInterruption(
+  result,
+  outcome,
+  timeoutSeconds,
+  blocking,
+) {
+  const timeoutCleanup =
+    result.cleanup === "direct-child"
+      ? "the direct child was stopped, but descendant cleanup was unavailable"
+      : result.cleanup
+        ? "attached process-tree cleanup completed"
+        : null;
+  const reasonText =
+    outcome === "timeout"
+      ? `The test command timed out after ${timeoutSeconds}s${timeoutCleanup ? `; ${timeoutCleanup}` : ""}.`
+      : outcome === "signal"
+        ? `The test command stopped after ${result.signal || "an unknown signal"}.`
+        : "Check testCommand in .commitmentrc.json or package.json precommitChecks.";
+  return {
+    reasonText,
+    issue: {
+      autoFixable: false,
+      type: "tests",
+      message: blocking
+        ? "Could not run pre-push tests"
+        : "Could not run pre-push tests (advisory)",
+      detail: reasonText,
+    },
+  };
 }
 
 /**

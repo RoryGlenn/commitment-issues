@@ -13,7 +13,7 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 | ----------------------------- | ------------------------------------------------------------------- |
 | Run everything                | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)         |
 | Run one file                  | `node --test test/precommit.test.mjs`                               |
-| Branch coverage gate          | `npm run test:coverage` (explicit runtime scope, 90% threshold)     |
+| Runtime coverage gate         | `npm run test:coverage` (100% lines, branches, and functions)       |
 | Reproduce CI locally          | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below) |
 | Package lifecycle integration | `npm run test:lifecycle:npm` (also `:pnpm`, `:yarn`, `:bun`)        |
 
@@ -91,9 +91,10 @@ All shim helpers are cross-platform (POSIX launcher + `.cmd`), so keep tests fre
 
 ## Inspecting coverage gaps
 
-Coverage is gated at 90%, not 100%. The exact runtime/test scope and lifecycle
-exclusions are documented in `docs/branch-coverage.md`. To see _which_ branches
-are uncovered, emit lcov and inspect the branch-data lines:
+Coverage is gated at 100% for lines, branches, and functions. The exact
+runtime/test scope and maintenance-only exclusions are documented in
+`docs/branch-coverage.md`. To see _which_ branches are uncovered, emit lcov and
+inspect the branch-data lines:
 
 ```bash
 npm run test:coverage
@@ -103,9 +104,13 @@ node --test --experimental-test-coverage \
 grep -E ",-$|,0$" /tmp/cov.info   # BRDA lines ending in ,- (never taken) or ,0 (taken 0x)
 ```
 
-### Ignoring genuinely-unreachable defensive code
+### Handling genuinely unreachable defensive code
 
-Some branches are defensive and unreachable (e.g. spawn `ENOENT` for tools that always resolve to a local node bin; `|| undefined` / `?? 1` fallbacks; empty-output guards). To exclude a truly-unreachable block, use **block comments** (the `ignore next` form does **not** work in Node 22+):
+Prefer a behavior test with an injected dependency or platform seam. If a
+branch's invariant makes it impossible, simplify the dead fallback. Only when a
+defensive path must remain and cannot be triggered on either supported Node line
+may it use a narrowly scoped, explained **block comment** (`ignore next` does
+**not** work in Node 22+):
 
 ```js
 /* node:coverage disable */
@@ -117,7 +122,10 @@ try {
 /* node:coverage enable */
 ```
 
-Wrap the **whole** `try/catch` statement — wrapping only the catch body leaves the catch braces uncovered. Do not add coverage-ignores to reachable code just to raise the number.
+Wrap only the smallest complete construct that is genuinely unreachable; for a
+`try/catch`, that means the whole statement because wrapping only the catch body
+leaves the braces uncovered. Never add blanket file exclusions or ignores to
+reachable code just to satisfy the gate.
 
 ## Pre-flight before you push
 

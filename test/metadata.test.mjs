@@ -217,9 +217,10 @@ test("Scorecard SARIF runs only for default-branch events", () => {
   assert.match(workflow, /^\s+publish_results:\s+true\s*$/m);
 });
 
-test("CI enforces branch coverage on both Node lines and badge freshness", () => {
+test("CI enforces 100% runtime coverage on both Node lines and badge freshness", () => {
   const pkg = readJson("package.json");
   const workflow = readText(".github/workflows/ci.yml");
+  const coverageRunner = readText("scripts/run-branch-coverage.mjs");
   const readme = readText("README.md");
   const minimumVersion = pkg.engines.node.match(/\d+\.\d+\.\d+/)?.[0];
   assert.ok(minimumVersion, "engines.node should pin a concrete version");
@@ -233,15 +234,23 @@ test("CI enforces branch coverage on both Node lines and badge freshness", () =>
     pkg.scripts["coverage:check"],
     "node scripts/update-readme-coverage-badge.mjs --check",
   );
+  for (const metric of ["lines", "branches", "functions"]) {
+    assert.match(
+      coverageRunner,
+      new RegExp(
+        `--test-coverage-${metric}=\\$\\{RUNTIME_COVERAGE_THRESHOLD\\}`,
+      ),
+    );
+  }
   assert.match(
     workflow,
     new RegExp(
-      `Branch coverage threshold \\(Node ${escapedMinimumVersion}\\)[\\s\\S]*matrix\\.node-version == '${escapedMinimumVersion}'[\\s\\S]*npm run test:coverage`,
+      `100% runtime coverage \\(Node ${escapedMinimumVersion}\\)[\\s\\S]*matrix\\.node-version == '${escapedMinimumVersion}'[\\s\\S]*npm run test:coverage`,
     ),
   );
   assert.match(
     workflow,
-    /Branch coverage threshold and badge freshness \(Node 24\)[\s\S]*matrix\.node-version == '24'[\s\S]*npm run coverage:check/,
+    /100% runtime coverage and badge freshness \(Node 24\)[\s\S]*matrix\.node-version == '24'[\s\S]*npm run coverage:check/,
   );
   assert.match(
     workflow,

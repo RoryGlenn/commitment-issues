@@ -9,12 +9,14 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { MAX_TIMEOUT_MS } from "../scripts/lib/config.mjs";
 import {
+  detachedForPlatform,
   run,
   toolInvocation,
   runTool,
   spawnAsync,
   isPackageInstalled,
   isToolInstalled,
+  terminateProcessTree,
 } from "../scripts/lib/process.mjs";
 
 test("toolInvocation resolves a local bin and runs it via the current Node", () => {
@@ -41,6 +43,123 @@ test("toolInvocation reports a resolvable package with no bin as missing", () =>
   assert.equal(inv.command, null);
   assert.deepEqual(inv.args, []);
   assert.equal(inv.missingTool, "picocolors");
+});
+
+test("tool resolution rejects malformed manifests and missing bin files", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tool-manifest-"));
+  try {
+    const malformed = path.join(dir, "node_modules", "malformed");
+    fs.mkdirSync(malformed, { recursive: true });
+    fs.writeFileSync(path.join(malformed, "package.json"), "{ invalid\n");
+    assert.equal(isToolInstalled("malformed", dir), false);
+
+    const missingBin = path.join(dir, "node_modules", "missing-bin");
+    fs.mkdirSync(missingBin, { recursive: true });
+    fs.writeFileSync(
+      path.join(missingBin, "package.json"),
+      JSON.stringify({ bin: { "missing-bin": "cli.mjs" } }),
+    );
+    assert.equal(isToolInstalled("missing-bin", dir), false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("process-tree cleanup covers POSIX and Windows recovery strategies", () => {
+  assert.equal(terminateProcessTree({ pid: 0 }), "already-exited");
+
+  const directKills = [];
+  const directChild = {
+    pid: 42,
+    kill(signal) {
+      directKills.push(signal);
+    },
+  };
+  assert.equal(
+    terminateProcessTree(
+      directChild,
+      "win32",
+      () => ({ status: 0 }),
+      () => {},
+    ),
+    "taskkill-tree",
+  );
+  assert.deepEqual(directKills, []);
+
+  assert.equal(
+    terminateProcessTree(
+      directChild,
+      "win32",
+      () => ({ error: new Error("taskkill unavailable"), status: null }),
+      () => {},
+    ),
+    "direct-child",
+  );
+  assert.equal(
+    terminateProcessTree(
+      directChild,
+      "win32",
+      () => ({ status: 1 }),
+      () => {},
+    ),
+    "direct-child",
+  );
+
+  const groupSignals = [];
+  assert.equal(
+    terminateProcessTree(
+      directChild,
+      "linux",
+      () => ({ status: 1 }),
+      (...args) => groupSignals.push(args),
+    ),
+    "process-group",
+  );
+  assert.deepEqual(groupSignals, [[-42, "SIGKILL"]]);
+
+  assert.equal(
+    terminateProcessTree(
+      directChild,
+      "linux",
+      () => ({ status: 1 }),
+      () => {
+        const error = new Error("already gone");
+        error.code = "ESRCH";
+        throw error;
+      },
+    ),
+    "already-exited",
+  );
+  assert.equal(
+    terminateProcessTree(
+      directChild,
+      "linux",
+      () => ({ status: 1 }),
+      () => {
+        throw new Error("group unavailable");
+      },
+    ),
+    "direct-child",
+  );
+  assert.equal(
+    terminateProcessTree(
+      {
+        pid: 42,
+        kill() {
+          throw new Error("child already gone");
+        },
+      },
+      "linux",
+      () => ({ status: 1 }),
+      () => {
+        throw undefined;
+      },
+    ),
+    "already-exited",
+  );
+
+  assert.equal(detachedForPlatform("win32"), false);
+  assert.equal(detachedForPlatform("linux"), true);
 });
 
 test("toolInvocation resolves only from the selected project", () => {

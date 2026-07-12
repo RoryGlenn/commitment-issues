@@ -304,6 +304,25 @@ test("uninstall inspects an active custom hooks directory safely", (t) => {
   assert.match(output, /githooks\/pre-push is customized/);
 });
 
+test("uninstall displays absolute hook paths outside the project", (t) => {
+  const tempDir = createTempRepo();
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-hooks-"));
+  t.after(() => cleanupTempRepo(tempDir));
+  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+
+  fs.writeFileSync(path.join(external, "pre-commit"), hookBody("pre-commit"));
+  fs.chmodSync(path.join(external, "pre-commit"), 0o755);
+  run("git", ["config", "core.hooksPath", external], tempDir);
+
+  const result = runScript(tempDir, "uninstall", ["--dry-run"]);
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    new RegExp(external.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
+});
+
 test("uninstall reports legacy commands in an active Husky directory", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

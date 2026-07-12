@@ -3,6 +3,8 @@
 
 // Pure helpers for interpreting tool output (no child processes here).
 
+import path from "node:path";
+
 /**
  * Totals ESLint JSON results into issue and auto-fixable counts.
  * @param {string} stdout - ESLint `--format json` output.
@@ -83,6 +85,19 @@ export function eslintManualIssues(stdout) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Format one manual ESLint finding as a stable repo-relative location.
+ * @param {{filePath: string, line?: number, column?: number, ruleId?: string|null}} issue - Parsed ESLint issue.
+ * @param {string} cwd - Repository root.
+ * @returns {string} Human-readable file, location, and optional rule.
+ */
+export function formatEslintManualIssue(issue, cwd) {
+  const relative = path.relative(cwd, issue.filePath);
+  const file = relative || issue.filePath;
+  const location = issue.line ? `${file}:${issue.line}:${issue.column}` : file;
+  return issue.ruleId ? `${location} (${issue.ruleId})` : location;
 }
 
 /**

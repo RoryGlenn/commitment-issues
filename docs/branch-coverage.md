@@ -1,4 +1,4 @@
-# Branch Coverage Policy
+# Runtime Coverage Policy
 
 The README badge reports **branch coverage for the user-facing
 `commitment-issues` runtime**, not every JavaScript file in the repository.
@@ -9,11 +9,10 @@ npm run test:coverage
 ```
 
 The command uses Node's built-in test coverage on both supported Node lines and
-fails below **90% branch coverage**. It passes every source file explicitly,
-writes a temporary LCOV report, and fails if any intended runtime source is
-missing from that report. Node also prints line and function coverage for the
-same source scope, but the badge and enforced threshold are specifically the
-aggregate branch metric.
+requires **100% line, branch, and function coverage**. It passes every source
+file explicitly, writes a temporary LCOV report, and fails if any intended
+runtime source is missing from that report. The README badge displays the
+aggregate branch metric for the same source and test scope.
 
 ## Source scope
 
@@ -60,15 +59,13 @@ the Node/OS matrix and separate pnpm, Yarn, and Bun lifecycle gates.
 
 ## CI and badge freshness
 
-Ubuntu CI enforces the 90% threshold on Node 22.11.0 and Node 24. Node 24 is the
-canonical badge producer: `npm run coverage:check` runs the same gated command
-and fails if the committed README badge differs from the generated value.
+Ubuntu CI enforces 100% lines, branches, and functions on Node 22.11.0 and Node 24. Node 24 is the canonical badge producer: `npm run coverage:check` runs the
+same gated command and fails if the committed README badge differs from the
+generated value.
 
-The badge rounds to one decimal place. Node's experimental coverage merger can
-occasionally add or remove one equivalent branch record when subprocess reports
-arrive in a different order; the coarser display keeps that runner jitter from
-making badge freshness flaky. The 90% CI threshold still evaluates Node's
-unrounded coverage result.
+The badge rounds to one decimal place, while all three CI thresholds evaluate
+Node's unrounded coverage result. Rounding therefore never relaxes the 100%
+gate.
 
 To refresh it locally:
 

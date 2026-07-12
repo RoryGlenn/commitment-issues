@@ -3,6 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import {
   cleanupTempRepo,
@@ -78,4 +79,20 @@ test("exits 1 when Prettier cannot parse the file", (t) => {
   const result = runFixStagedJs(tempDir, ["src/syntax.js"]);
 
   assert.equal(result.status, 1);
+});
+
+test("reports every missing local fixer without a command fallback", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "missing.js"), "export const x=1;\n");
+  fs.unlinkSync(path.join(tempDir, "node_modules"));
+  fs.mkdirSync(path.join(tempDir, "node_modules"));
+
+  const result = runFixStagedJs(tempDir, ["src/missing.js"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /missing local tool\(s\): eslint, prettier/i);
+  assert.match(output, /npm install -D eslint prettier/);
 });

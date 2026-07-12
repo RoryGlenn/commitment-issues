@@ -762,3 +762,79 @@ test("doctor reports failure when the hook files cannot be written", (t) => {
     /Could not repair the git hook wiring/,
   );
 });
+
+test("doctor reports when Git cannot resolve the common hooks directory", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = runDoctor(tempDir, [], {
+    env: fakeGitEnv(tempDir, "rev-parse --git-common-dir"),
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Could not locate the git hooks directory/,
+  );
+});
+
+test("doctor reports successful repairs alongside an unwired custom hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(gitHook(tempDir, "pre-push"), "#!/bin/sh\necho custom push\n");
+  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /does not invoke commitment-issues/);
+  assert.match(output, /Also repaired: \.git\/hooks\/pre-commit/);
+});
+
+test("doctor displays absolute paths for hooks outside the project", (t) => {
+  const tempDir = createTempRepo();
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), "external-hooks-"));
+  t.after(() => cleanupTempRepo(tempDir));
+  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+
+  writeFile(path.join(external, "pre-commit"), "#!/bin/sh\necho external\n");
+  fs.chmodSync(path.join(external, "pre-commit"), 0o755);
+  run("git", ["config", "core.hooksPath", external], tempDir);
+
+  const result = runDoctor(tempDir);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    new RegExp(external.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
+});
+
+test("doctor displays shared worktree hooks outside the checkout", (t) => {
+  const tempDir = createTempRepo();
+  const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-worktree-"));
+  fs.rmSync(worktree, { recursive: true, force: true });
+  t.after(() => {
+    run("git", ["worktree", "remove", "--force", worktree], tempDir);
+    fs.rmSync(worktree, { recursive: true, force: true });
+    cleanupTempRepo(tempDir);
+  });
+
+  const added = run(
+    "git",
+    ["worktree", "add", "--detach", worktree, "HEAD"],
+    tempDir,
+  );
+  assert.equal(added.status, 0);
+
+  const result = runDoctor(worktree);
+  const expectedHooks = path.join(tempDir, ".git", "hooks").replace(/\\/g, "/");
+
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    new RegExp(expectedHooks.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
+});

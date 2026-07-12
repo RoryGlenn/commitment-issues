@@ -9,6 +9,10 @@ import {
   buildAdvisoryMessage,
   buildCommitMessageCheckMessage,
   buildPushAllowedMessage,
+  plural,
+  prepushTestInterruption,
+  stagedTestInterruption,
+  unavailableToolIssue,
 } from "../scripts/lib/message.mjs";
 
 // picocolors emits plain text when stdout is not a TTY (as under `node --test`),
@@ -18,6 +22,23 @@ test("success when there are no issues", () => {
   const { severity, lines } = buildAdvisoryMessage([]);
   assert.equal(severity, "success");
   assert.ok(lines.join("\n").includes("All pre-commit checks passed"));
+});
+
+test("advisory input normalization accepts omitted and legacy context shapes", () => {
+  assert.equal(buildAdvisoryMessage({}).severity, "success");
+  assert.equal(buildAdvisoryMessage(null).severity, "success");
+
+  const legacy = buildAdvisoryMessage({
+    issues: "not-an-array",
+    dirtyTrackedFiles: ["README.md"],
+  });
+  assert.equal(legacy.severity, "success");
+
+  const current = buildAdvisoryMessage({
+    issues: [],
+    unstagedTrackedFiles: ["CHANGELOG.md"],
+  });
+  assert.equal(current.severity, "success");
 });
 
 test("warns and recommends commit:fix when amend is safe", () => {
@@ -195,6 +216,18 @@ test("push summary consolidates allowed advisory findings", () => {
   assert.match(text, /Review the failing test output above/);
 });
 
+test("push summary safely ignores malformed optional collections", () => {
+  const model = buildPushAllowedMessage({
+    warnings: "warning",
+    notes: null,
+    details: ["detail", ""],
+  });
+  const text = model.lines.join("\n");
+
+  assert.match(text, /Push allowed with 0 warnings/);
+  assert.match(text, /detail/);
+});
+
 test("advisory test failure warning covers missing and plural summaries", () => {
   assert.equal(advisoryTestFailureWarning(null), "Tests failed (advisory)");
   assert.equal(
@@ -205,6 +238,120 @@ test("advisory test failure warning covers missing and plural summaries", () => 
     advisoryTestFailureWarning({ passed: 1, failed: 2 }),
     "Tests failed (advisory): 2 related tests failed (1 passed, 2 failed)",
   );
+});
+
+test("plural supports regular and irregular nouns", () => {
+  assert.equal(plural(1, "file"), "file");
+  assert.equal(plural(2, "file"), "files");
+  assert.equal(plural(2, "branch", "branches"), "branches");
+});
+
+test("unavailableToolIssue covers install, timeout, signal, and spawn failures", () => {
+  const base = {
+    displayName: "ESLint",
+    type: "lint",
+    installCommand: "npm install -D eslint",
+    timeoutSeconds: 30,
+  };
+  assert.match(
+    unavailableToolIssue({
+      ...base,
+      result: {},
+      outcome: "missing-tool",
+    }).detail,
+    /npm install -D eslint/,
+  );
+
+  for (const [cleanup, expected] of [
+    ["direct-child", /descendant cleanup was unavailable/],
+    ["process-group", /process-tree cleanup completed/],
+    [undefined, /^No result within 30s$/],
+  ]) {
+    const issue = unavailableToolIssue({
+      ...base,
+      result: { cleanup },
+      outcome: "timeout",
+    });
+    assert.equal(issue.message, "ESLint timed out");
+    assert.match(issue.detail, expected);
+  }
+
+  assert.match(
+    unavailableToolIssue({
+      ...base,
+      result: { signal: "SIGKILL" },
+      outcome: "signal",
+    }).detail,
+    /SIGKILL/,
+  );
+  assert.match(
+    unavailableToolIssue({
+      ...base,
+      result: { signal: null },
+      outcome: "signal",
+    }).detail,
+    /unknown signal/,
+  );
+  assert.match(
+    unavailableToolIssue({
+      ...base,
+      result: {},
+      outcome: "spawn-error",
+    }).detail,
+    /Check ESLint install/,
+  );
+});
+
+test("stagedTestInterruption describes every cleanup and signal state", () => {
+  for (const [cleanup, expected] of [
+    ["direct-child", /descendant cleanup was unavailable/],
+    ["process-group", /process-tree cleanup completed/],
+    [undefined, /^No result within 12s$/],
+  ]) {
+    const finding = stagedTestInterruption({ cleanup }, "timeout", 12);
+    assert.equal(finding.message, "Staged tests timed out");
+    assert.match(finding.detail, expected);
+  }
+  assert.match(
+    stagedTestInterruption({ signal: "SIGINT" }, "signal", 12).detail,
+    /SIGINT/,
+  );
+  assert.match(
+    stagedTestInterruption({ signal: null }, "signal", 12).detail,
+    /unknown signal/,
+  );
+  assert.match(
+    stagedTestInterruption({}, "spawn-error", 12).detail,
+    /Check testCommand/,
+  );
+});
+
+test("prepushTestInterruption preserves policy and process detail", () => {
+  for (const [cleanup, expected] of [
+    ["direct-child", /descendant cleanup was unavailable/],
+    ["process-group", /process-tree cleanup completed/],
+    [undefined, /timed out after 9s\.$/],
+  ]) {
+    const model = prepushTestInterruption({ cleanup }, "timeout", 9, true);
+    assert.equal(model.issue.message, "Could not run pre-push tests");
+    assert.match(model.reasonText, expected);
+  }
+
+  assert.match(
+    prepushTestInterruption({ signal: "SIGTERM" }, "signal", 9, false)
+      .reasonText,
+    /SIGTERM/,
+  );
+  assert.match(
+    prepushTestInterruption({ signal: null }, "signal", 9, false).reasonText,
+    /unknown signal/,
+  );
+  const unavailable = prepushTestInterruption({}, "spawn-error", 9, false);
+  assert.equal(
+    unavailable.issue.message,
+    "Could not run pre-push tests (advisory)",
+  );
+  assert.match(unavailable.reasonText, /Check testCommand/);
 });
 
 test("secondary push warnings preserve a blocking outcome", () => {
@@ -228,6 +375,7 @@ test("push warning composition leaves an outcome unchanged when none exist", () 
   };
 
   assert.equal(appendPushWarnings(primary, []), primary);
+  assert.equal(appendPushWarnings(primary, "warning"), primary);
 });
 
 test("secondary push warnings promote a non-error outcome to warning", () => {
@@ -238,4 +386,14 @@ test("secondary push warnings promote a non-error outcome to warning", () => {
 
   assert.equal(model.severity, "warning");
   assert.match(model.lines.join("\n"), /protected branch "main"/);
+});
+
+test("secondary push warnings pluralize their heading", () => {
+  const model = appendPushWarnings({ severity: "info", lines: ["No tests"] }, [
+    "First warning",
+    "Second warning",
+  ]);
+
+  assert.equal(model.severity, "warning");
+  assert.match(model.lines.join("\n"), /Additional warnings:/);
 });
