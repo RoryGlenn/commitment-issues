@@ -72,16 +72,16 @@ transpilation step.
 
 ## Project layout
 
-| Path                 | Purpose                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `scripts/`           | Published CLI commands and Git-hook entry points                                     |
-| `scripts/lib/`       | Shared runtime modules                                                               |
-| `test/`              | Top-level `node:test` suites and test helpers                                        |
-| `test/integration/`  | Package lifecycle integration tests                                                  |
-| `tools/`             | Repository-only maintenance and documentation tools; not included in the npm package |
-| `docs/`              | User, contributor, architecture, and policy documentation                            |
-| `assets/`            | README and message-state visual assets                                               |
-| `.github/workflows/` | CI, security, release, and maintenance workflows                                     |
+| Path                 | Purpose                                                   |
+| -------------------- | --------------------------------------------------------- |
+| `scripts/`           | Published CLI commands and Git-hook entry points          |
+| `scripts/lib/`       | Shared runtime modules                                    |
+| `test/`              | Top-level `node:test` suites and test helpers             |
+| `test/integration/`  | Package lifecycle integration tests                       |
+| `tools/`             | Repository maintenance and documentation utilities        |
+| `docs/`              | User, contributor, architecture, and policy documentation |
+| `assets/`            | README and message-state visual assets                    |
+| `.github/workflows/` | CI, security, release, and maintenance workflows          |
 
 Entry scripts are tested through subprocesses in disposable Git repositories.
 Reusable setup helpers live in
@@ -136,7 +136,6 @@ Also run the checks that match your change:
 | Change                                                             | Additional validation                                        |
 | ------------------------------------------------------------------ | ------------------------------------------------------------ |
 | Published runtime code in `scripts/`                               | `npm run test:coverage`                                      |
-| Terminal wording, severity, layout, or message states              | `npm run states` and `npm run test:coverage`                 |
 | Install, init, doctor, hook wiring, uninstall, or package behavior | `npm run test:lifecycle:npm`                                 |
 | Package contents or release tooling                                | `npm run test:lifecycle:npm` and the relevant release checks |
 
@@ -153,51 +152,6 @@ node --test test/<name>.test.mjs
 CI tests Ubuntu, macOS, and Windows on Node.js 22.11.0 and 24. It also exercises
 npm, pnpm, Yarn, and Bun package lifecycles. Keep changes cross-platform even if
 you develop on only one operating system.
-
-## Changing terminal messages or visual states
-
-The live scenario runner and the static SVG gallery serve different purposes.
-Both may need updates when user-facing terminal output changes.
-
-### Preview live behavior
-
-`tools/show-message-states.mjs` drives the real commands in fresh throwaway Git
-repositories. It is a maintainer tool and is not shipped in the npm package.
-
-```bash
-npm run states                 # run all representative live scenarios
-npm run states -- secrets      # run scenarios whose names contain "secrets"
-npm run states -- --list       # list available scenario names
-```
-
-Add a representative live scenario to `SCENARIOS` in
-`tools/show-message-states.mjs`. Keep the fixture minimal and use the real entry
-script. One CLI invocation may render at most one human presentation (normally
-one box); the runner fails when a scenario renders more than one box or returns
-an unexpected exit status.
-
-### Update the static gallery
-
-The complete gallery in [Message states](../docs/message-states.md) uses
-hand-specified SVG mockups generated from `tools/gen-message-state-svgs.mjs`.
-It does not capture the live scenario runner's output.
-
-To add or change a gallery state:
-
-1. Add or update its `boxSvg()` or `bareSvg()` entry in
-   `tools/gen-message-state-svgs.mjs`.
-2. Regenerate the defined assets:
-
-   ```bash
-   node tools/gen-message-state-svgs.mjs
-   ```
-
-3. Add or update the matching entry in
-   [`docs/message-states.md`](../docs/message-states.md).
-4. Run `npm run states`, `npm test`, and `npm run test:coverage`.
-
-The metadata tests verify that referenced SVGs exist, are packaged when
-required, and that every user-facing terminal box title appears in the gallery.
 
 ## Coding style
 
