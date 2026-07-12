@@ -92,27 +92,41 @@ jobs:
     permissions:
       actions: read # detect the workflow path for provenance
       id-token: write # sign the provenance
-      contents: write # upload provenance to the tagged release
+      contents: read
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.publish.outputs.hashes }}
-      upload-assets: true
-      upload-tag-name: ${{ github.ref_name }}
+      # Keep the signed provenance as a workflow artifact. The final job must
+      # upload every release asset before an immutable release is published.
+      upload-assets: false
 
-  attach-tarball:
+  publish-release:
     needs: [publish, provenance]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # attach the tarball to the release the generator created
+      contents: write # create the release and attach both immutable assets
     steps:
       - name: Download tarball artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: npm-tarball
+          path: release-assets
 
-      - name: Attach tarball to release
+      - name: Download provenance artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: release-assets
+
+      - name: Publish immutable release with all assets
+        # v3 stages a standard release as a draft, uploads every file, and
+        # publishes only after the uploads succeed. Published releases are
+        # immutable in this repository, so no later job can add an asset.
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: ${{ github.ref_name }}
-          files: "*.tgz"
+          draft: false
+          files: |
+            release-assets/*.tgz
+            release-assets/*.intoto.jsonl
           fail_on_unmatched_files: true

@@ -83,8 +83,11 @@ Replace `<version>` with the release being verified.
 
 Every tagged release publishes the exact npm tarball and a matching signed
 `.intoto.jsonl` SLSA provenance asset on the GitHub Release. The tarball is
-packed once, hashed for SLSA, published directly to npm, and then attached to
-the release; the workflow never repacks between those steps.
+packed once, hashed for SLSA, and published directly to npm. The provenance
+generator keeps its signed output as a workflow artifact; one final action then
+creates a draft release, uploads both files, and publishes it. Published
+releases are immutable, so the workflow never tries to attach a later asset or
+repacks between those steps.
 
 Download both assets from the release page and compare the tarball SHA-256 with
 the provenance subject digest. The same tarball is available from npm with:

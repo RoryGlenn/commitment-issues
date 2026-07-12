@@ -22,11 +22,17 @@ function availableGit(args) {
   return { status: 0, stdout: "", stderr: "" };
 }
 
-test("publish workflow gates and publishes the packed provenance subject", () => {
+test("publish workflow gates and publishes one immutable release", () => {
   const workflow = readText(".github/workflows/publish.yml");
   const lifecycleGate = workflow.indexOf("run: npm run test:lifecycle:npm");
   const packStep = workflow.indexOf("- name: Pack tarball");
   const publishStep = workflow.indexOf("- name: Publish to npm");
+  const provenanceDownload = workflow.indexOf(
+    "- name: Download provenance artifact",
+  );
+  const releaseStep = workflow.indexOf(
+    "- name: Publish immutable release with all assets",
+  );
 
   assert.notEqual(lifecycleGate, -1);
   assert.notEqual(packStep, -1);
@@ -45,10 +51,26 @@ test("publish workflow gates and publishes the packed provenance subject", () =>
     /sha256sum "\$\{\{ steps\.pack\.outputs\.tarball \}\}"/,
   );
   assert.match(workflow, /path:\s+\$\{\{ steps\.pack\.outputs\.tarball \}\}/);
-  assert.match(workflow, /upload-assets:\s+true/);
-  assert.match(workflow, /upload-tag-name:\s+\$\{\{ github\.ref_name \}\}/);
+  assert.match(workflow, /upload-assets:\s+false/);
+  assert.doesNotMatch(workflow, /upload-assets:\s+true/);
+  assert.doesNotMatch(workflow, /upload-tag-name:/);
   assert.match(workflow, /needs:\s+\[publish, provenance\]/);
-  assert.match(workflow, /files:\s+"\*\.tgz"/);
+  assert.match(
+    workflow,
+    /name:\s+\$\{\{ needs\.provenance\.outputs\.provenance-name \}\}/,
+  );
+  assert.match(workflow, /draft:\s+false/);
+  assert.match(workflow, /release-assets\/\*\.tgz/);
+  assert.match(workflow, /release-assets\/\*\.intoto\.jsonl/);
+  assert.equal(
+    workflow.match(/softprops\/action-gh-release/g)?.length,
+    1,
+    "one action must upload every asset before the release is finalized",
+  );
+  assert.ok(
+    publishStep < provenanceDownload && provenanceDownload < releaseStep,
+    "npm publish and provenance generation must finish before one release action uploads both assets",
+  );
 });
 
 test("manual exact-tarball publishing runs gates before packing", () => {

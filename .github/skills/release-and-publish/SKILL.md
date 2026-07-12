@@ -26,7 +26,7 @@ Automated publishing uses **npm Trusted Publishing** (OIDC), so CI publishes wit
 
 - On npmjs.com → package `commitment-issues` → **Settings → Trusted Publishing** → add a GitHub Actions publisher: user `RoryGlenn`, repository `commitment-issues`, workflow `publish.yml` (leave environment blank unless one is added).
 
-The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for it: it triggers on `v*` tags, sets `permissions: id-token: write`, verifies the bundled npm supports trusted publishing, checks the tag matches `package.json`, runs the full suite and explicit npm lifecycle smoke, then packs the release artifact once and publishes that exact tarball (npm provenance is generated automatically). It also attaches the tarball and SLSA provenance to the GitHub Release. Until the trusted publisher is registered, use the **manual fallback** below.
+The workflow ([`publish.yml`](../../workflows/publish.yml)) is already wired for it: it triggers on `v*` tags, sets `permissions: id-token: write`, verifies the bundled npm supports trusted publishing, checks the tag matches `package.json`, runs the full suite and explicit npm lifecycle smoke, then packs the release artifact once and publishes that exact tarball (npm provenance is generated automatically). The SLSA generator retains its signed output as a workflow artifact, and one final release action stages both the tarball and provenance before publishing the immutable GitHub Release. Until the trusted publisher is registered, use the **manual fallback** below.
 
 ## Release flow (in order)
 
@@ -111,6 +111,11 @@ steps 1–4 above, then:
   new patch version, rerun the preflight, and push the new tag. A local or
   remote tag may be deleted only if no workflow has consumed it and no GitHub
   Release or npm version exists.
+- **Immutable release assets must be uploaded together before publication.**
+  Keep the SLSA generator's `upload-assets` input disabled, download its signed
+  provenance artifact beside the packed tarball, and let one Node 24 release
+  action upload both files before it finalizes the draft. A later job cannot
+  add or replace assets on the published release.
 - **Publishing a tarball does not run this root package's `prepublishOnly`.** The automated and manual exact-tarball flows explicitly run `npm test` and `npm run test:lifecycle:npm` before packing. Keep both gates; `prepublishOnly` remains defense in depth for a direct root-directory publish.
 - **`prepublishOnly` failing** blocks a direct root-directory publish by design — it runs the full test suite and the packaging smoke. Fix the failure; do not bypass it.
 - **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. Promotional raster/video media stays in the source repository and is referenced by GitHub-hosted URLs. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
