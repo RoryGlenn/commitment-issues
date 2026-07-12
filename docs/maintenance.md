@@ -31,6 +31,27 @@ npm audit --audit-level=high
 
 The audit step is report-first and non-blocking. If it reports a high-severity advisory, review whether the vulnerable package is reachable in normal use, whether it affects production dependencies or development tooling only, and whether an upgrade is available.
 
+## Demo asset verification
+
+The `Render demo` workflow regenerates `assets/demo.gif` and uploads the
+unmodified result before running either gate, so a failed render remains
+available for human inspection.
+
+The metadata gate independently requires matching dimensions and permits at
+most two frames or 0.10 seconds of timing drift. The visual gate keeps its
+`0.997` SSIM minimum, but compares normalized in-memory copies. It masks only
+the formatter duration, amended commit abbreviation, test-case duration, and
+test-suite duration during the scenes where those values appear. It also tests
+global alignments within two frames, matching the metadata gate's existing
+drift bound.
+
+The visual gate is intended to reject changed messages, layout or color shifts,
+clipping, and missing scenes. It deliberately does not compare the pixels inside
+the four documented volatile rectangles, and it does not replace inspection of
+the uploaded GIF when the demo changes intentionally. Update the committed GIF
+only after reviewing that artifact; do not lower the threshold to make an
+unexplained mismatch pass.
+
 ## Stale branch report
 
 The health workflow prints branches that have not changed in the last 90 days.

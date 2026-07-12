@@ -52,6 +52,16 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **DOC-006** — every allowlisted `precommitChecks` key appears in the user configuration reference, external interface, and maintainer authoring skill. Unit: `test/metadata.test.mjs`.
 - **DOC-007** — the aggregate CI gate includes DCO and every prospective-enforcement surface names the same immutable baseline. Unit: `test/metadata.test.mjs`.
 
+### Promotional demo
+
+- **DEMO-001** — the render workflow preserves the generated artifact and
+  independently enforces dimensions, frame-count drift, duration drift, and
+  normalized visual similarity. Unit: `test/visual-assets.test.mjs`.
+- **DEMO-002** — visual comparison masks only the four documented volatile
+  values, searches only the metadata-bounded frame offsets, accepts those
+  differences, and rejects synthetic missing-scene, color, layout, and clipping
+  regressions. Unit/integration: `test/demo-visual-comparison.test.mjs`.
+
 ### Config
 
 - **CFG-001** — valid `precommitChecks` loads. Unit: `test/config.test.mjs`.

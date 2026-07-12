@@ -9,6 +9,8 @@ on:
       - "package.json"
       - "package-lock.json"
       - "scripts/**"
+      - "test/demo-visual-comparison.test.mjs"
+      - "tools/compare-demo-gifs.mjs"
   workflow_dispatch:
 
 permissions:
@@ -60,6 +62,9 @@ jobs:
           echo "$TTYD_SHA256  $RUNNER_TEMP/render-bin/ttyd" | sha256sum --check
           chmod +x "$RUNNER_TEMP/render-bin/vhs" "$RUNNER_TEMP/render-bin/ttyd"
           echo "$RUNNER_TEMP/render-bin" >> "$GITHUB_PATH"
+
+      - name: Verify demo comparison policy
+        run: node --test test/demo-visual-comparison.test.mjs
 
       - name: Preserve the committed demo for visual comparison
         run: cp assets/demo.gif "$RUNNER_TEMP/committed-demo.gif"
@@ -180,33 +185,11 @@ jobs:
 
       - name: Verify rendered demo matches committed visuals
         env:
-          # A one-frame VHS timing shift can move the aggregate score by about
-          # 0.001 while the strict metadata gate above still bounds the render.
+          # Keep the visual threshold strict while allowing only the same
+          # two-frame drift bounded independently by the metadata gate above.
           MINIMUM_SSIM: "0.997"
-        run: |
-          set -euo pipefail
-          comparison="$(
-            ffmpeg -hide_banner \
-              -i "$RUNNER_TEMP/committed-demo.gif" \
-              -i assets/demo.gif \
-              -lavfi ssim \
-              -f null - 2>&1
-          )"
-          score="$(
-            printf '%s\n' "$comparison" |
-              sed -n 's/.* All:\([0-9.]*\) .*/\1/p' |
-              tail -1
-          )"
-          SCORE="$score" node -e '
-            const score = Number(process.env.SCORE);
-            const minimum = Number(process.env.MINIMUM_SSIM);
-            if (!Number.isFinite(score) || score < minimum) {
-              console.error(
-                `Rendered demo visual similarity ${score || "unavailable"} is below ${minimum}.`,
-              );
-              process.exit(1);
-            }
-            console.log(
-              `Rendered demo visual similarity ${score.toFixed(6)} meets ${minimum}.`,
-            );
-          '
+          MAX_TEMPORAL_SHIFT_FRAMES: "2"
+        run: >-
+          node tools/compare-demo-gifs.mjs
+          "$RUNNER_TEMP/committed-demo.gif"
+          assets/demo.gif
