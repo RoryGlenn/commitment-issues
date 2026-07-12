@@ -66,14 +66,15 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 
 - **CFG-001** — valid `precommitChecks` loads. Unit: `test/config.test.mjs`.
 - **CFG-002** — missing `package.json` degrades to `{}`. Unit: `test/config.test.mjs`.
-- **CFG-003** — invalid JSON degrades to `{}`. Unit: `test/config.test.mjs`.
+- **CFG-003** — invalid package JSON degrades to `{}` with an explicit source warning. Unit: `test/config.test.mjs`.
 - **CFG-004** — missing `precommitChecks` degrades to `{}`. Unit: `test/config.test.mjs`.
-- **CFG-005** — malformed `precommitChecks` containers are ignored. Fuzz unit: `test/config.test.mjs`.
+- **CFG-005** — malformed `precommitChecks` containers are ignored with an explicit source warning. Fuzz unit: `test/config.test.mjs`.
 - **CFG-006** — malformed option values inside an object are tolerated. Fuzz unit: `test/config.test.mjs`.
 - **CFG-007** — `.commitmentrc.json` loads direct top-level options without executing code. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`.
 - **CFG-008** — standalone keys shallowly override matching package keys while preserving unmatched package options; invalid higher-priority values do not revive lower-priority values. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
 - **CFG-009** — malformed JSON and non-object standalone roots warn at hook time and fall back to package configuration. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
 - **CFG-010** — nested `commitMessage` keys are allowlisted, sanitized, typo-diagnosed, and disabled unless `enabled: true`. Unit: `test/config.test.mjs`.
+- **CFG-011** — valid standalone values remain active when the package source is malformed; hooks surface the package failure instead of changing policy silently. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`.
 
 ### CLI command matrix
 
@@ -128,6 +129,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
   invalid standalone precedence, dry-run, idempotence, and a packed mixed-source
   lifecycle are covered. Fixture: `test/init.test.mjs`; CI lifecycle integration:
   `scripts/ci-lifecycle-smoke.mjs`.
+- **INIT-025** — bare repositories never receive or report active local commit/push hooks. Fixture: `test/init.test.mjs`.
+- **INIT-026** — failed `core.hooksPath` and common-directory probes withhold hook-health claims and do not write potentially shadowed hooks. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`.
+- **INIT-027** — uninspectable and unwritable hook paths are preserved and reported without raw exceptions or false success. Fixture: `test/init.test.mjs`.
+- **INIT-028** — relative native/common hook paths and tilde-based configured paths are resolved through the correct Git/cwd semantics. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 
 ## Uninstall
 
@@ -145,6 +150,8 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **UNINST-012** — standalone configuration is included in dry-run and removed during uninstall. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-013** — malformed standalone configuration stops uninstall before partial cleanup. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-014** — uninstall previews/removes an exact owned commit-msg hook and preserves customized variants for manual cleanup. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-015** — a failed `core.hooksPath` probe leaves all hook files untouched while package cleanup remains available. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-016** — tilde-based active hook directories are resolved through Git and exact owned hooks are removed from the effective path. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -214,6 +221,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **HOOK-013** — comments, echo/printf output, assignments, and quoted examples do not count as hook wiring; executable custom invocations and exact generated hooks remain healthy for all hook names. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`.
 - **HOOK-014** — non-executable custom hooks are reported with shell-safe `chmod +x` guidance on POSIX and are never modified by init or doctor. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`.
 - **HOOK-015** — doctor creates and fresh-clone repairs configured commit-msg wiring, preserves custom bodies, requires quoted `$1`, and warns without failing when the local CLI is absent. Fixture: `test/doctor.test.mjs`.
+- **HOOK-016** — bare repositories are rejected for local hook health; quiet install-time repair remains silent and exit-zero. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **HOOK-017** — failed `core.hooksPath` probes fail safely instead of being mistaken for an unset value. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **HOOK-018** — directory, unreadable, and otherwise uninspectable hook paths are preserved and reported without raw exceptions. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **HOOK-019** — configured hook paths use Git's effective path resolution, including tilde expansion. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`, `test/uninstall.test.mjs`.
 
 ### Pre-push modes
 

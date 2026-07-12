@@ -195,6 +195,10 @@ Already using another tool? Follow the step-by-step [migration guide](docs/migra
 
 ## Adopt it with a team
 
+Run setup from the root of a non-bare Git working tree. Bare repositories do
+not run local `pre-commit`, `commit-msg`, or `pre-push` workflows, so `init` and
+`doctor` never report those hooks as active there.
+
 1. Run `npx commitment-issues init --dry-run` and review the proposed ownership.
 2. Run `npx commitment-issues init` and inspect the resulting `package.json`, optional `.commitmentrc.json`, and `.gitignore` diff.
 3. Commit the configuration files, your lockfile, and any accepted `.gitignore` additions. The `.git/hooks` files are intentionally local and are not committed.

@@ -8,10 +8,11 @@ import { errorBox, infoBox, printBox, warningBox } from "./lib/ui.mjs";
 import {
   BIN,
   classifyHook,
+  gitWorkTreeState,
   gitHooksDir,
   hookInvocation,
   hookNamesForConfig,
-  hooksPathConfig,
+  hooksPathConfigState,
   isHuskyHooksPath,
   leftoverHuskyHooks,
   legacyHuskyWiringPaths,
@@ -199,10 +200,13 @@ if (!dryRun) {
 
 // --- Hook wiring (native .git/hooks) ---
 
-const insideRepo = run("git", ["rev-parse", "--is-inside-work-tree"]);
-const isGitRepo = !insideRepo.error && insideRepo.status === 0;
-
-const configuredHooksPath = isGitRepo ? hooksPathConfig() : "";
+const gitState = gitWorkTreeState();
+const isGitRepo = gitState.inside;
+const hooksPathState = isGitRepo
+  ? hooksPathConfigState()
+  : { value: "", error: null };
+const configuredHooksPath = hooksPathState.value;
+const hooksPathInspectionFailed = hooksPathState.error !== null;
 const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
 const foreignHooksPath = configuredHooksPath && !huskyEraHooksPath;
 let hooksActive = false;
@@ -210,7 +214,7 @@ let hooksActive = false;
 // Pre-3.0 setups pointed core.hooksPath at husky's shim dir; while that is
 // set, git ignores `.git/hooks` entirely. Unset it (it is our own wiring, not
 // the user's) so the native hooks below actually run.
-let hooksPathRetired = !huskyEraHooksPath;
+let hooksPathRetired = !hooksPathInspectionFailed && !huskyEraHooksPath;
 if (huskyEraHooksPath) {
   if (!dryRun) {
     const unset = run("git", ["config", "--unset", "core.hooksPath"]);
@@ -243,36 +247,71 @@ if (foreignHooksPath) {
   );
 }
 
-if (!isGitRepo) {
+if (hooksPathInspectionFailed) {
   warnings.push(
-    "This directory is not a git repository, so no hooks were installed.",
-    `Run \`git init\`, then \`${BIN} doctor\` to wire up the hooks.`,
+    "Git could not determine core.hooksPath, so no hooks were written.",
+    "Fix the Git configuration error, then run:",
+    `  ${BIN} doctor`,
   );
 }
 
-if (isGitRepo && !foreignHooksPath) {
+if (!isGitRepo) {
+  if (gitState.bare) {
+    warnings.push(
+      "This is a bare Git repository, so local commit and push hooks were not installed.",
+      `Run \`${BIN} init\` from a non-bare working tree instead.`,
+    );
+  } else {
+    warnings.push(
+      "This directory is not a git repository, so no hooks were installed.",
+      `Run \`git init\`, then \`${BIN} doctor\` to wire up the hooks.`,
+    );
+  }
+}
+
+if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
   const nonExecutableHooks = [];
-  for (const name of hookNames) {
-    const status = classifyHook(hooksDir, name);
-    // Create missing hooks and refresh exact older generated bodies. A hook the
-    // user wrote is left exactly as-is. A custom hook that invokes
-    // commitment-issues is healthy, while one that does not is reported below
-    // with the exact command the user needs to add.
-    if (status === "missing" || status === "stale-wired") {
-      if (!dryRun) {
-        writeHook(hooksDir, name);
+  const uninspectableHooks = [];
+  const failedHooks = [];
+
+  if (!hooksDir) {
+    warnings.push(
+      "Git could not locate the git hooks directory, so no hooks were written.",
+      `Fix the Git repository error, then run \`${BIN} doctor\`.`,
+    );
+  } else {
+    for (const name of hookNames) {
+      const status = classifyHook(hooksDir, name);
+      // Create missing hooks and refresh exact older generated bodies. A hook
+      // the user wrote is left exactly as-is. A custom hook that invokes
+      // commitment-issues is healthy, while one that does not is reported
+      // below with the exact command the user needs to add.
+      if (status === "missing" || status === "stale-wired") {
+        let written = true;
+        if (!dryRun) {
+          try {
+            writeHook(hooksDir, name);
+          } catch {
+            written = false;
+            failedHooks.push(name);
+          }
+        }
+        if (written) {
+          created.push(
+            status === "stale-wired"
+              ? `updated .git/hooks/${name}`
+              : `.git/hooks/${name}`,
+          );
+        }
+      } else if (status === "custom-without-command") {
+        unwiredHooks.push(name);
+      } else if (status === "non-executable") {
+        nonExecutableHooks.push(name);
+      } else if (status === "uninspectable") {
+        uninspectableHooks.push(name);
       }
-      created.push(
-        status === "stale-wired"
-          ? `updated .git/hooks/${name}`
-          : `.git/hooks/${name}`,
-      );
-    } else if (status === "custom-without-command") {
-      unwiredHooks.push(name);
-    } else if (status === "non-executable") {
-      nonExecutableHooks.push(name);
     }
   }
 
@@ -294,21 +333,40 @@ if (isGitRepo && !foreignHooksPath) {
     );
   }
 
+  if (uninspectableHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks could not be inspected and were left unchanged.",
+      "Replace each path with a readable hook file, then run doctor:",
+      ...uninspectableHooks.map((name) => `  .git/hooks/${name}`),
+    );
+  }
+
+  if (failedHooks.length > 0) {
+    warnings.push(
+      "Some git hook files could not be written.",
+      "Check permissions on the hooks directory, then run doctor:",
+      ...failedHooks.map((name) => `  .git/hooks/${name}`),
+    );
+  }
+
   // Missing hooks are written above (or would be written by a dry run), and
   // wired/custom-with-command hooks are already active. Native hooks remain
   // inactive when a custom hook omits the command, lacks an executable bit on
   // POSIX, or a husky hooksPath could not be retired and shadows .git/hooks.
   hooksActive =
+    hooksDir !== null &&
     hooksPathRetired &&
     unwiredHooks.length === 0 &&
-    nonExecutableHooks.length === 0;
+    nonExecutableHooks.length === 0 &&
+    uninspectableHooks.length === 0 &&
+    failedHooks.length === 0;
 
   // Clean up the husky-era artifacts this tool generated (exact-match hook
   // files and husky's runtime dir). User-authored `.husky` hooks are never
   // deleted — they are reported below so the logic can be moved. Skipped
   // while core.hooksPath still points into `.husky` (failed unset above):
   // deleting the files git currently runs would kill working hooks.
-  if (hooksPathRetired) {
+  if (hooksDir && hooksPathRetired) {
     const legacyWiring = dryRun
       ? legacyHuskyWiringPaths()
       : removeLegacyHuskyWiring();

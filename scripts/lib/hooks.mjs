@@ -102,6 +102,57 @@ const STALE_GENERATED_HOOK_BODIES = {
 };
 
 /**
+ * Resolve whether a directory is a non-bare Git working tree. Git exits zero
+ * and prints `false` for a bare repository, so status alone is not sufficient:
+ * local pre-commit/pre-push hooks can never run there.
+ * @param {string} [cwd] - Directory to inspect.
+ * @param {NodeJS.ProcessEnv} [env] - Process environment for the Git probe.
+ * @returns {{inside: boolean, bare: boolean}} Working-tree state.
+ */
+export function gitWorkTreeState(cwd = process.cwd(), env = process.env) {
+  const result = run("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd,
+    env,
+  });
+  const value = (result.stdout || "").trim();
+  const answered = !result.error && result.status === 0;
+  return {
+    inside: answered && value === "true",
+    bare: answered && value === "false",
+  };
+}
+
+/**
+ * Read core.hooksPath without conflating an absent key with a failed Git
+ * command. `git config --get` uses status 1 for a missing value; every other
+ * nonzero outcome means the effective hook location is unknown and callers
+ * must not claim native hooks are active.
+ * @param {string} [cwd] - Repo directory to read config from.
+ * @param {NodeJS.ProcessEnv} [env] - Process environment for the Git probe.
+ * @returns {{value: string, error: string|null}} Hook-path probe state.
+ */
+export function hooksPathConfigState(cwd = process.cwd(), env = process.env) {
+  const result = run("git", ["config", "--get", "core.hooksPath"], {
+    cwd,
+    env,
+  });
+  if (!result.error && result.status === 0) {
+    return { value: (result.stdout || "").trim(), error: null };
+  }
+  if (!result.error && result.status === 1) {
+    return { value: "", error: null };
+  }
+  const detail =
+    (result.stderr || "").trim() ||
+    result.error?.message ||
+    `git config exited with status ${result.status}`;
+  return {
+    value: "",
+    error: `Could not determine core.hooksPath: ${detail}`,
+  };
+}
+
+/**
  * The configured core.hooksPath value, or "" when unset. When this is set, git
  * ignores .git/hooks entirely, so wiring must account for it.
  * @param {string} [cwd] - Repo directory to read config from.
@@ -109,14 +160,7 @@ const STALE_GENERATED_HOOK_BODIES = {
  * @returns {string} Configured value, trimmed, or "".
  */
 export function hooksPathConfig(cwd = process.cwd(), env = process.env) {
-  const result = run("git", ["config", "--get", "core.hooksPath"], {
-    cwd,
-    env,
-  });
-  if (result.error || result.status !== 0) {
-    return "";
-  }
-  return (result.stdout || "").trim();
+  return hooksPathConfigState(cwd, env).value;
 }
 
 /**
@@ -151,7 +195,27 @@ export function gitHooksDir(cwd = process.cwd(), env = process.env) {
   if (!commonDir) {
     return null;
   }
-  return path.join(commonDir, "hooks");
+  return path.resolve(cwd, commonDir, "hooks");
+}
+
+/**
+ * Ask Git for the hook directory it will actually use after applying
+ * core.hooksPath. Unlike resolving the raw config value in Node, this honors
+ * Git's tilde expansion and other path semantics.
+ * @param {string} [cwd] - Repo directory to resolve from.
+ * @param {NodeJS.ProcessEnv} [env] - Process environment for the Git probe.
+ * @returns {string|null} Absolute effective hooks directory, or null on error.
+ */
+export function effectiveHooksDir(cwd = process.cwd(), env = process.env) {
+  const result = run("git", ["rev-parse", "--git-path", "hooks"], {
+    cwd,
+    env,
+  });
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+  const hooksDir = (result.stdout || "").trim();
+  return hooksDir ? path.resolve(cwd, hooksDir) : null;
 }
 
 /**
@@ -162,6 +226,8 @@ export function gitHooksDir(cwd = process.cwd(), env = process.env) {
  *   custom-with-command    → user's own hook that still calls us; healthy
  *   non-executable         → hook contents may be wired, but Git will not run
  *                            the file on POSIX
+ *   uninspectable          → the path exists but cannot be safely read as a
+ *                            regular hook file
  *   custom-without-command → user's own hook that never calls us; a problem to
  *                            report but never overwrite.
  * @param {string} hooksDir - Directory containing the hook files.
@@ -169,7 +235,7 @@ export function gitHooksDir(cwd = process.cwd(), env = process.env) {
  * @param {{requireExecutable?: boolean}} [options] - Whether POSIX mode bits
  *   participate in health classification. Ownership-only callers can disable
  *   this while comparing generated/custom hook contents.
- * @returns {"missing"|"wired"|"stale-wired"|"custom-with-command"|"non-executable"|"custom-without-command"} Classification.
+ * @returns {"missing"|"wired"|"stale-wired"|"custom-with-command"|"non-executable"|"uninspectable"|"custom-without-command"} Classification.
  */
 export function classifyHook(
   hooksDir,
@@ -181,18 +247,28 @@ export function classifyHook(
     return "missing";
   }
 
+  let stats;
+  let content;
+  try {
+    stats = fs.statSync(hookPath);
+    if (!stats.isFile()) {
+      return "uninspectable";
+    }
+    content = fs.readFileSync(hookPath, "utf8");
+  } catch {
+    return "uninspectable";
+  }
+
   // Git for Windows executes hooks through its bundled shell without relying
   // on POSIX mode bits. Everywhere else, a present but non-executable file is
   // ignored by Git and must never be reported as active.
   if (
     requireExecutable &&
     process.platform !== "win32" &&
-    (fs.statSync(hookPath).mode & 0o111) === 0
+    (stats.mode & 0o111) === 0
   ) {
     return "non-executable";
   }
-
-  const content = fs.readFileSync(hookPath, "utf8");
   if (content === hookBody(name)) {
     return "wired";
   }

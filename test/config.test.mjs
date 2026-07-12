@@ -14,6 +14,7 @@ import {
   MAX_TIMEOUT_MS,
   loadPrecommitConfig,
   loadPrecommitConfigState,
+  loadRawPrecommitConfig,
   precommitConfigSourceLabel,
   precommitConfigWarningMessages,
   readStandalonePrecommitConfig,
@@ -54,6 +55,7 @@ test("loadPrecommitConfig reads valid precommitChecks from package.json", (t) =>
   withTempPackage(t, { precommitChecks: { runStagedTests: true } });
 
   assert.deepEqual(loadPrecommitConfig(), { runStagedTests: true });
+  assert.deepEqual(loadRawPrecommitConfig(), { runStagedTests: true });
 });
 
 test("loadPrecommitConfig reads top-level keys from .commitmentrc.json", (t) => {
@@ -70,7 +72,11 @@ test("valid standalone config still loads when package.json is malformed", (t) =
   withTempPackage(t, "{ invalid package json");
   writeStandaloneConfig({ requireTests: false });
 
-  assert.deepEqual(loadPrecommitConfig(), { requireTests: false });
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, { requireTests: false });
+  assert.deepEqual(precommitConfigWarningMessages(config), [
+    "Ignoring package.json precommitChecks because package.json contains invalid JSON. Using valid .commitmentrc.json values or defaults instead.",
+  ]);
 });
 
 test("configuration discovery never executes JavaScript files", (t) => {
@@ -352,7 +358,40 @@ test("loadPrecommitConfig returns {} when package.json is missing", (t) => {
 test("loadPrecommitConfig returns {} when package.json is invalid", (t) => {
   withTempPackage(t, "{not-json");
 
-  assert.deepEqual(loadPrecommitConfig(), {});
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, {});
+  assert.deepEqual(precommitConfigWarningMessages(config), [
+    "Ignoring package.json precommitChecks because package.json contains invalid JSON. Using valid .commitmentrc.json values or defaults instead.",
+  ]);
+});
+
+test("loadPrecommitConfig warns when package.json cannot be read", (t) => {
+  withTempPackage(t, { precommitChecks: { runStagedTests: true } });
+
+  const packagePath = path.join(process.cwd(), "package.json");
+  const originalReadFileSync = fs.readFileSync;
+  t.mock.method(fs, "readFileSync", (filePath, ...args) => {
+    if (filePath === packagePath) {
+      throw Object.assign(new Error("permission denied"), { code: "EACCES" });
+    }
+    return originalReadFileSync(filePath, ...args);
+  });
+
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, {});
+  assert.deepEqual(precommitConfigWarningMessages(config), [
+    "Ignoring package.json precommitChecks because package.json could not be read. Using valid .commitmentrc.json values or defaults instead.",
+  ]);
+});
+
+test("loadPrecommitConfig warns when package.json has a non-object root", (t) => {
+  withTempPackage(t, null);
+
+  const config = loadPrecommitConfig();
+  assert.deepEqual(config, {});
+  assert.deepEqual(precommitConfigWarningMessages(config), [
+    "Ignoring package.json precommitChecks because package.json must contain a JSON object at the top level. Using valid .commitmentrc.json values or defaults instead.",
+  ]);
 });
 
 test("loadPrecommitConfig returns {} when precommitChecks is absent", (t) => {
@@ -374,11 +413,11 @@ test("loadPrecommitConfig ignores malformed precommitChecks containers", (t) => 
 
   for (const value of malformedValues) {
     withTempPackage(t, { precommitChecks: value });
-    assert.deepEqual(
-      loadPrecommitConfig(),
-      {},
-      `${JSON.stringify(value)} should be ignored`,
-    );
+    const config = loadPrecommitConfig();
+    assert.deepEqual(config, {}, `${JSON.stringify(value)} should be ignored`);
+    assert.deepEqual(precommitConfigWarningMessages(config), [
+      "Ignoring package.json precommitChecks because package.json precommitChecks must be a JSON object. Using valid .commitmentrc.json values or defaults instead.",
+    ]);
   }
 });
 

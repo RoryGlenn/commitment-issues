@@ -741,6 +741,91 @@ test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
 });
 
+test("init withholds hook claims when core.hooksPath cannot be inspected", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  const env = fakeGitEnv(tempDir, "config --get core.hooksPath", 128);
+  const result = runInit(tempDir, [], { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not determine core\.hooksPath/i);
+  assertHookClaimsWithheld(output);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
+test("init reports an unresolved common hooks directory without crashing", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  const env = fakeGitEnv(tempDir, "rev-parse --git-common-dir", 128);
+  const result = runInit(tempDir, [], { env });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not locate the git hooks directory/i);
+  assertHookClaimsWithheld(output);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
+test("init preserves an uninspectable hook path and reports manual repair", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  fs.mkdirSync(gitHook(tempDir, "pre-commit"), { recursive: true });
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not be inspected/i);
+  assertHookClaimsWithheld(output);
+  assert.equal(fs.statSync(gitHook(tempDir, "pre-commit")).isDirectory(), true);
+});
+
+test("init reports hook write failures without a raw exception", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  fs.rmSync(path.join(tempDir, ".git", "hooks"), {
+    recursive: true,
+    force: true,
+  });
+  fs.writeFileSync(path.join(tempDir, ".git", "hooks"), "not a directory\n");
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /hook files could not be written/i);
+  assertHookClaimsWithheld(output);
+  assert.doesNotMatch(output, /node:fs|EEXIST|ENOTDIR/);
+});
+
+test("init never claims local commit hooks are active in a bare repository", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "init-bare-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  assert.equal(run("git", ["init", "--bare"], dir).status, 0);
+  writePackage(dir, { name: "x", version: "1.0.0", type: "module" });
+
+  const result = run("node", [path.join(repoRoot, "scripts", "init.mjs")], dir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /bare git repository/i);
+  assertHookClaimsWithheld(output);
+  assert.equal(fs.existsSync(path.join(dir, "hooks", "pre-commit")), false);
+  assert.equal(fs.existsSync(path.join(dir, "hooks", "pre-push")), false);
+});
+
 test("init warns when run outside a git repository", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "init-nongit-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

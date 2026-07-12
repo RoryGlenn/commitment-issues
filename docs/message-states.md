@@ -755,13 +755,17 @@ Shown when `core.hooksPath` points at a directory this tool does not manage (ano
 
 Shown when user-authored hooks are stranded in `.husky/` after the husky-era wiring is retired. Advisory only — the files are never deleted.
 
-### Not a git repository
+### Not a git working tree
 
 <p>
   <img src="../assets/doctor-not-git-repo.svg" alt="Error output showing the current directory is not a git repository" width="500">
 </p>
 
-Shown when interactive `doctor` runs outside a Git worktree. (`doctor --quiet` exits silently instead, so installs never break.) Running without a package.json shows the same [No package.json](#no-packagejson) box as `init`.
+Shown when interactive `doctor` runs outside a Git worktree or inside a bare
+repository. Bare repositories are called out explicitly because local commit
+and push hooks do not run there. (`doctor --quiet` exits silently instead, so
+installs never break.) Running without a package.json shows the same
+[No package.json](#no-packagejson) box as `init`.
 
 ### Repair failed
 
@@ -773,7 +777,7 @@ Shown when interactive `doctor` runs outside a Git worktree. (`doctor --quiet` e
   <img src="../assets/doctor-still-broken.svg" alt="Error output showing the hook wiring still looks broken after repair" width="768">
 </p>
 
-Shown when a repair step fails (for example, the husky-era `core.hooksPath` cannot be unset or a hook file cannot be written) or the wiring still looks broken afterward; interactive mode exits non-zero, `--quiet` warns in one line and still exits 0.
+Shown when a repair step fails (for example, the husky-era `core.hooksPath` cannot be unset or a hook file cannot be written) or the wiring still looks broken afterward; interactive mode exits non-zero, `--quiet` warns in one line and still exits 0. `Could not determine core.hooksPath.` identifies a failed Git configuration probe specifically. `Could not locate the configured git hooks directory.` means Git returned a configured value but could not resolve its effective directory. In both cases, no hook is written or reported healthy while the active hook location is unknown.
 
 ### Quiet mode one-liners
 
