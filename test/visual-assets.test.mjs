@@ -186,6 +186,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /Set TypingSpeed 100ms/);
   assert.match(tape, /NPM_CONFIG_UPDATE_NOTIFIER=false/);
   assert.match(tape, /npx --no-install commitment-issues init/);
+  assert.match(tape, /npm pkg set precommitChecks\.hookOutput=normal/);
   for (const hiddenExecution of [
     'Type "npx --no-install commitment-issues init"\nHide\nEnter',
     "Type \"git commit -q -am 'print hello world'\"\nHide\nEnter",
