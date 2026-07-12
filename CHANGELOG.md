@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- OpenSSF Scorecard now runs only for default-branch-relevant events, including
+  branch-protection changes, instead of uploading repository-level SARIF from
+  every pull request and producing misleading missing-configuration warnings.
 - The representative message-state runner now exits nonzero when setup or a
   scenario produces an unexpected result, while continuing to render later
   scenarios, and removes an inherited `NO_COLOR` before forcing colored child
