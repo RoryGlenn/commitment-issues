@@ -262,6 +262,12 @@ test("unknownPrecommitConfigKeys can diagnose sanitized config", () => {
   assert.deepEqual(unknownPrecommitConfigKeys(sanitized), ["requireTest"]);
 });
 
+test("sanitizePrecommitConfig rejects malformed config containers", () => {
+  for (const value of [undefined, null, false, true, "enabled", 42, []]) {
+    assert.deepEqual(sanitizePrecommitConfig(value), {});
+  }
+});
+
 test("commitMessage config is nested, sanitized, and disabled by default", (t) => {
   withTempPackage(t, {
     precommitChecks: {

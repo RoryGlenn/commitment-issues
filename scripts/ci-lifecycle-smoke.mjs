@@ -24,6 +24,8 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
 
 const DEV_DEPS = ["eslint", "prettier", "@eslint/js", "globals"];
 const EXISTING_PREPARE = "node scripts/existing-prepare.mjs";
+const ROOT_PACKAGE_CONFIG = { tone: "standard" };
+const STANDALONE_CONFIG = { commitMessage: { enabled: true } };
 const WORKSPACE_GLOBS = ["packages/*", "packages/nested/*"];
 const WORKSPACE_PACKAGES = [
   {
@@ -269,12 +271,18 @@ function assertPackageJsonConfigured(repoDir) {
   }
 
   assertSmoke(
-    pkg.precommitChecks?.advisePushTests === true,
-    "package.json should enable advisory pre-push tests by default",
+    JSON.stringify(pkg.precommitChecks) === JSON.stringify(ROOT_PACKAGE_CONFIG),
+    "package.json should preserve package-owned config without copying standalone keys",
+  );
+
+  const standalone = readJson(path.join(repoDir, ".commitmentrc.json"));
+  assertSmoke(
+    standalone.advisePushTests === true,
+    ".commitmentrc.json should enable advisory pre-push tests by default",
   );
   assertSmoke(
-    pkg.precommitChecks?.commitMessage?.enabled === true,
-    "package.json should preserve the opt-in commit-message configuration",
+    standalone.commitMessage?.enabled === true,
+    ".commitmentrc.json should preserve the opt-in commit-message configuration",
   );
 }
 
@@ -340,6 +348,10 @@ function assertGeneratedSetupRemoved(repoDir) {
   assertSmoke(
     !Object.hasOwn(pkg, "precommitChecks"),
     "package.json precommitChecks should be removed",
+  );
+  assertSmoke(
+    !fs.existsSync(path.join(repoDir, ".commitmentrc.json")),
+    ".commitmentrc.json should be removed",
   );
   assertSmoke(
     Object.hasOwn(pkg.devDependencies ?? {}, "commitment-issues"),
@@ -488,7 +500,7 @@ try {
         private: true,
         workspaces: WORKSPACE_GLOBS,
         scripts: { prepare: EXISTING_PREPARE },
-        precommitChecks: { commitMessage: { enabled: true } },
+        precommitChecks: ROOT_PACKAGE_CONFIG,
       },
       null,
       2,
@@ -497,6 +509,10 @@ try {
   writeFile(
     path.join(smokeDir, "scripts", "existing-prepare.mjs"),
     'process.stdout.write("existing prepare ran\\n");\n',
+  );
+  writeFile(
+    path.join(smokeDir, ".commitmentrc.json"),
+    `${JSON.stringify(STANDALONE_CONFIG, null, 2)}\n`,
   );
   writeWorkspaceFixture(smokeDir);
 

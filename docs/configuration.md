@@ -67,6 +67,9 @@ write until the file is fixed or removed.
 `init` keeps its backward-compatible default of creating `precommitChecks` in
 `package.json`. If `.commitmentrc.json` already exists, it instead adds the
 default `advisePushTests` setting there when neither push mode is configured.
+Every setup decision, including whether to wire the optional `commit-msg` hook,
+uses the merged effective configuration and the same standalone precedence as
+the runtime hooks.
 `uninstall --dry-run` previews removal of a valid standalone file, and
 `uninstall` removes it with the rest of the package-specific configuration.
 

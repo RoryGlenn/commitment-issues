@@ -123,6 +123,11 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-021** — an existing standalone file receives the generated advisory-push default without creating a package configuration block; dry-run previews without writing. Fixture: `test/init.test.mjs`.
 - **INIT-022** — malformed standalone configuration stops init before package, hook, or gitignore writes. Fixture: `test/init.test.mjs`.
 - **INIT-023** — commit-msg wiring is opt-in, dry-run aware, executable, idempotent, and never overwrites a custom hook. Fixture: `test/init.test.mjs`, unit: `test/hooks.test.mjs`.
+- **INIT-024** — init derives commit-msg wiring from the merged effective
+  package/standalone configuration; standalone-only enablement, disabled or
+  invalid standalone precedence, dry-run, idempotence, and a packed mixed-source
+  lifecycle are covered. Fixture: `test/init.test.mjs`; CI lifecycle integration:
+  `scripts/ci-lifecycle-smoke.mjs`.
 
 ## Uninstall
 
