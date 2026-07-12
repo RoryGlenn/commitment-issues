@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
-[![Branch coverage: 90.3%](https://img.shields.io/badge/branch%20coverage-90.3%25-brightgreen.svg)](docs/branch-coverage.md)
+[![Branch coverage: 90.7%](https://img.shields.io/badge/branch%20coverage-90.7%25-brightgreen.svg)](docs/branch-coverage.md)
 [![Node >=22.11.0](https://img.shields.io/badge/node-%3E%3D22.11.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -272,6 +272,26 @@ non-executable `.commitmentrc.json` with the same keys at the top level. When
 both exist, standalone keys override matching package keys; unmatched package
 keys remain active. See the [configuration reference](docs/configuration.md#configuration-files-and-precedence)
 for validation and fallback behavior.
+
+### Quiet hooks by default
+
+Routine `precommit`, `prepush`, and `commit-msg` runs use
+`hookOutput: "problems-only"` by default. Successful and informational final
+boxes stay quiet; warnings and errors always remain visible. Checks still run,
+and exit codes and JSON output do not change.
+
+To see a confirmation box for every hook outcome:
+
+```json
+{
+  "precommitChecks": {
+    "hookOutput": "normal"
+  }
+}
+```
+
+This setting does not affect `init`, `uninstall`, `doctor`, or the explicit fix
+commands. See [Hook output policy](docs/configuration.md#hook-output-policy).
 
 ### Safety model
 

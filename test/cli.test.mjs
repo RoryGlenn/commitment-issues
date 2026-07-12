@@ -183,6 +183,11 @@ test("cli dispatches commit-msg and forwards the message file", (t) => {
 test("cli dispatches to prepush", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
 
   const result = cli(tempDir, ["prepush"], {
     env: { ...process.env, COMMITMENT_ISSUES_ASSUME_TTY: "1" },

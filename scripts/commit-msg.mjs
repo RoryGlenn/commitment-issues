@@ -5,11 +5,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import pc from "picocolors";
-import { errorBox, warningBox } from "./lib/ui.mjs";
+import { printHookBoxModel } from "./lib/ui.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigWarningMessages,
   resolveCommitMessageConfig,
+  resolveHookOutput,
 } from "./lib/config.mjs";
 import { buildCommitMessageCheckMessage } from "./lib/message.mjs";
 import { devInstallCommand } from "./lib/package-manager.mjs";
@@ -20,6 +21,7 @@ import {
 import { spawnAsync } from "./lib/process.mjs";
 
 const config = loadPrecommitConfig();
+const hookOutput = resolveHookOutput(config);
 for (const message of precommitConfigWarningMessages(config)) {
   console.warn(pc.yellow(`⚠ ${message}`));
 }
@@ -37,7 +39,7 @@ function finish(outcome, detail = "") {
     tone: config.tone,
     installCommand: devInstallCommand(["@commitlint/cli"]),
   });
-  (model.severity === "error" ? errorBox : warningBox)(model.lines);
+  printHookBoxModel(model, hookOutput);
   process.exit(commitMessage.blockOnFailure ? 1 : 0);
 }
 

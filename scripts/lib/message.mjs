@@ -462,6 +462,19 @@ export function buildPushAllowedMessage(options = {}) {
 }
 
 /**
+ * Summarize an advisory test failure for the combined push warning model.
+ * @param {{passed: number, failed: number}|null} summary - Parsed test counts.
+ * @returns {string} Compact advisory finding.
+ */
+export function advisoryTestFailureWarning(summary) {
+  if (!summary) {
+    return "Tests failed (advisory)";
+  }
+  const failedCount = summary.failed;
+  return `Tests failed (advisory): ${failedCount} related test${failedCount === 1 ? "" : "s"} failed (${summary.passed} passed, ${failedCount} failed)`;
+}
+
+/**
  * Fold secondary push warnings into an existing blocking outcome without
  * weakening its severity or printing another box.
  * @param {{severity: "info"|"success"|"warning"|"error", lines: string[]}} model - Primary push outcome.

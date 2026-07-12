@@ -63,3 +63,35 @@ export function printBoxModel(model = {}) {
   };
   (renderers[model.severity] || infoBox)(model.lines || []);
 }
+
+/**
+ * Decide whether a final hook message should be visible under the requested
+ * presentation policy. Warnings and errors are never suppressible.
+ * @param {{severity?: "info"|"success"|"warning"|"error"}} model - Final hook message.
+ * @param {"problems-only"|"normal"} [hookOutput] - Effective output policy.
+ * @returns {boolean} Whether the model should be rendered.
+ */
+export function shouldRenderHookModel(
+  model = {},
+  hookOutput = "problems-only",
+) {
+  return (
+    hookOutput === "normal" ||
+    model.severity === "warning" ||
+    model.severity === "error"
+  );
+}
+
+/**
+ * Render a final hook message when its severity is visible under the policy.
+ * @param {{severity?: "info"|"success"|"warning"|"error", lines?: string[]}} model - Final hook message.
+ * @param {"problems-only"|"normal"} [hookOutput] - Effective output policy.
+ * @returns {boolean} Whether a box was rendered.
+ */
+export function printHookBoxModel(model = {}, hookOutput = "problems-only") {
+  if (!shouldRenderHookModel(model, hookOutput)) {
+    return false;
+  }
+  printBoxModel(model);
+  return true;
+}

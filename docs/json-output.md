@@ -8,7 +8,8 @@ npx commitment-issues prepush --json
 ```
 
 These are the only commands with a JSON contract. Without `--json`, every
-command keeps its existing human terminal output.
+command keeps its human terminal output policy. `hookOutput` only controls
+human hook boxes and never changes this JSON contract.
 
 ## Output contract
 

@@ -118,6 +118,26 @@ test("allows the push when pushed files have no associated tests", (t) => {
   assert.equal(countTerminalBoxes(output), 1);
 });
 
+test("problems-only suppresses a no-tests info box without changing exit", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  writeFile(path.join(tempDir, "src", "lonely.mjs"), "export const x = 1;\n");
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "add lonely"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal(output.trim(), "");
+  assert.equal(countTerminalBoxes(output), 0);
+});
+
 test("ignores deleted test files in the push (no run for removed tests)", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -223,6 +243,44 @@ test("allows the push and shows a summary when associated tests pass", (t) => {
   assert.match(output, /Push allowed with 1 warning/);
   assert.match(output, /protected branch "main"/);
   assert.equal(countTerminalBoxes(output), 1);
+});
+
+test("problems-only suppresses a successful final box after tests run", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal(countTerminalBoxes(output), 0);
+  assert.doesNotMatch(output, /All tests passed/);
+  assert.match(output, /widget/);
+});
+
+test("normal preserves the successful pre-push summary box", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+    hookOutput: "normal",
+  });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal(countTerminalBoxes(output), 1);
+  assert.match(output, /All tests passed/);
 });
 
 test("blocks the push when the test command cannot run", (t) => {
@@ -369,12 +427,15 @@ test("advisory mode warns but allows the push when the test command cannot run",
   assert.match(output, /Could not run tests \(advisory\)/);
 });
 
-test("explains how to enable checks when run manually with no mode set", (t) => {
+test("normal explains how to enable checks when run manually with no mode set", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   // No push mode enabled; running by hand should not vanish silently.
-  setConfig(tempDir, { testExempt: ["scripts/lib/**"] });
+  setConfig(tempDir, {
+    testExempt: ["scripts/lib/**"],
+    hookOutput: "normal",
+  });
 
   const result = runPrePushManual(tempDir);
   const output = `${result.stdout}${result.stderr}`;
@@ -383,6 +444,21 @@ test("explains how to enable checks when run manually with no mode set", (t) => 
   assert.match(output, /Pre-push test checks are disabled/);
   assert.match(output, /blockPushOnTestFailure/);
   assert.match(output, /advisePushTests/);
+});
+
+test("problems-only keeps a manual no-mode run quiet", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, {
+    testExempt: ["scripts/lib/**"],
+    protectedBranches: [],
+  });
+
+  const result = runPrePushManual(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.equal(output.trim(), "");
 });
 
 test("stays silent during a real push when no mode is set", (t) => {
@@ -444,7 +520,11 @@ test("falls back to the upstream branch when run without piped refs", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  setConfig(tempDir, { blockPushOnTestFailure: true });
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
   addBareRemote(tempDir); // sets an upstream at the current HEAD
   commitWidget(tempDir, 1); // a new commit ahead of @{u}, with a passing test
 

@@ -8,6 +8,7 @@ const RAW_CONFIG = Symbol("commitment-issues.rawPrecommitConfig");
 const CONFIG_STATE = Symbol("commitment-issues.precommitConfigState");
 
 export const STANDALONE_CONFIG_FILE = ".commitmentrc.json";
+export const DEFAULT_HOOK_OUTPUT = "problems-only";
 
 // Largest delay Node's setTimeout accepts without coercing it to 1 ms.
 export const MAX_TIMEOUT_MS = 2_147_483_647;
@@ -40,6 +41,7 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "blockPushOnTestFailure",
   "commitMessage",
   "generatedPaths",
+  "hookOutput",
   "maxCommitFiles",
   "maxCommitLines",
   "maxFileSizeMb",
@@ -131,6 +133,14 @@ export function invalidPrecommitConfigMessages(config) {
     messages.push('tone must be "standard" or "fun"');
   }
 
+  if (
+    "hookOutput" in target &&
+    target.hookOutput !== "problems-only" &&
+    target.hookOutput !== "normal"
+  ) {
+    messages.push('hookOutput must be "problems-only" or "normal"');
+  }
+
   for (const key of STRING_ARRAY_CONFIG_KEYS) {
     if (key in target && !isStringArray(target[key])) {
       messages.push(`${key} must be an array of strings`);
@@ -203,6 +213,10 @@ export function sanitizePrecommitConfig(config) {
 
   if (config.tone === "standard" || config.tone === "fun") {
     sanitized.tone = config.tone;
+  }
+
+  if (config.hookOutput === "problems-only" || config.hookOutput === "normal") {
+    sanitized.hookOutput = config.hookOutput;
   }
 
   for (const key of STRING_ARRAY_CONFIG_KEYS) {
@@ -451,6 +465,17 @@ export function precommitConfigWarningMessages(config) {
  */
 export function loadPrecommitConfig(cwd = process.cwd()) {
   return loadPrecommitConfigState(cwd).config;
+}
+
+/**
+ * Resolve hook presentation to the quiet-by-default policy. Invalid values are
+ * removed during sanitization, so anything other than an explicit `normal`
+ * request safely falls back to `problems-only`.
+ * @param {object} config - Sanitized precommitChecks config.
+ * @returns {"problems-only"|"normal"} Effective hook output policy.
+ */
+export function resolveHookOutput(config) {
+  return config?.hookOutput === "normal" ? "normal" : DEFAULT_HOOK_OUTPUT;
 }
 
 /**

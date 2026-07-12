@@ -2,6 +2,11 @@
 
 `commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
+Routine hooks default to `hookOutput: "problems-only"`, so their success and
+informational states are normally silent. This gallery intentionally documents
+those states under an explicit `hookOutput: "normal"` override; warnings and
+errors are visible in either mode.
+
 To watch representative states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run. The static gallery below is the exhaustive catalog; the runner intentionally keeps a smaller, maintainable set of executable examples.
 
 ```bash

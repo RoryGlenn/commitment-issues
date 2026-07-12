@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A validated `hookOutput` policy for `precommit`, `prepush`, and `commit-msg`.
+  The new `"problems-only"` default suppresses final success/info boxes while
+  preserving every warning, error, mixed-severity result, check, exit code,
+  diagnostic, and JSON payload; `"normal"` restores continuous confirmation.
 - Optional `.commitmentrc.json` configuration with direct top-level keys. Its
   keys shallowly override `package.json` `precommitChecks` values without
   executing project code; malformed files warn at hook/doctor time and stop

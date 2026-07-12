@@ -73,7 +73,10 @@ function addPushedTestFixture(tempDir) {
   run("git", ["commit", "-m", "add widget"], tempDir);
 }
 
-function configureCustomPushRunner(tempDir, { blocking = false, exit = 0 }) {
+function configureCustomPushRunner(
+  tempDir,
+  { blocking = false, exit = 0, hookOutput },
+) {
   writeFile(
     path.join(tempDir, "json-test-runner.mjs"),
     `process.stdout.write("child stdout sentinel\\n");
@@ -84,6 +87,7 @@ process.exit(${exit});
   const config = {
     protectedBranches: [],
     testCommand: ["node", "json-test-runner.mjs"],
+    ...(hookOutput ? { hookOutput } : {}),
     ...(blocking
       ? { blockPushOnTestFailure: true }
       : { advisePushTests: true }),
@@ -214,6 +218,31 @@ test("precommit --json reports skipped and clean states", (t) => {
     payload.checks.find((check) => check.id === "prettier").status,
     "passed",
   );
+});
+
+test("hookOutput does not change precommit JSON payloads", (t) => {
+  const quietDir = createTempRepo();
+  const normalDir = createTempRepo();
+  t.after(() => cleanupTempRepo(quietDir));
+  t.after(() => cleanupTempRepo(normalDir));
+
+  for (const [dir, hookOutput] of [
+    [quietDir, "problems-only"],
+    [normalDir, "normal"],
+  ]) {
+    commitConfig(dir, {
+      hookOutput,
+      protectedBranches: [],
+      requireTests: false,
+    });
+    writeFile(path.join(dir, "src", "clean.json"), '{ "ok": true }\n');
+    run("git", ["add", "src/clean.json"], dir);
+  }
+
+  const quiet = jsonPayload(cli(quietDir, ["precommit", "--json"]));
+  const normal = jsonPayload(cli(normalDir, ["precommit", "--json"]));
+
+  assert.deepEqual(quiet, normal);
 });
 
 test("JSON mode reports only effective blocking posture", (t) => {
@@ -429,6 +458,30 @@ test("prepush --json reports clean and blocking subprocess results", (t) => {
   assert.equal(result.status, 1);
   assert.equal(payload.status, "blocked");
   assert.equal(payload.findings.at(-1).severity, "error");
+});
+
+test("hookOutput does not change prepush JSON payloads", (t) => {
+  const quietDir = createTempRepo();
+  const normalDir = createTempRepo();
+  t.after(() => cleanupTempRepo(quietDir));
+  t.after(() => cleanupTempRepo(normalDir));
+
+  configureCustomPushRunner(quietDir, {
+    exit: 0,
+    hookOutput: "problems-only",
+  });
+  configureCustomPushRunner(normalDir, { exit: 0, hookOutput: "normal" });
+  addPushedTestFixture(quietDir);
+  addPushedTestFixture(normalDir);
+
+  const quiet = jsonPayload(
+    cli(quietDir, ["prepush", "--json"], { input: pushInput(quietDir) }),
+  );
+  const normal = jsonPayload(
+    cli(normalDir, ["prepush", "--json"], { input: pushInput(normalDir) }),
+  );
+
+  assert.deepEqual(quiet, normal);
 });
 
 test("prepush JSON covers disabled mode, argument errors, and node test output", (t) => {

@@ -73,6 +73,31 @@ default `advisePushTests` setting there when neither push mode is configured.
 The examples below use the `package.json` form. The same keys can be moved to
 the top level of `.commitmentrc.json` without the `precommitChecks` wrapper.
 
+## Hook output policy
+
+Routine hooks default to `"problems-only"`: `precommit`, `prepush`, and
+`commit-msg` suppress final `success` and `info` boxes while continuing to run
+every configured check. Warnings and errors always remain visible, and a mixed
+result is governed by its strongest final severity. For example, passing tests
+plus a protected-branch warning still render together as one warning box.
+
+To restore continuous confirmation, opt into normal output:
+
+```json
+{
+  "precommitChecks": {
+    "hookOutput": "normal"
+  }
+}
+```
+
+The equivalent standalone setting is `{ "hookOutput": "normal" }`.
+`hookOutput` changes presentation only: check execution, blocking decisions,
+exit codes, configuration diagnostics, and `--json` payloads are unchanged.
+It does not apply to operational commands such as `init`, `uninstall`,
+`doctor`, `commit-fix`, or `fix-staged`. Use `COMMITMENT_ISSUES=0` when the
+entire hook should be bypassed instead.
+
 ## Local peer-tool resolution
 
 Built-in ESLint and Prettier checks resolve the package `bin` only from the
@@ -321,27 +346,28 @@ successfully from install-time `doctor --quiet`.
 
 All options are optional and use the same types in either configuration file:
 
-| Key                      | Type                    | Default              | Description                                                                                                    |
-| ------------------------ | ----------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `testExempt`             | string[]                | `[]`                 | Glob patterns for files excluded from the missing-test check.                                                  |
-| `requireTests`           | boolean                 | `true`               | Set `false` to disable the missing-test check.                                                                 |
-| `runStagedTests`         | boolean                 | `false`              | Run tests for staged files at commit time.                                                                     |
-| `advisePushTests`        | boolean                 | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
-| `blockPushOnTestFailure` | boolean                 | `false`              | Run the pushed files' tests at `git push` and block on failure.                                                |
-| `testCommand`            | string[]                | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.              |
-| `timeoutMs`              | number                  | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
-| `tone`                   | `"standard"` or `"fun"` | `"standard"`         | Output tone for advisory pre-commit messages.                                                                  |
-| `protectedBranches`      | string[]                | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.            |
-| `blockProtectedBranches` | boolean                 | `false`              | Block (instead of warn about) commits and pushes to protected branches.                                        |
-| `adviseBehindUpstream`   | boolean                 | `true`               | Warn at commit time when the branch is behind its upstream (as of the last fetch).                             |
-| `maxCommitFiles`         | number                  | `30`                 | Warn when a commit stages more than this many files. `0` disables.                                             |
-| `maxCommitLines`         | number                  | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                            |
-| `maxFileSizeMb`          | number                  | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
-| `generatedPaths`         | string[]                | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                                       |
-| `scanSecrets`            | boolean                 | `true`               | Scan added staged lines and dotenv files for likely credentials.                                               |
-| `blockOnSecrets`         | boolean                 | `false`              | Block the commit when the secrets scan finds something.                                                        |
-| `secretExempt`           | string[]                | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
-| `commitMessage`          | object                  | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
+| Key                      | Type                            | Default              | Description                                                                                                    |
+| ------------------------ | ------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `testExempt`             | string[]                        | `[]`                 | Glob patterns for files excluded from the missing-test check.                                                  |
+| `requireTests`           | boolean                         | `true`               | Set `false` to disable the missing-test check.                                                                 |
+| `runStagedTests`         | boolean                         | `false`              | Run tests for staged files at commit time.                                                                     |
+| `advisePushTests`        | boolean                         | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
+| `blockPushOnTestFailure` | boolean                         | `false`              | Run the pushed files' tests at `git push` and block on failure.                                                |
+| `testCommand`            | string[]                        | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.              |
+| `timeoutMs`              | number                          | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
+| `tone`                   | `"standard"` or `"fun"`         | `"standard"`         | Output tone for advisory pre-commit messages.                                                                  |
+| `hookOutput`             | `"problems-only"` or `"normal"` | `"problems-only"`    | Suppress final success/info hook boxes, or preserve every human-readable hook state.                           |
+| `protectedBranches`      | string[]                        | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.            |
+| `blockProtectedBranches` | boolean                         | `false`              | Block (instead of warn about) commits and pushes to protected branches.                                        |
+| `adviseBehindUpstream`   | boolean                         | `true`               | Warn at commit time when the branch is behind its upstream (as of the last fetch).                             |
+| `maxCommitFiles`         | number                          | `30`                 | Warn when a commit stages more than this many files. `0` disables.                                             |
+| `maxCommitLines`         | number                          | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                            |
+| `maxFileSizeMb`          | number                          | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
+| `generatedPaths`         | string[]                        | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                                       |
+| `scanSecrets`            | boolean                         | `true`               | Scan added staged lines and dotenv files for likely credentials.                                               |
+| `blockOnSecrets`         | boolean                         | `false`              | Block the commit when the secrets scan finds something.                                                        |
+| `secretExempt`           | string[]                        | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
+| `commitMessage`          | object                          | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
 
 Unrecognized configuration keys, including nested `commitMessage` keys, are ignored and named with their effective source in diagnostics from hooks, `init`, and `doctor` — so typos like `requireTest` or `commitMessage.enable` cannot silently disable, enable, or enforce a check.
 

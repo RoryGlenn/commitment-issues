@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -256,6 +257,20 @@ test("warns about invalid precommitChecks values but still runs", (t) => {
   assert.match(output, /missing unit tests/);
 });
 
+test("invalid hookOutput warns and falls back to problems-only", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { hookOutput: "quiet" });
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /hookOutput must be "problems-only" or "normal"/);
+  assert.equal(countTerminalBoxes(output), 0);
+  assert.doesNotMatch(output, /No staged files to check/);
+});
+
 test("treats staged TypeScript files as lintable code files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -390,7 +405,7 @@ test("honors package.json precommitChecks.testExempt globs", (t) => {
   assert.doesNotMatch(output, /missing unit tests/);
 });
 
-test("shows an info message when nothing is staged", (t) => {
+test("problems-only suppresses the no-staged-files info box by default", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -398,13 +413,32 @@ test("shows an info message when nothing is staged", (t) => {
   const result = runHook(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
+  assert.equal(result.status, 0);
+  assert.equal(output.trim(), "");
+});
+
+test("normal preserves the no-staged-files info box", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
   assert.match(output, /No staged files to check\./);
-  assert.doesNotMatch(output, /All pre-commit checks passed/);
 });
 
 test("shows info when only non-checkable files are staged", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
 
   writeFile(path.join(tempDir, "assets", "logo.png"), "not really binary\n");
   run("git", ["add", "assets/logo.png"], tempDir);
@@ -419,6 +453,7 @@ test("shows info when only non-checkable files are staged", (t) => {
 test("distinguishes a deletion-only commit from nothing staged", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { hookOutput: "normal" });
 
   run("git", ["rm", "README.md"], tempDir);
 
@@ -685,6 +720,10 @@ test("reports when Prettier cannot complete (unparseable file)", (t) => {
 test("pluralizes the non-checkable info box for multiple files", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
 
   writeFile(path.join(tempDir, "assets", "a.png"), "x\n");
   writeFile(path.join(tempDir, "assets", "b.png"), "y\n");

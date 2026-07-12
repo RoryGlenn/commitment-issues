@@ -5,19 +5,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import pc from "picocolors";
+import { printHookBoxModel } from "./lib/ui.mjs";
 import {
-  errorBox,
-  infoBox,
-  printBoxModel,
-  successBox,
-  warningBox,
-} from "./lib/ui.mjs";
-import { appendPushWarnings, buildPushAllowedMessage } from "./lib/message.mjs";
+  advisoryTestFailureWarning,
+  appendPushWarnings,
+  buildPushAllowedMessage,
+} from "./lib/message.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigDiagnostics,
   precommitConfigWarningMessages,
+  resolveHookOutput,
 } from "./lib/config.mjs";
 import { parseNodeTestSummary } from "./lib/checks.mjs";
 import { collectTestsForFiles, parseNameStatusPaths } from "./lib/files.mjs";
@@ -54,6 +53,7 @@ if (outputArgs.error) {
 const jsonMode = outputArgs.enabled;
 
 const config = loadPrecommitConfig();
+const hookOutput = resolveHookOutput(config);
 const guardConfig = resolveGuardConfig(config);
 
 // Two opt-in modes for running the suite before a push:
@@ -99,6 +99,10 @@ if (jsonMode) {
   for (const message of configWarnings) {
     console.warn(pc.yellow(`⚠ ${message}`));
   }
+}
+
+function printHookMessage(severity, lines) {
+  printHookBoxModel({ severity, lines }, hookOutput);
 }
 
 // A real `git push` pipes the ref list into the hook, so the hook's stdin is
@@ -176,7 +180,7 @@ if (protectedTargets.length > 0) {
         findings: [issueToJsonFinding(issue, "error")],
       });
     }
-    errorBox([
+    printHookMessage("error", [
       pc.bold("Push blocked: protected branch."),
       "",
       pc.dim(`Pushing to ${named} is blocked by blockProtectedBranches.`),
@@ -212,7 +216,10 @@ if (protectedTargets.length > 0) {
 }
 
 function printCombinedPushModel(model, exitCode) {
-  printBoxModel(appendPushWarnings(model, protectedPushWarnings));
+  printHookBoxModel(
+    appendPushWarnings(model, protectedPushWarnings),
+    hookOutput,
+  );
   process.exit(exitCode);
 }
 
@@ -221,12 +228,13 @@ function printAllowedWarnings({
   notes = [],
   details = [],
 } = {}) {
-  printBoxModel(
+  printHookBoxModel(
     buildPushAllowedMessage({
       warnings: [...warnings, ...protectedPushWarnings],
       notes,
       details,
     }),
+    hookOutput,
   );
   process.exit(0);
 }
@@ -251,7 +259,7 @@ if (!blocking && !advisory) {
     printAllowedWarnings();
   }
   if (interactive) {
-    infoBox([
+    printHookMessage("info", [
       pc.bold("Pre-push test checks are disabled."),
       "",
       pc.dim("Nothing ran because no pre-push test mode is enabled in"),
@@ -610,7 +618,7 @@ if (diffErrors.length > 0) {
       notes: ["No pre-push tests ran."],
     });
   }
-  warningBox([
+  printHookMessage("warning", [
     pc.bold("Could not inspect pushed files (advisory)"),
     "",
     pc.dim("Git could not list the files being pushed, so no pre-push tests"),
@@ -653,7 +661,7 @@ if (testFiles.length === 0) {
   if (protectedPushWarnings.length > 0) {
     printAllowedWarnings({ notes: ["No tests to run before push."] });
   }
-  infoBox([
+  printHookMessage("info", [
     pc.bold("No tests to run before push"),
     "",
     pc.dim("None of the pushed files have associated tests. Push allowed."),
@@ -808,7 +816,7 @@ if (testDidNotComplete) {
       details: [reasonText],
     });
   }
-  warningBox([
+  printHookMessage("warning", [
     pc.bold("Could not run tests (advisory)"),
     "",
     reason,
@@ -872,17 +880,12 @@ if (testOutcome === "nonzero") {
     });
   }
   if (protectedPushWarnings.length > 0) {
-    const failedCount = summary?.failed;
     printAllowedWarnings({
-      warnings: [
-        summary
-          ? `Tests failed (advisory): ${failedCount} related test${failedCount === 1 ? "" : "s"} failed (${summary.passed} passed, ${failedCount} failed)`
-          : "Tests failed (advisory)",
-      ],
+      warnings: [advisoryTestFailureWarning(summary)],
       notes: ["Review the failing test output above."],
     });
   }
-  warningBox([
+  printHookMessage("warning", [
     pc.bold("Tests failed (advisory)"),
     ...summaryLines,
     "",
@@ -926,7 +929,7 @@ if (protectedPushWarnings.length > 0) {
   });
 }
 
-successBox([
+printHookMessage("success", [
   pc.bold("All tests passed"),
   ...summaryLines,
   "",
