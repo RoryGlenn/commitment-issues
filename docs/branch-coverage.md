@@ -60,7 +60,7 @@ the Node/OS matrix and separate pnpm, Yarn, and Bun lifecycle gates.
 
 ## CI and badge freshness
 
-Ubuntu CI enforces the 90% threshold on Node 22.22.1 and Node 24. Node 24 is the
+Ubuntu CI enforces the 90% threshold on Node 22.11.0 and Node 24. Node 24 is the
 canonical badge producer: `npm run coverage:check` runs the same gated command
 and fails if the committed README badge differs from the generated value.
 

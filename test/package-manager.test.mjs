@@ -39,18 +39,18 @@ function tempDir(t) {
 }
 
 test("detects the package manager from npm_config_user_agent", (t) => {
-  setUserAgent(t, "pnpm/8.15.0 npm/? node/v22.22.1 linux x64");
+  setUserAgent(t, "pnpm/8.15.0 npm/? node/v22.11.0 linux x64");
   assert.equal(detectPackageManager(), "pnpm");
 });
 
 test("recognizes yarn, bun, and npm user agents", (t) => {
-  setUserAgent(t, "yarn/1.22.19 npm/? node/v22.22.1");
+  setUserAgent(t, "yarn/1.22.19 npm/? node/v22.11.0");
   assert.equal(detectPackageManager(), "yarn");
 
-  process.env.npm_config_user_agent = "bun/1.1.0 node/v22.22.1";
+  process.env.npm_config_user_agent = "bun/1.1.0 node/v22.11.0";
   assert.equal(detectPackageManager(), "bun");
 
-  process.env.npm_config_user_agent = "npm/10.2.0 node/v22.22.1";
+  process.env.npm_config_user_agent = "npm/10.2.0 node/v22.11.0";
   assert.equal(detectPackageManager(), "npm");
 });
 
@@ -74,7 +74,7 @@ test("recognizes yarn and bun lockfiles", (t) => {
 });
 
 test("prefers the user agent over a conflicting lockfile", (t) => {
-  setUserAgent(t, "pnpm/8 node/v22.22.1");
+  setUserAgent(t, "pnpm/8 node/v22.11.0");
   const dir = tempDir(t);
   fs.writeFileSync(path.join(dir, "package-lock.json"), "{}");
   assert.equal(detectPackageManager(dir), "pnpm");
@@ -87,38 +87,38 @@ test("defaults to npm when nothing indicates a manager", (t) => {
 });
 
 test("runScript and installCommand format for the detected manager", (t) => {
-  setUserAgent(t, "pnpm/8 node/v22.22.1");
+  setUserAgent(t, "pnpm/8 node/v22.11.0");
   assert.equal(runScript("commit:fix"), "pnpm run commit:fix");
   assert.equal(installCommand(), "pnpm install");
 
-  process.env.npm_config_user_agent = "npm/10 node/v22.22.1";
+  process.env.npm_config_user_agent = "npm/10 node/v22.11.0";
   assert.equal(runScript("fix:staged"), "npm run fix:staged");
 });
 
 test("devInstallCommand builds the dev-install form for each manager", (t) => {
-  setUserAgent(t, "npm/10.2.0 node/v22.22.1");
+  setUserAgent(t, "npm/10.2.0 node/v22.11.0");
   assert.equal(
     devInstallCommand(["eslint", "prettier"]),
     "npm install -D eslint prettier",
   );
 
-  process.env.npm_config_user_agent = "pnpm/8.15.0 node/v22.22.1";
+  process.env.npm_config_user_agent = "pnpm/8.15.0 node/v22.11.0";
   assert.equal(devInstallCommand(["eslint"]), "pnpm add -D eslint");
 
-  process.env.npm_config_user_agent = "yarn/1.22.19 node/v22.22.1";
+  process.env.npm_config_user_agent = "yarn/1.22.19 node/v22.11.0";
   assert.equal(devInstallCommand(["prettier"]), "yarn add -D prettier");
 
-  process.env.npm_config_user_agent = "bun/1.1.0 node/v22.22.1";
+  process.env.npm_config_user_agent = "bun/1.1.0 node/v22.11.0";
   assert.equal(devInstallCommand(["eslint"]), "bun add --dev eslint");
 });
 
 test("removeCommand uses the detected package manager", (t) => {
-  setUserAgent(t, "pnpm/8.15.0 node/v22.22.1");
+  setUserAgent(t, "pnpm/8.15.0 node/v22.11.0");
   assert.equal(
     removeCommand(["commitment-issues"]),
     "pnpm remove commitment-issues",
   );
 
-  process.env.npm_config_user_agent = "yarn/1.22.19 node/v22.22.1";
+  process.env.npm_config_user_agent = "yarn/1.22.19 node/v22.11.0";
   assert.equal(removeCommand(["a", "b"]), "yarn remove a b");
 });

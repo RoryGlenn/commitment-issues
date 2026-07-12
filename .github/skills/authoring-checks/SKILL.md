@@ -1,11 +1,11 @@
 ---
 name: authoring-checks
-description: "How to add or modify commitment-issues commands, hook checks, and shared helpers (pure ESM .mjs, no build step, Node >=22.22.1). USE WHEN: adding a new pre-commit/pre-push/commit-msg check; editing an entry script (cli/init/doctor/precommit/prepush/commit-msg/commit-fix/fix-staged); adding a scripts/lib helper; spawning a tool or git; printing terminal boxes; reading precommitChecks config; wiring the standard/fun tone message system. Covers the advisory-first philosophy, the process/ui/message/config/files/package-manager libs, and where each pattern belongs."
+description: "How to add or modify commitment-issues commands, hook checks, and shared helpers (pure ESM .mjs, no build step, Node >=22.11.0). USE WHEN: adding a new pre-commit/pre-push/commit-msg check; editing an entry script (cli/init/doctor/precommit/prepush/commit-msg/commit-fix/fix-staged); adding a scripts/lib helper; spawning a tool or git; printing terminal boxes; reading precommitChecks config; wiring the standard/fun tone message system. Covers the advisory-first philosophy, the process/ui/message/config/files/package-manager libs, and where each pattern belongs."
 ---
 
 # Authoring Commands, Checks & Helpers
 
-`commitment-issues` is **pure ESM `.mjs` with no build step and no transpile** (Node `>=22.22.1`). Entry-point commands live in `scripts/`; shared, unit-tested helpers live in `scripts/lib/`. Match the surrounding code: small composable functions, clear names, comments only where intent is non-obvious.
+`commitment-issues` is **pure ESM `.mjs` with no build step and no transpile** (Node `>=22.11.0`). Entry-point commands live in `scripts/`; shared, unit-tested helpers live in `scripts/lib/`. Match the surrounding code: small composable functions, clear names, comments only where intent is non-obvious.
 
 ## The guiding philosophy: advisory-first
 
