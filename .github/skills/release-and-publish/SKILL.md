@@ -115,7 +115,11 @@ steps 1–4 above, then:
   Keep the SLSA generator's `upload-assets` input disabled, download its signed
   provenance artifact beside the packed tarball, and let one Node 24 release
   action upload both files before it finalizes the draft. A later job cannot
-  add or replace assets on the published release.
+  add or replace assets on the published release. The SLSA caller must still
+  grant `contents: write`: its reusable workflow declares a nested upload job,
+  and GitHub validates that permission contract even when the input skips the
+  job. Changes to `publish.yml` run its harmless pull-request validation job so
+  GitHub checks this external contract before merge.
 - **Publishing a tarball does not run this root package's `prepublishOnly`.** The automated and manual exact-tarball flows explicitly run `npm test` and `npm run test:lifecycle:npm` before packing. Keep both gates; `prepublishOnly` remains defense in depth for a direct root-directory publish.
 - **`prepublishOnly` failing** blocks a direct root-directory publish by design — it runs the full test suite and the packaging smoke. Fix the failure; do not bypass it.
 - **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. Promotional raster/video media stays in the source repository and is referenced by GitHub-hosted URLs. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.

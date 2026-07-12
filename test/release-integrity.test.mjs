@@ -24,6 +24,10 @@ function availableGit(args) {
 
 test("publish workflow gates and publishes one immutable release", () => {
   const workflow = readText(".github/workflows/publish.yml");
+  const provenanceJob = workflow.slice(
+    workflow.indexOf("\n  provenance:"),
+    workflow.indexOf("\n  publish-release:"),
+  );
   const lifecycleGate = workflow.indexOf("run: npm run test:lifecycle:npm");
   const packStep = workflow.indexOf("- name: Pack tarball");
   const publishStep = workflow.indexOf("- name: Publish to npm");
@@ -48,12 +52,30 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
   assert.match(
     workflow,
+    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"/,
+  );
+  assert.match(
+    workflow,
+    /validate:\s+if: github\.event_name == 'pull_request'[\s\S]*Confirm release workflow validation/,
+  );
+  assert.match(
+    workflow,
+    /publish:\s+if: github\.event_name == 'push'/,
+    "publishing must remain disabled during pull-request validation",
+  );
+  assert.match(
+    workflow,
     /sha256sum "\$\{\{ steps\.pack\.outputs\.tarball \}\}"/,
   );
   assert.match(workflow, /path:\s+\$\{\{ steps\.pack\.outputs\.tarball \}\}/);
   assert.match(workflow, /upload-assets:\s+false/);
   assert.doesNotMatch(workflow, /upload-assets:\s+true/);
   assert.doesNotMatch(workflow, /upload-tag-name:/);
+  assert.match(
+    provenanceJob,
+    /contents:\s+write/,
+    "GitHub requires the caller to grant the reusable SLSA workflow's declared permission even when its upload job is skipped",
+  );
   assert.match(workflow, /needs:\s+\[publish, provenance\]/);
   assert.match(
     workflow,
@@ -66,6 +88,11 @@ test("publish workflow gates and publishes one immutable release", () => {
     workflow.match(/softprops\/action-gh-release/g)?.length,
     1,
     "one action must upload every asset before the release is finalized",
+  );
+  assert.match(
+    workflow,
+    /softprops\/action-gh-release@[0-9a-f]+ # v3\./,
+    "the only release uploader must use the Node 24 action line",
   );
   assert.ok(
     publishStep < provenanceDownload && provenanceDownload < releaseStep,
