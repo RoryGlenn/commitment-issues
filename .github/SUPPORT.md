@@ -8,8 +8,8 @@ Most questions are already answered in the docs:
 
 - [README](../README.md) — quickstart, what it catches, and how commit/push
   checks behave.
-- [FAQ](../docs/faq.md) — adoption, safety, configuration, test runners, package
-  managers, CI, and removal.
+- [FAQ](../docs/faq.md) — adoption, safety, trust boundaries, configuration,
+  platform scope, release verification, CI, and removal.
 - [Configuration and Behavior](../docs/configuration.md) — full configuration
   reference and internals.
 - [Message states](../docs/message-states.md) — a gallery of the output states

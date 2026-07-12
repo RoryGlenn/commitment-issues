@@ -363,11 +363,12 @@ supported because the hooks resolve binaries from `node_modules/.bin`. See the
 
 ## Which shells and GUI Git clients are currently supported?
 
-The package test and lifecycle matrix runs on Ubuntu, macOS, and Windows with
-the supported Node.js versions. Generated hooks are POSIX `sh` scripts; Git for
-Windows runs them through its bundled shell, so the interactive shell that
-launched Git does not interpret the hook body. Node.js and the project's local
-binary still need to be reachable in the environment Git receives.
+The main test and npm lifecycle matrix runs on Ubuntu, macOS, and Windows with
+the supported Node.js versions; pnpm, Yarn, and Bun lifecycle jobs run on
+Ubuntu. Generated hooks are POSIX `sh` scripts; Git for Windows runs them
+through its bundled shell, so the interactive shell that launched Git does not
+interpret the hook body. Node.js and the project's local binary still need to
+be reachable in the environment Git receives.
 
 Dedicated black-box coverage for Bash, Zsh, Fish, PowerShell, Command Prompt,
 VS Code Source Control, JetBrains IDEs, and GitHub Desktop is not complete. That
@@ -476,10 +477,10 @@ supported npm signature and attestation commands, compares the npm and GitHub
 release tarballs, and verifies that the attached SLSA provenance names the same
 artifact digest and source tag.
 
-Releases are produced from version tags through trusted npm publishing. The
-GitHub release contains the exact packed tarball plus its `.intoto.jsonl`
-provenance asset so both distribution paths can be checked against the same
-bytes.
+Releases are produced from version tags through trusted npm publishing. For
+v3.3.2 and later releases produced by the current workflow, the GitHub Release
+contains the exact packed tarball plus its `.intoto.jsonl` provenance asset so
+both distribution paths can be checked against the same bytes.
 
 ## How do I remove it?
 

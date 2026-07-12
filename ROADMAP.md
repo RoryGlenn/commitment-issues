@@ -1,93 +1,98 @@
 # Roadmap
 
-This document tracks the public direction for `commitment-issues` for the next year.
+This document describes the current public direction for `commitment-issues`.
+It distinguishes the supported v3 product from proposed post-launch work; an
+open issue is a design proposal, not a compatibility or delivery promise.
 
-The roadmap is intentionally practical rather than speculative. It describes what the project intends to do, what it does not intend to do, and what users should expect while the project is active.
+## Current product and near-term priority
 
-## Guiding direction
+The supported v3 release is a local, advisory-first Git-hook toolkit for
+JavaScript and TypeScript projects running Node.js >=22.11.0. It remains the
+recommended release while future architecture is evaluated.
 
-`commitment-issues` will remain a local, advisory-first Git-hook toolkit for JavaScript and TypeScript projects.
+The immediate priority is the technically validated, human-written public
+launch tracked in
+[#78](https://github.com/RoryGlenn/commitment-issues/issues/78). Non-blocking
+feature work should wait until launch feedback can inform the next choices.
+
+## Guiding principles
 
 The project will prioritize:
 
 - protecting user working trees and Git history;
-- clear local CLI output;
-- opt-in enforcement for stricter teams;
-- compatibility with common Node.js package managers;
-- security and supply-chain transparency;
-- small, well-tested changes.
+- advisory behavior by default and explicit opt-in enforcement;
+- local execution without telemetry or repository uploads;
+- clear ownership, reversible setup, and safe refusal paths;
+- cross-platform behavior backed by explicit tests;
+- supply-chain transparency and verifiable releases; and
+- small, reviewable changes with tests and documentation.
 
-## Next 12 months: planned work
+## Planned work
 
-### Maintenance and compatibility
+### Maintain and support v3
 
-- Keep support current for maintained Node.js versions used by the project.
-- Keep npm, pnpm, Yarn, and Bun lifecycle integrations current.
-- Maintain compatibility documentation for common JavaScript and TypeScript project layouts.
-- Keep migration documentation current for users moving from older `commitment-issues` versions or other hook managers.
+- Keep npm, pnpm, Yarn, Bun, Node.js, framework, monorepo, migration, and CI
+  guidance aligned with the tested support matrix.
+- Keep dependencies, pinned GitHub Actions, CodeQL, Scorecard, trusted
+  publishing, release provenance, and vulnerability reporting current.
+- Preserve 100% measured runtime coverage and add focused regression tests for
+  practical defects.
+- Keep the README, FAQ, configuration reference, external interface, message
+  states, and release-verification instructions synchronized with behavior.
 
-### Security and release practices
+### Validate platform compatibility
 
-- Continue improving OpenSSF Best Practices evidence and policies.
-- Maintain dependency monitoring through Dependabot and npm metadata.
-- Keep GitHub Actions pinned and reviewed where practical.
-- Maintain release provenance and user-facing verification documentation.
-- Keep vulnerability reporting and vulnerability history documentation current.
-- Continue hardening command execution, path handling, and configuration validation.
+The cross-shell and Git-client matrix is tracked in
+[#83](https://github.com/RoryGlenn/commitment-issues/issues/83). It separates
+shell launch behavior from GUI-client behavior and covers hook quoting, paths,
+permissions, line endings, and restricted `PATH` environments. Until that work
+lands, the project should not claim blanket support for every shell or Git GUI.
 
-### Testing and quality
+### Evaluate the v4 standalone core
 
-- Require automated tests for major new functionality.
-- Add regression tests for practical bug fixes.
-- Maintain CI across Ubuntu, macOS, and Windows.
-- Preserve high statement coverage and keep the scenario-coverage document current.
-- Expand tests around configuration validation, Git edge cases, and package-manager behavior when new behavior lands.
+The proposed v4 workstream is tracked in
+[#84](https://github.com/RoryGlenn/commitment-issues/issues/84). Its current
+direction is one language-neutral standalone Go executable, with GitHub release
+artifacts and optional ecosystem-specific distribution wrappers. The first
+stage is to define the v3 compatibility, configuration, output, installation,
+migration, rollback, and support contracts before treating a rewrite as a GA
+commitment.
 
-### Documentation and onboarding
+v3 remains supported during that evaluation. The project should not maintain
+separate behavioral implementations for each programming language.
 
-- Improve first-run and adoption documentation.
-- Add or improve recipes for common stacks such as Next.js, Vite, TypeScript libraries, and monorepos.
-- Keep README examples, message-state screenshots, configuration docs, and external interface documentation aligned with current behavior.
-- Keep governance, roles, dependency-management, and release-verification documentation current.
+### Consider post-launch product requests
 
-### Feature direction
+- Configurable lint/format adapters, beginning with Biome, are specified in
+  [#81](https://github.com/RoryGlenn/commitment-issues/issues/81). Implement
+  them only if adopter demand justifies the added surface.
+- Configurable terminal presentation is specified in
+  [#86](https://github.com/RoryGlenn/commitment-issues/issues/86). Preserve the
+  existing output and one-presentation invariant by default.
+- Additional advisory checks should remain local, dependency-light,
+  deterministic, actionable, and integrated into the existing message and JSON
+  models.
 
-- Maintain the shipped branch-awareness safeguards: protected-branch commit and
-  push advisories, optional blocking, and behind-upstream guidance.
-- Maintain the shipped commit-shape and repository-hygiene guards for large
-  commits, oversized files, generated artifacts, and likely staged secrets.
-- Evaluate additional advisory checks only when they remain local,
-  dependency-light, and demonstrably actionable.
-- Keep any stricter enforcement mode opt-in and clearly documented.
-- Keep user-facing output concise, actionable, and safe to ignore unless enforcement is explicitly enabled.
-
-## Next 12 months: non-goals
+## Non-goals
 
 The project does not intend to:
 
-- become a general-purpose Git hook framework;
-- replace ESLint, Prettier, test runners, or package managers;
-- add telemetry, analytics, or phone-home behavior;
-- upload repository contents to any hosted service;
-- require a SaaS account;
-- mutate unstaged work without explicit user action;
-- make blocking behavior the default for all users;
-- support every programming language equally;
-- maintain generated binaries or native build artifacts in the repository.
+- become a general-purpose arbitrary-command hook framework;
+- replace linters, formatters, test runners, CI, or server-side policy;
+- add telemetry, analytics, repository uploads, or a required SaaS account;
+- mutate ambiguous unstaged work or rewrite pushed history;
+- make blocking behavior the universal default;
+- maintain separate native cores for every programming language;
+- promise untested shell, GUI-client, or locked-down-workstation support; or
+- commit generated release binaries into the source tree.
 
-## Longer-term possibilities
+## How priorities are chosen
 
-These ideas may be revisited after the planned maintenance and security work remains stable:
-
-- richer PR-readiness checks;
-- a `panic` command for recovering from common Git mistakes;
-- optional debug-artifact checks beyond the current generated-file and secret
-  guards;
-- improved framework-specific setup guidance;
-- optional localized output if there is contributor demand.
-
-## How to use this roadmap
-
-- Treat the checklist in [ADOPTION.md](ADOPTION.md) as the source of truth for what has already landed.
-- Treat this file as the public view of what the project intends to do and not do over the next year.
-- If priorities shift, the roadmap should change with them through a normal pull request.
+- Treat [ADOPTION.md](ADOPTION.md) as the maintainer checklist for work that has
+  already landed and remaining launch/adoption tasks.
+- Treat linked GitHub issues as the detailed acceptance criteria for proposed
+  work.
+- Use real installation attempts and post-launch feedback before promoting an
+  optional idea into committed implementation work.
+- Update this roadmap through the normal pull-request process when priorities
+  change.

@@ -30,14 +30,21 @@ This document summarizes the hardening mechanisms used by
    - Dependabot alerts and automated security updates are enabled.
 5. Supply-chain integrity
    - GitHub Actions are pinned to immutable SHAs.
-   - npm trusted publishing and SLSA provenance are enabled for releases.
+   - npm trusted publishing publishes the exact tarball packed and hashed by the
+     release job.
+   - The current release workflow attaches that tarball and its matching signed
+     SLSA provenance before publishing one immutable GitHub Release; v3.3.2
+     validated the flow end to end.
+   - Changes to the publish workflow trigger a non-publishing pull-request job
+     so GitHub validates reusable-workflow permission contracts before a tag is
+     consumed.
 
 ## Dynamic analysis performed before release
 
 Before publishing, the project runs automated tests that execute production code
 paths in subprocess and fixture repositories:
 
-1. Test invocation:
+1. Test invocation across pull-request/main CI and the tag workflow:
    - `npm test`
    - `npm run test:coverage`
 2. Dynamic behavior exercised:
@@ -45,7 +52,8 @@ paths in subprocess and fixture repositories:
    - Property-based tests (`fast-check`) over path and parser helpers.
    - Run-time assertions (`node:assert/strict`) across the test suite.
 3. Release gating:
-   - Tag-based publish workflow executes tests before `npm publish`.
+   - The tag-based publish workflow executes tests and the npm lifecycle smoke
+     before packing and publishing the exact tarball.
    - `main` branch uses the `CI Success` required status gate.
 
 ## Assertion usage

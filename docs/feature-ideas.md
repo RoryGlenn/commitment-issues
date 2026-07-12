@@ -2,7 +2,10 @@
 
 This document is a parking lot for potential `commitment-issues` features.
 
-These are not committed roadmap items yet. The goal is to keep the ideas visible so we can review them later, decide what is worth building, and turn the best ones into issues or implementation plans.
+Most entries are not committed roadmap items. The public direction lives in
+the [roadmap](../ROADMAP.md), while accepted proposals use GitHub issues with
+explicit acceptance criteria. This file keeps uncommitted ideas visible without
+presenting them as shipped behavior or promises.
 
 ## Guiding principle
 
@@ -27,10 +30,29 @@ Implemented as advisory commit/push guards (see [configuration](configuration.md
 - **Forgot to pull warning** — `adviseBehindUpstream`.
 - **No matching tests warning** — shipped earlier as `requireTests` + `testExempt`.
 - **Secrets staged check** — `scanSecrets` + `blockOnSecrets` + `secretExempt` (curated high-precision patterns on added lines, plus dotenv files).
+- **One-result aggregation** — multiple findings are consolidated into one
+  human presentation, with structured precommit/prepush results available
+  through the versioned JSON contract.
+- **Optional commit-message linting** — bring-your-own project-local commitlint,
+  advisory after enablement and blocking only after a second opt-in.
 
-## Recommended next features
+## Post-launch work already tracked
 
-### 1. Mixed concern detection
+- [#81](https://github.com/RoryGlenn/commitment-issues/issues/81) — configurable
+  lint/format adapters, beginning with Biome.
+- [#83](https://github.com/RoryGlenn/commitment-issues/issues/83) — cross-shell
+  and GUI Git-client compatibility coverage.
+- [#84](https://github.com/RoryGlenn/commitment-issues/issues/84) — proposed v4
+  standalone Go executable and migration path.
+- [#86](https://github.com/RoryGlenn/commitment-issues/issues/86) — configurable
+  terminal output styles.
+
+These should not delay the initial public launch. Use adopter feedback to choose
+between them rather than treating the issue numbers as a committed sequence.
+
+## Untracked checks to validate with users
+
+### Mixed concern detection
 
 Warn when a commit appears to combine unrelated changes.
 
@@ -56,7 +78,7 @@ Detected areas:
 Consider splitting this into separate commits.
 ```
 
-### 2. Debug junk check
+### Debug junk check
 
 Warn when staged code contains temporary debugging artifacts.
 
@@ -168,7 +190,9 @@ Example output:
 - console.log found
 ```
 
-This could be the shared reporting model used by all checks.
+Current hooks already aggregate findings into one presentation. A future
+read-only `status` or `red-flags` command would reuse the existing message and
+JSON models rather than introduce another reporting system.
 
 ### Commit prenup
 
@@ -186,6 +210,10 @@ This commit changes:
 
 Proceed? [y/N]
 ```
+
+Any interactive confirmation mode would need to be an explicitly invoked,
+opt-in command. It must never appear unexpectedly in the normal commit or push
+hooks, where non-interactive and GUI-launched Git operations must remain safe.
 
 ### Therapy mode
 
@@ -263,142 +291,54 @@ Potential modes:
 - User-provided API key mode
 - Template-only non-AI mode
 
-This should probably come later because it adds complexity and may overlap with many existing tools.
+This is not on the current roadmap. A network-backed mode would conflict with
+the project's local-only direction and require an explicit product/security
+decision; a deterministic local template would preserve the boundary but may
+overlap with many existing tools.
 
-## Handling multiple issues at once
+## Existing aggregation and configuration constraints
 
-When multiple checks fail, the tool should not spam separate prompts.
+The CLI already combines multiple findings into at most one human presentation
+per invocation. Precommit and prepush also expose a versioned JSON model with
+checks, findings, suggestions, diagnostics, overall status, and unchanged exit
+behavior. New checks must extend those models rather than adding independent
+prompts or boxes.
 
-Instead, each check should return structured issues. The CLI should aggregate them into one report and make one final decision.
-
-Suggested severity model:
-
-```ts
-type IssueSeverity = "info" | "warn" | "block";
-
-type Issue = {
-  id: string;
-  severity: IssueSeverity;
-  title: string;
-  message: string;
-  file?: string;
-  suggestion?: string;
-};
-```
-
-Decision rule:
-
-```text
-block > warn > info
-```
-
-If any issue is a blocker, the whole action fails.
-
-Example combined report:
-
-```text
-❌ Commit blocked
-
-Blocking issue:
-- You are committing directly to main
-
-Warnings:
-- 47 files changed
-- package-lock.json changed
-- console.log found
-
-Fix the blocking issue first.
-```
-
-Example warning-only report:
-
-```text
-🚩 Commitment Issues found 4 red flags
-
-1. Protected branch
-   You are on: main
-
-2. Huge commit
-   47 files changed
-
-3. Debug junk
-   Found console.log in src/app.ts
-
-4. Mixed concerns
-   Code, docs, and CI files are staged together
-
-Recommendation:
-Split this commit before continuing.
-
-Proceed anyway? [y/N]
-```
-
-This gives the project a clean internal model:
-
-```text
-many checks → one report → one final decision
-```
-
-## Possible configuration shape
-
-```json
-{
-  "branchAwareness": {
-    "enabled": true,
-    "mode": "warn",
-    "protectedBranches": ["main", "master", "release/*", "production"],
-    "actions": ["commit", "push"]
-  },
-  "secrets": {
-    "enabled": true,
-    "mode": "block"
-  },
-  "hugeCommit": {
-    "enabled": true,
-    "mode": "warn",
-    "maxFiles": 25,
-    "maxLines": 500
-  },
-  "debugJunk": {
-    "enabled": true,
-    "mode": "warn"
-  },
-  "generatedFiles": {
-    "enabled": true,
-    "mode": "warn"
-  }
-}
-```
+Configuration currently uses allowlisted keys under `precommitChecks` or at the
+top level of `.commitmentrc.json`. Any accepted idea needs an explicit key,
+validation, default, documentation, JSON/output treatment, and compatibility
+tests. Arbitrary shell strings and an open-ended plugin-command surface remain
+out of scope.
 
 ## Multi-language support strategy (future planning)
 
-If `commitment-issues` expands beyond JavaScript and TypeScript (for example Python, Java, and C#), there are several ways to structure the project.
+The current v3 release supports JavaScript and TypeScript projects and requires
+Node.js. A language-neutral v4 is proposed in
+[#84](https://github.com/RoryGlenn/commitment-issues/issues/84); the table below
+records the architectural alternatives without promising that the proposal has
+shipped.
 
 ### Approach comparison
 
-| Approach                                            | How it works                                                                                            | Pros                                                                                                                                | Cons                                                                             | Fit for this project                               |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Single repo, single npm package + language adapters | Keep one Node-based core and add language adapters (Python, Java, C#) that call each ecosystem's tools. | Lowest maintenance overhead, one release flow, one governance model, maximum code reuse (hooks, reporting, config, message system). | Pure non-Node teams may see install/runtime friction.                            | Best near-term fit.                                |
-| Single repo, monorepo with per-ecosystem wrappers   | Keep a shared core repo, but publish wrappers to PyPI, Maven, NuGet, and npm.                           | Native install experience for each ecosystem, shared source of truth.                                                               | More release and CI complexity, more registry/auth/publishing overhead.          | Good later-phase option if demand proves strong.   |
-| Multiple repos with native rewrites                 | Separate language-native implementations in separate repos.                                             | Idiomatic per ecosystem, no cross-runtime dependency concerns.                                                                      | Duplicated logic, high drift risk, multiplied governance and maintenance burden. | Poor fit for current team size and architecture.   |
-| Config-only generic command runner                  | Do not ship language adapters; users define commands per project.                                       | Very flexible and fast to ship.                                                                                                     | Weak out-of-box experience, more user setup, less opinionated value.             | Useful as an escape hatch, not a primary strategy. |
+| Approach                                            | How it works                                                                              | Main tradeoff                                                                                      | Current status                             |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Standalone Go core with optional distribution shims | One language-neutral executable owns behavior; npm or other ecosystems may distribute it. | Requires a careful v3 parity, migration, platform-build, signing, installer, and rollback program. | Current proposal in #84.                   |
+| Node core with language adapters                    | Keep the npm runtime and add integrations for other ecosystems' tools.                    | Reuses v3 directly but keeps Node/npm as a runtime requirement for every repository.               | Not the current recommended direction.     |
+| Separate native implementations                     | Maintain a different core per language ecosystem.                                         | Native installs, but duplicated behavior, security work, releases, and high drift risk.            | Non-goal for the current team and roadmap. |
+| Arbitrary command runner                            | Let repositories configure any command instead of shipping opinionated adapters.          | Flexible, but weakens the product boundary and creates a shell/configuration trust surface.        | Explicit non-goal for the core product.    |
 
 ### Recommended direction
 
-Recommended path: start with a single repo and a single npm package, then add language adapters incrementally.
-
-Why this is likely best for `commitment-issues`:
-
-- The project already acts as an orchestrator around Git hooks and external tools.
-- Existing architecture, tests, and governance are optimized for one codebase.
-- It preserves the advisory-first design while adding language-specific checks.
-- It keeps complexity proportional while validating demand.
-
-If adoption from pure non-Node teams grows later, revisit a second phase with thin ecosystem-specific wrappers from the same repo.
+The proposed direction is one standalone Go core, not one implementation per
+language. Before implementation, #84 requires a versioned inventory of v3
+commands, configuration, JSON, exit codes, safety behavior, install/uninstall,
+and migration expectations. Cross-shell and GUI-client validation in #83 is a
+release dependency. v3 remains the supported product until those gates pass.
 
 ## Suggested review process
 
-When reviewing this list later, sort each idea into one of these buckets:
+When reviewing this list after launch, sort each untracked idea into one of
+these buckets:
 
 - Build now
 - Create GitHub issue
@@ -406,11 +346,11 @@ When reviewing this list later, sort each idea into one of these buckets:
 - Funny but later
 - Not worth it
 
-Suggested first implementation order:
+Current decision order:
 
-1. Branch awareness
-2. Secrets staged check
-3. Huge commit warning
-4. Debug junk check
-5. Issue aggregation/reporting model
-6. PR readiness check
+1. Complete the launch-readiness work in #78.
+2. Collect real installation friction and recurring questions.
+3. Decide whether to begin the v4 contract/compatibility work in #84 and #83.
+4. Prioritize #81 or #86 only when feedback supports the extra surface.
+5. Promote an untracked check such as debug-junk or mixed-concern detection only
+   after its signal quality and false-positive policy are clear.

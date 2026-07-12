@@ -69,4 +69,6 @@ Use this checklist during routine maintenance:
 - Review the weekly health workflow output.
 - Clean stale branches only after confirming they are safe to remove.
 - Confirm `npm pack --dry-run` includes the expected package files before releases.
+- Run the collision preflight before versioning and follow the
+  [release-verification guide](release-verification.md) after publishing.
 - Avoid automatic dependency fixes that rewrite lockfiles without review.

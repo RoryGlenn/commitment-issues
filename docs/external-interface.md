@@ -164,8 +164,8 @@ Equivalent `.commitmentrc.json`:
 
 The tool prints compact terminal boxes with clear status and next steps:
 
-- `precommit`, `prepush`, and `commit-msg` default to `hookOutput:
-"problems-only"`, suppressing final success/info boxes
+- `precommit`, `prepush`, and `commit-msg` default to
+  `hookOutput: "problems-only"`, suppressing final success/info boxes
 - advisory warnings for commit-time issues by default
 - advisory warnings for push-time test failures by default
 - advisory commit-message findings after the optional integration is enabled
