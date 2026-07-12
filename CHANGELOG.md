@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-07-12
+
+### Fixed
+
+- Immutable GitHub releases are now staged with both the exact npm tarball and
+  its signed SLSA provenance before publication. The provenance generator no
+  longer publishes an empty release before attempting asset uploads, avoiding
+  the immutable-release rejection and its deprecated Node 20 upload action.
+
 ## [3.3.0] - 2026-07-12
 
 ### Added
