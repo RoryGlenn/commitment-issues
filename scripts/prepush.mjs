@@ -5,7 +5,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import pc from "picocolors";
-import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
+import {
+  errorBox,
+  infoBox,
+  printBoxModel,
+  successBox,
+  warningBox,
+} from "./lib/ui.mjs";
+import { appendPushWarnings, buildPushAllowedMessage } from "./lib/message.mjs";
 import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
@@ -144,6 +151,7 @@ const protectedTargets = [
       .filter((name) => isProtectedBranch(name, guardConfig.protectedBranches)),
   ),
 ];
+const protectedPushWarnings = [];
 
 if (protectedTargets.length > 0) {
   const named = protectedTargets.map((name) => `"${name}"`).join(", ");
@@ -191,15 +199,9 @@ if (protectedTargets.length > 0) {
     summary: `Push updates ${protectedTargets.length} protected branch${protectedTargets.length === 1 ? "" : "es"}`,
     details: { branches: protectedTargets },
   });
-  if (!jsonMode) {
-    warningBox([
-      pc.bold("Pushing to a protected branch."),
-      "",
-      pc.dim(`This push updates ${named} directly.`),
-      "",
-      pc.dim("Push will continue."),
-    ]);
-  }
+  protectedPushWarnings.push(
+    `Direct push to protected branch${protectedTargets.length === 1 ? "" : "es"} ${named}`,
+  );
 } else {
   jsonOutput.addCheck({
     id: "protected-branch",
@@ -207,6 +209,26 @@ if (protectedTargets.length > 0) {
     summary: "No protected push targets",
     details: { branches: [] },
   });
+}
+
+function printCombinedPushModel(model, exitCode) {
+  printBoxModel(appendPushWarnings(model, protectedPushWarnings));
+  process.exit(exitCode);
+}
+
+function printAllowedWarnings({
+  warnings = [],
+  notes = [],
+  details = [],
+} = {}) {
+  printBoxModel(
+    buildPushAllowedMessage({
+      warnings: [...warnings, ...protectedPushWarnings],
+      notes,
+      details,
+    }),
+  );
+  process.exit(0);
 }
 
 if (!blocking && !advisory) {
@@ -224,6 +246,9 @@ if (!blocking && !advisory) {
       status: pushFindings.length > 0 ? "advisory" : "skipped",
       summary: "Pre-push test checks are disabled",
     });
+  }
+  if (protectedPushWarnings.length > 0) {
+    printAllowedWarnings();
   }
   if (interactive) {
     infoBox([
@@ -551,24 +576,38 @@ if (diffErrors.length > 0) {
         findings: [...pushFindings, issueToJsonFinding(issue, "error")],
       });
     }
-    errorBox([
-      pc.bold("Push blocked: could not inspect pushed files"),
-      "",
-      pc.dim("Git could not list the files being pushed, so the pre-push test"),
-      pc.dim("gate cannot run."),
-      "",
-      ...detailLines,
-      "",
-      pc.dim("Fix the Git error above, then push again."),
-      pc.dim("To bypass this gate once: git push --no-verify"),
-    ]);
-    process.exit(1);
+    printCombinedPushModel(
+      {
+        severity: "error",
+        lines: [
+          pc.bold("Push blocked: could not inspect pushed files"),
+          "",
+          pc.dim(
+            "Git could not list the files being pushed, so the pre-push test",
+          ),
+          pc.dim("gate cannot run."),
+          "",
+          ...detailLines,
+          "",
+          pc.dim("Fix the Git error above, then push again."),
+          pc.dim("To bypass this gate once: git push --no-verify"),
+        ],
+      },
+      1,
+    );
   }
   pushFindings.push(issueToJsonFinding(issue));
   if (jsonMode) {
     emitJsonResult({
       status: "advisory",
       summary: "Push allowed, but pushed files could not be inspected",
+    });
+  }
+  if (protectedPushWarnings.length > 0) {
+    printAllowedWarnings({
+      warnings: ["Could not inspect pushed files (advisory)"],
+      details: [...new Set(diffErrors)],
+      notes: ["No pre-push tests ran."],
     });
   }
   warningBox([
@@ -610,6 +649,9 @@ if (testFiles.length === 0) {
       status: pushFindings.length > 0 ? "advisory" : "skipped",
       summary: "No tests to run before push",
     });
+  }
+  if (protectedPushWarnings.length > 0) {
+    printAllowedWarnings({ notes: ["No tests to run before push."] });
   }
   infoBox([
     pc.bold("No tests to run before push"),
@@ -745,14 +787,25 @@ if (testDidNotComplete) {
         findings: [...pushFindings, issueToJsonFinding(issue, "error")],
       });
     }
-    errorBox([pc.bold("Push blocked: could not run tests"), "", reason]);
-    process.exit(1);
+    printCombinedPushModel(
+      {
+        severity: "error",
+        lines: [pc.bold("Push blocked: could not run tests"), "", reason],
+      },
+      1,
+    );
   }
   pushFindings.push(issueToJsonFinding(issue));
   if (jsonMode) {
     emitJsonResult({
       status: "advisory",
       summary: "Push allowed, but tests could not run",
+    });
+  }
+  if (protectedPushWarnings.length > 0) {
+    printAllowedWarnings({
+      warnings: ["Could not run tests (advisory)"],
+      details: [reasonText],
     });
   }
   warningBox([
@@ -797,20 +850,36 @@ if (testOutcome === "nonzero") {
         findings: [...pushFindings, issueToJsonFinding(issue, "error")],
       });
     }
-    errorBox([
-      pc.bold("Push blocked: tests failed"),
-      ...summaryLines,
-      "",
-      pc.dim("Fix the failing tests above, then push again."),
-      pc.dim("To bypass this gate once: git push --no-verify"),
-    ]);
-    process.exit(1);
+    printCombinedPushModel(
+      {
+        severity: "error",
+        lines: [
+          pc.bold("Push blocked: tests failed"),
+          ...summaryLines,
+          "",
+          pc.dim("Fix the failing tests above, then push again."),
+          pc.dim("To bypass this gate once: git push --no-verify"),
+        ],
+      },
+      1,
+    );
   }
   pushFindings.push(issueToJsonFinding(issue));
   if (jsonMode) {
     emitJsonResult({
       status: "advisory",
       summary: "Push allowed, but pre-push tests failed",
+    });
+  }
+  if (protectedPushWarnings.length > 0) {
+    const failedCount = summary?.failed;
+    printAllowedWarnings({
+      warnings: [
+        summary
+          ? `Tests failed (advisory): ${failedCount} related test${failedCount === 1 ? "" : "s"} failed (${summary.passed} passed, ${failedCount} failed)`
+          : "Tests failed (advisory)",
+      ],
+      notes: ["Review the failing test output above."],
     });
   }
   warningBox([
@@ -843,6 +912,17 @@ if (jsonMode) {
       pushFindings.length > 0
         ? "All tests passed; push allowed with advisory findings"
         : "All pre-push tests passed; push allowed",
+  });
+}
+
+if (protectedPushWarnings.length > 0) {
+  const passedCount = summary?.passed;
+  printAllowedWarnings({
+    notes: [
+      summary
+        ? `All tests passed: ${passedCount} passed, ${summary.failed} failed.`
+        : "All tests passed.",
+    ],
   });
 }
 

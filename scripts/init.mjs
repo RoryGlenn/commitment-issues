@@ -384,6 +384,25 @@ const footer = dryRun
         pc.dim("Complete the hook wiring steps below."),
       ];
 
+const warningSections = [
+  ...(warnings.length > 0
+    ? [
+        "",
+        pc.bold("Hook wiring needs your attention."),
+        "",
+        ...warnings.map((line) => pc.dim(line)),
+      ]
+    : []),
+  ...(configWarnings.length > 0
+    ? [
+        "",
+        pc.bold("Configuration needs attention."),
+        "",
+        ...configWarnings.map((message) => pc.dim(`• ${message}`)),
+      ]
+    : []),
+];
+
 const body = [
   ...logoLines(),
   "",
@@ -398,28 +417,15 @@ const body = [
   ...setupSummary,
   "",
   ...footer,
-].join("\n");
+  ...warningSections,
+];
 
-if (dryRun) {
-  infoBox(body.split("\n"));
+if (warningSections.length > 0) {
+  warningBox(body);
+} else if (dryRun) {
+  infoBox(body);
 } else if (!hooksActive) {
-  infoBox(body.split("\n"));
+  infoBox(body);
 } else {
-  printBox(body, (value) => value, { borderColor: "green" });
-}
-
-if (warnings.length > 0) {
-  warningBox([
-    pc.bold("Hook wiring needs your attention."),
-    "",
-    ...warnings.map((line) => pc.dim(line)),
-  ]);
-}
-
-if (configWarnings.length > 0) {
-  warningBox([
-    pc.bold("Configuration needs attention."),
-    "",
-    ...configWarnings.map((message) => pc.dim(`• ${message}`)),
-  ]);
+  printBox(body.join("\n"), (value) => value, { borderColor: "green" });
 }

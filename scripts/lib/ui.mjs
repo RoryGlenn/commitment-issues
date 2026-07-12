@@ -49,3 +49,17 @@ export const successBox = (lines) =>
 export const warningBox = (lines) =>
   severityBox(lines, pc.yellow, "warning", "yellow");
 export const errorBox = (lines) => severityBox(lines, pc.red, "error", "red");
+
+/**
+ * Print a pre-built severity/lines message model.
+ * @param {{severity?: "info"|"success"|"warning"|"error", lines?: string[]}} model - Message to render.
+ */
+export function printBoxModel(model = {}) {
+  const renderers = {
+    info: infoBox,
+    success: successBox,
+    warning: warningBox,
+    error: errorBox,
+  };
+  (renderers[model.severity] || infoBox)(model.lines || []);
+}

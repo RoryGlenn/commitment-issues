@@ -243,6 +243,10 @@ test("CI enforces branch coverage on both Node lines and badge freshness", () =>
     workflow,
     /Branch coverage threshold and badge freshness \(Node 24\)[\s\S]*matrix\.node-version == '24'[\s\S]*npm run coverage:check/,
   );
+  assert.match(
+    workflow,
+    /Message-state single-box invariant[\s\S]*matrix\.node-version == '24'[\s\S]*npm run states/,
+  );
   assert.match(readme, /\[!\[Branch coverage: [0-9.]+%\]/);
   assert.match(readme, /docs\/branch-coverage\.md/);
 });

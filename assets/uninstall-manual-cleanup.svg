@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="706" height="364" viewBox="0 0 706 364" role="img" aria-labelledby="title desc">
+  <title id="title">Uninstall with manual cleanup terminal output</title>
+  <desc id="desc">A terminal-style warning summary combining completed managed cleanup with a customized hook that still needs manual work.</desc>
+  <rect width="706" height="364" rx="8" ry="8" fill="#181818"/>
+  <g transform="translate(20 24)">
+    <rect x="0" y="0" width="666" height="320" rx="5" ry="5" fill="none" stroke="#dfff00" stroke-width="1.3"/>
+    <rect x="284.5" y="-10" width="97" height="20" fill="#181818"/>
+    <text x="333" y="5" fill="#dfff00" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">warning</text>
+    <text x="34" y="44" fill="#dfff00" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Managed Commitment Issues setup was removed.</text>
+    <text x="34" y="88" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Removed:</text>
+    <text x="34" y="118" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">- package scripts: prepare, commit:fix, fix:staged, doctor</text>
+    <text x="34" y="148" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">- package.json precommitChecks config</text>
+    <text x="34" y="192" fill="#e8edf2" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="700">Manual cleanup still needed:</text>
+    <text x="34" y="222" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">- .git/hooks/pre-commit is customized.</text>
+    <text x="54" y="252" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Remove its commitment-issues command manually.</text>
+    <text x="34" y="296" fill="#858b91" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="17">Then run: npm remove commitment-issues</text>
+  </g>
+</svg>

@@ -186,13 +186,44 @@ if (!dryRun) {
 }
 
 const actions = dryRun ? planned : removed;
+function actionSummaryLines(items, label) {
+  const scripts = [];
+  const remaining = [];
+  for (const item of items) {
+    const match = item.match(/^package\.json script (.+)$/);
+    if (match) {
+      scripts.push(match[1]);
+    } else {
+      remaining.push(item);
+    }
+  }
+  return [
+    pc.dim(label),
+    ...(scripts.length > 0
+      ? [pc.dim(`- package scripts: ${scripts.join(", ")}`)]
+      : []),
+    ...remaining.map((item) => pc.dim(`- ${item}`)),
+  ];
+}
+
 const summary =
   actions.length > 0
-    ? [
-        pc.dim(dryRun ? "Would remove:" : "Removed:"),
-        ...actions.map((item) => pc.dim(`- ${item}`)),
-      ]
+    ? actionSummaryLines(actions, dryRun ? "Would remove:" : "Removed:")
     : [pc.dim("No generated setup was found to remove.")];
+
+function manualCleanupSummaryLines(items) {
+  return items.flatMap((item) => {
+    const customized = item.match(
+      /^(.*) is customized; remove its (.*) command manually\.$/,
+    );
+    return customized
+      ? [
+          pc.dim(`- ${customized[1]} is customized.`),
+          pc.dim(`  Remove its ${customized[2]} command manually.`),
+        ]
+      : [pc.dim(`- ${item}`)];
+  });
+}
 
 const preservedIgnores = [
   ".eslintcache",
@@ -212,7 +243,9 @@ const body = [
   pc.bold(
     dryRun
       ? "Commitment Issues uninstall preview."
-      : "Commitment Issues setup was removed.",
+      : manualCleanup.length > 0
+        ? "Managed Commitment Issues setup was removed."
+        : "Commitment Issues setup was removed.",
   ),
   "",
   ...summary,
@@ -221,6 +254,17 @@ const body = [
         "",
         pc.dim("Preserved shared .gitignore entries:"),
         ...preservedIgnores.map((entry) => pc.dim(`- ${entry}`)),
+      ]
+    : []),
+  ...(manualCleanup.length > 0
+    ? [
+        "",
+        pc.bold(
+          dryRun
+            ? "Manual cleanup would still be needed:"
+            : "Manual cleanup still needed:",
+        ),
+        ...manualCleanupSummaryLines(manualCleanup),
       ]
     : []),
   "",
@@ -235,16 +279,10 @@ const body = [
       ]),
 ];
 
-if (dryRun) {
+if (manualCleanup.length > 0) {
+  warningBox(body);
+} else if (dryRun) {
   infoBox(body);
 } else {
   successBox(body);
-}
-
-if (manualCleanup.length > 0) {
-  warningBox([
-    pc.bold("Manual cleanup may still be needed."),
-    "",
-    ...manualCleanup.map((line) => pc.dim(line)),
-  ]);
 }

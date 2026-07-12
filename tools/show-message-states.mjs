@@ -266,6 +266,7 @@ const SCENARIOS = [
   },
   {
     name: "commit-msg/missing-local-tool-blocking",
+    expectedStatus: 1,
     run(dir) {
       setPrecommitConfig(dir, {
         commitMessage: { enabled: true, blockOnFailure: true },
@@ -450,6 +451,11 @@ function printResult(name, result, expectedStatus = 0) {
   if (result?.status !== expectedStatus) {
     console.log(pc.red(`expected exit ${expectedStatus}`));
   }
+  const boxCount = (output.match(/╭/gu) || []).length;
+  if (boxCount > 1) {
+    console.log(pc.red(`expected at most 1 box, rendered ${boxCount}`));
+  }
+  return result?.status === expectedStatus && boxCount <= 1;
 }
 
 const args = process.argv.slice(2);
@@ -485,8 +491,7 @@ for (const scenario of selected) {
     dir = createTempRepo();
     const result = scenario.run(dir);
     const expectedStatus = scenario.expectedStatus ?? 0;
-    printResult(scenario.name, result, expectedStatus);
-    if (result?.status !== expectedStatus) failed = true;
+    if (!printResult(scenario.name, result, expectedStatus)) failed = true;
   } catch (error) {
     failed = true;
     printResult(

@@ -874,6 +874,38 @@ boxSvg({
 // ---------------- Pre-push ----------------
 
 boxSvg({
+  file: "prepush-protected-tests-passed.svg",
+  severity: "warning",
+  title: "Protected-branch push with passing tests terminal output",
+  desc: "A terminal-style warning box consolidating a protected-branch advisory with passing pre-push tests.",
+  lines: [
+    { k: "t", text: "Push allowed with 1 warning." },
+    { k: "b" },
+    { k: "a", text: '→ Direct push to protected branch "main"' },
+    { k: "b" },
+    { k: "d", text: "All tests passed: 1 passed, 0 failed." },
+  ],
+});
+
+boxSvg({
+  file: "prepush-protected-tests-failed.svg",
+  severity: "warning",
+  title: "Protected-branch push with advisory test failure terminal output",
+  desc: "A terminal-style warning box consolidating a protected-branch advisory with an advisory pre-push test failure.",
+  lines: [
+    { k: "t", text: "Push allowed with 2 warnings." },
+    { k: "b" },
+    {
+      k: "a",
+      text: "→ Tests failed (advisory): 1 related test failed (0 passed, 1 failed)",
+    },
+    { k: "a", text: '→ Direct push to protected branch "main"' },
+    { k: "b" },
+    { k: "d", text: "Review the failing test output above." },
+  ],
+});
+
+boxSvg({
   file: "prepush-blocked-could-not-run.svg",
   severity: "error",
   title: "Push blocked because tests could not run terminal output",
@@ -949,13 +981,11 @@ boxSvg({
   file: "prepush-protected-branch-advisory.svg",
   severity: "warning",
   title: "Protected-branch push advisory terminal output",
-  desc: "A terminal-style warning box saying the push updates a protected branch directly but will continue.",
+  desc: "A terminal-style warning box consolidating an allowed push with a protected-branch advisory.",
   lines: [
-    { k: "t", text: "Pushing to a protected branch." },
+    { k: "t", text: "Push allowed with 1 warning." },
     { k: "b" },
-    { k: "d", text: 'This push updates "main" directly.' },
-    { k: "b" },
-    { k: "d", text: "Push will continue." },
+    { k: "a", text: '→ Direct push to protected branch "main"' },
   ],
 });
 
@@ -1246,12 +1276,42 @@ boxSvg({
   file: "init-hook-wiring-warning.svg",
   severity: "warning",
   title: "Init hook wiring warning terminal output",
-  desc: "A terminal-style warning box printed after the init summary when the hook wiring needs manual attention.",
+  desc: "A terminal-style warning summary combining init progress with hook wiring that needs manual attention.",
   lines: [
+    { k: "t", text: "Commitment Issues needs hook wiring." },
+    { k: "b" },
+    {
+      k: "d",
+      text: "Package settings are configured; hook wiring still needs attention.",
+    },
+    { k: "b" },
     { k: "t", text: "Hook wiring needs your attention." },
     { k: "b" },
     { k: "d", text: "Leftover .husky hooks no longer run: .husky/commit-msg." },
     { k: "d", text: "Move the logic into .git/hooks, or delete the files." },
+  ],
+});
+
+boxSvg({
+  file: "uninstall-manual-cleanup.svg",
+  severity: "warning",
+  title: "Uninstall with manual cleanup terminal output",
+  desc: "A terminal-style warning summary combining completed managed cleanup with a customized hook that still needs manual work.",
+  lines: [
+    { k: "t", text: "Managed Commitment Issues setup was removed." },
+    { k: "b" },
+    { k: "d", text: "Removed:" },
+    {
+      k: "d",
+      text: "- package scripts: prepare, commit:fix, fix:staged, doctor",
+    },
+    { k: "d", text: "- package.json precommitChecks config" },
+    { k: "b" },
+    { k: "bt", text: "Manual cleanup still needed:" },
+    { k: "d", text: "- .git/hooks/pre-commit is customized." },
+    { k: "di", text: "Remove its commitment-issues command manually." },
+    { k: "b" },
+    { k: "d", text: "Then run: npm remove commitment-issues" },
   ],
 });
 

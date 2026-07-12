@@ -71,6 +71,10 @@ jobs:
 
       - run: npm test
 
+      - name: Message-state single-box invariant
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
+        run: npm run states
+
       - name: Package lifecycle integration (separate from branch coverage)
         run: npm run test:lifecycle:npm
 

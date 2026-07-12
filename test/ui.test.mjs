@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   printBox,
+  printBoxModel,
   infoBox,
   successBox,
   warningBox,
@@ -47,6 +48,28 @@ test("severity boxes render the lines with their title", () => {
   assert.match(
     capture(() => errorBox(["err line"])),
     /err line/,
+  );
+});
+
+test("printBoxModel dispatches to the requested severity", () => {
+  const output = capture(() =>
+    printBoxModel({ severity: "warning", lines: ["combined warning"] }),
+  );
+
+  assert.match(output, /warning/);
+  assert.match(output, /combined warning/);
+});
+
+test("printBoxModel falls back to an empty info box for an invalid model", () => {
+  const output = capture(() => printBoxModel({ severity: "unknown" }));
+
+  assert.match(output, /info/);
+});
+
+test("printBoxModel accepts an omitted model", () => {
+  assert.match(
+    capture(() => printBoxModel()),
+    /info/,
   );
 });
 

@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -113,6 +114,8 @@ test("allows the push when pushed files have no associated tests", (t) => {
 
   assert.equal(result.status, 0);
   assert.match(output, /No tests to run before push/);
+  assert.match(output, /Push allowed with 1 warning/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("ignores deleted test files in the push (no run for removed tests)", (t) => {
@@ -197,6 +200,9 @@ test("runs only the pushed files' tests and blocks on failure", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /Additional warning/);
+  assert.match(output, /protected branch "main"/);
+  assert.equal(countTerminalBoxes(output), 1);
   // It ran widget's test specifically, not the whole suite.
   assert.match(output, /widget\.test\.mjs/);
 });
@@ -214,6 +220,9 @@ test("allows the push and shows a summary when associated tests pass", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /All tests passed/);
   assert.match(output, /1 passed, 0 failed/);
+  assert.match(output, /Push allowed with 1 warning/);
+  assert.match(output, /protected branch "main"/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("blocks the push when the test command cannot run", (t) => {
@@ -264,6 +273,9 @@ test("advisory mode runs tests and warns without blocking on failure", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /Tests failed \(advisory\)/);
   assert.match(output, /widget\.test\.mjs/);
+  assert.match(output, /Push allowed with 2 warnings/);
+  assert.match(output, /protected branch "main"/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("standalone push settings override package.json per key", (t) => {

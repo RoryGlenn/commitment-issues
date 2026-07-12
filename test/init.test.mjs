@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -189,6 +190,7 @@ test("init diagnoses invalid nested commitMessage config without wiring it", (t)
   assert.match(output, /Configuration needs attention/);
   assert.match(output, /commitMessage\.enable/);
   assert.match(output, /commitMessage\.blockOnFailure/);
+  assert.equal(countTerminalBoxes(output), 1);
   assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
 });
 
@@ -305,6 +307,7 @@ test("init keeps user-authored .husky hooks and warns they no longer run", (t) =
   );
   assert.match(output, /Hook wiring needs your attention/);
   assert.match(output, /\.husky\/commit-msg/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("init warns and keeps .husky when the hooksPath unset fails", (t) => {
@@ -541,6 +544,7 @@ test("init leaves customized hooks untouched", (t) => {
   assert.match(output, /Existing git hooks were left unchanged/);
   assert.match(output, /pre-commit: commitment-issues precommit/);
   assert.match(output, /pre-push: commitment-issues prepush/);
+  assert.equal(countTerminalBoxes(output), 1);
 });
 
 test("init accepts customized hooks that invoke commitment-issues", (t) => {
@@ -613,6 +617,7 @@ test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
   assert.match(output, /Hook wiring needs your attention/);
   assert.match(output, /core\.hooksPath is set to githooks/);
   assertHookClaimsWithheld(output);
+  assert.equal(countTerminalBoxes(output), 1);
   // The user's configuration is untouched and no shadowed hooks are written.
   assert.equal(hooksPath(tempDir), "githooks");
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
