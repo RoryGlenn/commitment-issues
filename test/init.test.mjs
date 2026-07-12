@@ -576,6 +576,26 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
   assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
 });
 
+test("init distinguishes configured package settings from inactive hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const first = runInit(tempDir);
+  assert.equal(first.status, 0);
+  fs.writeFileSync(gitHook(tempDir, "pre-push"), "#!/bin/sh\necho custom\n");
+  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(
+    output,
+    /Package settings are configured; hook wiring still needs attention/,
+  );
+  assertHookClaimsWithheld(output);
+});
+
 test("init refreshes the exact older generated pre-push hook", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

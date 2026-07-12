@@ -190,6 +190,24 @@ test("errors when unstaged files cannot be inspected", (t) => {
   assert.match(output, /Unable to inspect unstaged files\./);
 });
 
+test("errors when automatically fixed files cannot be restaged", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "restage.json"), '{"ok":true}\n');
+  run("git", ["add", "src/restage.json"], tempDir);
+
+  const result = runFixStaged(tempDir, {
+    env: fakeGitEnv(tempDir, "add --"),
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Unable to restage fixed files/,
+  );
+});
+
 test("tolerates an unreadable index snapshot and still reports clean", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -239,6 +257,22 @@ test("reports already clean and pluralizes for multiple unchanged files", (t) =>
 
   assert.equal(result.status, 0);
   assert.match(output, /Checked 2 staged files/);
+});
+
+test("applied-fix summary pluralizes multiple changed files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "a.json"), '{"a":1}\n');
+  writeFile(path.join(tempDir, "src", "b.json"), '{"b":2}\n');
+  run("git", ["add", "src/a.json", "src/b.json"], tempDir);
+
+  const result = runFixStaged(tempDir);
+  assert.equal(result.status, 0);
+  assert.match(
+    `${result.stdout}${result.stderr}`,
+    /Refreshed the index for 2 staged files/,
+  );
 });
 
 test(

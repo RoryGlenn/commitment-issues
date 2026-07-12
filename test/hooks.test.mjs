@@ -8,11 +8,15 @@ import os from "node:os";
 import path from "node:path";
 import {
   classifyHook,
+  gitHooksDir,
   hookBody,
   hookCommand,
   hookNamesForConfig,
+  hooksPathConfig,
+  isHuskyHooksPath,
   writeHook,
 } from "../scripts/lib/hooks.mjs";
+import { fakeGitEnv } from "./helpers/temp-repo.mjs";
 
 for (const name of ["pre-commit", "pre-push"]) {
   const expectedCommand = hookCommand(name);
@@ -48,6 +52,11 @@ for (const name of ["pre-commit", "pre-push"]) {
     fs.chmodSync(hookPath, 0o755);
     assert.equal(classifyHook(hooksDir, name), "custom-with-command");
     assert.equal(fs.readFileSync(hookPath, "utf8"), documentedBody);
+
+    const malformedHeredoc = `#!/bin/sh\ncat << ;\n${expectedCommand}\n`;
+    fs.writeFileSync(hookPath, malformedHeredoc);
+    fs.chmodSync(hookPath, 0o755);
+    assert.equal(classifyHook(hooksDir, name), "custom-with-command");
   });
 
   test(`classifyHook rejects inert ${name} command mentions`, (t) => {
@@ -63,12 +72,26 @@ for (const name of ["pre-commit", "pre-push"]) {
       ["#!/bin/sh", "cat <<'DOC'", expectedCommand, "DOC", ""].join("\n"),
       ["#!/bin/sh", "example='", expectedCommand, "'", ""].join("\n"),
       ["#!/bin/sh", "echo \\", expectedCommand, ""].join("\n"),
+      ["#!/bin/sh", "echo word#not-a-comment", ""].join("\n"),
+      ["#!/bin/sh", "cat <<-DOC", `\t${expectedCommand}`, "\tDOC", ""].join(
+        "\n",
+      ),
+      ["#!/bin/sh", "cat <<  DOC", expectedCommand, "DOC", ""].join("\n"),
+      ["#!/bin/sh", 'cat <<"D\\OC"', expectedCommand, "DOC", ""].join("\n"),
+      ["#!/bin/sh", "cat <<D\\OC", expectedCommand, "DOC", ""].join("\n"),
+      ["#!/bin/sh", "cat <<DOC; echo ignored", expectedCommand, "DOC", ""].join(
+        "\n",
+      ),
     ];
 
     for (const body of inertBodies) {
       fs.writeFileSync(hookPath, body);
       fs.chmodSync(hookPath, 0o755);
-      assert.equal(classifyHook(hooksDir, name), "custom-without-command");
+      assert.equal(
+        classifyHook(hooksDir, name),
+        "custom-without-command",
+        `expected inert hook body:\n${body}`,
+      );
       assert.equal(fs.readFileSync(hookPath, "utf8"), body);
     }
   });
@@ -104,6 +127,27 @@ test("commit-msg wiring is opt-in and quotes Git's message-file argument", () =>
   ]);
   assert.equal(hookCommand("commit-msg"), 'commitment-issues commit-msg "$1"');
   assert.match(hookBody("commit-msg"), /commitment-issues commit-msg "\$1"/);
+});
+
+test("hook path probes handle unset, empty, and failed Git output", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hook-probes-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  assert.equal(hooksPathConfig(dir), "");
+  assert.equal(gitHooksDir(dir), null);
+
+  const emptyConfig = fakeGitEnv(dir, "config --get core.hooksPath", 0, "");
+  assert.equal(hooksPathConfig(dir, emptyConfig), "");
+
+  const emptyCommonDir = fakeGitEnv(dir, "rev-parse --git-common-dir", 0, "");
+  assert.equal(gitHooksDir(dir, emptyCommonDir), null);
+});
+
+test("Husky hooksPath recognition tolerates absent and normalized values", () => {
+  assert.equal(isHuskyHooksPath(undefined), false);
+  assert.equal(isHuskyHooksPath(null), false);
+  assert.equal(isHuskyHooksPath(" .husky/_/ "), true);
+  assert.equal(isHuskyHooksPath("custom/hooks"), false);
 });
 
 test("generated commit-msg hooks are executable and exact-match owned", () => {

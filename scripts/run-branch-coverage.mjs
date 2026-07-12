@@ -11,7 +11,7 @@ import {
   BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
   BRANCH_COVERAGE_SOURCE_FILES,
   BRANCH_COVERAGE_TEST_PATTERNS,
-  BRANCH_COVERAGE_THRESHOLD,
+  RUNTIME_COVERAGE_THRESHOLD,
 } from "./lib/coverage-badge.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -62,7 +62,9 @@ try {
     "--test-reporter-destination=stdout",
     "--test-reporter=lcov",
     `--test-reporter-destination=${lcovPath}`,
-    `--test-coverage-branches=${BRANCH_COVERAGE_THRESHOLD}`,
+    `--test-coverage-lines=${RUNTIME_COVERAGE_THRESHOLD}`,
+    `--test-coverage-branches=${RUNTIME_COVERAGE_THRESHOLD}`,
+    `--test-coverage-functions=${RUNTIME_COVERAGE_THRESHOLD}`,
     ...BRANCH_COVERAGE_SOURCE_FILES.map(
       (file) => `--test-coverage-include=${file}`,
     ),
@@ -91,7 +93,7 @@ try {
     const unexpected = [...covered].filter((file) => !intended.has(file));
 
     if (missing.length > 0 || unexpected.length > 0) {
-      console.error("Branch coverage source scope mismatch.");
+      console.error("Runtime coverage source scope mismatch.");
       if (missing.length > 0) {
         console.error(`Missing from LCOV: ${missing.join(", ")}`);
       }

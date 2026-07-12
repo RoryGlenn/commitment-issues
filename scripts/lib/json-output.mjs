@@ -17,6 +17,17 @@ const PROCESS_OUTCOMES = new Set([
 ]);
 
 /**
+ * Allowed hook outcomes become advisory whenever another check has already
+ * produced a finding; otherwise the caller's clean/disabled state is retained.
+ * @param {object[]} findings - Findings accumulated before the final outcome.
+ * @param {"clean"|"skipped"} emptyStatus - Status when there are no findings.
+ * @returns {"advisory"|"clean"|"skipped"} Effective allowed status.
+ */
+export function allowedStatus(findings, emptyStatus) {
+  return findings.length > 0 ? "advisory" : emptyStatus;
+}
+
+/**
  * Normalize both the legacy spawnSync-shaped result and the structured process
  * result introduced by the hardened runner. This keeps JSON consumers safe
  * while process.mjs changes land independently.

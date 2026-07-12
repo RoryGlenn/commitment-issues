@@ -12,12 +12,17 @@ import path from "node:path";
  * @param {string} name - Bin name (for example "commitlint").
  * @param {string[]} args - Tool arguments.
  * @param {string} [cwd] - Project directory to resolve upward from.
+ * @param {NodeJS.Platform} [platform] - Executable suffix strategy.
  * @returns {{command: string, args: string[]}|null} Absolute local invocation.
  */
-export function localToolInvocation(name, args, cwd = process.cwd()) {
+export function localToolInvocation(
+  name,
+  args,
+  cwd = process.cwd(),
+  platform = process.platform,
+) {
   let dir = path.resolve(cwd);
-  const extensions =
-    process.platform === "win32" ? [".cmd", ".exe", ".bat", ""] : [""];
+  const extensions = platform === "win32" ? [".cmd", ".exe", ".bat", ""] : [""];
 
   for (;;) {
     const base = path.join(dir, "node_modules", ".bin", name);

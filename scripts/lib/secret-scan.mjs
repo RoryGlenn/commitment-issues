@@ -76,7 +76,9 @@ export const SECRET_PATTERNS = [
   {
     label: "URL with embedded credentials",
     regex: /\b[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:([^/\s:@]+)@/i,
-    allow: (match, groups) => isPlaceholder(groups[0] ?? ""),
+    // The regex requires a non-empty password capture, so this group is always
+    // present when the callback runs.
+    allow: (match, groups) => isPlaceholder(groups[0]),
   },
 ];
 

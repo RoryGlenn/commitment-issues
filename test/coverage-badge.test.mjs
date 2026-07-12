@@ -9,7 +9,7 @@ import {
   BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
   BRANCH_COVERAGE_SOURCE_FILES,
   BRANCH_COVERAGE_TEST_PATTERNS,
-  BRANCH_COVERAGE_THRESHOLD,
+  RUNTIME_COVERAGE_THRESHOLD,
   coverageBadgeColor,
   deriveBranchCoverageSourceFiles,
   formatCoverageBadgePercentage,
@@ -132,7 +132,7 @@ test("branch coverage scope partitions every scripts source exactly once", () =>
     [...BRANCH_COVERAGE_SOURCE_FILES, "scripts/future-hook.mjs"].sort(),
     "a future runtime script enters the denominator automatically",
   );
-  assert.equal(BRANCH_COVERAGE_THRESHOLD, 90);
+  assert.equal(RUNTIME_COVERAGE_THRESHOLD, 100);
   assert.deepEqual(BRANCH_COVERAGE_TEST_PATTERNS, [
     "test/*.test.mjs",
     "test/*.test.js",

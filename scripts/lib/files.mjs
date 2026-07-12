@@ -452,3 +452,28 @@ export function shortFileList(files, max = 5) {
 
   return shown.join(", ");
 }
+
+/**
+ * Remove an owned path while preserving a user-facing cleanup result. The
+ * injectable remover keeps filesystem permission/race failures deterministic
+ * in unit tests without weakening real cleanup behavior.
+ * @param {string} filePath - Path to remove.
+ * @param {string} [displayName] - Path label for user-facing output.
+ * @param {(filePath: string) => void} [remove] - Removal implementation.
+ * @returns {{removed: string[], manualCleanup: string[]}} Cleanup result.
+ */
+export function removeOwnedPath(
+  filePath,
+  displayName = filePath,
+  remove = fs.rmSync,
+) {
+  try {
+    remove(filePath);
+    return { removed: [displayName], manualCleanup: [] };
+  } catch {
+    return {
+      removed: [],
+      manualCleanup: [`Could not remove ${displayName}.`],
+    };
+  }
+}

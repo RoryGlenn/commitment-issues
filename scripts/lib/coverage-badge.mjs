@@ -20,7 +20,7 @@ const COVERAGE_ROW_RE =
 const README_COVERAGE_BADGE_RE =
   /^\[!\[(?:Branch coverage|Coverage): .*%\]\(https:\/\/img\.shields\.io\/badge\/(?:branch%20coverage|coverage)-.*%25-[a-z]+\.svg\)\]\(docs\/(?:branch-coverage|scenario-coverage)\.md\)$/m;
 
-export const BRANCH_COVERAGE_THRESHOLD = 90;
+export const RUNTIME_COVERAGE_THRESHOLD = 100;
 
 // Repository/package-maintenance automation is validated by its own tests and
 // lifecycle gates, but it is not part of the user-facing runtime percentage.

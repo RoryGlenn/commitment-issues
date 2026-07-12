@@ -108,6 +108,18 @@ test("cli suggests the closest command for a likely typo", (t) => {
   }
 });
 
+test("cli bounds typo suggestions for accidentally pasted commands", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const pasted = "x".repeat(65);
+
+  const result = cli(tempDir, [pasted]);
+
+  assert.equal(result.status, 1);
+  assert.match(combinedOutput(result), new RegExp(pasted));
+  assert.doesNotMatch(combinedOutput(result), /Did you mean/);
+});
+
 test("cli preserves shell-sensitive unknown command tokens", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

@@ -164,15 +164,23 @@ export function isToolInstalled(name, cwd = process.cwd()) {
  * the group. Windows uses the built-in taskkill tree operation. Both paths fall
  * back to killing the direct child if the tree operation is unavailable.
  * @param {import("node:child_process").ChildProcess} child - Spawned child.
+ * @param {NodeJS.Platform} [platform] - Platform strategy to use.
+ * @param {Function} [taskkill] - Synchronous taskkill runner.
+ * @param {Function} [killGroup] - POSIX process-group signal function.
  * @returns {"process-group" | "taskkill-tree" | "direct-child" | "already-exited"} Cleanup method.
  */
-function terminateProcessTree(child) {
+export function terminateProcessTree(
+  child,
+  platform = process.platform,
+  taskkill = spawn.sync,
+  killGroup = process.kill,
+) {
   if (!child.pid) {
     return "already-exited";
   }
 
-  if (process.platform === "win32") {
-    const killed = spawn.sync(
+  if (platform === "win32") {
+    const killed = taskkill(
       "taskkill",
       ["/pid", String(child.pid), "/t", "/f"],
       { stdio: "ignore", windowsHide: true },
@@ -182,7 +190,7 @@ function terminateProcessTree(child) {
     }
   } else {
     try {
-      process.kill(-child.pid, "SIGKILL");
+      killGroup(-child.pid, "SIGKILL");
       return "process-group";
     } catch (error) {
       if (error?.code === "ESRCH") {
@@ -197,6 +205,16 @@ function terminateProcessTree(child) {
   } catch {
     return "already-exited";
   }
+}
+
+/**
+ * Whether a spawned child should lead a dedicated POSIX process group.
+ * Windows uses taskkill for descendant cleanup instead.
+ * @param {NodeJS.Platform} platform - Runtime platform.
+ * @returns {boolean} True when the child should be detached.
+ */
+export function detachedForPlatform(platform) {
+  return platform !== "win32";
 }
 
 /**
@@ -245,7 +263,7 @@ export function spawnAsync(command, args, options = {}) {
         ...spawnOptions,
         // A dedicated process group is required for safe descendant cleanup on
         // macOS/Linux. Windows process trees are handled by taskkill instead.
-        detached: process.platform === "win32" ? false : true,
+        detached: detachedForPlatform(process.platform),
         windowsHide: true,
       });
     } catch (error) {

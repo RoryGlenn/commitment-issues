@@ -10,3 +10,13 @@ export function stripAnsi(value) {
 export function countTerminalBoxes(value) {
   return (stripAnsi(value).match(/^╭/gmu) || []).length;
 }
+
+// Rejoin boxen-wrapped body lines so assertions can inspect a logical value
+// independently of terminal width and ANSI styling.
+export function compactTerminalBoxText(value) {
+  return stripAnsi(value)
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("│") && line.endsWith("│"))
+    .map((line) => line.slice(1, -1).trim())
+    .join("");
+}

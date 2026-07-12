@@ -1,7 +1,6 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
-import path from "node:path";
 import pc from "picocolors";
 import { printHookBoxModel } from "./lib/ui.mjs";
 import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
@@ -11,7 +10,11 @@ import {
   precommitConfigWarningMessages,
   resolveHookOutput,
 } from "./lib/config.mjs";
-import { eslintManualIssues, summarizeEslintJson } from "./lib/checks.mjs";
+import {
+  eslintManualIssues,
+  formatEslintManualIssue,
+  summarizeEslintJson,
+} from "./lib/checks.mjs";
 import {
   behindUpstreamIssue,
   generatedFilesIssue,
@@ -31,9 +34,15 @@ import {
   scanDiffForSecrets,
   secretsIssue,
 } from "./lib/secret-scan.mjs";
-import { buildAdvisoryMessage } from "./lib/message.mjs";
+import {
+  buildAdvisoryMessage,
+  plural,
+  stagedTestInterruption,
+  unavailableToolIssue,
+} from "./lib/message.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 import {
+  allowedStatus,
   createJsonOutput,
   emitJsonArgumentError,
   issueToJsonFinding,
@@ -340,7 +349,7 @@ jsonOutput.addCheck({
   summary: !secretScanConfig.scanSecrets
     ? "Secret scanning is disabled"
     : secretFindings.length > 0
-      ? `${secretFindings.length} possible secret${secretFindings.length === 1 ? "" : "s"} found`
+      ? `${secretFindings.length} possible ${plural(secretFindings.length, "secret")} found`
       : !secretDiffInspected
         ? "Secret diff could not be inspected"
         : "No possible secrets found",
@@ -484,7 +493,7 @@ jsonOutput.addCheck({
 function exitWithGuardSummary(infoLines, summary) {
   if (jsonMode) {
     emitJsonResult({
-      status: issues.length > 0 ? "advisory" : "skipped",
+      status: allowedStatus(issues, "skipped"),
       summary,
       findings: issues.map((issue) => issueToJsonFinding(issue)),
     });
@@ -583,7 +592,9 @@ const testCommand =
 // Run the independent tool checks concurrently.
 const [eslintResult, prettierResult, testRun] = await Promise.all([
   stagedJsFiles.length > 0 ? runEslint(stagedJsFiles) : null,
-  stagedFormatFiles.length > 0 ? runPrettier(stagedFormatFiles) : null,
+  // The no-lint/no-format state exits above, and every JS/TS extension is also
+  // formattable, so this collection is guaranteed non-empty here.
+  runPrettier(stagedFormatFiles),
   stagedTests.length > 0
     ? runStagedTestCommand(testCommand, stagedTests)
     : null,
@@ -592,62 +603,22 @@ const [eslintResult, prettierResult, testRun] = await Promise.all([
 const eslintOutcome = eslintResult
   ? normalizeProcessOutcome(eslintResult)
   : null;
-const prettierOutcome = prettierResult
-  ? normalizeProcessOutcome(prettierResult)
-  : null;
+const prettierOutcome = normalizeProcessOutcome(prettierResult);
 const stagedTestOutcome = testRun ? normalizeProcessOutcome(testRun) : null;
 const processDidNotComplete = (outcome) =>
   ["timeout", "spawn-error", "signal", "missing-tool"].includes(outcome);
 
-function unavailableToolIssue(result, outcome, displayName, packageName, type) {
-  if (outcome === "missing-tool") {
-    return {
-      autoFixable: false,
-      type,
-      message: `${displayName} is not installed locally`,
-      detail: `Install it: ${devInstallCommand([packageName])}`,
-    };
-  }
-  if (outcome === "timeout") {
-    const cleanupDetail =
-      result.cleanup === "direct-child"
-        ? "the direct child was stopped; descendant cleanup was unavailable"
-        : result.cleanup
-          ? "attached process-tree cleanup completed"
-          : null;
-    return {
-      autoFixable: false,
-      type,
-      message: `${displayName} timed out`,
-      detail: `No result within ${TOOL_TIMEOUT_MS / 1000}s${cleanupDetail ? `; ${cleanupDetail}` : ""}`,
-    };
-  }
-  if (outcome === "signal") {
-    return {
-      autoFixable: false,
-      type,
-      message: `${displayName} stopped before completing`,
-      detail: `Process ended from ${result.signal || "an unknown signal"}`,
-    };
-  }
-  return {
-    autoFixable: false,
-    type,
-    message: `Unable to run ${displayName}`,
-    detail: `Check ${displayName} install and project config`,
-  };
-}
-
 if (eslintResult) {
   if (processDidNotComplete(eslintOutcome)) {
     issues.push(
-      unavailableToolIssue(
-        eslintResult,
-        eslintOutcome,
-        "ESLint",
-        "eslint",
-        "lint",
-      ),
+      unavailableToolIssue({
+        result: eslintResult,
+        outcome: eslintOutcome,
+        displayName: "ESLint",
+        type: "lint",
+        installCommand: devInstallCommand(["eslint"]),
+        timeoutSeconds: TOOL_TIMEOUT_MS / 1000,
+      }),
     );
   } else {
     const { issueCount: eslintIssueCount, fixableCount: eslintFixableCount } =
@@ -664,18 +635,13 @@ if (eslintResult) {
 
     if (eslintManualCount > 0) {
       const manualDetail = eslintManualIssues(eslintResult.stdout)
-        .map((issue) => {
-          const rel =
-            path.relative(process.cwd(), issue.filePath) || issue.filePath;
-          const loc = issue.line ? `${rel}:${issue.line}:${issue.column}` : rel;
-          return issue.ruleId ? `${loc} (${issue.ruleId})` : loc;
-        })
+        .map((issue) => formatEslintManualIssue(issue, process.cwd()))
         .join("\n");
       issues.push({
         autoFixable: false,
         type: "lint",
         message: `${eslintManualCount} ESLint issue${eslintManualCount === 1 ? "" : "s"} needing manual fixes`,
-        detail: manualDetail || undefined,
+        detail: manualDetail,
       });
     }
 
@@ -713,92 +679,69 @@ jsonOutput.addCheck({
   },
 });
 
-if (prettierResult) {
-  if (processDidNotComplete(prettierOutcome)) {
-    issues.push(
-      unavailableToolIssue(
-        prettierResult,
-        prettierOutcome,
-        "Prettier",
-        "prettier",
-        "format",
-      ),
-    );
-  } else {
-    const failed = prettierResult.status !== 0 && prettierResult.status !== 1;
-    const files =
-      prettierResult.status === 1
-        ? prettierResult.stdout
-            .split("\n")
-            .map((file) => file.trim())
-            .filter(Boolean)
-        : [];
-    if (failed) {
-      // A crash (parse error, broken install) is not a formatting issue:
-      // commit:fix cannot resolve it, so never present it as auto-fixable.
-      issues.push({
-        autoFixable: false,
-        type: "format",
-        message: "Prettier failed to complete",
-        detail: "Check Prettier install and project config",
-      });
-    } else if (files.length > 0) {
-      issues.push({
-        autoFixable: true,
-        type: "format",
-        message: `${files.length} file${files.length === 1 ? "" : "s"} need Prettier formatting`,
-        detail: files.join("\n"),
-      });
-    }
+if (processDidNotComplete(prettierOutcome)) {
+  issues.push(
+    unavailableToolIssue({
+      result: prettierResult,
+      outcome: prettierOutcome,
+      displayName: "Prettier",
+      type: "format",
+      installCommand: devInstallCommand(["prettier"]),
+      timeoutSeconds: TOOL_TIMEOUT_MS / 1000,
+    }),
+  );
+} else {
+  const failed = prettierResult.status !== 0 && prettierResult.status !== 1;
+  const files =
+    prettierResult.status === 1
+      ? prettierResult.stdout
+          .split("\n")
+          .map((file) => file.trim())
+          .filter(Boolean)
+      : [];
+  if (failed) {
+    // A crash (parse error, broken install) is not a formatting issue:
+    // commit:fix cannot resolve it, so never present it as auto-fixable.
+    issues.push({
+      autoFixable: false,
+      type: "format",
+      message: "Prettier failed to complete",
+      detail: "Check Prettier install and project config",
+    });
+  } else if (files.length > 0) {
+    issues.push({
+      autoFixable: true,
+      type: "format",
+      message: `${files.length} file${files.length === 1 ? "" : "s"} need Prettier formatting`,
+      detail: files.join("\n"),
+    });
   }
 }
 
 const formatIssues = issues.filter((issue) => issue.type === "format");
 jsonOutput.addCheck({
   id: "prettier",
-  status:
-    stagedFormatFiles.length === 0
-      ? "skipped"
-      : formatIssues.length > 0
-        ? "advisory"
-        : "passed",
-  summary:
-    stagedFormatFiles.length === 0
-      ? "No staged formattable files"
-      : formatIssues.length > 0
-        ? `${formatIssues.length} Prettier finding${formatIssues.length === 1 ? "" : "s"}`
-        : "Prettier passed",
+  status: formatIssues.length > 0 ? "advisory" : "passed",
+  summary: formatIssues.length > 0 ? "1 Prettier finding" : "Prettier passed",
   details: {
     files: stagedFormatFiles,
-    status: prettierResult?.status ?? null,
-    signal: prettierResult?.signal ?? null,
+    status: prettierResult.status,
+    signal: prettierResult.signal,
     outcome: prettierOutcome,
   },
 });
 
 if (testRun) {
   if (processDidNotComplete(stagedTestOutcome)) {
+    const interruption = stagedTestInterruption(
+      testRun,
+      stagedTestOutcome,
+      TOOL_TIMEOUT_MS / 1000,
+    );
     issues.push({
       autoFixable: false,
       type: "tests",
-      message:
-        stagedTestOutcome === "timeout"
-          ? "Staged tests timed out"
-          : stagedTestOutcome === "signal"
-            ? "Staged tests stopped before completing"
-            : "Unable to run staged tests",
-      detail:
-        stagedTestOutcome === "timeout"
-          ? `No result within ${TOOL_TIMEOUT_MS / 1000}s${
-              testRun.cleanup === "direct-child"
-                ? "; the direct child was stopped; descendant cleanup was unavailable"
-                : testRun.cleanup
-                  ? "; attached process-tree cleanup completed"
-                  : ""
-            }`
-          : stagedTestOutcome === "signal"
-            ? `Process ended from ${testRun.signal || "an unknown signal"}`
-            : "Check testCommand in .commitmentrc.json or package.json precommitChecks",
+      ...interruption,
     });
   } else if (stagedTestOutcome === "nonzero") {
     issues.push({
@@ -826,7 +769,7 @@ jsonOutput.addCheck({
     stagedTests.length === 0
       ? "Staged tests are disabled or no related tests were found"
       : stagedTestIssues.length > 0
-        ? `${stagedTestIssues.length} staged-test finding${stagedTestIssues.length === 1 ? "" : "s"}`
+        ? "1 staged-test finding"
         : "Staged tests passed",
   details: {
     command: stagedTests.length > 0 ? [...testCommand, ...stagedTests] : [],
@@ -867,7 +810,7 @@ if (issues.length === 0) {
   if (jsonMode) {
     emitJsonResult({
       status: "clean",
-      summary: `All pre-commit checks passed for ${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"}`,
+      summary: `All pre-commit checks passed for ${stagedFiles.length} staged ${plural(stagedFiles.length, "file")}`,
     });
   }
   printHookMessage("success", [
@@ -896,7 +839,7 @@ const suggestions = canSuggestCommitFix
 if (jsonMode) {
   emitJsonResult({
     status: "advisory",
-    summary: `${issues.length} pre-commit finding${issues.length === 1 ? "" : "s"}; commit allowed`,
+    summary: `${issues.length} pre-commit ${plural(issues.length, "finding")}; commit allowed`,
     findings: issues.map((issue) => issueToJsonFinding(issue)),
     suggestions,
   });

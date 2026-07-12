@@ -16,6 +16,7 @@ import {
 } from "./helpers/temp-repo.mjs";
 import {
   JSON_OUTPUT_SCHEMA_VERSION,
+  allowedStatus,
   createJsonOutput,
   issueToJsonFinding,
   normalizeProcessOutcome,
@@ -24,7 +25,7 @@ import {
 
 function cli(tempDir, args, options = {}) {
   return run(
-    "node",
+    process.execPath,
     [path.join(tempDir, "scripts", "cli.mjs"), ...args],
     tempDir,
     options,
@@ -98,6 +99,9 @@ process.exit(${exit});
 }
 
 test("JSON helpers parse supported arguments and normalize findings", () => {
+  assert.equal(allowedStatus([], "skipped"), "skipped");
+  assert.equal(allowedStatus([{}], "clean"), "advisory");
+
   assert.deepEqual(parseJsonOutputArgs(["--json"]), {
     enabled: true,
     positionals: [],
@@ -175,8 +179,13 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
     normalizeProcessOutcome({ error: { code: "ENOENT" }, status: null }),
     "spawn-error",
   );
+  assert.equal(
+    normalizeProcessOutcome({ missingTool: "eslint", status: null }),
+    "missing-tool",
+  );
   assert.equal(normalizeProcessOutcome({ status: 2 }), "nonzero");
   assert.equal(normalizeProcessOutcome({ status: 0 }), "success");
+  assert.equal(normalizeProcessOutcome({}), "spawn-error");
 
   const output = createJsonOutput({ command: "precommit", mode: "advisory" });
   output.addCheck({ id: "example", status: "unknown", summary: "fallback" });
@@ -347,10 +356,12 @@ test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
   const branchDir = createTempRepo();
   const secretDir = createTempRepo();
   const gitDir = createTempRepo();
+  const missingGitDir = createTempRepo();
   const earlyDir = createTempRepo();
   t.after(() => cleanupTempRepo(branchDir));
   t.after(() => cleanupTempRepo(secretDir));
   t.after(() => cleanupTempRepo(gitDir));
+  t.after(() => cleanupTempRepo(missingGitDir));
   t.after(() => cleanupTempRepo(earlyDir));
 
   setPrecommitConfig(branchDir, {
@@ -379,6 +390,17 @@ test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
   assert.equal(payload.status, "advisory");
   assert.equal(payload.findings[0].check, "git");
 
+  result = cli(missingGitDir, ["precommit", "--json"], {
+    env: { ...process.env, PATH: "" },
+  });
+  payload = jsonPayload(result);
+  assert.equal(payload.status, "advisory");
+  assert.equal(payload.findings[0].check, "git");
+  assert.match(
+    payload.checks.find((check) => check.id === "staged-files").details.error,
+    /git/i,
+  );
+
   commitConfig(earlyDir, { protectedBranches: ["main", "master"] });
   writeFile(path.join(earlyDir, "assets", "raw.bin"), "fixture\n");
   run("git", ["add", "assets/raw.bin"], earlyDir);
@@ -386,6 +408,79 @@ test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
   payload = jsonPayload(result);
   assert.equal(payload.status, "advisory");
   assert.ok(payload.findings.some((finding) => finding.check === "branch"));
+});
+
+test("prepush JSON keeps protected-branch advisories in every allowed outcome", (t) => {
+  const disabledDir = createTempRepo();
+  const noTestsDir = createTempRepo();
+  const passingDir = createTempRepo();
+  for (const dir of [disabledDir, noTestsDir, passingDir]) {
+    t.after(() => cleanupTempRepo(dir));
+  }
+
+  commitConfig(disabledDir, { protectedBranches: ["main"] });
+  let payload = jsonPayload(
+    cli(disabledDir, ["prepush", "--json"], {
+      input: pushInput(disabledDir),
+    }),
+  );
+  assert.equal(payload.status, "advisory");
+  assert.match(payload.findings[0].message, /protected branch/);
+
+  commitConfig(noTestsDir, {
+    advisePushTests: true,
+    protectedBranches: ["main"],
+  });
+  writeFile(path.join(noTestsDir, "docs", "note.md"), "docs only\n");
+  run("git", ["add", "docs/note.md"], noTestsDir);
+  run("git", ["commit", "-m", "add docs"], noTestsDir);
+  payload = jsonPayload(
+    cli(noTestsDir, ["prepush", "--json"], {
+      input: pushInput(noTestsDir),
+    }),
+  );
+  assert.equal(payload.status, "advisory");
+  assert.equal(payload.summary, "No tests to run before push");
+
+  configureCustomPushRunner(passingDir, {});
+  addPushedTestFixture(passingDir);
+  setPrecommitConfig(passingDir, {
+    advisePushTests: true,
+    protectedBranches: ["main"],
+    testCommand: ["node", "json-test-runner.mjs"],
+  });
+  payload = jsonPayload(
+    cli(passingDir, ["prepush", "--json"], {
+      input: pushInput(passingDir),
+    }),
+  );
+  assert.equal(payload.status, "advisory");
+  assert.equal(
+    payload.summary,
+    "All tests passed; push allowed with advisory findings",
+  );
+});
+
+test("prepush JSON pluralizes a blocked multi-branch push", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  commitConfig(tempDir, {
+    blockProtectedBranches: true,
+    protectedBranches: ["main", "release"],
+  });
+  const mainRef = pushInput(tempDir).trim();
+  const input = `${mainRef}\n${mainRef.replaceAll("main", "release")}\n`;
+  const result = cli(tempDir, ["prepush", "--json"], { input });
+  const payload = jsonPayload(result);
+
+  assert.equal(result.status, 1);
+  assert.equal(payload.status, "blocked");
+  assert.equal(
+    payload.checks.find((check) => check.id === "protected-branch").summary,
+    "Protected push targets are blocked",
+  );
+  assert.match(payload.findings[0].message, /protected branches/);
 });
 
 test("JSON argument errors are machine-readable and unsupported commands fail clearly", (t) => {

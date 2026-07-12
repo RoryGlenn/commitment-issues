@@ -115,7 +115,7 @@ spawning subprocesses inside temporary git repos (see
 - Bug fixes **MUST** include regression tests when practical.
 - Run the whole suite with `npm test`, or a single file with
   `node --test test/<name>.test.mjs`.
-- Runtime branch coverage is gated at 90%: `npm run test:coverage`. See the
+- Runtime line, branch, and function coverage is gated at 100%: `npm run test:coverage`. See the
   [exact source/test scope](../docs/branch-coverage.md).
 - CI runs on Ubuntu, macOS, and Windows against Node 22.11.0 and 24, plus
   lifecycle integrations for npm, pnpm, yarn, and bun. Please keep changes

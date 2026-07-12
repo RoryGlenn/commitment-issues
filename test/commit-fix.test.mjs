@@ -26,6 +26,11 @@ function runCommitFix(tempDir, options = {}) {
   );
 }
 
+function hideNodeModules(tempDir) {
+  fs.unlinkSync(path.join(tempDir, "node_modules"));
+  fs.mkdirSync(path.join(tempDir, "node_modules"));
+}
+
 test("refuses to amend when tracked worktree changes exist", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -229,6 +234,24 @@ test("warns when a format-only file cannot be fixed automatically", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Manual attention still needed\./);
+});
+
+test("reports local install guidance when committed-file tools are missing", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writeFile(path.join(tempDir, "src", "missing.js"), "export const x=1;\n");
+  hideNodeModules(tempDir);
+  run("git", ["rm", "--cached", "--force", "node_modules"], tempDir);
+  run("git", ["add", "src/missing.js"], tempDir);
+  run("git", ["commit", "-m", "missing tools"], tempDir);
+
+  const result = runCommitFix(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /missing local tool\(s\): eslint, prettier/i);
+  assert.match(output, /npm install -D eslint prettier/);
 });
 
 test("commit-fix timeout cleans up fixer descendants", async (t) => {

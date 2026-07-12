@@ -26,6 +26,11 @@ test("localToolInvocation resolves only a project node_modules bin", () => {
     assert.ok(invocation);
     assert.match(invocation.command, /commitlint(?:\.cmd)?$/);
     assert.deepEqual(invocation.args, args);
+
+    const windows = localToolInvocation("commitlint", args, nested, "win32");
+    assert.ok(windows);
+    assert.match(windows.command, /commitlint\.cmd$/);
+    assert.deepEqual(windows.args, args);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

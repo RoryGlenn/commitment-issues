@@ -55,6 +55,14 @@ test("severity boxes render the lines with their title", () => {
     capture(() => warningBox({ lines: ["model line"] })),
     /model line/,
   );
+  assert.match(
+    capture(() => infoBox(42)),
+    /42/,
+  );
+  assert.match(
+    capture(() => infoBox(null)),
+    /info/,
+  );
 });
 
 test("printBoxModel dispatches to the requested severity", () => {
