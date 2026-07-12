@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  DEFAULT_HOOK_OUTPUT,
   invalidPrecommitConfigMessages,
   KNOWN_COMMIT_MESSAGE_CONFIG_KEYS,
   KNOWN_PRECOMMIT_CONFIG_KEYS,
@@ -17,6 +18,7 @@ import {
   precommitConfigWarningMessages,
   readStandalonePrecommitConfig,
   resolveCommitMessageConfig,
+  resolveHookOutput,
   sanitizePrecommitConfig,
   STANDALONE_CONFIG_FILE,
   unknownPrecommitConfigKeys,
@@ -84,18 +86,21 @@ test("configuration discovery never executes JavaScript files", (t) => {
 test("standalone keys shallowly override package.json and keep other keys", (t) => {
   withTempPackage(t, {
     precommitChecks: {
+      hookOutput: "normal",
       requireTests: true,
       testExempt: ["package/**"],
       timeoutMs: 1000,
     },
   });
   writeStandaloneConfig({
+    hookOutput: "problems-only",
     requireTests: false,
     testExempt: ["standalone/**"],
   });
 
   const config = loadPrecommitConfig();
   assert.deepEqual(config, {
+    hookOutput: "problems-only",
     requireTests: false,
     testExempt: ["standalone/**"],
     timeoutMs: 1000,
@@ -104,6 +109,23 @@ test("standalone keys shallowly override package.json and keep other keys", (t) 
     precommitConfigSourceLabel(config),
     ".commitmentrc.json and package.json",
   );
+});
+
+test("hookOutput accepts only the documented values and defaults quiet", () => {
+  assert.equal(DEFAULT_HOOK_OUTPUT, "problems-only");
+  assert.equal(resolveHookOutput({}), "problems-only");
+  assert.equal(
+    resolveHookOutput(sanitizePrecommitConfig({ hookOutput: "problems-only" })),
+    "problems-only",
+  );
+  assert.equal(
+    resolveHookOutput(sanitizePrecommitConfig({ hookOutput: "normal" })),
+    "normal",
+  );
+  assert.deepEqual(sanitizePrecommitConfig({ hookOutput: "quiet" }), {});
+  assert.deepEqual(invalidPrecommitConfigMessages({ hookOutput: "quiet" }), [
+    'hookOutput must be "problems-only" or "normal"',
+  ]);
 });
 
 test("an invalid standalone value overrides rather than reviving package.json", (t) => {
@@ -321,6 +343,7 @@ test("loadPrecommitConfig rejects malformed option values inside an object", (t)
     runStagedTests: "true",
     blockPushOnTestFailure: "false",
     advisePushTests: "true",
+    hookOutput: "loud",
     tone: "silly",
     testExempt: ["src/legacy/**", 123, null],
     testCommand: ["node", "--test", 42],
@@ -339,6 +362,7 @@ test("loadPrecommitConfig keeps valid values and omits invalid values", (t) => {
       requireTests: false,
       runStagedTests: true,
       blockPushOnTestFailure: "false",
+      hookOutput: "normal",
       tone: "fun",
       testExempt: ["src/legacy/**"],
       testCommand: ["node", "--test"],
@@ -349,6 +373,7 @@ test("loadPrecommitConfig keeps valid values and omits invalid values", (t) => {
   assert.deepEqual(loadPrecommitConfig(), {
     requireTests: false,
     runStagedTests: true,
+    hookOutput: "normal",
     tone: "fun",
     testExempt: ["src/legacy/**"],
     testCommand: ["node", "--test"],
@@ -363,6 +388,7 @@ test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
       runStagedTests: "true",
       blockPushOnTestFailure: "false",
       advisePushTests: "true",
+      hookOutput: "loud",
       tone: "silly",
       testExempt: ["src/legacy/**", 123],
       testCommand: [],
@@ -374,6 +400,7 @@ test("invalidPrecommitConfigMessages reports invalid recognized values", () => {
       "requireTests must be a boolean",
       "runStagedTests must be a boolean",
       'tone must be "standard" or "fun"',
+      'hookOutput must be "problems-only" or "normal"',
       "testExempt must be an array of strings",
       "testCommand must be a non-empty array of non-empty strings",
       `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,

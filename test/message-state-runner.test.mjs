@@ -58,3 +58,11 @@ test("message-state runner removes NO_COLOR before forcing child color", () => {
     /NO_COLOR[^\n]*FORCE_COLOR|FORCE_COLOR[^\n]*NO_COLOR/i,
   );
 });
+
+test("message-state runner explicitly keeps success gallery states visible", () => {
+  const result = runRunner(["precommit/all-passed"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /All pre-commit checks passed/);
+  assert.match(result.stdout, /success/);
+});

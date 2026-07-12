@@ -26,6 +26,27 @@ ESLint and Prettier are resolved only from the project's installed
 `node_modules`. A missing peer tool produces an advisory with the detected
 package manager's install command; hooks do not ask `npx` to fetch it.
 
+Successful and no-op hook results are quiet by default. Warning and error boxes
+still appear, including mixed results whose strongest severity is a warning or
+error. The checks still run and communicate success through exit status `0`.
+
+## How do I show successful hook messages?
+
+Set `hookOutput` to `"normal"`:
+
+```json
+{
+  "precommitChecks": {
+    "hookOutput": "normal"
+  }
+}
+```
+
+Use the same key at the top level of `.commitmentrc.json` if you use the
+standalone configuration. `"problems-only"` is the default. Neither value
+changes check execution, blocking, exit codes, JSON payloads, or output from
+`init`, `uninstall`, `doctor`, and the explicit fix commands.
+
 ## When does it block anything?
 
 Commit-time checks are advisory and exit successfully by default. Push-time test

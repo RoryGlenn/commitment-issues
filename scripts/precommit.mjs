@@ -3,12 +3,13 @@
 
 import path from "node:path";
 import pc from "picocolors";
-import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
+import { printHookBoxModel } from "./lib/ui.mjs";
 import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigDiagnostics,
   precommitConfigWarningMessages,
+  resolveHookOutput,
 } from "./lib/config.mjs";
 import { eslintManualIssues, summarizeEslintJson } from "./lib/checks.mjs";
 import {
@@ -105,6 +106,7 @@ function runStagedTestCommand(testCommand, tests) {
 }
 
 const config = loadPrecommitConfig();
+const hookOutput = resolveHookOutput(config);
 const guardConfig = resolveGuardConfig(config);
 const secretScanConfig = resolveSecretScanConfig(config);
 const jsonOutput = createJsonOutput({
@@ -141,6 +143,10 @@ if (jsonMode) {
   for (const message of configWarnings) {
     console.warn(pc.yellow(`⚠ ${message}`));
   }
+}
+
+function printHookMessage(severity, lines) {
+  printHookBoxModel({ severity, lines }, hookOutput);
 }
 
 function branchName(args) {
@@ -187,7 +193,7 @@ if (
       findings: [issueToJsonFinding(issue, "error")],
     });
   }
-  errorBox([
+  printHookMessage("error", [
     pc.bold("Commit blocked: protected branch."),
     "",
     pc.dim(`Committing to "${branch}" is blocked by blockProtectedBranches.`),
@@ -235,7 +241,7 @@ if (gitFiles.error || gitFiles.status !== 0 || rawStagedFiles === null) {
       findings: [issueToJsonFinding(issue)],
     });
   }
-  warningBox([
+  printHookMessage("warning", [
     pc.bold("Unable to inspect staged files."),
     "",
     pc.dim("Commit will continue. Verify Git is available in PATH."),
@@ -266,7 +272,8 @@ if (rawStagedFiles.length === 0) {
   if (jsonMode) {
     emitJsonResult({ status: "skipped", summary });
   }
-  infoBox(
+  printHookMessage(
+    "info",
     hasStagedChanges
       ? [
           pc.bold("Deletion-only commit — nothing to check."),
@@ -353,7 +360,7 @@ if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
       findings: [issueToJsonFinding(issue, "error")],
     });
   }
-  errorBox([
+  printHookMessage("error", [
     pc.bold("Commit blocked: possible secret staged."),
     "",
     ...findingLines(secretFindings).map((line) => pc.dim(line)),
@@ -483,7 +490,8 @@ function exitWithGuardSummary(infoLines, summary) {
     });
   }
   if (issues.length > 0) {
-    warningBox(
+    printHookMessage(
+      "warning",
       buildAdvisoryMessage({
         issues,
         tone: config.tone,
@@ -491,7 +499,7 @@ function exitWithGuardSummary(infoLines, summary) {
       }),
     );
   } else {
-    infoBox(infoLines);
+    printHookMessage("info", infoLines);
   }
   process.exit(0);
 }
@@ -862,7 +870,7 @@ if (issues.length === 0) {
       summary: `All pre-commit checks passed for ${stagedFiles.length} staged file${stagedFiles.length === 1 ? "" : "s"}`,
     });
   }
-  successBox([
+  printHookMessage("success", [
     pc.bold("All pre-commit checks passed."),
     "",
     pc.dim(
@@ -894,7 +902,8 @@ if (jsonMode) {
   });
 }
 
-warningBox(
+printHookMessage(
+  "warning",
   buildAdvisoryMessage({
     issues,
     tone: config.tone,

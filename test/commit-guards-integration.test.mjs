@@ -290,6 +290,10 @@ test("commit guards keep the fun tone", (t) => {
 test("clean commits on unprotected branches still pass every guard", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
 
   run("git", ["switch", "-c", "feature/tidy"], tempDir);
   writeFile(path.join(tempDir, "note.md"), "# note\n");
@@ -443,7 +447,11 @@ test("a failing cat-file skips the large-file guard without blocking", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  setPrecommitConfig(tempDir, { maxFileSizeMb: 1, protectedBranches: [] });
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    maxFileSizeMb: 1,
+    protectedBranches: [],
+  });
   fs.writeFileSync(
     path.join(tempDir, "huge.bin"),
     Buffer.alloc(2 * 1024 * 1024, 1),
@@ -469,6 +477,10 @@ test("a failing behind-count probe skips the upstream guard", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
   const remoteDir = addBareRemote(tempDir);
   t.after(() => fs.rmSync(remoteDir, { recursive: true, force: true }));
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    protectedBranches: [],
+  });
 
   stageCleanFile(tempDir);
 

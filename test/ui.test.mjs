@@ -7,6 +7,8 @@ import { spawnSync } from "node:child_process";
 import {
   printBox,
   printBoxModel,
+  printHookBoxModel,
+  shouldRenderHookModel,
   infoBox,
   successBox,
   warningBox,
@@ -49,6 +51,10 @@ test("severity boxes render the lines with their title", () => {
     capture(() => errorBox(["err line"])),
     /err line/,
   );
+  assert.match(
+    capture(() => warningBox({ lines: ["model line"] })),
+    /model line/,
+  );
 });
 
 test("printBoxModel dispatches to the requested severity", () => {
@@ -71,6 +77,58 @@ test("printBoxModel accepts an omitted model", () => {
     capture(() => printBoxModel()),
     /info/,
   );
+});
+
+test("problems-only suppresses final info and success hook models", () => {
+  assert.equal(shouldRenderHookModel(), false);
+  assert.equal(
+    shouldRenderHookModel({ severity: "info" }, "problems-only"),
+    false,
+  );
+  assert.equal(
+    shouldRenderHookModel({ severity: "success" }, "problems-only"),
+    false,
+  );
+  assert.equal(
+    capture(() =>
+      printHookBoxModel({ severity: "success", lines: ["all clear"] }),
+    ),
+    "",
+  );
+  assert.equal(
+    capture(() => printHookBoxModel()),
+    "",
+  );
+});
+
+test("problems-only always renders warning and error hook models", () => {
+  const warning = capture(() =>
+    printHookBoxModel({
+      severity: "warning",
+      lines: ["checks passed", "protected branch warning"],
+    }),
+  );
+  const error = capture(() =>
+    printHookBoxModel({ severity: "error", lines: ["blocked"] }),
+  );
+
+  assert.match(warning, /checks passed/);
+  assert.match(warning, /protected branch warning/);
+  assert.match(error, /blocked/);
+});
+
+test("normal renders every final hook severity", () => {
+  for (const severity of ["info", "success", "warning", "error"]) {
+    assert.match(
+      capture(() =>
+        printHookBoxModel(
+          { severity, lines: [`${severity} result`] },
+          "normal",
+        ),
+      ),
+      new RegExp(`${severity} result`),
+    );
+  }
 });
 
 test("severity boxes color the entire border, not just the body", () => {

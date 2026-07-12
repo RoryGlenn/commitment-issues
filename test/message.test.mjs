@@ -4,6 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  advisoryTestFailureWarning,
   appendPushWarnings,
   buildAdvisoryMessage,
   buildCommitMessageCheckMessage,
@@ -192,6 +193,18 @@ test("push summary consolidates allowed advisory findings", () => {
   assert.match(text, /Tests failed \(advisory\)/);
   assert.match(text, /protected branch "main"/);
   assert.match(text, /Review the failing test output above/);
+});
+
+test("advisory test failure warning covers missing and plural summaries", () => {
+  assert.equal(advisoryTestFailureWarning(null), "Tests failed (advisory)");
+  assert.equal(
+    advisoryTestFailureWarning({ passed: 0, failed: 1 }),
+    "Tests failed (advisory): 1 related test failed (0 passed, 1 failed)",
+  );
+  assert.equal(
+    advisoryTestFailureWarning({ passed: 1, failed: 2 }),
+    "Tests failed (advisory): 2 related tests failed (1 passed, 2 failed)",
+  );
 });
 
 test("secondary push warnings preserve a blocking outcome", () => {

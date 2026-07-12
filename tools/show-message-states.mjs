@@ -23,12 +23,24 @@ import {
   cleanupTempRepo,
   createTempRepo,
   run,
-  setPrecommitConfig,
+  setPrecommitConfig as writePrecommitConfig,
   writeFile,
 } from "../test/helpers/temp-repo.mjs";
 
 // Runtime-assembled fixture (never a joined credential in source).
 const AWS_KEY = ["AKIA", "ABCDEFGH", "IJKLMNOP"].join("");
+
+// The gallery documents every message state, including success and no-op
+// states that routine hooks suppress by default. Keep every scenario explicit
+// about opting into the full human-readable output policy.
+function setPrecommitConfig(tempDir, config) {
+  writePrecommitConfig(tempDir, { ...config, hookOutput: "normal" });
+}
+
+function enableGalleryOutput(tempDir) {
+  const pkg = JSON.parse(fs.readFileSync(path.join(tempDir, "package.json")));
+  setPrecommitConfig(tempDir, pkg.precommitChecks || {});
+}
 
 function script(tempDir, name, { input = "", env = {}, args = [] } = {}) {
   const childEnv = { ...process.env, ...env, FORCE_COLOR: "1" };
@@ -489,6 +501,7 @@ for (const scenario of selected) {
   let dir;
   try {
     dir = createTempRepo();
+    enableGalleryOutput(dir);
     const result = scenario.run(dir);
     const expectedStatus = scenario.expectedStatus ?? 0;
     if (!printResult(scenario.name, result, expectedStatus)) failed = true;
