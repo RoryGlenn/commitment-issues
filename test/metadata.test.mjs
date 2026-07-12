@@ -201,23 +201,20 @@ test("repository metadata uses canonical sponsor and version values", () => {
   );
 });
 
-test("Scorecard SARIF is uploaded safely with a pinned CodeQL action", () => {
+test("Scorecard SARIF runs only for default-branch events", () => {
   const workflow = readText(".github/workflows/scorecard.yml");
 
+  assert.match(workflow, /^\s*branch_protection_rule:\s*$/m);
+  assert.match(workflow, /^\s+branches:\s*\[main\]\s*$/m);
+  assert.doesNotMatch(workflow, /^\s*pull_request:\s*$/m);
+  assert.doesNotMatch(workflow, /github\.event\.pull_request/);
   assert.match(workflow, /^\s+security-events:\s+write\s*$/m);
   assert.match(
     workflow,
     /github\/codeql-action\/upload-sarif@[0-9a-f]{40}\s+# v\d+\.\d+\.\d+/,
   );
   assert.match(workflow, /sarif_file:\s+results\.sarif/);
-  assert.match(
-    workflow,
-    /publish_results:[\s\S]*github\.event\.pull_request\.head\.repo\.full_name == github\.repository/,
-  );
-  assert.match(
-    workflow,
-    /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/,
-  );
+  assert.match(workflow, /^\s+publish_results:\s+true\s*$/m);
 });
 
 test("CI enforces branch coverage on both Node lines and badge freshness", () => {
