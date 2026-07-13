@@ -1,5 +1,10 @@
 # Scenario Coverage
 
+> **Audience:** maintainers and auditors. This repository-only matrix is not
+> installed with the npm package. Scenario identifiers map claims to concrete
+> tests, workflows, or an explicit manual/deferred disposition; update the map
+> whenever that evidence changes.
+
 This tracker turns the exhaustive scenario list into an implementation plan. Update it whenever a scenario is covered, deferred, or intentionally left manual.
 
 ## Status values
@@ -21,7 +26,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PKG-004** — package `files` entries exist. Unit: `test/metadata.test.mjs`.
 - **PKG-005** — package bin works from a packed tarball across the OS / Node matrix. CI lifecycle integration: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`.
 - **PKG-006** — README relative image assets, including HTML `<img>` sources, exist and are included in package `files`. Unit: `test/metadata.test.mjs`.
-- **PKG-007** — package includes README SVG gallery assets and installed docs in the tarball. Unit: `test/metadata.test.mjs` using `npm pack --dry-run --json`.
+- **PKG-007** — package includes only README-required SVG assets and the explicit
+  user-documentation allowlist; repository-only galleries and maintainer
+  evidence stay out of the tarball. Unit: `test/metadata.test.mjs` using
+  `npm pack --dry-run --json`.
 - **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
 - **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
 - **PKG-011** — the publish workflow sends the exact packed/hashed tarball to
@@ -49,7 +57,9 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **DOC-003** — README documents blocking push mode. Unit: `test/metadata.test.mjs`.
 - **DOC-004** — README image references cannot drift away from packaged assets. Unit: `test/metadata.test.mjs`.
 - **DOC-005** — supported Node version stays consistent across the README, docs, and workflows. Unit: `test/metadata.test.mjs`.
-- **DOC-006** — every allowlisted `precommitChecks` key appears in the user configuration reference, external interface, and maintainer authoring skill. Unit: `test/metadata.test.mjs`.
+- **DOC-006** — every allowlisted `precommitChecks` key appears in the canonical
+  user configuration reference and maintainer authoring skill; the external
+  interface links to that canonical table. Unit: `test/metadata.test.mjs`.
 - **DOC-007** — the aggregate CI gate includes DCO and every prospective-enforcement surface names the same immutable baseline. Unit: `test/metadata.test.mjs`.
 
 ### Promotional demo

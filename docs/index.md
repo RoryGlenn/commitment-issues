@@ -1,0 +1,71 @@
+# Documentation index
+
+This index separates documentation by audience and names the canonical source
+for each kind of product information. User guides describe the supported v3
+release. Maintainer and audit evidence remains public in the repository but is
+not installed with the npm package unless users need it offline.
+
+## Start here
+
+- [Project overview and quickstart](../README.md)
+- [Configuration and behavior](configuration.md) — canonical option, default,
+  validation, and check behavior reference
+- [FAQ and troubleshooting](faq.md)
+- [Migration guide](migration.md)
+- [How commitment-issues works](how-it-works.md)
+
+## Compatibility guides
+
+- [Monorepos and workspaces](monorepo.md)
+- [Yarn Berry](yarn-berry.md)
+- [Framework recipes](framework-recipes.md)
+- [CI provider recipes](ci-recipes.md)
+
+These guides define environment-specific setup and boundaries. General options
+belong in the configuration reference instead of being repeated in each guide.
+
+## Public contracts and trust
+
+- [External interface](external-interface.md) — commands, hooks, scripts, output,
+  and exit behavior
+- [JSON output](json-output.md) and
+  [JSON Schema](json-output.schema.json)
+- [Release verification](release-verification.md)
+- [Security assurance case](security/assurance-case.md)
+- [Current security review](security-review-2026-07.md)
+- [Vulnerability history](vulnerability-history.md)
+- [Project roles and sensitive access](project-roles.md)
+- [Governance](../GOVERNANCE.md)
+- [Security policy](../.github/SECURITY.md)
+
+Historical reviews describe the named implementation snapshot they reviewed.
+They are evidence, not living descriptions of later code.
+
+## Maintainer and audit evidence
+
+- [Maintainer operations](maintainer-operations.md) — dependencies, repository
+  health, package contents, and release housekeeping
+- [Runtime coverage policy](branch-coverage.md)
+- [Scenario coverage](scenario-coverage.md)
+- [Message-state gallery](message-states.md)
+- [OpenSSF evidence map](openssf-best-practices.md)
+- [Feature-planning archive](feature-ideas.md)
+- [Adoption checklist](../ADOPTION.md)
+- [Roadmap](../ROADMAP.md)
+
+The scenario matrix and message-state gallery are repository evidence. Their
+mechanically checkable parts are enforced by tests and maintainer tools; manual
+limitations remain written down explicitly.
+
+## Rationale
+
+- [Why catch problems before CI?](why-before-ci.md)
+
+## Contribution guidance
+
+- [Contributing](../.github/CONTRIBUTING.md)
+- [Support](../.github/SUPPORT.md)
+- [Code of Conduct](../.github/CODE_OF_CONDUCT.md)
+
+When information overlaps, update the canonical document above and replace
+secondary explanations with a short summary and link.

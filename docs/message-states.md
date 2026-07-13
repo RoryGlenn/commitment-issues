@@ -1,5 +1,11 @@
 # Message States
 
+> **Audience:** users who need a complete output catalog and maintainers who
+> review presentation changes. This repository-only gallery is excluded from
+> the npm package. Metadata tests require every terminal box title to appear
+> here or in a referenced SVG, and `tools/gen-message-state-svgs.mjs` regenerates
+> the visual fixtures.
+
 `commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
 Routine hooks default to `hookOutput: "problems-only"`, so their success and

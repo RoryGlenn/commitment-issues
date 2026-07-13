@@ -90,7 +90,7 @@ already been awarded.
 ## Analysis
 
 - `hardening`:
-  - [Hardening mechanisms](security-hardening.md)
+  - [Hardening mechanisms](security/assurance-case.md#security-hardening-and-dynamic-analysis)
   - [CodeQL workflow](../.github/workflows/codeql.yml)
   - [Scorecard workflow](../.github/workflows/scorecard.yml)
 - `dynamic_analysis`:

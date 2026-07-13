@@ -77,12 +77,34 @@ direct adoption lever.
 
 ## Measure & iterate
 
-See [`docs/adoption-metrics.md`](docs/adoption-metrics.md) for a lightweight weekly/monthly signal checklist.
+Keep measurement lightweight and manual. The package does not add telemetry;
+these signals come from public sources or the repository's GitHub Insights.
+
+### Weekly signals
+
+- [ ] npm weekly downloads from the
+      [package page](https://www.npmjs.com/package/commitment-issues) or
+      [downloads API](https://api.npmjs.org/downloads/point/last-week/commitment-issues).
+- [ ] GitHub star trend, treated as context rather than a success target.
+- [ ] New issues that reveal install or first-run friction.
+- [ ] Discussions and recurring questions.
+
+### Monthly signals
+
+- [ ] GitHub traffic and referrers from Insights → Traffic.
+- [ ] Common installation or first-run failures worth a documentation fix or
+      safer default.
+- [ ] Repeated questions that one README or FAQ sentence could prevent.
+- [ ] Checklist items that should be completed, retired, or reprioritized.
+
+Prefer a few notes after each release to a dashboard that becomes another
+maintenance burden. Turn repeated friction into documentation before adding a
+new configuration option.
 
 - [ ] Track npm weekly downloads and GitHub traffic/referrers.
 - [ ] Note where first-run drop-off happens and smooth it.
 - [x] "No telemetry by design" — the
       [README Privacy section](README.md#privacy-and-trust) states the posture
       explicitly.
-- [x] Maintainer adoption-metrics note ([`docs/adoption-metrics.md`](docs/adoption-metrics.md)).
+- [x] Maintainer adoption metrics are recorded in this checklist.
 - [ ] Revisit this checklist after each release.

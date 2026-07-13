@@ -104,6 +104,42 @@ The tool prints explicit messages about what it checked, what it refused to do, 
 
 The project combines local validation, tests, linting, formatting, CI on multiple platforms, CodeQL, OpenSSF Scorecard, Dependabot, pinned GitHub Actions, and npm provenance.
 
+## Security hardening and dynamic analysis
+
+### Runtime hardening
+
+- Built-in and configured commands use argument vectors instead of shell
+  interpolation for file paths.
+- ESLint, Prettier, and optional commitlint resolve only project-local binaries;
+  missing tools do not trigger an implicit `npx`, global lookup, registry
+  request, or installation.
+- Process results distinguish spawn failure, timeout, signal termination,
+  ordinary nonzero exit, and success.
+- Timed commands terminate their attached POSIX process group or Windows process
+  tree, with the documented limitation that deliberately detached descendants
+  are outside the portable cleanup boundary.
+- `fix:staged` refuses partially staged files, and `commit:fix` refuses dirty
+  tracked worktrees or pushed commits.
+- Path normalization and Git parsing cover POSIX and Windows-style separators,
+  spaces, Unicode, and diff content that resembles metadata.
+
+### Security automation and release evidence
+
+- CodeQL, OpenSSF Scorecard, Dependabot, pinned GitHub Actions, DCO, and the
+  aggregate `CI Success` gate keep security-sensitive changes visible.
+- Trusted publishing publishes the exact tarball packed and hashed by the
+  release job.
+- The release workflow attaches that tarball and matching signed SLSA
+  provenance before making the GitHub Release immutable.
+- Pull requests that modify the publish workflow exercise its reusable-workflow
+  permission contract without publishing.
+
+Before release, automated tests execute hook entrypoints, subprocess behavior,
+property-based path/parser cases, working-tree refusal paths, coverage, and the
+npm lifecycle in disposable repositories. The suite uses `node:assert/strict`
+for runtime invariants. These checks support review but do not replace the
+manual threat-model and workflow inspection recorded in dated security reviews.
+
 ## Common implementation weakness mitigations
 
 ### Command injection
@@ -157,9 +193,8 @@ The security policy directs reporters to private vulnerability reporting. Public
 Relevant evidence includes:
 
 - [Security review](../security-review-2026-07.md)
-- [Security hardening](../security-hardening.md)
 - [Configuration reference](../configuration.md)
-- [Dependency management](../dependency-management.md)
+- [Maintainer dependency and release operations](../maintainer-operations.md)
 - [Release verification](../release-verification.md)
 - [Vulnerability history](../vulnerability-history.md)
 - [Governance and prospective DCO baseline](../../GOVERNANCE.md)
