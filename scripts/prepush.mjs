@@ -43,11 +43,15 @@ import { firstPushBase } from "./lib/push-base.mjs";
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 // Git invokes pre-push hooks with the remote name and URL as two positional
-// arguments. Accept those on either side of --json, but reject any additional
-// JSON-mode arguments so a typo cannot silently change a machine-readable run.
+// arguments. Accept those on either side of --json, but reject options and any
+// additional positionals so a typo cannot silently change the run.
 const outputArgs = parseJsonOutputArgs(process.argv.slice(2), 2);
 if (outputArgs.error) {
-  emitJsonArgumentError("prepush", outputArgs.error);
+  if (outputArgs.enabled) {
+    emitJsonArgumentError("prepush", outputArgs.error);
+  } else {
+    console.error(`commitment-issues prepush: ${outputArgs.error}`);
+  }
   process.exit(1);
 }
 const jsonMode = outputArgs.enabled;

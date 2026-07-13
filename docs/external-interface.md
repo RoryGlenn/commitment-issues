@@ -34,9 +34,32 @@ npx commitment-issues commit-msg .git/COMMIT_EDITMSG
 npx commitment-issues --version
 ```
 
+### Arguments and options
+
+The public argument contract is deliberately small:
+
+| Command                    | Accepted arguments                                                    |
+| -------------------------- | --------------------------------------------------------------------- |
+| global                     | `--help`/`-h`, `--version`/`-v`                                       |
+| `init`, `uninstall`        | optional `--dry-run` or `-n`                                          |
+| `doctor`                   | optional `--quiet`                                                    |
+| `precommit`                | optional `--json`                                                     |
+| `prepush`                  | up to the remote name and URL supplied by Git, plus optional `--json` |
+| `commit-msg`               | the message-file path supplied by Git                                 |
+| `commit-fix`, `fix-staged` | no arguments                                                          |
+| `fix-staged-js`            | zero or more explicit file paths                                      |
+
+Unknown options and excess positional arguments exit nonzero. Setup, removal,
+and doctor validate their arguments before changing project files or hooks, so
+a misspelled `--dry-run` or `--quiet` cannot silently perform another action.
+
 Setup and hook-health commands expect the project root of a non-bare Git
 working tree. Bare repositories do not run this package's local commit or push
 workflow and are not reported as having active hooks.
+
+Detached HEAD intentionally has no protected branch identity, so the
+protected-branch guard does not fire in that state. File, secret, size,
+generated-file, lint, format, and related-test checks continue normally.
 
 ## Scripts added by `init`
 

@@ -29,6 +29,18 @@ import {
 // deliberately preserved.
 
 const args = process.argv.slice(2);
+const unknownOption = args.find(
+  (argument) => !["--dry-run", "-n"].includes(argument),
+);
+if (unknownOption) {
+  errorBox([
+    pc.bold(`Unknown uninstall option: ${unknownOption}`),
+    "",
+    pc.dim("Supported options: --dry-run, -n."),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
 const dryRun = args.includes("--dry-run") || args.includes("-n");
 
 if (!fs.existsSync("package.json")) {
@@ -183,7 +195,31 @@ const removed = [];
 
 if (!dryRun) {
   if (plannedPackageChanges.length > 0) {
-    fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+    try {
+      fs.accessSync("package.json", fs.constants.W_OK);
+    } catch {
+      errorBox([
+        pc.bold("Could not update package.json."),
+        "",
+        pc.dim("Make package.json writable, then run uninstall again."),
+        pc.dim("No files or hooks were changed."),
+      ]);
+      process.exit(1);
+    }
+    try {
+      fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+      /* node:coverage ignore next 13 */
+    } catch {
+      // Permission failures are exercised by the access preflight above. This
+      // fallback handles only a post-preflight filesystem race/failure.
+      errorBox([
+        pc.bold("Could not update package.json."),
+        "",
+        pc.dim("The filesystem write failed before hook cleanup began."),
+        pc.dim("Fix the project-file permissions, then rerun uninstall."),
+      ]);
+      process.exit(1);
+    }
     removed.push(...plannedPackageChanges);
   }
   if (standalone.exists) {

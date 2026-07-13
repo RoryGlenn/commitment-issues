@@ -64,7 +64,11 @@ const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
 const outputArgs = parseJsonOutputArgs(process.argv.slice(2));
 if (outputArgs.error) {
-  emitJsonArgumentError("precommit", outputArgs.error);
+  if (outputArgs.enabled) {
+    emitJsonArgumentError("precommit", outputArgs.error);
+  } else {
+    console.error(`commitment-issues precommit: ${outputArgs.error}`);
+  }
   process.exit(1);
 }
 const jsonMode = outputArgs.enabled;

@@ -41,6 +41,20 @@ function gitHook(tempDir, name) {
   return path.join(tempDir, ".git", "hooks", name);
 }
 
+test("doctor rejects unknown options before repairing hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = runDoctor(tempDir, ["--quite"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Unknown doctor option: --quite/);
+  assert.match(output, /No hooks were changed/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
 // Simulate the wiring a pre-3.0 (husky-era) setup leaves behind: hooksPath
 // pointing at husky's shim dir plus our generated `.husky` hook files. With
 // `live: true` a husky package stub is installed (the "user deliberately

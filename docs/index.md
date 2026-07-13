@@ -47,6 +47,7 @@ They are evidence, not living descriptions of later code.
   health, package contents, and release housekeeping
 - [Runtime coverage policy](branch-coverage.md)
 - [Scenario coverage](scenario-coverage.md)
+- [Core CLI and Git behavior audit](audits/core-cli-git.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)

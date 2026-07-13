@@ -116,6 +116,20 @@ if (
   process.exit(1);
 }
 
+const noArgumentCommands = new Set(["commit-fix", "fix-staged", "vows"]);
+if (noArgumentCommands.has(subcommand) && rest.length > 0) {
+  console.error(
+    `commitment-issues ${subcommand}: expected no arguments; received '${rest[0]}'`,
+  );
+  process.exit(1);
+}
+if (subcommand === "commit-msg" && rest.length > 1) {
+  console.error(
+    `commitment-issues commit-msg: expected one message-file argument; received ${rest.length}`,
+  );
+  process.exit(1);
+}
+
 // Run the target script in this same process: rewrite argv so it sees only its
 // own arguments, then import it. The scripts call process.exit themselves, which
 // propagates the correct exit code (and stdin stays connected for pre-push).

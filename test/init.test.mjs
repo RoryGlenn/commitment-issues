@@ -109,6 +109,82 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
 });
 
+test("init rejects unknown options before changing project or hook state", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+  });
+  const packageBefore = readFile(tempDir, "package.json");
+  const gitignoreBefore = readFile(tempDir, ".gitignore");
+
+  const result = runInit(tempDir, ["--dry-rn"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Unknown init option: --dry-rn/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(readFile(tempDir, ".gitignore"), gitignoreBefore);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
+test("init refuses unwritable project files before installing hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    type: "module",
+  });
+  const packagePath = path.join(tempDir, "package.json");
+  const packageBefore = readFile(tempDir, "package.json");
+  fs.chmodSync(packagePath, 0o444);
+  t.after(() => {
+    if (fs.existsSync(packagePath)) fs.chmodSync(packagePath, 0o644);
+  });
+
+  try {
+    fs.accessSync(packagePath, fs.constants.W_OK);
+    t.skip("this platform does not enforce the read-only mode bit");
+    return;
+  } catch {
+    // Expected on platforms with POSIX-style write permissions.
+  }
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Could not update package\.json/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
+test("init repairs a partially installed setup on rerun", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  assert.equal(runInit(tempDir).status, 0);
+  fs.rmSync(gitHook(tempDir, "pre-push"));
+
+  const repaired = runInit(tempDir);
+  const output = `${repaired.stdout}${repaired.stderr}`;
+
+  assert.equal(repaired.status, 0);
+  assert.match(output, /Added:/);
+  assert.match(output, /\.git\/hooks\/pre-push/);
+  assert.match(
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
+    /commitment-issues prepush "\$@"/,
+  );
+});
+
 test("init wires commit-msg only for an explicit commitMessage opt-in", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
