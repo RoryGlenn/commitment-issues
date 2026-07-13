@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const DCO_ENFORCEMENT_BASELINE =
-  "81a9e412bc347f01300df62505ee378284646d15";
+  "265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5";
 
 const COMMIT_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i;
 const DCO_TRAILER = /^Signed-off-by:\s+\S(?:.*\S)?\s+<[^<>@\s]+@[^<>\s]+>\s*$/m;

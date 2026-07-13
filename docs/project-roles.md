@@ -43,8 +43,12 @@ backup for repository administration, npm publishing, or private security
 reports. This is a documented continuity risk, not evidence of two-person
 coverage.
 
-The enforcement baseline is **2026-07-10**, commit
+Prospective enforcement was adopted on **2026-07-10** at commit
 [`81a9e412bc347f01300df62505ee378284646d15`](https://github.com/RoryGlenn/commitment-issues/commit/81a9e412bc347f01300df62505ee378284646d15).
+After the documented one-time exception in
+[issue #160](https://github.com/RoryGlenn/commitment-issues/issues/160), the
+operational audit baseline is **2026-07-12**, commit
+[`265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5`](https://github.com/RoryGlenn/commitment-issues/commit/265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5).
 Normal changes use pull requests and the live ruleset's independent approval
 requirement. Until a second trusted reviewer or maintainer is added, Rory Glenn
 may use the admin bypass for an otherwise green pull request only under the

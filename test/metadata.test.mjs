@@ -14,6 +14,7 @@ import { globToRegExp } from "../scripts/lib/files.mjs";
 import { run } from "../scripts/lib/process.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const DCO_POLICY_ADOPTION_BASELINE = "81a9e412bc347f01300df62505ee378284646d15";
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
@@ -353,7 +354,7 @@ test("all supported precommitChecks keys appear on canonical reference surfaces"
   );
 });
 
-test("CI Success includes DCO and the prospective baseline stays documented", () => {
+test("CI Success includes DCO and both DCO baselines stay documented", () => {
   const ci = readText(".github/workflows/ci.yml");
   const dco = readText(".github/workflows/dco.yml");
   const governance = readText("GOVERNANCE.md");
@@ -387,6 +388,21 @@ test("CI Success includes DCO and the prospective baseline stays documented", ()
       `${file} should reference the prospective DCO baseline`,
     );
   }
+  assert.ok(
+    governance.includes(DCO_POLICY_ADOPTION_BASELINE),
+    "governance should preserve the original policy-adoption baseline",
+  );
+  assert.match(
+    governance,
+    /issues\/160/,
+    "governance should link the operational-baseline exception",
+  );
+  assert.ok(
+    readText("docs/security-review-2026-07.md").includes(
+      DCO_POLICY_ADOPTION_BASELINE,
+    ),
+    "the July security-review evidence snapshot should remain unchanged",
+  );
 });
 
 test("package files entries exist", () => {

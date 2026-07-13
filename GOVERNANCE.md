@@ -74,15 +74,27 @@ Small documentation corrections, typo fixes, and low-risk maintenance changes ma
 
 ## Prospective enforcement baseline
 
-DCO and review enforcement is prospective from **2026-07-10**, commit
+DCO and review enforcement was adopted prospectively on **2026-07-10** at
+commit
 [`81a9e412bc347f01300df62505ee378284646d15`](https://github.com/RoryGlenn/commitment-issues/commit/81a9e412bc347f01300df62505ee378284646d15).
-Published history before that baseline is not rewritten. Every commit after the
-baseline must carry a valid `Signed-off-by` trailer, including commits that
-reach `main` through an authorized bypass.
+Published history is not rewritten.
+
+Commit
+[`265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5`](https://github.com/RoryGlenn/commitment-issues/commit/265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5)
+was a direct roadmap-only update on **2026-07-12** that omitted its sign-off.
+An audit found it was the sole unsigned commit among the 33 commits after the
+adoption baseline through that update. Rewriting published `main` history would
+be more disruptive than recording the narrow exception, so
+[issue #160](https://github.com/RoryGlenn/commitment-issues/issues/160) resets
+the operational audit baseline to that commit. Every commit after the
+operational baseline must carry a valid `Signed-off-by` trailer, including
+commits that reach `main` through an authorized bypass.
 
 The DCO job inside `CI Success` checks pull-request commits and audits all
-commits on `main` after the baseline. The focused DCO workflow provides a
-second, visible report. The baseline must not be advanced to hide a failure.
+commits on `main` after the operational baseline. The focused DCO workflow
+provides a second, visible report. The operational baseline must not be
+advanced again to hide a failure; any future exception requires its own public
+governance record.
 Before a squash merge, the merger must ensure the generated commit message
 retains a valid sign-off; checking signed head commits cannot predict the final
 server-generated squash message.

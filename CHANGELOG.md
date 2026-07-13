@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restored post-merge DCO enforcement after one unsigned roadmap update by
+  recording the narrow governance exception and synchronizing the operational
+  audit baseline across both workflows, the checker, and maintainer guidance.
 - DCO range checks now recognize a valid trailing `Signed-off-by` trailer after
   Dependabot's commit-message metadata without accepting matching lines in the
   message body.
