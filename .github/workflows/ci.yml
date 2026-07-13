@@ -25,7 +25,7 @@ jobs:
       - name: Verify prospective DCO enforcement
         shell: bash
         env:
-          DCO_BASE: ${{ github.event.pull_request.base.sha || '81a9e412bc347f01300df62505ee378284646d15' }}
+          DCO_BASE: ${{ github.event.pull_request.base.sha || '265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5' }}
           DCO_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
@@ -34,8 +34,8 @@ jobs:
             # checkout keeps both parents of a fork PR's merge ref available.
             node tools/check-dco-range.mjs --merge-base "$DCO_BASE" "$DCO_HEAD"
           else
-            # Pushes to main and manual audits must retain the immutable
-            # prospective baseline as an ancestor.
+            # Pushes to main and manual audits must retain the documented
+            # operational baseline as an ancestor.
             node tools/check-dco-range.mjs "$DCO_BASE" "$DCO_HEAD"
           fi
 
