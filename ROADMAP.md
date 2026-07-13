@@ -10,10 +10,18 @@ The supported v3 release is a local, advisory-first Git-hook toolkit for
 JavaScript and TypeScript projects running Node.js >=22.11.0. It remains the
 recommended release while future architecture is evaluated.
 
-The immediate priority is the technically validated, human-written public
-launch tracked in
-[#78](https://github.com/RoryGlenn/commitment-issues/issues/78). Non-blocking
-feature work should wait until launch feedback can inform the next choices.
+The immediate priority is completing the production-readiness audit tracked in
+[#101](https://github.com/RoryGlenn/commitment-issues/issues/101). The nine audit
+workstreams run in their documented dependency order, ending with independent
+final verification in
+[#138](https://github.com/RoryGlenn/commitment-issues/issues/138).
+
+The technically validated, human-written public launch tracked in
+[#78](https://github.com/RoryGlenn/commitment-issues/issues/78) follows that
+verification. The launch has no fixed date until every audit workstream is
+closed, every Critical and High finding is resolved, remaining findings have an
+explicit disposition, and the final verification passes. Non-blocking feature
+work should wait until launch feedback can inform the next choices.
 
 ## Guiding principles
 
@@ -28,6 +36,38 @@ The project will prioritize:
 - small, reviewable changes with tests and documentation.
 
 ## Planned work
+
+### Complete the production-readiness audit
+
+The audit is the launch-critical execution plan:
+
+1. Audit core CLI and Git behavior in
+   [#130](https://github.com/RoryGlenn/commitment-issues/issues/130) and security,
+   secrets, paths, and subprocesses in
+   [#131](https://github.com/RoryGlenn/commitment-issues/issues/131). Read-only
+   inspection may run in parallel, with behavior and security changes
+   coordinated before they merge.
+2. Audit test quality and meaningful coverage in
+   [#132](https://github.com/RoryGlenn/commitment-issues/issues/132).
+3. Audit terminal UX in
+   [#133](https://github.com/RoryGlenn/commitment-issues/issues/133) and package
+   manager and cross-platform behavior in
+   [#134](https://github.com/RoryGlenn/commitment-issues/issues/134). These may
+   run in parallel after the test audit.
+4. Complete the CI/CD audit in
+   [#135](https://github.com/RoryGlenn/commitment-issues/issues/135), the release
+   and packaging audit in
+   [#136](https://github.com/RoryGlenn/commitment-issues/issues/136), and the
+   documentation and governance audit in
+   [#137](https://github.com/RoryGlenn/commitment-issues/issues/137), in order.
+5. Run the independent clean-checkout verification in
+   [#138](https://github.com/RoryGlenn/commitment-issues/issues/138). Closing
+   this workstream is the go/no-go gate for the launch.
+
+Finishing a workstream does not require implementing every non-blocking idea it
+discovers. It does require recording each finding, fixing all launch blockers,
+and explicitly accepting or deferring remaining risks in separately tracked
+issues before closing the workstream.
 
 ### Maintain and support v3
 
@@ -88,8 +128,11 @@ The project does not intend to:
 
 ## How priorities are chosen
 
+- Treat the production-readiness tracker and its nine workstreams as the
+  current execution plan. Independent verification in #138 gates the launch in
+  #78.
 - Treat [ADOPTION.md](ADOPTION.md) as the maintainer checklist for work that has
-  already landed and remaining launch/adoption tasks.
+  already landed and launch/adoption tasks that follow the audit.
 - Treat linked GitHub issues as the detailed acceptance criteria for proposed
   work.
 - Use real installation attempts and post-launch feedback before promoting an
