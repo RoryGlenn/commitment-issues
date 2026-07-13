@@ -4,7 +4,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -42,6 +44,41 @@ function elementCounts(svg) {
     ]),
   );
 }
+
+test("message-state SVG generator exactly reproduces its committed assets", (t) => {
+  const tempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "message-state-assets-"),
+  );
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(tempDir, "tools"));
+  fs.mkdirSync(path.join(tempDir, "assets"));
+  fs.copyFileSync(
+    path.join(root, "tools", "gen-message-state-svgs.mjs"),
+    path.join(tempDir, "tools", "gen-message-state-svgs.mjs"),
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    ["tools/gen-message-state-svgs.mjs"],
+    { cwd: tempDir, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+
+  const generated = fs.readdirSync(path.join(tempDir, "assets")).sort();
+  const gallery = read("docs/message-states.md");
+  assert.equal(generated.length, 64);
+  for (const file of generated) {
+    assert.ok(
+      gallery.includes(`../assets/${file}`),
+      `${file} should be referenced by the message-state gallery`,
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(tempDir, "assets", file)),
+      fs.readFileSync(path.join(root, "assets", file)),
+      `${file} should be regenerated before its source definition is committed`,
+    );
+  }
+});
 
 test("flowchart themes remain accessible and semantically equivalent", () => {
   const [light, dark] = flowchartPaths.map(read);
