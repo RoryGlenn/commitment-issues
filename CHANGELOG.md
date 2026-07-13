@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- CLI setup and hook-health commands now reject unknown options before
+  mutation, so a misspelled `--dry-run`, `-n`, or `--quiet` cannot silently
+  perform the normal action. Other public commands also reject arguments
+  outside their documented contracts.
+- `init` now inspects and preflights project-file writes before installing
+  hooks, reports unreadable `.gitignore` and read-only package files without a
+  raw Node.js stack, and remains idempotently repairable after partial setup.
+  `uninstall` likewise refuses an unwritable package before removing hooks.
 - Hook setup, repair, and removal now distinguish a non-bare Git working tree
   from a bare repository, distinguish an unset `core.hooksPath` from a failed
   Git probe, resolve configured hook paths through Git (including `~/...`), and

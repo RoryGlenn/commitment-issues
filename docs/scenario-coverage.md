@@ -7,6 +7,10 @@
 
 This tracker turns the exhaustive scenario list into an implementation plan. Update it whenever a scenario is covered, deferred, or intentionally left manual.
 
+The command, Git-state, lifecycle, finding, and file-ownership evidence for
+production-readiness workstream #130 is consolidated in the
+[core CLI and Git behavior audit](audits/core-cli-git.md).
+
 ## Status values
 
 - **Covered** — automated coverage exists and is expected to run in CI.
@@ -108,6 +112,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **CLI-018** — `commit-msg` dispatches through the bin and preserves its message-file argument. Subprocess: `test/cli.test.mjs`.
 - **CLI-019** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
 - **CLI-020** — the hidden `vows` command dispatches successfully, renders one deterministic color-aware box, wraps in narrow terminals, and leaves worktree, package, Git config, and hook state unchanged. Unit/subprocess: `test/vows.test.mjs`, `test/cli.test.mjs`.
+- **CLI-021** — every public command's option/positional boundary is documented; unsupported options and excess arguments fail before dispatch can mutate state. Subprocess: `test/cli.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`, `test/uninstall.test.mjs`.
 
 ### Init
 
@@ -143,6 +148,10 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **INIT-026** — failed `core.hooksPath` and common-directory probes withhold hook-health claims and do not write potentially shadowed hooks. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`.
 - **INIT-027** — uninspectable and unwritable hook paths are preserved and reported without raw exceptions or false success. Fixture: `test/init.test.mjs`.
 - **INIT-028** — relative native/common hook paths and tilde-based configured paths are resolved through the correct Git/cwd semantics. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **INIT-029** — unknown setup options fail before project files or hooks change, including misspelled dry-run flags. Fixture: `test/init.test.mjs`.
+- **INIT-030** — rerunning setup repairs a deliberately interrupted/partial hook installation idempotently. Fixture: `test/init.test.mjs`.
+- **INIT-031** — uninspectable `.gitignore` and unwritable project files fail before hook installation with bounded diagnostics. Fixture: `test/init-gitignore.test.mjs`, `test/init.test.mjs`.
+- **INIT-032** — shallow clones and submodules install hooks in their own Git common directories without requiring full history. Fixture: `test/repository-shapes.test.mjs`.
 
 ## Uninstall
 
@@ -162,6 +171,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **UNINST-014** — uninstall previews/removes an exact owned commit-msg hook and preserves customized variants for manual cleanup. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-015** — a failed `core.hooksPath` probe leaves all hook files untouched while package cleanup remains available. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-016** — tilde-based active hook directories are resolved through Git and exact owned hooks are removed from the effective path. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-017** — unknown options and an unwritable package fail before generated hooks or configuration are removed. Fixture: `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -178,6 +188,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PRE-011** — `blockProtectedBranches` blocks ordinary, deletion-only, allow-empty, and first commits on an unborn protected branch; genuinely unidentifiable branches still fail open. Fixture: `test/commit-guards-integration.test.mjs`.
 - **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
 - **PRE-013** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
+- **PRE-014** — detached HEAD intentionally skips only the branch-name guard while unrelated staged guards continue. Fixture: `test/commit-guards-integration.test.mjs`.
 
 ### Commit-message linting
 
@@ -251,6 +262,7 @@ This tracker turns the exhaustive scenario list into an implementation plan. Upd
 - **PUSH-011** — the first push of a based branch uses its closest safe remote merge base; orphan histories fall back to the empty tree, and multiple pushed refs are evaluated independently. Fixture: `test/prepush.test.mjs`.
 - **PUSH-012** — same-basename sources in separate packages select only their own package-relative tests; a root basename fallback cannot steal the match. Fixture: `test/prepush.test.mjs`.
 - **PUSH-013** — pushed test selection passes leading/trailing whitespace, tabs, newlines, and Unicode pathnames exactly. Fixture: `test/prepush.test.mjs`.
+- **PUSH-014** — missing remotes fail safely, one remote can be inferred, and multiple remotes are never guessed when selecting a first-push base. Unit: `test/push-base.test.mjs`.
 
 ### Advisory message and tone
 
@@ -337,11 +349,6 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
   [release-verification baseline](release-verification.md#validated-release-baseline).
 
 ## Not covered yet
-
-### Init / install fixture matrix
-
-- Read-only `package.json` / `.gitignore` where practical.
-- More custom hook variants if users report specific merge expectations.
 
 ### Release and lifecycle
 

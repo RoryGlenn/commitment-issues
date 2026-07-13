@@ -3,6 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import {
   cleanupTempRepo,
@@ -46,4 +47,29 @@ test("init does not duplicate an existing node_modules gitignore entry", (t) => 
     .map((line) => line.trim().replace(/\/$/, ""))
     .filter((line) => line === "node_modules");
   assert.equal(nodeModulesEntries.length, 1);
+});
+
+test("init fails before mutation when .gitignore cannot be inspected", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const packageBefore = readFile(tempDir, "package.json");
+  fs.rmSync(path.join(tempDir, ".gitignore"));
+  fs.mkdirSync(path.join(tempDir, ".gitignore"));
+
+  const result = runInit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Could not inspect \.gitignore/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.doesNotMatch(output, /node:fs|EISDIR|\s+at .*init\.mjs/);
+  assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(
+    fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-commit")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-push")),
+    false,
+  );
 });

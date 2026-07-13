@@ -73,6 +73,28 @@ test("precommit stays quiet about branches that are not protected", (t) => {
   assert.doesNotMatch(output, /protected branch/);
 });
 
+test("detached HEAD intentionally skips only the branch guard", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    protectedBranches: ["main"],
+    blockProtectedBranches: true,
+    maxCommitFiles: 1,
+  });
+  run("git", ["checkout", "--detach"], tempDir);
+  writeFile(path.join(tempDir, "first.md"), "# first\n");
+  writeFile(path.join(tempDir, "second.md"), "# second\n");
+  run("git", ["add", "first.md", "second.md"], tempDir);
+
+  const result = runPrecommit(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(output, /protected branch/);
+  assert.match(output, /Large commit: 2 staged files/);
+});
+
 test("precommit blocks protected-branch commits only when opted in", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

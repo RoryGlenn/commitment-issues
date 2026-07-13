@@ -44,6 +44,18 @@ if (!fs.existsSync("package.json")) {
 }
 
 const args = process.argv.slice(2);
+const unknownOption = args.find(
+  (argument) => !["--dry-run", "-n"].includes(argument),
+);
+if (unknownOption) {
+  errorBox([
+    pc.bold(`Unknown init option: ${unknownOption}`),
+    "",
+    pc.dim("Supported options: --dry-run, -n."),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
 const dryRun = args.includes("--dry-run") || args.includes("-n");
 
 let pkg;
@@ -188,13 +200,80 @@ const effectiveConfig = resolvePrecommitConfigSources(
 const hookNames = hookNamesForConfig(effectiveConfig);
 const configWarnings = precommitConfigWarningMessages(effectiveConfig);
 
+let gitignore;
+try {
+  gitignore = fs.existsSync(".gitignore")
+    ? fs.readFileSync(".gitignore", "utf8")
+    : "";
+} catch {
+  errorBox([
+    pc.bold("Could not inspect .gitignore."),
+    "",
+    pc.dim("Make .gitignore a readable file, then run init again."),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
+const gitignoreLines = gitignore.split("\n").map((line) => line.trim());
+const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
+  (entry) =>
+    !gitignoreLines.includes(entry) &&
+    !(entry === "node_modules/" && gitignoreLines.includes("node_modules")),
+);
+
+const projectFilesToWrite = [
+  "package.json",
+  ...(standaloneChanged ? [STANDALONE_CONFIG_FILE] : []),
+  ...(ignores.length > 0 ? [".gitignore"] : []),
+];
 if (!dryRun) {
-  fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
-  if (standaloneChanged) {
-    fs.writeFileSync(
-      STANDALONE_CONFIG_FILE,
-      `${JSON.stringify(standalone.config, null, 2)}\n`,
-    );
+  for (const filePath of projectFilesToWrite) {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.accessSync(filePath, fs.constants.W_OK);
+      } else {
+        fs.accessSync(".", fs.constants.W_OK);
+      }
+    } catch {
+      errorBox([
+        pc.bold(`Could not update ${filePath}.`),
+        "",
+        pc.dim("Make the project file writable, then run init again."),
+        pc.dim("No files or hooks were changed."),
+      ]);
+      process.exit(1);
+    }
+  }
+}
+
+if (!dryRun) {
+  try {
+    fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+    if (standaloneChanged) {
+      fs.writeFileSync(
+        STANDALONE_CONFIG_FILE,
+        `${JSON.stringify(standalone.config, null, 2)}\n`,
+      );
+    }
+    if (ignores.length > 0) {
+      fs.writeFileSync(
+        ".gitignore",
+        `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
+      );
+    }
+    /* node:coverage ignore next 15 */
+  } catch {
+    // Permission failures are exercised by the access preflight above. This
+    // fallback is reserved for nondeterministic post-preflight failures such as
+    // disk exhaustion or a concurrent permission change.
+    errorBox([
+      pc.bold("Could not update the project files."),
+      "",
+      pc.dim("A filesystem write failed before hook installation began."),
+      pc.dim("Fix the project-file permissions, then rerun init to repair"),
+      pc.dim("any partial project-file changes."),
+    ]);
+    process.exit(1);
   }
 }
 
@@ -384,22 +463,7 @@ if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
   }
 }
 
-const gitignore = fs.existsSync(".gitignore")
-  ? fs.readFileSync(".gitignore", "utf8")
-  : "";
-const gitignoreLines = gitignore.split("\n").map((line) => line.trim());
-const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
-  (entry) =>
-    !gitignoreLines.includes(entry) &&
-    !(entry === "node_modules/" && gitignoreLines.includes("node_modules")),
-);
 if (ignores.length > 0) {
-  if (!dryRun) {
-    fs.writeFileSync(
-      ".gitignore",
-      `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
-    );
-  }
   created.push(".gitignore defaults");
 }
 

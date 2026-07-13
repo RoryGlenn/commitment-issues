@@ -39,7 +39,21 @@ import { localToolInvocation } from "./lib/local-tool.mjs";
 // when it repairs something, and never exits non-zero (so it can never break
 // `npm install`, including CI/Docker with no `.git`).
 
-const quiet = process.argv.includes("--quiet");
+const args = process.argv.slice(2);
+const unknownOption = args.find((argument) => argument !== "--quiet");
+if (unknownOption) {
+  printBoxModel({
+    severity: "error",
+    lines: [
+      pc.bold(`Unknown doctor option: ${unknownOption}`),
+      "",
+      pc.dim("Supported option: --quiet."),
+      pc.dim("No hooks were changed."),
+    ],
+  });
+  process.exit(1);
+}
+const quiet = args.includes("--quiet");
 const advisorySections = [];
 
 function finishBox(severity, lines, exitCode) {

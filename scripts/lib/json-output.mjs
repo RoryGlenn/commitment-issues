@@ -82,15 +82,12 @@ function normalizeDetails(detail) {
 export function parseJsonOutputArgs(args, allowedPositionals = 0) {
   const jsonCount = args.filter((arg) => arg === "--json").length;
   const invalidJsonForm = args.find((arg) => /^--json=/.test(arg));
-  if (jsonCount === 0) {
-    if (invalidJsonForm) {
-      return {
-        enabled: true,
-        positionals: args,
-        error: `unknown option '${invalidJsonForm}'; use --json without a value`,
-      };
-    }
-    return { enabled: false, positionals: args, error: null };
+  if (invalidJsonForm) {
+    return {
+      enabled: true,
+      positionals: args,
+      error: `unknown option '${invalidJsonForm}'; use --json without a value`,
+    };
   }
   if (jsonCount > 1) {
     return {
@@ -100,23 +97,24 @@ export function parseJsonOutputArgs(args, allowedPositionals = 0) {
     };
   }
 
+  const enabled = jsonCount === 1;
   const positionals = args.filter((arg) => arg !== "--json");
   const unknownOption = positionals.find((arg) => arg.startsWith("-"));
   if (unknownOption) {
     return {
-      enabled: true,
+      enabled,
       positionals,
       error: `unknown option '${unknownOption}'`,
     };
   }
   if (positionals.length > allowedPositionals) {
     return {
-      enabled: true,
+      enabled,
       positionals,
-      error: `expected at most ${allowedPositionals} positional argument${allowedPositionals === 1 ? "" : "s"} with --json`,
+      error: `expected at most ${allowedPositionals} positional argument${allowedPositionals === 1 ? "" : "s"}${enabled ? " with --json" : ""}`,
     };
   }
-  return { enabled: true, positionals, error: null };
+  return { enabled, positionals, error: null };
 }
 
 /**

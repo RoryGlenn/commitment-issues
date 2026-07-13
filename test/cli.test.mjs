@@ -388,6 +388,29 @@ test("cli forwards arguments to the subcommand", (t) => {
   assert.equal(combinedOutput(result).trim(), "");
 });
 
+test("cli rejects arguments outside each command contract", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  for (const [args, expected] of [
+    [["commit-fix", "unexpected"], /expected no arguments/],
+    [["fix-staged", "unexpected"], /expected no arguments/],
+    [
+      ["commit-msg", "message-one", "message-two"],
+      /expected one message-file argument/,
+    ],
+    [["precommit", "--bogus"], /unknown option '--bogus'/],
+    [
+      ["prepush", "origin", "url", "unexpected"],
+      /expected at most 2 positional arguments/,
+    ],
+  ]) {
+    const result = cli(tempDir, args);
+    assert.equal(result.status, 1, args.join(" "));
+    assert.match(combinedOutput(result), expected);
+  }
+});
+
 test("cli runs from a project subdirectory", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

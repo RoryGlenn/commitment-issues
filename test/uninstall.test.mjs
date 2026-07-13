@@ -82,6 +82,60 @@ test("uninstall removes generated setup and preserves shared project state", (t)
   );
 });
 
+test("uninstall rejects unknown options before removing generated setup", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  assert.equal(runScript(tempDir, "init").status, 0);
+  const packageBefore = readFile(tempDir, "package.json");
+  const precommitBefore = fs.readFileSync(
+    path.join(tempDir, ".git", "hooks", "pre-commit"),
+    "utf8",
+  );
+
+  const result = runScript(tempDir, "uninstall", ["--dry-rn"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Unknown uninstall option: --dry-rn/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".git", "hooks", "pre-commit"), "utf8"),
+    precommitBefore,
+  );
+});
+
+test("uninstall refuses an unwritable package before removing hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  assert.equal(runScript(tempDir, "init").status, 0);
+  const packagePath = path.join(tempDir, "package.json");
+  const packageBefore = readFile(tempDir, "package.json");
+  const hookPath = path.join(tempDir, ".git", "hooks", "pre-commit");
+  const hookBefore = fs.readFileSync(hookPath, "utf8");
+  fs.chmodSync(packagePath, 0o444);
+  t.after(() => {
+    if (fs.existsSync(packagePath)) fs.chmodSync(packagePath, 0o644);
+  });
+
+  try {
+    fs.accessSync(packagePath, fs.constants.W_OK);
+    t.skip("this platform does not enforce the read-only mode bit");
+    return;
+  } catch {
+    // Expected on platforms with POSIX-style write permissions.
+  }
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Could not update package\.json/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(fs.readFileSync(hookPath, "utf8"), hookBefore);
+});
+
 test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

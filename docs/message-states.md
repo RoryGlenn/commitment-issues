@@ -77,6 +77,26 @@ standalone file contains invalid JSON or its top-level value is not an object.
 The command exits before changing package scripts, configuration, hooks, or
 gitignore state.
 
+### Invalid command arguments
+
+`Unknown init option: <option>`, `Unknown uninstall option: <option>`, and
+`Unknown doctor option: <option>` are shown when an argument is outside the
+documented command contract. The command exits before changing project files or
+hooks. Other CLI commands report the same invalid-argument decision as a plain
+stderr line or, when `--json` was requested, a structured JSON diagnostic.
+
+### Project files unavailable
+
+`Could not inspect .gitignore.` is shown when setup cannot safely read the
+existing ignore path. The write-failure titles are:
+
+- `Could not update package.json.`
+- `Could not update the project files.`
+
+These cover permission/preflight and unexpected write failures. The states stop
+before hook installation or removal begins; rerunning `init` safely repairs any
+project-file change left by an interrupted filesystem write.
+
 ### Hook wiring needs attention
 
 <p>
