@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated documentation around canonical user references, a repository-only
+  audience index, one maintainer operations guide, and preserved public trust
+  evidence. The npm package now includes an explicit set of user guides and
+  README SVGs instead of all maintainer, audit, planning, and gallery material.
 - Refreshed the complete documentation set for the verified v3.3.2 baseline:
   launch preparation now requires human-authored HN copy, the roadmap and
   feature backlog reflect the open v4/platform/adapter proposals, release

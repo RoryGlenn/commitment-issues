@@ -2,7 +2,9 @@
 
 This page covers the deeper behavior behind `commitment-issues`: what `init` changes, how commit and push checks run, how test discovery works, and which options are available.
 
-For the short install path, start with the [README](../README.md). For terminal output examples, see [Message states](message-states.md).
+For the short install path, start with the [README](../README.md). For terminal
+output examples, see the repository's
+[message-state gallery](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/message-states.md).
 
 ## What `init` changes
 

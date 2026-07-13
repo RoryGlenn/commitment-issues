@@ -1,21 +1,22 @@
 # External Interface Reference
 
-This page documents the public interface of `commitment-issues`: CLI commands,
-`init`-added scripts, Git hook entrypoints, configuration keys, defaults, and
-high-level output behavior.
+This page is the compatibility contract for public commands, generated scripts,
+Git hook entrypoints, output modes, and exit behavior. Configuration keys,
+types, defaults, and validation rules are maintained once in
+[Configuration and behavior](configuration.md).
 
-For install and quick usage, see the [README](../README.md).
+For installation and quick usage, see the [README](../README.md).
 
 ## CLI commands
 
-`commitment-issues` exposes these subcommands:
+`commitment-issues` exposes these public commands and version flags:
 
 - `init`
 - `uninstall`
 - `doctor`
 - `precommit`
 - `prepush`
-- `commit-msg <message-file>` (normally invoked by Git's commit-msg hook)
+- `commit-msg <message-file>` (normally invoked by Git)
 - `commit-fix`
 - `fix-staged`
 - `fix-staged-js`
@@ -26,183 +27,98 @@ Examples:
 ```bash
 npx commitment-issues init
 npx commitment-issues uninstall --dry-run
-npx commitment-issues uninstall
 npx commitment-issues doctor
-npx commitment-issues precommit
 npx commitment-issues precommit --json
-npx commitment-issues prepush
 npx commitment-issues prepush --json
 npx commitment-issues commit-msg .git/COMMIT_EDITMSG
 npx commitment-issues --version
 ```
 
 Setup and hook-health commands expect the project root of a non-bare Git
-working tree. Bare repositories do not run this package's local commit/push
-workflow and are never reported as having active hooks.
+working tree. Bare repositories do not run this package's local commit or push
+workflow and are not reported as having active hooks.
 
 ## Scripts added by `init`
 
-`init` wires common scripts in `package.json`:
+`init` wires these common scripts in the consuming `package.json`:
 
-- `doctor` -> verifies and repairs hook wiring
-- `fix:staged` -> runs staged-file fixes
-- `commit:fix` -> applies safe automatic fixes and amends the latest clean,
-  unpushed commit
-- `test:precommit` -> runs pre-commit checks directly
+- `doctor` verifies and repairs hook wiring.
+- `fix:staged` runs staged-file fixes.
+- `commit:fix` applies safe automatic fixes and amends the latest clean,
+  unpushed commit.
+- `test:precommit` runs pre-commit checks directly.
 
 ## Setup removed by `uninstall`
 
 `uninstall` removes only setup it can identify safely:
 
-- exact generated package scripts
-- the `precommitChecks` configuration block
-- a valid `.commitmentrc.json` standalone configuration file
-- exact generated native pre-commit, pre-push, and optional commit-msg hook bodies
+- exact generated package scripts;
+- the `precommitChecks` configuration block;
+- a valid `.commitmentrc.json` standalone configuration file; and
+- exact generated pre-commit, pre-push, and optional commit-msg hook bodies.
 
-Customized hooks and scripts are preserved and reported for manual cleanup.
-Shared `.gitignore` entries, ESLint/Prettier dependencies, the
-`commitment-issues` dependency, and lockfiles are preserved. Run the package
-manager's remove command after `uninstall` completes.
+Customized hooks and scripts are preserved and reported. Shared `.gitignore`
+entries, ESLint/Prettier dependencies, the package dependency, and lockfiles
+remain owned by the consuming project.
 
 ## Git hook interface
 
-`init` writes plain `.git/hooks` files that call the installed binary:
+`init` writes plain native hooks that call the installed binary:
 
-- pre-commit hook -> `commitment-issues precommit`
-- pre-push hook -> `commitment-issues prepush "$@"`
-- commit-msg hook, only when enabled -> `commitment-issues commit-msg "$1"`
+- pre-commit → `commitment-issues precommit`
+- pre-push → `commitment-issues prepush "$@"`
+- commit-msg, when enabled → `commitment-issues commit-msg "$1"`
 
-The hooks honor `COMMITMENT_ISSUES=0` (and the pre-3.0 `HUSKY=0`) as a skip,
-and exit silently when the binary is no longer installed. The pre-push hook
-forwards Git's remote name and URL arguments for remote-specific first-push
-base selection.
-
-The package does not copy source files into a consumer repository.
+The hooks honor `COMMITMENT_ISSUES=0` and the pre-3.0 `HUSKY=0` compatibility
+skip. They exit silently when the binary is no longer installed. The pre-push
+hook forwards Git's remote name and URL for remote-specific first-push base
+selection. Package source is not copied into the consumer repository.
 
 ## Configuration interface
 
-Configuration is accepted from two dependency-free JSON sources at the project
-root:
+Configuration is dependency-free JSON read from `.commitmentrc.json` and the
+`precommitChecks` object in `package.json`. Standalone keys take precedence over
+matching package keys; unmatched package values and built-in defaults remain
+active. No JavaScript configuration file is discovered or executed.
 
-- `.commitmentrc.json`: options are direct top-level keys
-- `package.json`: options remain under `precommitChecks` for backward
-  compatibility
-
-The sources are shallowly merged. A key in `.commitmentrc.json` overrides the
-same key in `package.json`; other package keys remain active, and built-in
-defaults fill anything absent from both. Arrays replace lower-precedence arrays.
-No JavaScript config file is discovered or executed.
-
-A malformed standalone file is ignored by hook-time reads with an advisory
-warning and `package.json` fallback. `init` and `uninstall` reject it before
-mutation. If a valid standalone file already exists, `init` puts its generated
-advisory push default there; otherwise its existing `package.json` behavior is
-unchanged.
-
-An unreadable or malformed `package.json` source also produces an advisory at
-hook time. Valid standalone values continue to apply; remaining options fall
-back to built-in defaults so policy changes are visible without preventing a
-commit that repairs the manifest.
-
-| Key                      | Type                            | Default              | Effect                                                                            |
-| ------------------------ | ------------------------------- | -------------------- | --------------------------------------------------------------------------------- |
-| `testExempt`             | string[]                        | `[]`                 | Extra glob exemptions for missing-test checks.                                    |
-| `requireTests`           | boolean                         | `true`               | Turns missing-test advisories on or off.                                          |
-| `runStagedTests`         | boolean                         | `false`              | Runs related tests during `git commit`.                                           |
-| `advisePushTests`        | boolean                         | `true` after `init`  | Runs related tests during `git push` in advisory mode.                            |
-| `blockPushOnTestFailure` | boolean                         | `false`              | Blocks pushes when related pushed-file tests fail.                                |
-| `testCommand`            | string[]                        | `["node", "--test"]` | Verbatim command used to run related tests; must accept file paths.               |
-| `timeoutMs`              | number                          | `120000`             | Timeout for a command and its attached process tree; max `2,147,483,647` ms.      |
-| `tone`                   | `"standard"` or `"fun"`         | `"standard"`         | Advisory message tone.                                                            |
-| `hookOutput`             | `"problems-only"` or `"normal"` | `"problems-only"`    | Human hook output policy; warning and error boxes are always visible.             |
-| `protectedBranches`      | string[]                        | `["main", "master"]` | Branch names or globs that trigger commit/push advisories; `[]` disables them.    |
-| `blockProtectedBranches` | boolean                         | `false`              | Blocks commits and pushes to protected branches instead of warning.               |
-| `adviseBehindUpstream`   | boolean                         | `true`               | Warns at commit time when the branch is behind its upstream as of the last fetch. |
-| `maxCommitFiles`         | number                          | `30`                 | Warns when more files are staged; `0` disables the guard.                         |
-| `maxCommitLines`         | number                          | `2000`               | Warns when more changed lines are staged; `0` disables the guard.                 |
-| `maxFileSizeMb`          | number                          | `5`                  | Warns when a staged file exceeds the size in MB; `0` disables the guard.          |
-| `generatedPaths`         | string[]                        | build-artifact globs | Replaces the glob list used to flag generated files.                              |
-| `scanSecrets`            | boolean                         | `true`               | Scans added staged lines and dotenv files for likely credentials.                 |
-| `blockOnSecrets`         | boolean                         | `false`              | Blocks commits when the secret scan finds a likely credential.                    |
-| `secretExempt`           | string[]                        | `[]`                 | Glob patterns excluded from the secret scan, such as fixture paths.               |
-| `commitMessage`          | object                          | disabled             | Optional project-local commitlint settings described below.                       |
-
-Unknown keys and invalid values are ignored with an advisory naming the
-problem. The complete behavior and validation rules are in
-[Configuration and behavior](configuration.md).
-
-`commitMessage` accepts exactly two optional boolean keys:
-
-- `enabled` (default `false`) creates/repairs the commit-msg hook and invokes
-  project-local commitlint.
-- `blockOnFailure` (default `false`) changes lint and setup failures from an
-  advisory warning into a blocked commit.
-
-The integration only resolves `node_modules/.bin/commitlint`; it never invokes
-implicit `npx`, a global binary, or the network. The consuming project must
-install `@commitlint/cli` and provide its own commitlint config/rules. No
-Conventional Commits policy is built into this package.
-
-Example:
-
-```json
-{
-  "precommitChecks": {
-    "runStagedTests": true,
-    "blockPushOnTestFailure": true,
-    "testCommand": ["node", "--test"],
-    "testExempt": ["src/legacy/**"],
-    "tone": "standard"
-  }
-}
-```
-
-Equivalent `.commitmentrc.json`:
-
-```json
-{
-  "runStagedTests": true,
-  "blockPushOnTestFailure": true,
-  "testCommand": ["node", "--test"],
-  "testExempt": ["src/legacy/**"],
-  "tone": "standard"
-}
-```
+The versioned configuration interface includes source precedence, allowlisted
+keys, types, defaults, validation and fallback behavior, the test-command trust
+boundary, and optional commitlint behavior. Adding or changing a key requires
+updating the [configuration reference](configuration.md), runtime allowlist,
+and tests together.
 
 ## Output interface
 
-The tool prints compact terminal boxes with clear status and next steps:
+Human commands render at most one primary terminal box per invocation.
+`precommit`, `prepush`, and `commit-msg` default to
+`hookOutput: "problems-only"`, which suppresses final success and informational
+boxes while retaining warnings and errors. `hookOutput: "normal"` restores
+success and informational states without changing execution or exit behavior.
 
-- `precommit`, `prepush`, and `commit-msg` default to
-  `hookOutput: "problems-only"`, suppressing final success/info boxes
-- advisory warnings for commit-time issues by default
-- advisory warnings for push-time test failures by default
-- advisory commit-message findings after the optional integration is enabled
-- optional enforcement when explicitly configured
+Operational commands (`init`, `uninstall`, `doctor`, and explicit fix commands)
+are outside the hook-output policy. Mixed findings use the strongest final
+severity.
 
-`hookOutput: "normal"` restores the existing success and informational hook
-states. Warning/error results cannot be hidden, mixed findings use the strongest
-final severity, and operational commands (`init`, `uninstall`, `doctor`, and
-the fix commands) are outside this policy. The policy never changes execution,
-exit codes, diagnostics, or JSON output.
-
-For concrete output states and screenshots, see
-[Message states](message-states.md).
+The public
+[message-state gallery](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/message-states.md)
+shows concrete human output. It is repository evidence rather than installed
+package documentation.
 
 `precommit --json` and `prepush --json` replace terminal boxes on stdout with a
-single versioned payload. The schema, field semantics, stderr behavior, and
-examples are documented in [JSON output](json-output.md). Other subcommands do
-not support `--json`.
+single versioned payload. Field semantics, stderr behavior, and examples are in
+[JSON output](json-output.md) and its
+[versioned schema](json-output.schema.json). Other commands do not support
+`--json`.
 
 ## Exit behavior
 
-- Default commit and push flows are advisory-first and non-blocking.
-- Blocking behavior is opt-in through either configuration source, including
-  the nested `commitMessage.blockOnFailure` switch.
-- Fix commands can fail non-zero when safety checks fail or manual fixes remain.
-- JSON mode reports the same exit code in its `exitCode` field and does not
-  change whether an advisory or enforcement result blocks.
-- Missing ESLint/Prettier peers are advisory in hooks and never invoke an
-  implicit `npx` fallback; fix commands fail nonzero and print an install hint.
-- Configured test commands are executed verbatim, including an explicitly
-  selected `npx` command.
+- Commit and push checks are advisory by default.
+- Protected-branch, secret, push-test, and commit-message blocking require the
+  corresponding explicit configuration.
+- Fix commands return nonzero when safety checks fail or manual work remains.
+- JSON mode reports the same exit code in `exitCode`; it does not change whether
+  a result blocks.
+- Missing built-in peer tools are advisory in hooks and never invoke an implicit
+  `npx` fallback; an explicit fix request fails when its required tool is absent.
+- Configured test commands execute verbatim as argument arrays, including an
+  explicitly selected `npx` executable.

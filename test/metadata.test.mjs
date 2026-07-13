@@ -310,8 +310,9 @@ test("README documents both advisory and blocking push modes", () => {
   );
 });
 
-test("all supported precommitChecks keys appear on every maintainer reference surface", () => {
+test("all supported precommitChecks keys appear on canonical reference surfaces", () => {
   const expected = [...KNOWN_PRECOMMIT_CONFIG_KEYS].sort();
+  const externalInterface = readText("docs/external-interface.md");
   const authoringSection = readText(".github/skills/authoring-checks/SKILL.md")
     .split("The supported keys are grouped by behavior:")[1]
     ?.split("`KNOWN_PRECOMMIT_CONFIG_KEYS`")[0];
@@ -323,13 +324,6 @@ test("all supported precommitChecks keys appear on every maintainer reference su
       markdownTableKeys(
         readText("docs/configuration.md"),
         "## Configuration reference",
-      ),
-    ],
-    [
-      "docs/external-interface.md",
-      markdownTableKeys(
-        readText("docs/external-interface.md"),
-        "## Configuration interface",
       ),
     ],
     [
@@ -347,6 +341,16 @@ test("all supported precommitChecks keys appear on every maintainer reference su
       `${file} config keys should exactly match the source allowlist`,
     );
   }
+
+  assert.match(
+    externalInterface,
+    /\[configuration reference\]\(configuration\.md\)/,
+  );
+  assert.equal(
+    markdownTableKeys(externalInterface, "## Configuration interface").length,
+    0,
+    "external interface should link to the canonical configuration table instead of duplicating it",
+  );
 });
 
 test("CI Success includes DCO and the prospective baseline stays documented", () => {
@@ -402,6 +406,23 @@ test("package files entries exist", () => {
   }
 });
 
+test("documentation index links every retained Markdown document", () => {
+  const index = readText("docs/index.md");
+  const markdownFiles = fs
+    .readdirSync(path.join(root, "docs"), { recursive: true })
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => file.replaceAll(path.sep, "/"))
+    .filter((file) => file !== "index.md");
+
+  for (const file of markdownFiles) {
+    assert.match(
+      index,
+      new RegExp(`\\(${escapeRegExp(file)}(?:#.*?)?\\)`),
+      `docs/index.md should intentionally link ${file}`,
+    );
+  }
+});
+
 test("README relative image assets exist and are included in npm package files", () => {
   const pkg = readJson("package.json");
   const readme = readText("README.md");
@@ -437,8 +458,27 @@ test("npm package excludes promotional media and stays within its size budget", 
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   const [pack] = JSON.parse(result.stdout);
   const files = new Set(pack.files.map((file) => file.path));
-  const docs = readText("docs/package-contents.md");
+  const docs = readText("docs/maintainer-operations.md");
   const readme = readText("README.md");
+  const packagedDocs = new Set(
+    [...files].filter((file) => file.startsWith("docs/")),
+  );
+  const expectedDocs = new Set([
+    "docs/branch-coverage.md",
+    "docs/ci-recipes.md",
+    "docs/configuration.md",
+    "docs/external-interface.md",
+    "docs/faq.md",
+    "docs/framework-recipes.md",
+    "docs/how-it-works.md",
+    "docs/json-output.md",
+    "docs/json-output.schema.json",
+    "docs/migration.md",
+    "docs/monorepo.md",
+    "docs/release-verification.md",
+    "docs/why-before-ci.md",
+    "docs/yarn-berry.md",
+  ]);
 
   assert.equal(files.has("assets/commitment-issues.png"), false);
   assert.equal(files.has("assets/demo.gif"), false);
@@ -448,7 +488,12 @@ test("npm package excludes promotional media and stays within its size budget", 
     ),
   );
   assert.ok(files.has("scripts/cli.mjs"));
-  assert.ok(files.has("docs/package-contents.md"));
+  assert.deepEqual(packagedDocs, expectedDocs);
+  assert.equal(files.has("docs/index.md"), false);
+  assert.equal(files.has("docs/maintainer-operations.md"), false);
+  assert.equal(files.has("docs/message-states.md"), false);
+  assert.equal(files.has("docs/scenario-coverage.md"), false);
+  assert.equal(files.has("docs/feature-ideas.md"), false);
   assert.match(
     readme,
     /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/commitment-issues\.png/,
@@ -469,10 +514,17 @@ test("npm package excludes promotional media and stays within its size budget", 
   assert.match(docs, /750 KiB\s+unpacked/);
 });
 
-test("message-state SVG assets exist and are included in npm package files", () => {
+test("message-state SVG assets exist and only README examples enter npm", () => {
   const pkg = readJson("package.json");
   const docs = readText("docs/message-states.md");
+  const readme = readText("README.md");
   const imagePaths = readmeImagePaths(docs);
+  const packagedReadmeAssets = new Set(
+    readmeImagePaths(readme).filter((imagePath) =>
+      imagePath.startsWith("assets/"),
+    ),
+  );
+  let packagedGalleryAssets = 0;
 
   assert.ok(imagePaths.length >= 15, "message states should have SVG examples");
 
@@ -487,12 +539,18 @@ test("message-state SVG assets exist and are included in npm package files", () 
       true,
       `${imagePath} should exist`,
     );
-    assert.equal(
-      isPackaged(packagePath, pkg),
-      true,
-      `${packagePath} should be included by package.json files`,
-    );
+    if (isPackaged(packagePath, pkg)) {
+      packagedGalleryAssets += 1;
+      assert.equal(
+        packagedReadmeAssets.has(packagePath),
+        true,
+        `${packagePath} should be packaged only when the README uses it`,
+      );
+    }
   }
+
+  assert.ok(packagedGalleryAssets > 0);
+  assert.ok(packagedGalleryAssets < imagePaths.length);
 });
 
 test("every terminal box title appears in the message-states gallery", () => {

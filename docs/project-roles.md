@@ -1,6 +1,8 @@
 # Project Roles and Sensitive Access
 
-This document lists the project roles, responsibilities, and current members with access to sensitive project resources.
+This document is the current membership and sensitive-access record. Role
+authority and responsibilities are defined once in
+[Governance](../GOVERNANCE.md).
 
 ## Current project members
 
@@ -21,57 +23,6 @@ Sensitive project resources include:
 - release creation and version tags;
 - CODEOWNERS and policy files;
 - dependency management settings, including Dependabot configuration.
-
-## Roles and responsibilities
-
-### Maintainer
-
-Maintainers are responsible for:
-
-- project direction and roadmap decisions;
-- triaging issues and pull requests;
-- reviewing and merging changes;
-- maintaining coding, testing, and documentation standards;
-- ensuring major new functionality includes automated tests;
-- updating documentation and changelog entries for user-visible behavior;
-- maintaining CI/CD workflows and repository settings;
-- managing sensitive project resources;
-- coordinating security fixes and vulnerability disclosure;
-- approving and publishing releases.
-
-### Release manager
-
-The release manager is responsible for:
-
-- selecting release contents from merged changes;
-- ensuring the version identifier is unique;
-- confirming CI is passing before release;
-- preparing changelog and release notes;
-- publishing the npm package through the documented release process;
-- ensuring provenance/signing verification information is available to users.
-
-### Security contact
-
-The security contact is responsible for:
-
-- monitoring private vulnerability reports;
-- acknowledging and triaging security reports;
-- coordinating fixes for confirmed vulnerabilities;
-- preparing security advisories when appropriate;
-- crediting reporters unless they request anonymity;
-- updating the public vulnerability history.
-
-### Contributor
-
-Contributors are responsible for:
-
-- following the Code of Conduct;
-- signing off commits under the Developer Certificate of Origin;
-- keeping pull requests focused;
-- adding tests for major new functionality;
-- adding regression tests for bug fixes when practical;
-- updating documentation and changelog entries for user-visible behavior;
-- reporting vulnerabilities through the private security process instead of public issues.
 
 ## Access review
 

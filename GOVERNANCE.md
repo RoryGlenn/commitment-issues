@@ -34,6 +34,18 @@ Maintainers may:
 
 Maintainers must follow the project's Code of Conduct, security policy, contribution requirements, and release process.
 
+### Release manager
+
+The release manager selects release contents from reviewed changes, confirms
+the version and changelog, verifies required checks, publishes through the
+documented workflow, and makes provenance and verification evidence available.
+
+### Security contact
+
+The security contact monitors private reports, coordinates fixes and advisories,
+credits reporters unless anonymity is requested, and updates the public
+vulnerability history after coordinated disclosure.
+
 ## Contributor role
 
 Contributors may:

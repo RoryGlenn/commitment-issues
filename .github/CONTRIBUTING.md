@@ -72,20 +72,24 @@ transpilation step.
 
 ## Project layout
 
-| Path                 | Purpose                                                   |
-| -------------------- | --------------------------------------------------------- |
-| `scripts/`           | Published CLI commands and Git-hook entry points          |
-| `scripts/lib/`       | Shared runtime modules                                    |
-| `test/`              | Top-level `node:test` suites and test helpers             |
-| `test/integration/`  | Package lifecycle integration tests                       |
-| `tools/`             | Repository maintenance and documentation utilities        |
-| `docs/`              | User, contributor, architecture, and policy documentation |
-| `assets/`            | README and message-state visual assets                    |
-| `.github/workflows/` | CI, security, release, and maintenance workflows          |
+| Path                 | Purpose                                                     |
+| -------------------- | ----------------------------------------------------------- |
+| `scripts/`           | Published CLI commands and Git-hook entry points            |
+| `scripts/lib/`       | Shared runtime modules                                      |
+| `test/`              | Top-level `node:test` suites and test helpers               |
+| `test/integration/`  | Package lifecycle integration tests                         |
+| `tools/`             | Repository maintenance and documentation utilities          |
+| `docs/`              | Indexed user, contract, maintainer, and audit documentation |
+| `assets/`            | README and message-state visual assets                      |
+| `.github/workflows/` | CI, security, release, and maintenance workflows            |
 
 Entry scripts are tested through subprocesses in disposable Git repositories.
 Reusable setup helpers live in
 [`test/helpers/temp-repo.mjs`](../test/helpers/temp-repo.mjs).
+
+Start documentation changes from the
+[documentation index](../docs/index.md). Update the canonical source for a
+fact instead of copying its complete reference table into another page.
 
 ## Development workflow
 
