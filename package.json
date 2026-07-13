@@ -65,6 +65,7 @@
     "doctor": "node scripts/doctor.mjs",
     "states": "node tools/show-message-states.mjs",
     "release:preflight": "node tools/release-preflight.mjs",
+    "links:check": "node tools/check-markdown-links.mjs",
     "test": "node --test test/*.test.mjs test/*.test.js",
     "test:coverage": "node scripts/run-branch-coverage.mjs",
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",

@@ -22,6 +22,10 @@ npm run format:check
 npm test
 ```
 
+### Markdown link validation
+
+Run `npm run links:check` to verify tracked Markdown files do not reference missing local paths. The tool only inspects the repository's own files (no external URLs or network requests), so it is safe to run in CI even on a single matrix leg—our workflow executes it on Ubuntu/Node 24.
+
 ## GitHub Actions
 
 Set `COMMITMENT_ISSUES: "0"` at the job (or workflow) level:
