@@ -823,6 +823,29 @@ test("doctor reports an uninspectable hook instead of crashing", (t) => {
   assert.equal(fs.statSync(gitHook(tempDir, "pre-commit")).isDirectory(), true);
 });
 
+test(
+  "doctor never follows a dangling hook symlink during repair",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+
+    const outsideTarget = path.join(tempDir, "outside-hook-target");
+    fs.symlinkSync(outsideTarget, gitHook(tempDir, "pre-commit"));
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.match(output, /could not be inspected/i);
+    assert.equal(fs.existsSync(outsideTarget), false);
+    assert.equal(
+      fs.lstatSync(gitHook(tempDir, "pre-commit")).isSymbolicLink(),
+      true,
+    );
+  },
+);
+
 test("doctor errors (interactive) when there is no package.json", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-nopkg-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

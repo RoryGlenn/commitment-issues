@@ -201,6 +201,9 @@ observed its false-positive and failure behavior.
 - Configuration is validated JSON; project JavaScript is not imported.
 - Built-in tools use local executables and argument arrays without shell
   interpolation.
+- Test commands inherit the normal developer environment but not Git's
+  hook-local repository routing, so nested Git fixtures resolve from their own
+  working directory.
 - The package adds no telemetry, repository upload, account, or hosted service.
 - A configured `testCommand` remains repository-owned executable code and may
   have behavior of its own.

@@ -243,19 +243,22 @@ export function classifyHook(
   { requireExecutable = true } = {},
 ) {
   const hookPath = path.join(hooksDir, name);
-  if (!fs.existsSync(hookPath)) {
-    return "missing";
-  }
-
   let stats;
   let content;
   try {
-    stats = fs.statSync(hookPath);
+    // Never follow a hook symlink while deciding whether repair may write to
+    // this path. A dangling link looks "missing" through existsSync(), and a
+    // link to an older generated body could otherwise make writeHook overwrite
+    // a target outside the hooks directory.
+    stats = fs.lstatSync(hookPath);
     if (!stats.isFile()) {
       return "uninspectable";
     }
     content = fs.readFileSync(hookPath, "utf8");
-  } catch {
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
+      return "missing";
+    }
     return "uninspectable";
   }
 
@@ -453,7 +456,17 @@ function parseHeredocDelimiter(line, startIndex) {
  * @param {string} name - Hook name (e.g. "pre-commit").
  */
 export function writeHook(hooksDir, name) {
-  fs.mkdirSync(hooksDir, { recursive: true });
+  try {
+    const directory = fs.lstatSync(hooksDir);
+    if (!directory.isDirectory()) {
+      throw new Error("The hooks path is not a regular directory");
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+    fs.mkdirSync(hooksDir, { recursive: true });
+  }
   const hookPath = path.join(hooksDir, name);
   fs.writeFileSync(hookPath, hookBody(name));
   fs.chmodSync(hookPath, 0o755);

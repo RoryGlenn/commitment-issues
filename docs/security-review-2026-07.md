@@ -5,6 +5,13 @@ Date: 2026-07-11
 Implementation evidence snapshot:
 [`81a9e412bc347f01300df62505ee378284646d15`](https://github.com/RoryGlenn/commitment-issues/commit/81a9e412bc347f01300df62505ee378284646d15)
 
+> **Historical snapshot:** This review describes only the implementation named
+> above and is not a current attestation for later code. Current security,
+> subprocess, path, and workflow evidence is recorded in the
+> [Audit 2 completion report](audits/security-secrets-paths-subprocesses.md).
+> [Issue #99](https://github.com/RoryGlenn/commitment-issues/issues/99) remains
+> open until the core, security, and release findings have settled.
+
 Review evidence: source/workflow inspection plus automated regression tests.
 The pull request that lands this review records the process/workflow diff,
 review and merge evidence, and any documented single-maintainer exception.

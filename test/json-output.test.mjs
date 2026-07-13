@@ -410,6 +410,37 @@ test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
   assert.ok(payload.findings.some((finding) => finding.check === "branch"));
 });
 
+test("blocking secret-scan JSON distinguishes an unavailable scanner", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    blockOnSecrets: true,
+    protectedBranches: [],
+    requireTests: false,
+  });
+  writeFile(path.join(tempDir, "src", "clean.txt"), "clean\n");
+  run("git", ["add", "src/clean.txt"], tempDir);
+
+  const result = cli(tempDir, ["precommit", "--json"], {
+    env: fakeGitEnv(tempDir, "diff --cached -U0"),
+  });
+  const payload = jsonPayload(result);
+  const secretCheck = payload.checks.find((check) => check.id === "secrets");
+
+  assert.equal(result.status, 1);
+  assert.equal(payload.status, "blocked");
+  assert.equal(
+    payload.summary,
+    "Commit blocked because the secret scan was unavailable",
+  );
+  assert.equal(secretCheck.status, "failed");
+  assert.equal(secretCheck.details.inspectionOutcome, "nonzero");
+  assert.equal(payload.findings[0].check, "secrets");
+  assert.equal(payload.findings[0].message, "Staged secret scan unavailable");
+  assert.doesNotMatch(result.stdout, /possible secret staged/i);
+});
+
 test("prepush JSON keeps protected-branch advisories in every allowed outcome", (t) => {
   const disabledDir = createTempRepo();
   const noTestsDir = createTempRepo();

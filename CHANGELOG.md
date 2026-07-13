@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Opt-in staged-secret enforcement now fails closed when Git cannot launch,
+  exits nonzero, or returns malformed patch structure. Advisory mode still
+  warns and continues, while terminal and JSON output distinguish an
+  unavailable scan from a detected secret. Git-quoted hostile paths and valid
+  binary, rename, deletion, missing-newline, and large patch shapes have
+  regression coverage.
+- Discovered Node test paths beginning with `-` are now passed after `--` and
+  made absolute when necessary, preventing the built-in test runner from
+  interpreting a repository filename as an option at commit or push time.
+- Hook classification and repair now refuse symbolic-link hook files and hook
+  directories, including dangling links, so setup cannot write through an
+  uninspectable hook path.
+- Pre-push Node test reports now live below a randomized private temporary
+  directory instead of a predictable process-ID filename.
+- Hook-launched test commands and the repository's disposable Git fixtures no
+  longer inherit Git's repository-local routing variables. Nested `git init`,
+  commit, and push commands now stay inside their intended fixture instead of
+  mutating the hook caller's repository or remote.
 - Restored post-merge DCO enforcement after one unsigned roadmap update by
   recording the narrow governance exception and synchronizing the operational
   audit baseline across both workflows, the checker, and maintainer guidance.

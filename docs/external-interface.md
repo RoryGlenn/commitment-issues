@@ -84,6 +84,10 @@ Customized hooks and scripts are preserved and reported. Shared `.gitignore`
 entries, ESLint/Prettier dependencies, the package dependency, and lockfiles
 remain owned by the consuming project.
 
+Hook ownership checks do not follow symbolic links. A hook-file symlink,
+dangling symlink, or symlink used as the hooks directory is preserved as
+uninspectable; `init` and `doctor` report it instead of repairing through it.
+
 ## Git hook interface
 
 `init` writes plain native hooks that call the installed binary:
@@ -96,6 +100,12 @@ The hooks honor `COMMITMENT_ISSUES=0` and the pre-3.0 `HUSKY=0` compatibility
 skip. They exit silently when the binary is no longer installed. The pre-push
 hook forwards Git's remote name and URL for remote-specific first-push base
 selection. Package source is not copied into the consumer repository.
+
+Staged and pushed-file test commands inherit the developer's ordinary
+environment, but Git's repository-local routing variables are removed first.
+The command still discovers the current checkout from its working directory;
+nested Git fixtures therefore cannot be redirected into the hook caller by an
+inherited `GIT_DIR`, work tree, or index path.
 
 ## Configuration interface
 
@@ -138,10 +148,16 @@ single versioned payload. Field semantics, stderr behavior, and examples are in
 - Commit and push checks are advisory by default.
 - Protected-branch, secret, push-test, and commit-message blocking require the
   corresponding explicit configuration.
+- With `blockOnSecrets: true`, a detected secret and an unavailable staged-patch
+  inspection both block. Git launch failures, nonzero results, and malformed
+  patches have a distinct unavailable-scan terminal/JSON result; advisory mode
+  warns and continues.
 - Fix commands return nonzero when safety checks fail or manual work remains.
 - JSON mode reports the same exit code in `exitCode`; it does not change whether
   a result blocks.
 - Missing built-in peer tools are advisory in hooks and never invoke an implicit
   `npx` fallback; an explicit fix request fails when its required tool is absent.
-- Configured test commands execute verbatim as argument arrays, including an
-  explicitly selected `npx` executable.
+- Configured test executables and options remain argument arrays, including an
+  explicitly selected `npx` executable. Discovered paths are appended as data;
+  Node `--test` paths are placed after `--`, and leading-hyphen paths are made
+  absolute to prevent option interpretation.

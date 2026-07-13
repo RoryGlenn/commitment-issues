@@ -10,6 +10,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { MAX_TIMEOUT_MS } from "../scripts/lib/config.mjs";
 import {
   detachedForPlatform,
+  isNodeTestCommand,
+  nodeTestArguments,
   run,
   toolInvocation,
   runTool,
@@ -17,7 +19,58 @@ import {
   isPackageInstalled,
   isToolInstalled,
   terminateProcessTree,
+  withoutGitLocalEnvironment,
 } from "../scripts/lib/process.mjs";
+
+test("Node test arguments separate configured options from hostile paths", () => {
+  assert.equal(isNodeTestCommand([process.execPath, "--test"]), true);
+  assert.equal(isNodeTestCommand(["node.exe", "--test"]), true);
+  assert.equal(isNodeTestCommand(["node"]), false);
+  assert.equal(isNodeTestCommand(["custom-runner", "--test"]), false);
+  assert.equal(isNodeTestCommand([]), false);
+  assert.equal(isNodeTestCommand(null), false);
+
+  assert.deepEqual(nodeTestArguments(["node", "--test"], ["plain.test.mjs"]), [
+    "--test",
+    "--",
+    "plain.test.mjs",
+  ]);
+
+  assert.deepEqual(
+    nodeTestArguments(
+      ["node", "--test", "--", "configured.test.mjs"],
+      ["normal.test.mjs", "-option.test.mjs"],
+      ["--test-reporter=tap"],
+    ),
+    [
+      "--test",
+      "--test-reporter=tap",
+      "--",
+      "configured.test.mjs",
+      "normal.test.mjs",
+      path.resolve("-option.test.mjs"),
+    ],
+  );
+});
+
+test("child environments drop Git hook routing without mutating the source", () => {
+  const source = {
+    HOME: "/home/example",
+    PATH: "/bin",
+    GIT_DIR: "/caller/.git",
+    GIT_WORK_TREE: "/caller",
+    GIT_INDEX_FILE: "/caller/.git/index",
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: "core.bare",
+    GIT_CONFIG_VALUE_0: "true",
+  };
+
+  assert.deepEqual(withoutGitLocalEnvironment(source), {
+    HOME: "/home/example",
+    PATH: "/bin",
+  });
+  assert.equal(source.GIT_DIR, "/caller/.git");
+});
 
 test("toolInvocation resolves a local bin and runs it via the current Node", () => {
   const eslint = toolInvocation("eslint", ["--version"]);

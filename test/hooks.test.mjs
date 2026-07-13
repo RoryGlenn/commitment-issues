@@ -137,6 +137,37 @@ test("commit-msg wiring is opt-in and quotes Git's message-file argument", () =>
   assert.match(hookBody("commit-msg"), /commitment-issues commit-msg "\$1"/);
 });
 
+test(
+  "classifyHook treats symbolic-link hook paths as uninspectable",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const hooksDir = fs.mkdtempSync(path.join(os.tmpdir(), "hooks-symlink-"));
+    t.after(() => fs.rmSync(hooksDir, { recursive: true, force: true }));
+    const target = path.join(hooksDir, "outside-target");
+    fs.writeFileSync(target, hookBody("pre-commit"));
+    fs.chmodSync(target, 0o755);
+    fs.symlinkSync(target, path.join(hooksDir, "pre-commit"));
+
+    assert.equal(classifyHook(hooksDir, "pre-commit"), "uninspectable");
+  },
+);
+
+test(
+  "writeHook refuses a symbolic-link hooks directory",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "hooks-dir-symlink-"));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const target = path.join(root, "target");
+    const linked = path.join(root, "linked");
+    fs.mkdirSync(target);
+    fs.symlinkSync(target, linked);
+
+    assert.throws(() => writeHook(linked, "pre-commit"), /hooks path/i);
+    assert.equal(fs.existsSync(path.join(target, "pre-commit")), false);
+  },
+);
+
 test("hook path probes handle unset, empty, and failed Git output", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hook-probes-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

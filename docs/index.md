@@ -48,6 +48,7 @@ They are evidence, not living descriptions of later code.
 - [Runtime coverage policy](branch-coverage.md)
 - [Scenario coverage](scenario-coverage.md)
 - [Core CLI and Git behavior audit](audits/core-cli-git.md)
+- [Security, secrets, paths, and subprocesses audit](audits/security-secrets-paths-subprocesses.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)

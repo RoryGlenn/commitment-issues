@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { withoutGitLocalEnvironment } from "../../scripts/lib/process.mjs";
 
 const helpersDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(helpersDir, "..", "..");
@@ -25,7 +26,7 @@ export function run(command, args, cwd, options = {}) {
   // actually wire up and fire, so strip the skip vars from the subprocess env
   // (whether inherited or caller-provided) to keep the tests hermetic
   // regardless of the outer environment.
-  const env = { ...(options.env ?? process.env) };
+  const env = withoutGitLocalEnvironment(options.env ?? process.env);
   delete env.HUSKY;
   delete env.COMMITMENT_ISSUES;
   return spawnSync(command, args, {

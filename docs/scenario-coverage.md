@@ -298,6 +298,12 @@ production-readiness workstream #130 is consolidated in the
 - **SEC-009** — pre-push diff uses NUL-delimited name/status output, so deletions, renames/copies, Unicode, whitespace, tabs, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
 - **SEC-010** — staged-secret parsing distinguishes file headers from added hunk content, including source lines beginning with `++ `. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
 - **SEC-011** — missing ESLint/Prettier peers return an advisory and package-manager install hint without invoking `npx`; explicitly configured `npx` test commands remain verbatim. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`.
+- **SEC-012** — opt-in secret enforcement fails closed when the staged-diff process fails, exits nonzero, or returns malformed patch structure; advisory mode warns and continues, and JSON preserves the distinction. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`, `test/json-output.test.mjs`.
+- **SEC-013** — Git C-style quoted staged-patch paths preserve tabs, newlines, quotes, backticks, dollar signs, semicolons, spaces, and Unicode; binary, rename, deletion, missing-final-newline, malformed, and large patch shapes remain structurally distinguished. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
+- **SEC-014** — discovered Node test paths beginning with `-` are positional files rather than runner options at commit and push time. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
+- **SEC-015** — hook repair does not follow hook-file, dangling, or hook-directory symbolic links. Unit/subprocess: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **SEC-016** — pre-push Node reporter output uses a randomized private temporary directory and does not reuse or delete a predictable colliding path. Subprocess: `test/prepush.test.mjs`.
+- **SEC-017** — hook-launched test commands and temporary-repository helpers remove Git's repository-local environment routing; representative `GIT_DIR`, work-tree, index, and counted-config variables cannot redirect fixture initialization into the caller. Unit/subprocess: `test/process.test.mjs`, `test/repository-shapes.test.mjs`, pre-push hook reproduction.
 
 ### Performance
 

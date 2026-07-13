@@ -13,7 +13,14 @@ import {
   plural,
   prepushTestInterruption,
 } from "./lib/message.mjs";
-import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
+import {
+  isNodeTestCommand,
+  nodeTestArguments,
+  run,
+  spawnAsync,
+  TOOL_TIMEOUT_MS,
+  withoutGitLocalEnvironment,
+} from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigDiagnostics,
@@ -530,7 +537,10 @@ if (testFiles.length === 0) {
   process.exit(0);
 }
 
-const fullCommand = [...testCommand, ...testFiles];
+const isNodeTest = isNodeTestCommand(testCommand);
+const fullCommand = isNodeTest
+  ? [testCommand[0], ...nodeTestArguments(testCommand, testFiles)]
+  : [...testCommand, ...testFiles];
 
 if (!jsonMode) {
   console.log("");
@@ -540,30 +550,32 @@ if (!jsonMode) {
   console.log("");
 }
 
-// Avoid leaking this process's test-runner context into the spawned suite.
-const env = { ...process.env };
+// Avoid leaking this process's test-runner context or Git's hook-local
+// repository routing into the spawned suite. Tests can rediscover the current
+// checkout by cwd without redirecting nested Git fixtures into the caller.
+const env = withoutGitLocalEnvironment();
 delete env.NODE_TEST_CONTEXT;
 
 // Human mode keeps the test runner attached/teed as before. JSON mode captures
 // the same subprocess output and relays it to stderr after completion; stdout
 // remains exactly one parseable JSON document.
-const isNodeTest =
-  /(^|[/\\])node(\.exe)?$/i.test(testCommand[0]) &&
-  testCommand.includes("--test");
-
 let result;
 let summary = null;
 
 if (isNodeTest) {
-  const tapFile = path.join(os.tmpdir(), `prepush-tap-${process.pid}.tap`);
-  const args = [
-    ...testCommand.slice(1),
+  // Keep reporter output below a freshly created private directory. A
+  // predictable shared-temp filename can collide with or follow an attacker-
+  // prepared path on multi-user systems.
+  const tapDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-issues-prepush-"),
+  );
+  const tapFile = path.join(tapDir, "results.tap");
+  const args = nodeTestArguments(testCommand, testFiles, [
     "--test-reporter=spec",
     "--test-reporter-destination=stdout",
     "--test-reporter=tap",
     `--test-reporter-destination=${tapFile}`,
-    ...testFiles,
-  ];
+  ]);
   result = await spawnAsync(testCommand[0], args, {
     env,
     stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -573,7 +585,7 @@ if (isNodeTest) {
   } catch {
     summary = null;
   } finally {
-    fs.rmSync(tapFile, { force: true });
+    fs.rmSync(tapDir, { recursive: true, force: true });
   }
 } else {
   result = await spawnAsync(fullCommand[0], fullCommand.slice(1), {

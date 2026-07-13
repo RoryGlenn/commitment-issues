@@ -11,6 +11,8 @@ import {
   envFileFindings,
   filterExemptFindings,
   findingLines,
+  inspectDiffForSecrets,
+  inspectSecretDiffResult,
   isEnvFile,
   resolveSecretScanConfig,
   scanDiffForSecrets,
@@ -148,6 +150,229 @@ test("scanDiffForSecrets never throws on malformed diff text", () => {
   assert.deepEqual(scanDiffForSecrets(undefined), []);
   assert.deepEqual(scanDiffForSecrets("+++ garbage\n+++ b/x\n+++"), []);
   assert.deepEqual(scanDiffForSecrets(`+${AWS_KEY}`), []);
+});
+
+test("inspectDiffForSecrets rejects malformed patch structure", () => {
+  assert.deepEqual(inspectDiffForSecrets("+++ garbage\n+++ b/x\n+++"), {
+    findings: [],
+    valid: false,
+  });
+  assert.deepEqual(
+    inspectDiffForSecrets(
+      [
+        "diff --git a/src/a.ts b/src/a.ts",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -0,0 +1,2 @@",
+        "+only one line",
+        "",
+      ].join("\n"),
+    ),
+    { findings: [], valid: false },
+  );
+});
+
+test("inspectDiffForSecrets decodes Git-quoted hostile paths", () => {
+  const quotedPath = '"b/src/tab\\tnewline\\nname.txt"';
+  const inspection = inspectDiffForSecrets(
+    [
+      `diff --git ${quotedPath} ${quotedPath}`,
+      '--- "a/src/tab\\tnewline\\nname.txt"',
+      `+++ ${quotedPath}`,
+      "@@ -0,0 +1 @@",
+      `+token=${AWS_KEY}`,
+      "",
+    ].join("\n"),
+  );
+
+  assert.equal(inspection.valid, true);
+  assert.deepEqual(inspection.findings, [
+    {
+      file: "src/tab\tnewline\nname.txt",
+      line: 1,
+      label: "AWS access key ID",
+    },
+  ]);
+});
+
+test("inspectDiffForSecrets validates quoted escapes and target forms", () => {
+  const octalPath = '"b/src/octal\\141\\40name-\\347\\214\\253.txt"';
+  assert.deepEqual(
+    inspectDiffForSecrets(
+      [
+        `diff --git ${octalPath} ${octalPath}`,
+        '--- "a/src/octal\\141\\40name.txt"',
+        `+++ ${octalPath}\t`,
+        "@@ -0,0 +1 @@",
+        `+token=${AWS_KEY}`,
+        "",
+      ].join("\n"),
+    ),
+    {
+      findings: [
+        {
+          file: "src/octala name-猫.txt",
+          line: 1,
+          label: "AWS access key ID",
+        },
+      ],
+      valid: true,
+    },
+  );
+
+  for (const target of [
+    '"b/src/unterminated.txt',
+    '"b/src/name.txt" unexpected',
+    '"b/src/invalid\\q.txt"',
+    "b/",
+  ]) {
+    const inspection = inspectDiffForSecrets(
+      [
+        "diff --git a/src/name.txt b/src/name.txt",
+        "--- a/src/name.txt",
+        `+++ ${target}`,
+        "@@ -0,0 +1 @@",
+        "+value=plain",
+        "",
+      ].join("\n"),
+    );
+    assert.equal(
+      inspection.valid,
+      false,
+      `target should be invalid: ${target}`,
+    );
+  }
+
+  assert.deepEqual(
+    inspectDiffForSecrets(
+      [
+        "diff --git a/plain.txt b/plain.txt",
+        "--- a/plain.txt",
+        "+++ plain.txt",
+        "@@ -0,0 +1 @@",
+        `+token=${AWS_KEY}`,
+        "",
+      ].join("\n"),
+    ),
+    {
+      findings: [{ file: "plain.txt", line: 1, label: "AWS access key ID" }],
+      valid: true,
+    },
+  );
+});
+
+test("inspectDiffForSecrets rejects every hunk-count underflow", () => {
+  const malformedBodies = [
+    ["@@ -1,1 +1,0 @@", "+unexpected"],
+    ["@@ -1,0 +1,1 @@", "-unexpected"],
+    ["@@ -1,0 +1,1 @@", " unexpected"],
+    ["@@ -1,1 +1,0 @@", " unexpected"],
+    ["@@ -0,0 +1,1 @@", "+expected", "unexpected trailing content"],
+  ];
+
+  for (const body of malformedBodies) {
+    const inspection = inspectDiffForSecrets(
+      [
+        "diff --git a/counts.txt b/counts.txt",
+        "--- a/counts.txt",
+        "+++ b/counts.txt",
+        ...body,
+        "",
+      ].join("\n"),
+    );
+    assert.equal(inspection.valid, false, body.join(" / "));
+  }
+
+  const nullTarget = inspectDiffForSecrets(
+    [
+      "diff --git a/counts.txt b/counts.txt",
+      "--- a/counts.txt",
+      "+++ /dev/null",
+      "@@ -0,0 +1 @@",
+      "+unexpected",
+      "",
+    ].join("\n"),
+  );
+  assert.equal(nullTarget.valid, false);
+});
+
+test("inspectSecretDiffResult distinguishes process and parser failures", () => {
+  assert.equal(
+    inspectSecretDiffResult({ error: new Error("spawn failed") }).outcome,
+    "spawn-error",
+  );
+  assert.equal(
+    inspectSecretDiffResult({ status: 128, stdout: "" }).outcome,
+    "nonzero",
+  );
+  assert.equal(
+    inspectSecretDiffResult({ status: 0, stdout: "not a patch\n" }).outcome,
+    "malformed",
+  );
+  assert.equal(
+    inspectSecretDiffResult({
+      status: 0,
+      stdout: diffFor("src/config.ts", ["const ok = true;"]),
+    }).outcome,
+    "success",
+  );
+});
+
+test("diff inspection accepts binary, rename-only, and deletion sections", () => {
+  const binary = [
+    "diff --git a/assets/data.bin b/assets/data.bin",
+    "new file mode 100644",
+    "index 0000000..1234567",
+    "Binary files /dev/null and b/assets/data.bin differ",
+    "",
+  ].join("\n");
+  const rename = [
+    "diff --git a/old.txt b/new.txt",
+    "similarity index 100%",
+    "rename from old.txt",
+    "rename to new.txt",
+    "",
+  ].join("\n");
+  const deletion = [
+    "diff --git a/removed.txt b/removed.txt",
+    "deleted file mode 100644",
+    "--- a/removed.txt",
+    "+++ /dev/null",
+    "@@ -1 +0,0 @@",
+    `-token=${AWS_KEY}`,
+    "",
+  ].join("\n");
+
+  for (const patch of [binary, rename, deletion]) {
+    assert.deepEqual(inspectDiffForSecrets(patch), {
+      findings: [],
+      valid: true,
+    });
+  }
+});
+
+test("diff inspection handles missing final newlines and large patches", () => {
+  const noFinalNewline = [
+    "diff --git a/config.txt b/config.txt",
+    "--- /dev/null",
+    "+++ b/config.txt",
+    "@@ -0,0 +1 @@",
+    `+token=${AWS_KEY}`,
+    "\\ No newline at end of file",
+  ].join("\n");
+  assert.deepEqual(inspectDiffForSecrets(noFinalNewline), {
+    findings: [{ file: "config.txt", line: 1, label: "AWS access key ID" }],
+    valid: true,
+  });
+
+  const added = Array.from({ length: 5000 }, (_, index) =>
+    index === 4999 ? `token=${AWS_KEY}` : `line ${index}`,
+  );
+  const inspection = inspectDiffForSecrets(diffFor("large.txt", added));
+  assert.equal(inspection.valid, true);
+  assert.deepEqual(inspection.findings, [
+    { file: "large.txt", line: 5000, label: "AWS access key ID" },
+  ]);
 });
 
 test("isEnvFile matches real env files but not templates", () => {

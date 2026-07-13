@@ -17,9 +17,10 @@ import {
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function runPrePush(tempDir, input = "") {
+function runPrePush(tempDir, input = "", options = {}) {
   return run("node", [path.join(tempDir, "scripts", "prepush.mjs")], tempDir, {
     input,
+    ...options,
   });
 }
 
@@ -243,6 +244,72 @@ test("allows the push and shows a summary when associated tests pass", (t) => {
   assert.match(output, /Push allowed with 1 warning/);
   assert.match(output, /protected branch "main"/);
   assert.equal(countTerminalBoxes(output), 1);
+});
+
+test("pre-push does not reuse or delete a predictable TAP path", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  commitWidget(tempDir, 1);
+
+  const recordPath = path.join(tempDir, "tap-collision-path.txt");
+  const preloadPath = path.join(tempDir, "tap-collision-preload.cjs");
+  writeFile(
+    preloadPath,
+    `const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+if (String(process.argv[1] || "").endsWith("prepush.mjs")) {
+  const collision = path.join(os.tmpdir(), "prepush-tap-" + process.pid + ".tap");
+  fs.writeFileSync(collision, "do not touch\\n");
+  fs.writeFileSync(process.env.TAP_COLLISION_RECORD, collision);
+}
+`,
+  );
+
+  const result = runPrePush(tempDir, pushInput(tempDir), {
+    env: {
+      ...process.env,
+      NODE_OPTIONS: `--require=${preloadPath}`,
+      TAP_COLLISION_RECORD: recordPath,
+    },
+  });
+  assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  const collisionPath = fs.readFileSync(recordPath, "utf8");
+  t.after(() => fs.rmSync(collisionPath, { force: true }));
+
+  assert.equal(fs.readFileSync(collisionPath, "utf8"), "do not touch\n");
+});
+
+test("default pushed Node tests treat option-like paths as files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+
+  const sourceFile = "--test-name-pattern=never.mjs";
+  const testFile = "--test-name-pattern=never.test.mjs";
+  writeFile(path.join(tempDir, sourceFile), "export const value = 1;\n");
+  writeFile(
+    path.join(tempDir, testFile),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'test("option-like path executes", () => assert.fail("sentinel"));\n',
+  );
+  run("git", ["add", "--", sourceFile, testFile], tempDir);
+  run("git", ["commit", "-m", "add option-like test path"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /option-like path executes/);
 });
 
 test("problems-only suppresses a successful final box after tests run", (t) => {

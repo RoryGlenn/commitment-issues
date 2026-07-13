@@ -75,6 +75,50 @@ export function run(command, args, options = {}) {
   );
 }
 
+// Repository-local variables reported by `git rev-parse --local-env-vars`.
+// Git exports these to hooks so Git subprocesses keep targeting the caller's
+// repository even after changing cwd. That is useful for hook plumbing but
+// unsafe for project test suites that create disposable repositories.
+const GIT_LOCAL_ENVIRONMENT_VARIABLES = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+];
+
+/**
+ * Copy an environment without Git's repository-local routing variables.
+ * Commands launched from the repository root can rediscover the same checkout
+ * by cwd, while nested Git fixtures remain isolated from the hook's caller.
+ * @param {NodeJS.ProcessEnv} [environment] - Source environment.
+ * @returns {NodeJS.ProcessEnv} Sanitized copy.
+ */
+export function withoutGitLocalEnvironment(environment = process.env) {
+  const sanitized = { ...environment };
+  for (const variable of GIT_LOCAL_ENVIRONMENT_VARIABLES) {
+    delete sanitized[variable];
+  }
+  // GIT_CONFIG_COUNT is accompanied by a numbered key/value pair for each
+  // entry. Git does not list those generated names individually.
+  for (const variable of Object.keys(sanitized)) {
+    if (/^GIT_CONFIG_(?:KEY|VALUE)_\d+$/.test(variable)) {
+      delete sanitized[variable];
+    }
+  }
+  return sanitized;
+}
+
 /**
  * Find a package manifest in the project's reachable node_modules tree.
  * Resolution deliberately starts at the project cwd, not this package's own
@@ -156,6 +200,43 @@ export function isPackageInstalled(name, cwd = process.cwd()) {
  */
 export function isToolInstalled(name, cwd = process.cwd()) {
   return resolveTool(name, cwd) !== null;
+}
+
+/**
+ * Whether a configured command invokes Node's built-in test runner.
+ * @param {string[]} command - Executable plus configured arguments.
+ * @returns {boolean} True for node/node.exe commands containing --test.
+ */
+export function isNodeTestCommand(command) {
+  return (
+    Array.isArray(command) &&
+    /(^|[/\\])node(\.exe)?$/i.test(command[0] || "") &&
+    command.includes("--test")
+  );
+}
+
+/**
+ * Build Node test-runner arguments with discovered paths behind `--`. This
+ * prevents a legal repository pathname beginning with `-` from being parsed as
+ * a Node option. An existing separator is normalized so injected reporter
+ * options remain before it and configured positional arguments remain after it.
+ * @param {string[]} command - Node executable plus configured arguments.
+ * @param {string[]} files - Discovered test paths.
+ * @param {string[]} [injectedOptions] - Additional Node options.
+ * @returns {string[]} Arguments excluding the Node executable.
+ */
+export function nodeTestArguments(command, files, injectedOptions = []) {
+  const configured = command.slice(1);
+  const separator = configured.indexOf("--");
+  const options =
+    separator === -1 ? configured : configured.slice(0, separator);
+  const positionals = separator === -1 ? [] : configured.slice(separator + 1);
+  // Node's test runner can still mis-handle a leading-hyphen relative pathname
+  // after `--`; an absolute path is unambiguously positional on every platform.
+  const safeFiles = files.map((file) =>
+    file.startsWith("-") ? path.resolve(file) : file,
+  );
+  return [...options, ...injectedOptions, "--", ...positionals, ...safeFiles];
 }
 
 /**
