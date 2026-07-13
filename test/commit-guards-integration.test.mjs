@@ -473,6 +473,7 @@ test("a failing cat-file skips the large-file guard without blocking", (t) => {
     hookOutput: "normal",
     maxFileSizeMb: 1,
     protectedBranches: [],
+    scanSecrets: false,
   });
   fs.writeFileSync(
     path.join(tempDir, "huge.bin"),

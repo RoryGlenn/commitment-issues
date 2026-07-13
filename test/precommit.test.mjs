@@ -528,6 +528,31 @@ test("runs staged tests and stays clean when they pass (opt-in)", (t) => {
   assert.doesNotMatch(output, /failing/);
 });
 
+test("default staged Node tests treat option-like paths as files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    requireTests: false,
+    runStagedTests: true,
+    protectedBranches: [],
+  });
+  const testFile = "--test-name-pattern=never.test.mjs";
+  writeFile(
+    path.join(tempDir, testFile),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'test("option-like path executes", () => assert.fail("sentinel"));\n',
+  );
+  run("git", ["add", "--", testFile], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /1 staged test file failing/);
+});
+
 test("continues (exit 0) when staged files cannot be inspected", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

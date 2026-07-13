@@ -358,6 +358,17 @@ Shown when the staged diff adds a line matching a curated credential pattern (AW
 
 Shown only when `blockOnSecrets` is enabled and the scan found something. The commit is refused; `git commit --no-verify` bypasses it once. Rotate anything already exposed — a secret that reached a commit should be treated as leaked.
 
+### Commit blocked: staged secret scan unavailable
+
+`Commit blocked: staged secret scan unavailable.` is shown only when
+`blockOnSecrets` is enabled and Git cannot launch, exits nonzero, or returns a
+malformed staged patch. The commit is refused because possible secrets could
+not be ruled out. This state is distinct from a detected secret in both human
+and JSON output; retry after restoring Git/index access, or use
+`git commit --no-verify` as an explicit one-time bypass. Without
+`blockOnSecrets`, the same inspection failure is an advisory and the commit
+continues.
+
 ### Commit blocked: protected branch
 
 <p>

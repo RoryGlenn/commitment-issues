@@ -117,10 +117,12 @@ fallback. When a peer is missing, commit-time checks report an advisory and the
 package-manager-specific install command; fix commands fail nonzero rather than
 claiming an incomplete fix succeeded. `doctor` reports the same local state.
 
-This restriction does not rewrite explicit configuration.
-`precommitChecks.testCommand` is executed exactly as supplied, so a command such
-as `["npx", "vitest", "run"]` deliberately opts into npx's own resolution and
-network behavior.
+This restriction does not replace the executable or configured options in
+explicit configuration. A command such as `["npx", "vitest", "run"]`
+deliberately opts into npx's own resolution and network behavior. The hook
+appends discovered test paths as arguments. For Node's built-in `--test`
+runner, those paths are placed after `--`; a leading-hyphen relative path is
+made absolute so Node cannot interpret a repository filename as an option.
 
 ## What happens on commit and push?
 
@@ -207,7 +209,11 @@ process. Commands used in hooks should not launch background daemons.
 
 ### Using a different test runner
 
-`testCommand` can be any command that accepts test file paths as arguments. Both the staged-test check and the push gate append the relevant test files to it.
+`testCommand` can be any command that accepts test file paths as arguments.
+Both the staged-test check and the push gate append the relevant test files to
+it. Custom runners receive the configured argv followed by those paths. Node
+`--test` commands receive discovered paths after an option separator, with
+leading-hyphen paths made absolute.
 
 **Vitest:**
 
@@ -274,7 +280,7 @@ Beyond tool checks, the hooks run instant, git-only advisory guards. All of them
 - **Commit size** — commits staging more than `maxCommitFiles` files (default 30) or `maxCommitLines` changed lines (default 2000) get a split-it-up nudge. Set either to `0` to disable.
 - **Large files** — staged files over `maxFileSizeMb` (default 5) are listed with a Git LFS pointer. Set to `0` to disable.
 - **Generated files** — staged paths matching `generatedPaths` (default: `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, `__pycache__` anywhere in the tree) are flagged as usually-ignored artifacts. Setting `generatedPaths` replaces the default list.
-- **Staged secrets** — lines _added_ by the staged diff are scanned against a curated, high-precision credential set (AWS access keys, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, URLs with embedded passwords), and staged dotenv files are flagged (`.env.example`/`.env.sample`/`.env.template` are ignored). Known documentation examples and placeholder passwords (`${DB_PASS}`, `<password>`, `changeme`…) never fire. Opt into hard blocking with `blockOnSecrets: true`; exempt fixture paths with `secretExempt` globs; disable with `scanSecrets: false`. A secret that reached a commit should be rotated even if the commit is stopped.
+- **Staged secrets** — lines _added_ by the staged diff are scanned against a curated, high-precision credential set (AWS access keys, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, URLs with embedded passwords), and staged dotenv files are flagged (`.env.example`/`.env.sample`/`.env.template` are ignored). Known documentation examples and placeholder passwords (`${DB_PASS}`, `<password>`, `changeme`…) never fire. Opt into hard blocking with `blockOnSecrets: true`; exempt fixture paths with `secretExempt` globs; disable with `scanSecrets: false`. Advisory mode warns and allows the commit if Git cannot produce a valid staged patch. Blocking mode fails closed on a Git launch failure, nonzero result, or malformed patch because possible secrets could not be ruled out. Human and JSON output distinguish an unavailable scan from a detected secret and show `git commit --no-verify` as the one-time bypass. A secret that reached a commit should be rotated even if the commit is stopped.
 
 ```json
 {
@@ -364,7 +370,7 @@ All options are optional and use the same types in either configuration file:
 | `runStagedTests`         | boolean                         | `false`              | Run tests for staged files at commit time.                                                                     |
 | `advisePushTests`        | boolean                         | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
 | `blockPushOnTestFailure` | boolean                         | `false`              | Run the pushed files' tests at `git push` and block on failure.                                                |
-| `testCommand`            | string[]                        | `["node", "--test"]` | Test runner used by staged tests and the push gate; executed verbatim and must accept file paths.              |
+| `testCommand`            | string[]                        | `["node", "--test"]` | Executable and options for staged/push tests; discovered paths are appended as argv and must be accepted.      |
 | `timeoutMs`              | number                          | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
 | `tone`                   | `"standard"` or `"fun"`         | `"standard"`         | Output tone for advisory pre-commit messages.                                                                  |
 | `hookOutput`             | `"problems-only"` or `"normal"` | `"problems-only"`    | Suppress final success/info hook boxes, or preserve every human-readable hook state.                           |
@@ -376,7 +382,7 @@ All options are optional and use the same types in either configuration file:
 | `maxFileSizeMb`          | number                          | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
 | `generatedPaths`         | string[]                        | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                                       |
 | `scanSecrets`            | boolean                         | `true`               | Scan added staged lines and dotenv files for likely credentials.                                               |
-| `blockOnSecrets`         | boolean                         | `false`              | Block the commit when the secrets scan finds something.                                                        |
+| `blockOnSecrets`         | boolean                         | `false`              | Block on a secret finding or when the staged patch cannot be safely inspected.                                 |
 | `secretExempt`           | string[]                        | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
 | `commitMessage`          | object                          | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
 

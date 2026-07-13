@@ -3,7 +3,14 @@
 
 import pc from "picocolors";
 import { printHookBoxModel } from "./lib/ui.mjs";
-import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
+import {
+  isNodeTestCommand,
+  nodeTestArguments,
+  TOOL_TIMEOUT_MS,
+  runTool,
+  spawnAsync,
+  run,
+} from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigDiagnostics,
@@ -30,8 +37,8 @@ import {
   envFileFindings,
   filterExemptFindings,
   findingLines,
+  inspectSecretDiffResult,
   resolveSecretScanConfig,
-  scanDiffForSecrets,
   secretsIssue,
 } from "./lib/secret-scan.mjs";
 import {
@@ -112,7 +119,10 @@ function runStagedTestCommand(testCommand, tests) {
   // (e.g. when the hook itself is exercised under `node --test`).
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
-  return spawnAsync(testCommand[0], [...testCommand.slice(1), ...tests], {
+  const args = isNodeTestCommand(testCommand)
+    ? nodeTestArguments(testCommand, tests)
+    : [...testCommand.slice(1), ...tests];
+  return spawnAsync(testCommand[0], args, {
     env,
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -313,11 +323,16 @@ jsonOutput.addCheck({
 const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
 
 // Staged-secrets scan: high-precision patterns against *added* lines only,
-// plus staged .env files. A failed diff probe skips the scan (fail-open, like
-// every commit-side guard) — blocking here is opt-in via blockOnSecrets.
+// plus staged .env files. Advisory mode warns and continues when the patch is
+// unavailable; explicit blocking mode fails closed.
 function collectSecretFindings() {
   if (!secretScanConfig.scanSecrets) {
-    return { findings: [], diffInspected: false };
+    return {
+      findings: [],
+      diffInspected: false,
+      inspectionOutcome: "disabled",
+      diffStatus: null,
+    };
   }
   const findings = [...envFileFindings(rawStagedFiles)];
   const diff = run("git", [
@@ -327,41 +342,93 @@ function collectSecretFindings() {
     "-U0",
     "--no-color",
   ]);
-  if (!diff.error && diff.status === 0) {
-    findings.push(...scanDiffForSecrets(diff.stdout));
-  }
+  const inspection = inspectSecretDiffResult(diff);
+  findings.push(...inspection.findings);
   return {
     findings: filterExemptFindings(findings, secretScanConfig.secretExempt),
-    diffInspected: !diff.error && diff.status === 0,
+    diffInspected: inspection.inspected,
+    inspectionOutcome: inspection.outcome,
+    diffStatus: diff.status,
   };
 }
 
-const { findings: secretFindings, diffInspected: secretDiffInspected } =
-  collectSecretFindings();
+const {
+  findings: secretFindings,
+  diffInspected: secretDiffInspected,
+  inspectionOutcome: secretInspectionOutcome,
+  diffStatus: secretDiffStatus,
+} = collectSecretFindings();
+
+function secretScanUnavailableIssue() {
+  const malformed = secretInspectionOutcome === "malformed";
+  return {
+    autoFixable: false,
+    type: "secrets",
+    message: "Staged secret scan unavailable",
+    detail: malformed
+      ? "Git returned a malformed staged patch; possible secrets could not be ruled out."
+      : "Git could not inspect the staged diff; possible secrets could not be ruled out.",
+  };
+}
+
+const secretScanUnavailable =
+  secretScanConfig.scanSecrets && !secretDiffInspected;
 
 jsonOutput.addCheck({
   id: "secrets",
   status: !secretScanConfig.scanSecrets
     ? "skipped"
-    : secretFindings.length > 0
+    : secretScanUnavailable
       ? secretScanConfig.blockOnSecrets
         ? "failed"
-        : "advisory"
-      : !secretDiffInspected
-        ? "skipped"
+        : secretFindings.length > 0
+          ? "advisory"
+          : "skipped"
+      : secretFindings.length > 0
+        ? secretScanConfig.blockOnSecrets
+          ? "failed"
+          : "advisory"
         : "passed",
   summary: !secretScanConfig.scanSecrets
     ? "Secret scanning is disabled"
-    : secretFindings.length > 0
-      ? `${secretFindings.length} possible ${plural(secretFindings.length, "secret")} found`
-      : !secretDiffInspected
-        ? "Secret diff could not be inspected"
+    : secretScanUnavailable
+      ? secretScanConfig.blockOnSecrets
+        ? "Blocking secret scan could not inspect staged diff"
+        : "Secret diff could not be inspected"
+      : secretFindings.length > 0
+        ? `${secretFindings.length} possible ${plural(secretFindings.length, "secret")} found`
         : "No possible secrets found",
   details: {
     findingCount: secretFindings.length,
     diffInspected: secretDiffInspected,
+    inspectionOutcome: secretInspectionOutcome,
+    status: secretDiffStatus,
   },
 });
+
+if (secretScanConfig.blockOnSecrets && secretScanUnavailable) {
+  const issue = secretScanUnavailableIssue();
+  if (jsonMode) {
+    emitJsonResult({
+      status: "blocked",
+      exitCode: 1,
+      summary: "Commit blocked because the secret scan was unavailable",
+      findings: [issueToJsonFinding(issue, "error")],
+    });
+  }
+  const reason =
+    secretInspectionOutcome === "malformed"
+      ? "Git returned a malformed staged patch, so possible secrets could not be ruled out."
+      : "Git could not inspect the staged diff, so possible secrets could not be ruled out.";
+  printHookMessage("error", [
+    pc.bold("Commit blocked: staged secret scan unavailable."),
+    "",
+    pc.dim(reason),
+    pc.dim("Retry after restoring Git access or a valid index."),
+    pc.dim("To bypass once: git commit --no-verify"),
+  ]);
+  process.exit(1);
+}
 
 if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
   const issue = secretsIssue(secretFindings);
@@ -389,6 +456,10 @@ if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
 // skips that guard — guards must never block or fail a commit.
 function collectGuardIssues() {
   const guardIssues = [];
+
+  if (secretScanUnavailable) {
+    guardIssues.push(secretScanUnavailableIssue());
+  }
 
   const secretIssue = secretsIssue(secretFindings);
   if (secretIssue) {

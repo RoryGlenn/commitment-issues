@@ -159,6 +159,43 @@ export function isToolInstalled(name, cwd = process.cwd()) {
 }
 
 /**
+ * Whether a configured command invokes Node's built-in test runner.
+ * @param {string[]} command - Executable plus configured arguments.
+ * @returns {boolean} True for node/node.exe commands containing --test.
+ */
+export function isNodeTestCommand(command) {
+  return (
+    Array.isArray(command) &&
+    /(^|[/\\])node(\.exe)?$/i.test(command[0] || "") &&
+    command.includes("--test")
+  );
+}
+
+/**
+ * Build Node test-runner arguments with discovered paths behind `--`. This
+ * prevents a legal repository pathname beginning with `-` from being parsed as
+ * a Node option. An existing separator is normalized so injected reporter
+ * options remain before it and configured positional arguments remain after it.
+ * @param {string[]} command - Node executable plus configured arguments.
+ * @param {string[]} files - Discovered test paths.
+ * @param {string[]} [injectedOptions] - Additional Node options.
+ * @returns {string[]} Arguments excluding the Node executable.
+ */
+export function nodeTestArguments(command, files, injectedOptions = []) {
+  const configured = command.slice(1);
+  const separator = configured.indexOf("--");
+  const options =
+    separator === -1 ? configured : configured.slice(0, separator);
+  const positionals = separator === -1 ? [] : configured.slice(separator + 1);
+  // Node's test runner can still mis-handle a leading-hyphen relative pathname
+  // after `--`; an absolute path is unambiguously positional on every platform.
+  const safeFiles = files.map((file) =>
+    file.startsWith("-") ? path.resolve(file) : file,
+  );
+  return [...options, ...injectedOptions, "--", ...positionals, ...safeFiles];
+}
+
+/**
  * Force-terminate a spawned process and its still-attached descendants.
  * POSIX children are launched as process-group leaders, so a negative pid kills
  * the group. Windows uses the built-in taskkill tree operation. Both paths fall
