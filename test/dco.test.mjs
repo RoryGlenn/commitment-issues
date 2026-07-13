@@ -77,6 +77,25 @@ test("recognizes a well-formed DCO trailer", () => {
   );
 });
 
+test("recognizes a trailing DCO trailer after Dependabot metadata", () => {
+  const message = `build(deps-dev): bump eslint from 9.39.4 to 10.7.0
+
+Bumps [eslint](https://github.com/eslint/eslint) from 9.39.4 to 10.7.0.
+
+---
+updated-dependencies:
+- dependency-name: eslint
+  dependency-version: 10.7.0
+  dependency-type: direct:development
+  update-type: version-update:semver-major
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+`;
+
+  assert.equal(hasDcoSignoff(message), true);
+});
+
 test("audits only commits after the prospective baseline", (t) => {
   const repo = fixture();
   t.after(() => fs.rmSync(repo.cwd, { recursive: true, force: true }));

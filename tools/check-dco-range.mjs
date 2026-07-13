@@ -12,13 +12,23 @@ export const DCO_ENFORCEMENT_BASELINE =
 const COMMIT_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i;
 const DCO_TRAILER = /^Signed-off-by:\s+\S(?:.*\S)?\s+<[^<>@\s]+@[^<>\s]+>\s*$/m;
 
+function trailingParagraph(message) {
+  const normalized = String(message ?? "")
+    .replace(/\r\n?/g, "\n")
+    .trimEnd();
+  return normalized.split(/\n[ \t]*\n/).at(-1) ?? "";
+}
+
 export function hasDcoSignoff(message) {
-  // A matching line in the message body is not a DCO trailer. Delegate the
-  // trailer-block boundary and unfolding rules to Git, then validate only the
-  // parsed trailer output. --parse ignores trailer.* config and commands.
+  // Only the final paragraph can be a trailer block. Passing that candidate to
+  // Git avoids treating Dependabot's preceding YAML metadata as malformed
+  // trailers. A synthetic subject lets Git parse the isolated paragraph while
+  // preserving its trailer syntax and unfolding rules. --parse ignores
+  // trailer.* config and commands.
+  const candidate = trailingParagraph(message);
   const parsed = git(["interpret-trailers", "--parse"], {
     allowFailure: true,
-    input: String(message ?? ""),
+    input: `DCO candidate\n\n${candidate}\n`,
   });
   return parsed.status === 0 && DCO_TRAILER.test(parsed.stdout);
 }
