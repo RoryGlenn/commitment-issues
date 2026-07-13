@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- DCO range checks now recognize a valid trailing `Signed-off-by` trailer after
+  Dependabot's commit-message metadata without accepting matching lines in the
+  message body.
 - CLI setup and hook-health commands now reject unknown options before
   mutation, so a misspelled `--dry-run`, `-n`, or `--quiet` cannot silently
   perform the normal action. Other public commands also reject arguments
