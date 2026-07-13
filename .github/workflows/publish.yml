@@ -138,7 +138,7 @@ jobs:
         # v3 stages a standard release as a draft, uploads every file, and
         # publishes only after the uploads succeed. Published releases are
         # immutable in this repository, so no later job can add an asset.
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ github.ref_name }}
           draft: false
