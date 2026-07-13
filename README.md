@@ -15,7 +15,7 @@
 
 No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 
-[See it in action](#commit-normally-fix-safely-push-with-confidence) · [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) · [Migration guide](docs/migration.md) · [Configuration](docs/configuration.md) · [Uninstall](#uninstall)
+[See it in action](#commit-normally-fix-safely-push-with-confidence) · [Why before CI?](#why-before-ci) · [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) · [Migration guide](docs/migration.md) · [Configuration](docs/configuration.md) · [Uninstall](#uninstall)
 
 ## Commit normally. Fix safely. Push with confidence.
 
@@ -55,6 +55,20 @@ No separate hook manager · No telemetry · npm, pnpm, Yarn, and Bun
 See [Message states](docs/message-states.md) for the complete gallery.
 
 </details>
+
+## Why before CI?
+
+**GitHub Actions catches mistakes after they become expensive. Commitment Issues catches them while they are still cheap.**
+
+A problem that takes seconds to identify locally can become a queue wait, a
+failed CI run, a context switch, a log investigation, a second push, and another
+CI run. Commitment Issues moves that feedback into the commit and push workflow
+while the developer still has the relevant code in mind. CI remains the
+authoritative shared gate.
+
+[See the time, cost, and frustration breakdown](docs/why-before-ci.md), including
+an illustrative ROI calculation and a method for measuring the effect in your
+own repository.
 
 ## Quickstart
 
@@ -398,6 +412,8 @@ The npm scripts are added by `init`. Every subcommand can also be invoked direct
 
 **Understand and configure**
 
+- [Why catch problems before CI?](docs/why-before-ci.md) — feedback latency,
+  developer time, illustrative ROI, and measurement guidance
 - [How it works](docs/how-it-works.md)
 - [Configuration and behavior](docs/configuration.md)
 - [External interface reference](docs/external-interface.md)
