@@ -34,6 +34,8 @@ Relevant attackers or failure modes include:
 - generated, quoted, truncated, or malformed Git output;
 - symbolic links or non-file entries at native hook paths;
 - collisions or link attacks in a shared temporary directory;
+- Git hook repository variables redirecting nested fixture operations into the
+  caller's repository;
 - a compromised GitHub Action or release workflow dependency;
 - accidental maintainer mistakes during releases;
 - accidental mutation of staged or unstaged work;
@@ -62,7 +64,8 @@ Important trust boundaries are:
    project-local commitlint, repository-configured test runners, Git, and
    package-manager commands are external tools. Built-in peers resolve locally;
    explicit commands and Git intentionally inherit the developer's `PATH` and
-   environment.
+   environment, while hook-launched tests exclude Git's repository-local
+   routing variables.
 5. **Shell and option boundary** — file paths and command arguments must not be
    interpolated into a shell command or allowed to become unintended command
    options.
@@ -161,6 +164,10 @@ The project combines local validation, tests, linting, formatting, CI on multipl
   links are preserved as uninspectable instead of followed during repair.
 - Pre-push reporter output is written beneath a randomized private temporary
   directory and cleanup is scoped to that owned directory.
+- Hook-launched tests and disposable Git-fixture helpers strip repository-local
+  Git environment variables before spawning. Tests rediscover the caller by
+  cwd, while nested repositories retain their own refs, config, index, and
+  remotes.
 
 ### Security automation and release evidence
 

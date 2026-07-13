@@ -19,6 +19,7 @@ import {
   run,
   spawnAsync,
   TOOL_TIMEOUT_MS,
+  withoutGitLocalEnvironment,
 } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
@@ -549,8 +550,10 @@ if (!jsonMode) {
   console.log("");
 }
 
-// Avoid leaking this process's test-runner context into the spawned suite.
-const env = { ...process.env };
+// Avoid leaking this process's test-runner context or Git's hook-local
+// repository routing into the spawned suite. Tests can rediscover the current
+// checkout by cwd without redirecting nested Git fixtures into the caller.
+const env = withoutGitLocalEnvironment();
 delete env.NODE_TEST_CONTEXT;
 
 // Human mode keeps the test runner attached/teed as before. JSON mode captures

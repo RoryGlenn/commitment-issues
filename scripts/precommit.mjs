@@ -10,6 +10,7 @@ import {
   runTool,
   spawnAsync,
   run,
+  withoutGitLocalEnvironment,
 } from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
@@ -115,9 +116,10 @@ function runPrettier(files) {
 }
 
 function runStagedTestCommand(testCommand, tests) {
-  // Avoid leaking this process's test-runner context into the spawned tests
-  // (e.g. when the hook itself is exercised under `node --test`).
-  const env = { ...process.env };
+  // Avoid leaking this process's test-runner context or Git's hook-local
+  // repository routing into the spawned tests. The suite can rediscover this
+  // checkout by cwd, while any nested Git fixtures remain isolated.
+  const env = withoutGitLocalEnvironment();
   delete env.NODE_TEST_CONTEXT;
   const args = isNodeTestCommand(testCommand)
     ? nodeTestArguments(testCommand, tests)

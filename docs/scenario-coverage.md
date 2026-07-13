@@ -303,6 +303,7 @@ production-readiness workstream #130 is consolidated in the
 - **SEC-014** — discovered Node test paths beginning with `-` are positional files rather than runner options at commit and push time. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
 - **SEC-015** — hook repair does not follow hook-file, dangling, or hook-directory symbolic links. Unit/subprocess: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **SEC-016** — pre-push Node reporter output uses a randomized private temporary directory and does not reuse or delete a predictable colliding path. Subprocess: `test/prepush.test.mjs`.
+- **SEC-017** — hook-launched test commands and temporary-repository helpers remove Git's repository-local environment routing; representative `GIT_DIR`, work-tree, index, and counted-config variables cannot redirect fixture initialization into the caller. Unit/subprocess: `test/process.test.mjs`, `test/repository-shapes.test.mjs`, pre-push hook reproduction.
 
 ### Performance
 

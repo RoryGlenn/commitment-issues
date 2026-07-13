@@ -213,7 +213,11 @@ process. Commands used in hooks should not launch background daemons.
 Both the staged-test check and the push gate append the relevant test files to
 it. Custom runners receive the configured argv followed by those paths. Node
 `--test` commands receive discovered paths after an option separator, with
-leading-hyphen paths made absolute.
+leading-hyphen paths made absolute. Test commands inherit the normal developer
+environment except for Git's repository-local routing variables (`GIT_DIR`,
+`GIT_WORK_TREE`, `GIT_INDEX_FILE`, and related values). Removing those hook
+variables lets tests rediscover the current checkout by working directory and
+prevents nested Git fixtures from targeting the hook caller.
 
 **Vitest:**
 

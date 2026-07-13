@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uninspectable hook path.
 - Pre-push Node test reports now live below a randomized private temporary
   directory instead of a predictable process-ID filename.
+- Hook-launched test commands and the repository's disposable Git fixtures no
+  longer inherit Git's repository-local routing variables. Nested `git init`,
+  commit, and push commands now stay inside their intended fixture instead of
+  mutating the hook caller's repository or remote.
 - Restored post-merge DCO enforcement after one unsigned roadmap update by
   recording the narrow governance exception and synchronizing the operational
   audit baseline across both workflows, the checker, and maintainer guidance.

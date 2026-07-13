@@ -75,6 +75,50 @@ export function run(command, args, options = {}) {
   );
 }
 
+// Repository-local variables reported by `git rev-parse --local-env-vars`.
+// Git exports these to hooks so Git subprocesses keep targeting the caller's
+// repository even after changing cwd. That is useful for hook plumbing but
+// unsafe for project test suites that create disposable repositories.
+const GIT_LOCAL_ENVIRONMENT_VARIABLES = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+];
+
+/**
+ * Copy an environment without Git's repository-local routing variables.
+ * Commands launched from the repository root can rediscover the same checkout
+ * by cwd, while nested Git fixtures remain isolated from the hook's caller.
+ * @param {NodeJS.ProcessEnv} [environment] - Source environment.
+ * @returns {NodeJS.ProcessEnv} Sanitized copy.
+ */
+export function withoutGitLocalEnvironment(environment = process.env) {
+  const sanitized = { ...environment };
+  for (const variable of GIT_LOCAL_ENVIRONMENT_VARIABLES) {
+    delete sanitized[variable];
+  }
+  // GIT_CONFIG_COUNT is accompanied by a numbered key/value pair for each
+  // entry. Git does not list those generated names individually.
+  for (const variable of Object.keys(sanitized)) {
+    if (/^GIT_CONFIG_(?:KEY|VALUE)_\d+$/.test(variable)) {
+      delete sanitized[variable];
+    }
+  }
+  return sanitized;
+}
+
 /**
  * Find a package manifest in the project's reachable node_modules tree.
  * Resolution deliberately starts at the project cwd, not this package's own

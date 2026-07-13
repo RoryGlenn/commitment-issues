@@ -101,6 +101,12 @@ skip. They exit silently when the binary is no longer installed. The pre-push
 hook forwards Git's remote name and URL for remote-specific first-push base
 selection. Package source is not copied into the consumer repository.
 
+Staged and pushed-file test commands inherit the developer's ordinary
+environment, but Git's repository-local routing variables are removed first.
+The command still discovers the current checkout from its working directory;
+nested Git fixtures therefore cannot be redirected into the hook caller by an
+inherited `GIT_DIR`, work tree, or index path.
+
 ## Configuration interface
 
 Configuration is dependency-free JSON read from `.commitmentrc.json` and the
