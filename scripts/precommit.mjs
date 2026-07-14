@@ -49,6 +49,7 @@ import {
   unavailableToolIssue,
 } from "./lib/message.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
+import { showWelcomeOnFirstCommit } from "./lib/welcome.mjs";
 import {
   allowedStatus,
   createJsonOutput,
@@ -169,6 +170,8 @@ if (jsonMode) {
     console.warn(pc.yellow(`⚠ ${message}`));
   }
 }
+
+showWelcomeOnFirstCommit({ config, jsonMode });
 
 function printHookMessage(severity, lines) {
   printHookBoxModel({ severity, lines }, hookOutput);

@@ -93,6 +93,7 @@ claim-to-scenario map remains in [Scenario Coverage](scenario-coverage.md).
 | `scripts/lib/secret-scan.mjs`     | staged-added-line parsing, credential patterns, exemptions, and fail-closed scan state | `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`                   |
 | `scripts/lib/ui.mjs`              | terminal capability detection, output routing, colors, and width                       | `test/ui.test.mjs`                                                                     |
 | `scripts/lib/vows.mjs`            | deterministic vow content, ANSI behavior, wrapping, and immutability                   | `test/vows.test.mjs`                                                                   |
+| `scripts/lib/welcome.mjs`         | once-per-clone marker ownership, fail-open behavior, and Commit Owl onboarding         | `test/welcome.test.mjs`                                                                |
 
 ## Maintenance and integration ownership
 

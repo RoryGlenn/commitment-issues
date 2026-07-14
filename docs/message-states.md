@@ -6,7 +6,7 @@
 > here or in a referenced SVG, and `tools/gen-message-state-svgs.mjs` regenerates
 > the visual fixtures.
 
-`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
+`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one normal outcome box; when several findings coexist, they are consolidated under the strongest severity. The first human-readable pre-commit run may precede that result with the one-time onboarding box documented below. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
 Routine hooks default to `hookOutput: "problems-only"`, so their success and
 informational states are normally silent. This gallery intentionally documents
@@ -131,6 +131,34 @@ command cannot inspect local Git hooks. User-owned content is reported and
 preserved instead of being edited heuristically.
 
 ## Pre-commit
+
+### First-commit welcome
+
+```text
+╭─────────────────────── info ───────────────────────╮
+│                                                    │
+│                         ,_,                        │
+│                      (O,O)  <3                     │
+│                        (   )                       │
+│                        -"-"-                       │
+│                                                    │
+│   Commitment Issues is active here.                │
+│                                                    │
+│   This repository uses its own product on every    │
+│   commit. Keep the hooks enabled, and tell us if   │
+│   any guidance feels confusing.                    │
+│                                                    │
+│   Check your setup anytime: npm run doctor         │
+│                                                    │
+╰───────────────────────────────────────────────────╯
+```
+
+Shown once per clone before the first human-readable pre-commit checks. It is
+visible under the default `hookOutput: "problems-only"` policy because it is
+onboarding, not a normal check result. The command follows the consuming
+project's package manager. Its versioned Git-common-directory marker is shared
+by linked worktrees; JSON mode and hook bypasses do not consume it. Set
+`showWelcomeOnFirstCommit: false` to suppress both the message and marker.
 
 ### All checks passed
 

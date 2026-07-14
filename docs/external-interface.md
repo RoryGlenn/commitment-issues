@@ -101,6 +101,13 @@ skip. They exit silently when the binary is no longer installed. The pre-push
 hook forwards Git's remote name and URL for remote-specific first-push base
 selection. Package source is not copied into the consumer repository.
 
+The first human-readable pre-commit invocation shows a default-on contributor
+welcome, then records `<git-common-dir>/commitment-issues/welcome-v1`. The
+versioned marker is clone-local, outside the working tree, and shared by linked
+worktrees. `showWelcomeOnFirstCommit: false` disables both display and marker
+creation. JSON mode and Git's standard hook bypasses do not consume it, and all
+marker failures fail open.
+
 Staged and pushed-file test commands inherit the developer's ordinary
 environment, but Git's repository-local routing variables are removed first.
 The command still discovers the current checkout from its working directory;
@@ -122,11 +129,15 @@ and tests together.
 
 ## Output interface
 
-Human commands render at most one primary terminal box per invocation.
+Human commands render at most one normal outcome box per invocation. The first
+human-readable pre-commit run may render the one-time onboarding box before
+that normal result.
 `precommit`, `prepush`, and `commit-msg` default to
 `hookOutput: "problems-only"`, which suppresses final success and informational
 boxes while retaining warnings and errors. `hookOutput: "normal"` restores
 success and informational states without changing execution or exit behavior.
+The once-per-clone welcome is intentionally independent of `hookOutput`; its
+dedicated configuration opt-out is `showWelcomeOnFirstCommit: false`.
 
 Operational commands (`init`, `uninstall`, `doctor`, and explicit fix commands)
 are outside the hook-output policy. Mixed findings use the strongest final

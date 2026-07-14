@@ -51,7 +51,7 @@ export function readHeadFile(tempDir, relativePath) {
   return result.stdout;
 }
 
-export function createTempRepo({ commit = true } = {}) {
+export function createTempRepo({ commit = true, suppressWelcome = true } = {}) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "precommit-checks-"));
 
   run("git", ["init"], tempDir);
@@ -68,6 +68,14 @@ export function createTempRepo({ commit = true } = {}) {
   );
   if (rootPkg.precommitChecks && typeof rootPkg.precommitChecks === "object") {
     delete rootPkg.precommitChecks.tone;
+    if (suppressWelcome) {
+      // Most fixtures target an established hook state. Keep the new
+      // once-per-clone onboarding box out of unrelated output assertions;
+      // welcome-specific tests opt back into the production default.
+      rootPkg.precommitChecks.showWelcomeOnFirstCommit = false;
+    } else {
+      delete rootPkg.precommitChecks.showWelcomeOnFirstCommit;
+    }
   }
   writeFile(
     path.join(tempDir, "package.json"),
@@ -106,9 +114,16 @@ export function cleanupTempRepo(tempDir) {
 }
 
 // Overwrite the temp repo's precommitChecks config block.
-export function setPrecommitConfig(tempDir, precommitChecks) {
+export function setPrecommitConfig(
+  tempDir,
+  precommitChecks,
+  { suppressWelcome = true } = {},
+) {
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = precommitChecks;
+  pkg.precommitChecks = {
+    ...(suppressWelcome ? { showWelcomeOnFirstCommit: false } : {}),
+    ...precommitChecks,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,

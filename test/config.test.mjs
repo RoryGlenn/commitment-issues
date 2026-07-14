@@ -20,6 +20,7 @@ import {
   readStandalonePrecommitConfig,
   resolveCommitMessageConfig,
   resolveHookOutput,
+  resolveShowWelcomeOnFirstCommit,
   sanitizePrecommitConfig,
   STANDALONE_CONFIG_FILE,
   unknownPrecommitConfigKeys,
@@ -136,6 +137,30 @@ test("hookOutput accepts only the documented values and defaults quiet", () => {
   assert.deepEqual(invalidPrecommitConfigMessages({ hookOutput: "quiet" }), [
     'hookOutput must be "problems-only" or "normal"',
   ]);
+});
+
+test("first-commit welcome defaults on and accepts only an explicit opt-out", () => {
+  assert.equal(resolveShowWelcomeOnFirstCommit({}), true);
+  assert.equal(
+    resolveShowWelcomeOnFirstCommit(
+      sanitizePrecommitConfig({ showWelcomeOnFirstCommit: true }),
+    ),
+    true,
+  );
+  assert.equal(
+    resolveShowWelcomeOnFirstCommit(
+      sanitizePrecommitConfig({ showWelcomeOnFirstCommit: false }),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    sanitizePrecommitConfig({ showWelcomeOnFirstCommit: "no" }),
+    {},
+  );
+  assert.deepEqual(
+    invalidPrecommitConfigMessages({ showWelcomeOnFirstCommit: "no" }),
+    ["showWelcomeOnFirstCommit must be a boolean"],
+  );
 });
 
 test("an invalid standalone value overrides rather than reviving package.json", (t) => {
