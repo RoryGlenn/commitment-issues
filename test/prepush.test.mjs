@@ -209,6 +209,37 @@ test("runs a test left behind by a renamed source file", (t) => {
   assert.match(output, /ERR_MODULE_NOT_FOUND|Cannot find module/);
 });
 
+test("runs a failing test when its source and test are renamed together", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+  run("git", ["mv", "src/widget.mjs", "src/renamed-widget.mjs"], tempDir);
+  run(
+    "git",
+    ["mv", "src/widget.test.mjs", "src/renamed-widget.test.mjs"],
+    tempDir,
+  );
+  writeFile(
+    path.join(tempDir, "src", "renamed-widget.test.mjs"),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'import { widget } from "./renamed-widget.mjs";\n' +
+      'test("renamed widget", () => assert.equal(widget(), 2));\n',
+  );
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "rename widget and test"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /renamed-widget\.test\.mjs/);
+  assert.match(output, /1 !== 2|Expected values to be strictly equal/);
+});
+
 test("runs only the pushed files' tests and blocks on failure", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

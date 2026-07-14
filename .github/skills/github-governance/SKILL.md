@@ -44,7 +44,7 @@ the normal path cannot safely be used.
 
 ## The single required check: `CI Success`
 
-- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [dco, check, pm-lifecycle]`, `if: always()`, and it exits non-zero if any needed job's result is `failure` or `cancelled`.
+- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [dco, check, pm-lifecycle]`, `if: always()`, and it exits non-zero unless every needed job reports `success`. This fail-closed check also rejects skipped or otherwise incomplete required jobs.
 - Requiring this **one** context keeps the required-checks list stable even as the test matrix changes. So: add/remove matrix legs freely, but do **not** rename the `CI Success` job (or add a new required job) without updating ruleset `18531369` to match.
 - `dco` checks every pull-request commit and every commit on `main` after the
   prospective baseline `81a9e412bc347f01300df62505ee378284646d15`.

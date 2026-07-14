@@ -57,6 +57,79 @@ temporary source paths into the source-tree percentage would make the badge
 less reproducible rather than more complete. CI runs the npm lifecycle gate in
 the Node/OS matrix and separate pnpm, Yarn, and Bun lifecycle gates.
 
+## Runtime behavior ownership
+
+Coverage is not treated as proof by itself. This map assigns every measured
+runtime module to the test file that owns its behavior. The executable
+invariant in `test/test-quality.test.mjs` fails if a runtime source is missing,
+an owner disappears, or no named owner references its source. The finer-grained
+claim-to-scenario map remains in [Scenario Coverage](scenario-coverage.md).
+
+| Runtime source                    | Meaningful behavior owned                                                              | Primary automated evidence                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `scripts/cli.mjs`                 | command dispatch, argument contracts, help/version, exit status                        | `test/cli.test.mjs`                                                                    |
+| `scripts/commit-fix.mjs`          | safe fix-and-amend flow, pushed/dirty/empty refusal, child cleanup                     | `test/commit-fix.test.mjs`                                                             |
+| `scripts/commit-msg.mjs`          | optional local commitlint execution, advisory/blocking policy                          | `test/commit-msg.test.mjs`                                                             |
+| `scripts/doctor.mjs`              | hook inspection, bounded repair, quiet install behavior                                | `test/doctor.test.mjs`                                                                 |
+| `scripts/fix-staged-js.mjs`       | explicit-file formatter/linter execution and error propagation                         | `test/fix-staged-js.test.mjs`                                                          |
+| `scripts/fix-staged.mjs`          | safe staged-file repair without overwriting partial work                               | `test/fix-staged.test.mjs`                                                             |
+| `scripts/init.mjs`                | idempotent setup, validation, preflight, and hook ownership                            | `test/init.test.mjs`                                                                   |
+| `scripts/precommit.mjs`           | staged checks, findings, secret/test policy, JSON and protected-branch outcomes        | `test/precommit.test.mjs`                                                              |
+| `scripts/prepush.mjs`             | pushed-range test selection, deleted/renamed paths, blocking/advisory outcomes         | `test/prepush.test.mjs`                                                                |
+| `scripts/uninstall.mjs`           | exact owned cleanup, dry run, preservation of custom state                             | `test/uninstall.test.mjs`                                                              |
+| `scripts/vows.mjs`                | hidden read-only command entrypoint                                                    | `test/cli.test.mjs`, `test/vows.test.mjs`                                              |
+| `scripts/lib/checks.mjs`          | lint, formatting, test, timeout, and finding classification                            | `test/checks.test.mjs`                                                                 |
+| `scripts/lib/commit-guards.mjs`   | branch and worktree guards across Git states                                           | `test/commit-guards.test.mjs`                                                          |
+| `scripts/lib/config.mjs`          | package/standalone precedence, validation, defaults, and diagnostics                   | `test/config.test.mjs`                                                                 |
+| `scripts/lib/files.mjs`           | NUL-safe Git paths, ownership, matching, workspace roots, and path properties          | `test/lib-files.test.mjs`, `test/path-normalization.test.mjs`, `test/property.test.js` |
+| `scripts/lib/hooks.mjs`           | hook classification, resolution, ownership, and safe writes                            | `test/hooks.test.mjs`                                                                  |
+| `scripts/lib/json-output.mjs`     | stable machine-readable schema and status mapping                                      | `test/json-output.test.mjs`                                                            |
+| `scripts/lib/local-tool.mjs`      | project-local executable discovery without global/network fallback                     | `test/local-tool.test.mjs`                                                             |
+| `scripts/lib/logo.mjs`            | exact branded header and fresh return values                                           | `test/logo.test.mjs`                                                                   |
+| `scripts/lib/message.mjs`         | severity, tone, wrapping, and single-summary composition                               | `test/message.test.mjs`                                                                |
+| `scripts/lib/package-manager.mjs` | package-manager detection and command construction                                     | `test/package-manager.test.mjs`                                                        |
+| `scripts/lib/process.mjs`         | shell-free child execution, environment isolation, timeout and process-tree cleanup    | `test/process.test.mjs`                                                                |
+| `scripts/lib/push-base.mjs`       | upstream, first-push, remote, and range-base inference                                 | `test/push-base.test.mjs`                                                              |
+| `scripts/lib/secret-scan.mjs`     | staged-added-line parsing, credential patterns, exemptions, and fail-closed scan state | `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`                   |
+| `scripts/lib/ui.mjs`              | terminal capability detection, output routing, colors, and width                       | `test/ui.test.mjs`                                                                     |
+| `scripts/lib/vows.mjs`            | deterministic vow content, ANSI behavior, wrapping, and immutability                   | `test/vows.test.mjs`                                                                   |
+
+## Maintenance and integration ownership
+
+The six percentage exclusions are not test exclusions:
+
+| Maintenance source                         | Why it is outside the runtime percentage                        | Automated evidence                                                        |
+| ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `scripts/ci-lifecycle-smoke.mjs`           | packed-package integration fixture executed in disposable repos | `test/integration/lifecycle-manager.test.mjs`; CI manager matrix          |
+| `scripts/lib/coverage-badge.mjs`           | coverage policy and badge parser                                | `test/coverage-badge.test.mjs`, `test/test-quality.test.mjs`              |
+| `scripts/lib/lifecycle-managers.mjs`       | integration harness command definitions                         | `test/integration/lifecycle-manager.test.mjs`                             |
+| `scripts/run-branch-coverage.mjs`          | the coverage runner itself                                      | `npm run test:coverage`; contract checks in `test/metadata.test.mjs`      |
+| `scripts/run-lifecycle-test.mjs`           | outer package-manager integration launcher                      | `npm run test:lifecycle:*`; `test/integration/lifecycle-manager.test.mjs` |
+| `scripts/update-readme-coverage-badge.mjs` | maintainer badge updater                                        | `test/update-readme-coverage-badge.test.mjs`                              |
+
+## Suppressions and meaningful-coverage rules
+
+There are exactly two `node:coverage` suppressions: the post-preflight write
+race handlers in `scripts/init.mjs` and `scripts/uninstall.mjs`. The preceding
+preflight behavior is fully exercised; forcing a filesystem permission race
+between that check and the write is nondeterministic. An executable inventory
+prevents new or enlarged suppressions from being added silently.
+
+The test strategy also enforces behavior that a percentage cannot:
+
+- pushed-range selection blocks when a source is deleted, when a source is
+  renamed but its old test remains, and when source and test are renamed
+  together and the renamed test fails;
+- generated message-state SVGs are regenerated in a private temporary
+  directory and compared byte-for-byte with all 64 committed assets;
+- the aggregate `CI Success` job accepts only explicit success from DCO, the
+  full OS/Node check matrix, and the package-manager lifecycle matrix;
+- property tests exercise path normalization and ownership invariants, while
+  real disposable Git repositories cover CLI and hook behavior;
+- no snapshot update can mask behavior: assertions target exact structured
+  values, exit statuses, filesystem/Git state, or narrowly normalized visual
+  properties.
+
 ## CI and badge freshness
 
 Ubuntu CI enforces 100% lines, branches, and functions on Node 22.11.0 and Node 24. Node 24 is the canonical badge producer: `npm run coverage:check` runs the

@@ -22,6 +22,29 @@ production-readiness workstream #130 is consolidated in the
 
 ## Covered
 
+### Test strategy and coverage enforcement
+
+- **TEST-001** — every published runtime module has an explicit, existing test
+  owner that references it, and the ownership set exactly matches the
+  fail-closed coverage denominator. Unit/invariant: `test/test-quality.test.mjs`;
+  map: `docs/branch-coverage.md`.
+- **TEST-002** — the only coverage suppressions are the two documented
+  post-preflight filesystem races; new or enlarged suppressions fail the
+  inventory. Unit/invariant: `test/test-quality.test.mjs`.
+- **TEST-003** — deleted tests are not executed, while a deleted source, a
+  source-only rename, and a combined source+test rename cannot evade blocking
+  related-test selection. Real-Git fixture: `test/prepush.test.mjs`.
+- **TEST-004** — all 64 generated message-state assets are gallery-owned and
+  exactly reproducible in a private temporary directory. Unit/subprocess:
+  `test/visual-assets.test.mjs`.
+- **TEST-005** — the aggregate branch-protection gate succeeds only when DCO,
+  the complete OS/Node check matrix, and the package-manager lifecycle matrix
+  each report explicit success; skipped or incomplete dependencies fail closed.
+  Unit/invariant: `test/test-quality.test.mjs`; CI: `.github/workflows/ci.yml`.
+- **TEST-006** — exact logo content and fresh-value behavior are directly
+  asserted rather than credited through incidental coverage. Unit:
+  `test/logo.test.mjs`.
+
 ### Package publishing
 
 - **PKG-001** — package metadata stays consistent with lockfile. Unit: `test/metadata.test.mjs`.
