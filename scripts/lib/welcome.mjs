@@ -12,7 +12,12 @@ import { printBoxModel } from "./ui.mjs";
 export const WELCOME_MARKER_DIRECTORY = "commitment-issues";
 export const WELCOME_MARKER_NAME = "welcome-v1";
 
-const COMMIT_OWL = [",_,", "(O,O)  <3", "(   )", '-"-"-'];
+const COMMIT_OWL = [
+  { art: ",_," },
+  { art: "(O,O)", suffix: "  <3" },
+  { art: "(   )" },
+  { art: '-"-"-' },
+];
 
 function centered(line, width) {
   const padding = Math.max(0, Math.floor((width - line.length) / 2));
@@ -51,7 +56,9 @@ export function buildWelcomeMessage({
   return {
     severity: "info",
     lines: [
-      ...COMMIT_OWL.map((line) => centered(line, contentWidth)),
+      ...COMMIT_OWL.map(
+        ({ art, suffix = "" }) => centered(art, contentWidth) + suffix,
+      ),
       "",
       pc.bold("Commitment Issues is active here."),
       "",

@@ -138,7 +138,7 @@ preserved instead of being edited heuristically.
 ╭─────────────────────── info ───────────────────────╮
 │                                                    │
 │                         ,_,                        │
-│                      (O,O)  <3                     │
+│                        (O,O)  <3                   │
 │                        (   )                       │
 │                        -"-"-                       │
 │                                                    │

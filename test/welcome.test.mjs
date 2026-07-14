@@ -76,6 +76,13 @@ test("welcome message includes the compact Commit Owl and detected doctor comman
   assert.match(text, /tell us if\s+any guidance feels confusing/);
   assert.match(text, /pnpm run doctor/);
 
+  const owl = first.lines.slice(0, 4).map((line) => stripAnsi(line));
+  const faceStart = owl[1].indexOf("(O,O)");
+  assert.equal(owl[0].indexOf(",_,"), faceStart + 1);
+  assert.equal(owl[2].indexOf("(   )"), faceStart);
+  assert.equal(owl[3].indexOf('-"-"-'), faceStart);
+  assert.equal(owl[1].indexOf("<3"), faceStart + 7);
+
   first.lines[0] = "changed by caller";
   assert.notEqual(
     stripAnsi(
