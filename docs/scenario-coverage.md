@@ -212,6 +212,8 @@ production-readiness workstream #130 is consolidated in the
 - **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
 - **PRE-013** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
 - **PRE-014** — detached HEAD intentionally skips only the branch-name guard while unrelated staged guards continue. Fixture: `test/commit-guards-integration.test.mjs`.
+- **PRE-015** — the default-on Commit Owl welcome appears once per clone, uses a Git-common-directory marker shared by linked worktrees, stays readable at narrow widths, and supports an explicit opt-out. Unit/fixture: `test/welcome.test.mjs`.
+- **PRE-016** — JSON mode, `--no-verify`, `COMMITMENT_ISSUES=0`, and legacy `HUSKY=0` neither display nor consume the welcome; marker probe/write/render failures never block checks. Unit/real-Git fixture: `test/welcome.test.mjs`.
 
 ### Commit-message linting
 

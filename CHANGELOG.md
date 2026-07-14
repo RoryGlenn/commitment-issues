@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Pre-commit now shows a default-on Commit Owl welcome once per clone so
+  contributors know the repository uses `commitment-issues` and that confusing
+  guidance should be reported. A versioned marker below Git's common directory
+  is shared by linked worktrees; `showWelcomeOnFirstCommit: false` opts out,
+  JSON and hook bypasses do not consume it, and all marker failures fail open.
+
 ### Fixed
 
 - Opt-in staged-secret enforcement now fails closed when Git cannot launch,

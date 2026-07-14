@@ -591,6 +591,7 @@ test("every terminal box title appears in the message-states gallery", () => {
     "scripts/prepush.mjs",
     "scripts/uninstall.mjs",
     "scripts/lib/message.mjs",
+    "scripts/lib/welcome.mjs",
   ];
 
   // Defensive boxes marked unreachable in practice (node:coverage-disabled)

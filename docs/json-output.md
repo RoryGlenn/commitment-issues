@@ -17,7 +17,8 @@ JSON mode writes exactly one JSON document followed by a newline to stdout. It
 does not render terminal boxes or progress lines there. Pre-push test-runner
 output can be arbitrarily large and tool-specific, so it is relayed to stderr
 and summarized in the payload instead. Configuration warnings become entries
-in `diagnostics`.
+in `diagnostics`. A pre-commit JSON run also leaves the once-per-clone welcome
+unconsumed; the next eligible human-readable run can still display it.
 
 The normative version 1 definition is
 [`json-output.schema.json`](json-output.schema.json). Every payload contains:

@@ -91,12 +91,20 @@ Wait+Screen@30s /Your next push runs advisory tests/
 Show
 Sleep 4s
 # Keep this visual fixture intentionally verbose, then commit the hook setup
-# off-camera and clear it so beat 2 starts on a clean screen. --no-verify skips
-# its hook box.
+# off-camera. Opt out of the welcome so the recording retains its established
+# four-beat flow; --no-verify skips the setup commit's normal hook box.
 Hide
 Set TypingSpeed 1ms
-Type "npm pkg set precommitChecks.hookOutput=normal && git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
-Wait+Screen@30s /__BASELINE_READY__/
+Type "DEMO_PROMPT=$PROMPT && npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json && PROMPT='WELCOME_READY> '" Enter
+Wait+Line@30s /WELCOME_READY>$/
+Type "npm pkg set precommitChecks.hookOutput=normal && PROMPT='OUTPUT_READY> '" Enter
+Wait+Line@30s /OUTPUT_READY>$/
+Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && PROMPT='COMMIT_READY> '" Enter
+Wait+Line@30s /COMMIT_READY>$/
+Type "git push -q --no-verify && PROMPT='BASELINE_READY> '" Enter
+Wait+Line@30s /BASELINE_READY>$/
+Type "PROMPT=$DEMO_PROMPT" Enter
+Wait+Line@30s /git:\(feature.greeting\) *$/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter

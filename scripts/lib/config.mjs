@@ -50,6 +50,7 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "runStagedTests",
   "scanSecrets",
   "secretExempt",
+  "showWelcomeOnFirstCommit",
   "testCommand",
   "testExempt",
   "timeoutMs",
@@ -65,6 +66,7 @@ const BOOLEAN_CONFIG_KEYS = [
   "requireTests",
   "runStagedTests",
   "scanSecrets",
+  "showWelcomeOnFirstCommit",
 ];
 
 // String-array keys share one validation/sanitization shape.
@@ -550,6 +552,16 @@ export function loadPrecommitConfig(cwd = process.cwd()) {
  */
 export function resolveHookOutput(config) {
   return config?.hookOutput === "normal" ? "normal" : DEFAULT_HOOK_OUTPUT;
+}
+
+/**
+ * Resolve the once-per-clone contributor welcome. It is onboarding rather
+ * than enforcement, so it is enabled unless a project explicitly opts out.
+ * @param {object} config - Sanitized precommitChecks config.
+ * @returns {boolean} Whether a human pre-commit run may show the welcome.
+ */
+export function resolveShowWelcomeOnFirstCommit(config) {
+  return config?.showWelcomeOnFirstCommit !== false;
 }
 
 /**

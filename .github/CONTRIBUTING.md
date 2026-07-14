@@ -62,6 +62,10 @@ transpilation step.
 
    Installation runs the repository's `prepare` script. That quietly verifies
    the local hook wiring with `doctor` without replacing unrelated custom hooks.
+   On your first commit in the clone, the Commit Owl welcome confirms that this
+   repository is using its own product. Keep the hooks enabled, and please
+   report any guidance that feels confusing—the hook experience is product
+   feedback.
 
 4. Confirm the checkout is healthy:
 

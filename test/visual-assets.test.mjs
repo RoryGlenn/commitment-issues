@@ -139,6 +139,9 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const workflow = read(".github/workflows/render-demo.yml");
   const comparator = read("tools/compare-demo-gifs.mjs");
   const initIndex = tape.indexOf("npx --no-install commitment-issues init");
+  const welcomeOptOutIndex = tape.indexOf(
+    "npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json",
+  );
   const switchIndex = tape.indexOf("git switch -q -c feature/greeting");
   const visibleCommitIndex = tape.indexOf(
     "git commit -q -am 'print hello world'",
@@ -244,6 +247,10 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.match(tape, /NPM_CONFIG_UPDATE_NOTIFIER=false/);
   assert.match(tape, /npx --no-install commitment-issues init/);
   assert.match(tape, /npm pkg set precommitChecks\.hookOutput=normal/);
+  assert.match(
+    tape,
+    /npm pkg set precommitChecks\.showWelcomeOnFirstCommit=false --json/,
+  );
   for (const hiddenExecution of [
     'Type "npx --no-install commitment-issues init"\nHide\nEnter',
     "Type \"git commit -q -am 'print hello world'\"\nHide\nEnter",
@@ -255,8 +262,16 @@ test("demo tape records a reproducible feature-branch workflow", () => {
       `demo should hide variable command runtime for ${hiddenExecution.split("\\n")[0]}`,
     );
   }
-  assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
-  assert.match(tape, /Wait\+Screen@30s \/__BASELINE_READY__\//);
+  for (const marker of [
+    "WELCOME_READY",
+    "OUTPUT_READY",
+    "COMMIT_READY",
+    "BASELINE_READY",
+  ]) {
+    assert.ok(tape.includes("PROMPT='" + marker + "> '"));
+    assert.ok(tape.includes("Wait+Line@30s /" + marker + ">$/"));
+  }
+  assert.ok(tape.includes('Type "PROMPT=$DEMO_PROMPT" Enter'));
   assert.match(tape, /PROMPT='READY> '/);
   assert.match(tape, /Wait\+Line@30s \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
@@ -275,6 +290,10 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.ok(
     tape.indexOf("Hide", initIndex) > initIndex,
     "setup bookkeeping should be hidden only after init is demonstrated",
+  );
+  assert.ok(
+    welcomeOptOutIndex > initIndex && welcomeOptOutIndex < visibleCommitIndex,
+    "the demo should opt out only after showing the default init experience",
   );
   assert.ok(
     visibleCommitIndex > switchIndex,

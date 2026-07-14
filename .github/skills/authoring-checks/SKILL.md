@@ -59,6 +59,8 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
   only sanitized values and never throws. All config access goes through here.
 - `resolveCommitMessageConfig()` — resolves the sanitized nested opt-in to
   explicit disabled/advisory defaults.
+- `resolveShowWelcomeOnFirstCommit()` — preserves the default-on onboarding
+  behavior unless a project explicitly opts out.
 
 ### `files.mjs`
 
@@ -95,7 +97,8 @@ Read via `loadPrecommitConfig()`. The supported keys are grouped by behavior:
 - Commit messages: nested `commitMessage` settings (enabled and
   blockOnFailure).
 - Secret scanning: `scanSecrets`, `blockOnSecrets`, and `secretExempt`.
-- Shared behavior: `timeoutMs`, `tone`, and `hookOutput`.
+- Shared behavior: `timeoutMs`, `tone`, `hookOutput`, and
+  `showWelcomeOnFirstCommit`.
 
 `KNOWN_PRECOMMIT_CONFIG_KEYS` in `scripts/lib/config.mjs` is the source of
 truth. If you add a key, update [`docs/configuration.md`](../../../docs/configuration.md),

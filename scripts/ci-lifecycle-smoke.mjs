@@ -220,6 +220,10 @@ function hookPath(repoDir, name) {
   return path.join(gitCommonDir(repoDir), "hooks", name);
 }
 
+function welcomeMarkerPath(repoDir) {
+  return path.join(gitCommonDir(repoDir), "commitment-issues", "welcome-v1");
+}
+
 function comparablePath(filePath) {
   const resolved = fs.realpathSync.native(filePath);
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
@@ -555,12 +559,20 @@ try {
   const nestedWorkspaceDir = path.join(smokeDir, WORKSPACE_PACKAGES[1].dir);
 
   run("git", ["add", "-A"], smokeDir);
+  assertSmoke(
+    !fs.existsSync(welcomeMarkerPath(smokeDir)),
+    "a new clone should not start with a welcome marker",
+  );
   // Starting Git lifecycle commands below the workspace root must still run
   // the root-owned hooks and config for files in both workspace depths.
   run(
     "git",
     ["commit", "-m", "first checked workspace commit"],
     nestedWorkspaceDir,
+  );
+  assertSmoke(
+    fs.existsSync(welcomeMarkerPath(smokeDir)),
+    "the first checked commit should create the welcome marker",
   );
 
   run("git", ["init", "--bare", remoteDir], tempRoot);
@@ -597,6 +609,13 @@ try {
   assertSmoke(
     sameFilesystemEntry(gitCommonDir(worktreeDir), gitCommonDir(smokeDir)),
     "linked worktree should use the primary checkout's common Git directory",
+  );
+  assertSmoke(
+    sameFilesystemEntry(
+      welcomeMarkerPath(worktreeDir),
+      welcomeMarkerPath(smokeDir),
+    ),
+    "linked worktrees should share the once-per-clone welcome marker",
   );
   assertHookWired(worktreeDir, "pre-commit");
   assertHookWired(worktreeDir, "pre-push");

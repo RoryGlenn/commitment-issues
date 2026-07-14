@@ -129,7 +129,10 @@ test("requireTests:false disables the missing-test check", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { requireTests: false };
+  pkg.precommitChecks = {
+    requireTests: false,
+    showWelcomeOnFirstCommit: false,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -403,7 +406,10 @@ test("honors package.json precommitChecks.testExempt globs", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { testExempt: ["src/legacy/**"] };
+  pkg.precommitChecks = {
+    showWelcomeOnFirstCommit: false,
+    testExempt: ["src/legacy/**"],
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -485,7 +491,10 @@ test("runs staged tests and warns when they fail (opt-in)", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { runStagedTests: true };
+  pkg.precommitChecks = {
+    runStagedTests: true,
+    showWelcomeOnFirstCommit: false,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -510,7 +519,10 @@ test("runs staged tests and stays clean when they pass (opt-in)", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { runStagedTests: true };
+  pkg.precommitChecks = {
+    runStagedTests: true,
+    showWelcomeOnFirstCommit: false,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,

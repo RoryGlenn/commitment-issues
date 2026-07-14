@@ -40,6 +40,7 @@ const runtimeTestOwners = {
   ],
   "scripts/lib/ui.mjs": ["test/ui.test.mjs"],
   "scripts/lib/vows.mjs": ["test/vows.test.mjs"],
+  "scripts/lib/welcome.mjs": ["test/welcome.test.mjs"],
   "scripts/precommit.mjs": ["test/precommit.test.mjs"],
   "scripts/prepush.mjs": ["test/prepush.test.mjs"],
   "scripts/uninstall.mjs": ["test/uninstall.test.mjs"],
