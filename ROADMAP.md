@@ -4,6 +4,11 @@ This document describes the current public direction for `commitment-issues`.
 It distinguishes the supported v3 product from proposed post-launch work; an
 open issue is a design proposal, not a compatibility or delivery promise.
 
+The canonical [Definition of Done](docs/definition-of-done.md) defines the
+completion gates for changes, releases, public promotion, and a future
+feature-complete maintenance-only state. Once a milestone meets its gate, new
+ideas remain backlog candidates rather than retroactive blockers.
+
 ## Current product and near-term priority
 
 The supported v3 release is a local, advisory-first Git-hook toolkit for

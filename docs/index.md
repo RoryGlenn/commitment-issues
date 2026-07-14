@@ -43,6 +43,8 @@ They are evidence, not living descriptions of later code.
 
 ## Maintainer and audit evidence
 
+- [Definition of Done](definition-of-done.md) — change, release, promotion, and
+  feature-complete maintenance-mode gates
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
   health, package contents, and release housekeeping
 - [Runtime coverage policy](branch-coverage.md)
