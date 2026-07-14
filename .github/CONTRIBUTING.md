@@ -23,7 +23,9 @@ block only when a repository explicitly opts in.
 
 Project authority, decision-making, review requirements, and maintainer roles
 are documented in [Governance](../GOVERNANCE.md) and
-[Project roles](../docs/project-roles.md).
+[Project roles](../docs/project-roles.md). Completion gates for changes,
+releases, promotion, and the future maintenance-only state are defined in the
+[Definition of Done](../docs/definition-of-done.md).
 
 ## Prerequisites
 
@@ -191,6 +193,8 @@ CI checks the sign-off on each pull-request commit. See
 
 Before requesting review, confirm that:
 
+- the change satisfies the applicable
+  [Definition of Done](../docs/definition-of-done.md);
 - the pull request explains what changed and why;
 - related issues are linked with `Closes #<number>` when appropriate;
 - tests cover new behavior and practical bug regressions;
