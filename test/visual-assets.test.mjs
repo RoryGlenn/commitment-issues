@@ -262,9 +262,16 @@ test("demo tape records a reproducible feature-branch workflow", () => {
       `demo should hide variable command runtime for ${hiddenExecution.split("\\n")[0]}`,
     );
   }
-  assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
-  assert.match(tape, /Wait\+Line@30s \/__BASELINE_READY__\//);
-  assert.match(tape, /sleep 1 && printf/);
+  for (const marker of [
+    "WELCOME_READY",
+    "OUTPUT_READY",
+    "COMMIT_READY",
+    "BASELINE_READY",
+  ]) {
+    assert.ok(tape.includes("PROMPT='" + marker + "> '"));
+    assert.ok(tape.includes("Wait+Line@30s /" + marker + ">$/"));
+  }
+  assert.ok(tape.includes('Type "PROMPT=$DEMO_PROMPT" Enter'));
   assert.match(tape, /PROMPT='READY> '/);
   assert.match(tape, /Wait\+Line@30s \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);

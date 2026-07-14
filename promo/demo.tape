@@ -95,16 +95,15 @@ Sleep 4s
 # four-beat flow; --no-verify skips the setup commit's normal hook box.
 Hide
 Set TypingSpeed 1ms
-Type "npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json" Enter
-Wait+Line@30s /git:\(feature.greeting\) ✗ *$/
-Type "npm pkg set precommitChecks.hookOutput=normal" Enter
-Wait+Line@30s /git:\(feature.greeting\) ✗ *$/
-Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
-Wait+Line@30s /git:\(feature.greeting\) *$/
-Type "git push -q --no-verify" Enter
-Wait+Line@30s /git:\(feature.greeting\) *$/
-Type "sleep 1 && printf '__BASELINE_%s__\n' READY && sleep 1" Enter
-Wait+Line@30s /__BASELINE_READY__/
+Type "DEMO_PROMPT=$PROMPT && npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json && PROMPT='WELCOME_READY> '" Enter
+Wait+Line@30s /WELCOME_READY>$/
+Type "npm pkg set precommitChecks.hookOutput=normal && PROMPT='OUTPUT_READY> '" Enter
+Wait+Line@30s /OUTPUT_READY>$/
+Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && PROMPT='COMMIT_READY> '" Enter
+Wait+Line@30s /COMMIT_READY>$/
+Type "git push -q --no-verify && PROMPT='BASELINE_READY> '" Enter
+Wait+Line@30s /BASELINE_READY>$/
+Type "PROMPT=$DEMO_PROMPT" Enter
 Wait+Line@30s /git:\(feature.greeting\) *$/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
