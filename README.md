@@ -12,7 +12,7 @@
 
 **Local Git hooks for developers who overthink every commit.**
 
-GitHub Actions catches mistakes after they become expensive. 
+GitHub Actions catches mistakes after they become expensive.
 Commitment Issues catches them while they are still cheap.
 
 Stop test failures, staged secrets, and Git mistakes before they reach your repo.

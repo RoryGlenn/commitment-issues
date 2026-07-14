@@ -97,7 +97,13 @@ Hide
 Set TypingSpeed 1ms
 Type "npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json" Enter
 Wait+Line@30s /git:\(feature.greeting\) ✗ *$/
-Type "npm pkg set precommitChecks.hookOutput=normal && git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
+Type "npm pkg set precommitChecks.hookOutput=normal" Enter
+Wait+Line@30s /git:\(feature.greeting\) ✗ *$/
+Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues'" Enter
+Wait+Line@30s /git:\(feature.greeting\) *$/
+Type "git push -q --no-verify" Enter
+Wait+Line@30s /git:\(feature.greeting\) *$/
+Type "printf '__BASELINE_%s__\n' READY" Enter
 Wait+Screen@30s /__BASELINE_READY__/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
