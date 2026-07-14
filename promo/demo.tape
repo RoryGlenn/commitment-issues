@@ -104,7 +104,7 @@ Wait+Line@30s /git:\(feature.greeting\) *$/
 Type "git push -q --no-verify" Enter
 Wait+Line@30s /git:\(feature.greeting\) *$/
 Type "printf '__BASELINE_%s__\n' READY" Enter
-Wait+Screen@30s /__BASELINE_READY__/
+Wait+Line@30s /__BASELINE_READY__/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter
