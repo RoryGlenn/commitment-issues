@@ -103,8 +103,9 @@ Type "git add . && git commit -q --no-verify -m 'chore: set up commitment-issues
 Wait+Line@30s /git:\(feature.greeting\) *$/
 Type "git push -q --no-verify" Enter
 Wait+Line@30s /git:\(feature.greeting\) *$/
-Type "printf '__BASELINE_%s__\n' READY" Enter
+Type "sleep 1 && printf '__BASELINE_%s__\n' READY && sleep 1" Enter
 Wait+Line@30s /__BASELINE_READY__/
+Wait+Line@30s /git:\\(feature.greeting\\) *$/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
 Type `echo 'export const greet=()=>"Hello, World!";console.log(greet());' > src/hello.mjs` Enter

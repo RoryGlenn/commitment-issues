@@ -264,6 +264,7 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   }
   assert.match(tape, /printf '__BASELINE_%s__\\n' READY/);
   assert.match(tape, /Wait\+Line@30s \/__BASELINE_READY__\//);
+  assert.match(tape, /sleep 1 && printf/);
   assert.match(tape, /PROMPT='READY> '/);
   assert.match(tape, /Wait\+Line@30s \/READY>\$\//);
   assert.match(tape, /Wait\+Screen@30s \/Your next push runs advisory tests\//);
