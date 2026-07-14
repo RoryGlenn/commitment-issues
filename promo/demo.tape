@@ -51,6 +51,10 @@ Type `git remote add origin "$REMOTE_DIR"` Enter
 Wait+Line /READY>$/
 Type "npm init -y >/dev/null 2>&1" Enter
 Wait+Line@30s /READY>$/
+# Keep the promotional recording focused on its established four-beat flow;
+# the default-on welcome remains covered by the product and lifecycle tests.
+Type "npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json" Enter
+Wait+Line@30s /READY>$/
 Type "printf 'node_modules/\n' > .gitignore" Enter
 Wait+Line /READY>$/
 # Install the locally packed build and exact peer-tool versions, preferring the
@@ -90,12 +94,12 @@ Enter
 Wait+Screen@30s /Your next push runs advisory tests/
 Show
 Sleep 4s
-# Keep this visual fixture intentionally verbose, but opt out of the welcome so
-# the focused recording retains its established init → advisory → fix → push
-# story. Commit the hook setup off-camera and skip its hook box.
+# Keep this visual fixture intentionally verbose, then commit the hook setup
+# off-camera and clear it so beat 2 starts on a clean screen. --no-verify skips
+# its hook box.
 Hide
 Set TypingSpeed 1ms
-Type "npm pkg set precommitChecks.hookOutput=normal && npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json && git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
+Type "npm pkg set precommitChecks.hookOutput=normal && git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
 Wait+Screen@30s /__BASELINE_READY__/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
