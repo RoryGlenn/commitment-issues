@@ -139,6 +139,9 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   const workflow = read(".github/workflows/render-demo.yml");
   const comparator = read("tools/compare-demo-gifs.mjs");
   const initIndex = tape.indexOf("npx --no-install commitment-issues init");
+  const welcomeOptOutIndex = tape.indexOf(
+    "npm pkg set precommitChecks.showWelcomeOnFirstCommit=false --json",
+  );
   const switchIndex = tape.indexOf("git switch -q -c feature/greeting");
   const visibleCommitIndex = tape.indexOf(
     "git commit -q -am 'print hello world'",
@@ -279,6 +282,10 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.ok(
     tape.indexOf("Hide", initIndex) > initIndex,
     "setup bookkeeping should be hidden only after init is demonstrated",
+  );
+  assert.ok(
+    welcomeOptOutIndex > initIndex && welcomeOptOutIndex < visibleCommitIndex,
+    "the demo should opt out only after showing the default init experience",
   );
   assert.ok(
     visibleCommitIndex > switchIndex,
