@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced the README's feature-heavy opening with the established
+  "For developers who overthink every commit" tagline and the plain-language
+  contrast between catching mistakes early and catching them after they become
+  expensive.
 - Completed the meaningful-coverage audit with an executable production-to-test
   ownership map, locked-down coverage suppressions, repeatable generated-asset
   evidence, direct logo assertions, and deleted/renamed pre-push regressions.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — for developers who overthink every commit" width="100%" />
 </p>
 
 # Commitment Issues
@@ -11,10 +11,10 @@
 [![Node >=22.11.0](https://img.shields.io/badge/node-%3E%3D22.11.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Advisory-first Git guardrails for JavaScript and TypeScript projects.** Catch
-lint, formatting, missing-test, secret, branch, commit-shape, optional
-commit-message, and related-test problems before commits and pushes—without a
-separate hook manager or automatic rewrite.
+**For developers who overthink every commit.**
+
+GitHub Actions catches mistakes after they become expensive. Commitment Issues
+catches them while they are still cheap.
 
 No telemetry · npm, pnpm, Yarn, and Bun · Node.js >=22.11.0
 
