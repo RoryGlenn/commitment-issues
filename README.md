@@ -12,8 +12,9 @@
 
 **Local Git hooks for developers who overthink every commit.**
 
-Catch test failures, likely staged secrets, and risky Git mistakes before they
-reach GitHub Actions.
+GitHub Actions catches mistakes after they become expensive. 
+Commitment Issues catches them while they are still cheap.
+Catch test failures, staged secrets, and Git mistakes before they reach your repo.
 
 No telemetry · npm, pnpm, Yarn, and Bun · Node.js >=22.11.0
 
