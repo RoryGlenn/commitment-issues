@@ -23,6 +23,63 @@ import {
   parseJsonOutputArgs,
 } from "../scripts/lib/json-output.mjs";
 
+const jsonOutputSchema = JSON.parse(
+  fs.readFileSync(path.resolve("docs/json-output.schema.json"), "utf8"),
+);
+
+function assertSchemaValue(value, schema, pointer = "$") {
+  if (schema.$ref) {
+    const referenced = schema.$ref
+      .slice(2)
+      .split("/")
+      .reduce((current, key) => current[key], jsonOutputSchema);
+    assertSchemaValue(value, referenced, pointer);
+    return;
+  }
+
+  if (schema.type === "object") {
+    assert.ok(
+      value !== null && typeof value === "object" && !Array.isArray(value),
+      `${pointer} is an object`,
+    );
+    for (const key of schema.required ?? []) {
+      assert.ok(Object.hasOwn(value, key), `${pointer}.${key} is required`);
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(value)) {
+        assert.ok(
+          Object.hasOwn(schema.properties, key),
+          `${pointer}.${key} is declared by the schema`,
+        );
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties ?? {})) {
+      if (Object.hasOwn(value, key)) {
+        assertSchemaValue(value[key], childSchema, `${pointer}.${key}`);
+      }
+    }
+  } else if (schema.type === "array") {
+    assert.ok(Array.isArray(value), `${pointer} is an array`);
+    value.forEach((item, index) =>
+      assertSchemaValue(item, schema.items, `${pointer}[${index}]`),
+    );
+  } else if (schema.type === "integer") {
+    assert.ok(Number.isInteger(value), `${pointer} is an integer`);
+  } else if (schema.type) {
+    assert.equal(typeof value, schema.type, `${pointer} is a ${schema.type}`);
+  }
+
+  if (Object.hasOwn(schema, "const")) {
+    assert.deepEqual(value, schema.const, `${pointer} matches its constant`);
+  }
+  if (schema.enum) {
+    assert.ok(schema.enum.includes(value), `${pointer} matches its enum`);
+  }
+  if (schema.minimum !== undefined) {
+    assert.ok(value >= schema.minimum, `${pointer} meets its minimum`);
+  }
+}
+
 function cli(tempDir, args, options = {}) {
   return run(
     process.execPath,
@@ -37,6 +94,7 @@ function jsonPayload(result) {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.schemaVersion, JSON_OUTPUT_SCHEMA_VERSION);
   assert.equal(payload.exitCode, result.status);
+  assertSchemaValue(payload, jsonOutputSchema);
   for (const key of [
     "command",
     "mode",

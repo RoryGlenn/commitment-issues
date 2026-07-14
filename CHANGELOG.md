@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- First-run pre-commit warnings and errors now take priority over the Commit Owl
+  welcome instead of producing two boxes. The welcome remains unconsumed until
+  a later clean or informational run, preserving the one-box-per-invocation
+  contract under both hook-output policies.
+- Terminal boxes no longer crash when a launcher supplies a malformed,
+  impossibly narrow, or unreasonably large `COLUMNS` value; the shared renderer
+  falls back to the smallest valid rounded presentation.
+- `FORCE_COLOR=0` now removes both preformatted body escapes and Boxen border
+  color, matching the documented explicit color-disable contract.
 - Opt-in staged-secret enforcement now fails closed when Git cannot launch,
   exits nonzero, or returns malformed patch structure. Advisory mode still
   warns and continues, while terminal and JSON output distinguish an
@@ -65,6 +74,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Machine-readable integration tests now validate every exercised `--json`
+  payload recursively against the published versioned schema. The live
+  message-state runner also commits its presentation-only fixture config so it
+  no longer invents a dirty-worktree warning or hides a safe `commit:fix`
+  recommendation.
 - Replaced the README's feature-heavy opening with the established
   "For developers who overthink every commit" tagline and the plain-language
   contrast between catching mistakes early and catching them after they become

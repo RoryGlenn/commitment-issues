@@ -45,6 +45,24 @@ function elementCounts(svg) {
   );
 }
 
+test("every committed SVG exposes an accessible name and description", () => {
+  const tracked = spawnSync("git", ["ls-files", "*.svg"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  assert.equal(tracked.status, 0, tracked.stderr);
+  const assetNames = tracked.stdout.trim().split(/\r?\n/).filter(Boolean);
+
+  assert.ok(assetNames.length > 0);
+  for (const name of assetNames) {
+    const svg = read(name);
+    assert.match(svg, /\brole="img"/);
+    assert.match(svg, /\baria-labelledby="title desc"/);
+    assert.match(svg, /<title id="title">[^<]+<\/title>/);
+    assert.match(svg, /<desc id="desc">[^<]+<\/desc>/);
+  }
+});
+
 test("message-state SVG generator exactly reproduces its committed assets", (t) => {
   const tempDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "message-state-assets-"),

@@ -550,5 +550,5 @@ if (warningSections.length > 0) {
 } else if (dryRun) {
   infoBox(body);
 } else {
-  printBox(body.join("\n"), (value) => value, { borderColor: "green" });
+  printBox(body.join("\n"), undefined, { borderColor: "green" });
 }

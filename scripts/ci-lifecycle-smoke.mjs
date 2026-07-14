@@ -571,8 +571,26 @@ try {
     nestedWorkspaceDir,
   );
   assertSmoke(
+    !fs.existsSync(welcomeMarkerPath(smokeDir)),
+    "a first commit with findings should defer the welcome marker",
+  );
+
+  const [precommitCommand, precommitArgs] = execBin(["precommit"]);
+  const deferredWelcome = runForOutput(
+    precommitCommand,
+    precommitArgs,
+    smokeDir,
+  );
+  if (deferredWelcome) {
+    console.log(deferredWelcome);
+  }
+  assertSmoke(
+    deferredWelcome.includes("Commitment Issues is active here."),
+    "the next eligible pre-commit invocation should show the deferred welcome",
+  );
+  assertSmoke(
     fs.existsSync(welcomeMarkerPath(smokeDir)),
-    "the first checked commit should create the welcome marker",
+    "the deferred welcome should create the shared marker",
   );
 
   run("git", ["init", "--bare", remoteDir], tempRoot);
