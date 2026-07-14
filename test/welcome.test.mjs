@@ -399,7 +399,11 @@ test("Git bypass and hook skip variables do not consume the welcome", (t) => {
   writeFile(hookPath, hookBody("pre-commit"));
   fs.chmodSync(hookPath, 0o755);
 
-  const commit = (label, { args = [], env = process.env } = {}) => {
+  const normalHookEnvironment = withoutGitLocalEnvironment(process.env);
+  delete normalHookEnvironment.HUSKY;
+  delete normalHookEnvironment.COMMITMENT_ISSUES;
+
+  const commit = (label, { args = [], env = normalHookEnvironment } = {}) => {
     writeFile(path.join(tempDir, "welcome-bypass.txt"), `${label}\n`);
     assert.equal(run("git", ["add", "welcome-bypass.txt"], tempDir).status, 0);
     return spawnSync("git", ["commit", ...args, "-m", label], {
@@ -414,7 +418,7 @@ test("Git bypass and hook skip variables do not consume the welcome", (t) => {
   assert.equal(fs.existsSync(markerPath), false);
 
   const commitmentIssuesSkip = commit("skip modern variable", {
-    env: { ...process.env, COMMITMENT_ISSUES: "0" },
+    env: { ...normalHookEnvironment, COMMITMENT_ISSUES: "0" },
   });
   assert.equal(
     commitmentIssuesSkip.status,
@@ -424,7 +428,7 @@ test("Git bypass and hook skip variables do not consume the welcome", (t) => {
   assert.equal(fs.existsSync(markerPath), false);
 
   const huskySkip = commit("skip legacy variable", {
-    env: { ...process.env, HUSKY: "0" },
+    env: { ...normalHookEnvironment, HUSKY: "0" },
   });
   assert.equal(huskySkip.status, 0, combinedOutput(huskySkip));
   assert.equal(fs.existsSync(markerPath), false);

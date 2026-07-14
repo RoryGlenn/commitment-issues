@@ -91,11 +91,11 @@ Wait+Screen@30s /Your next push runs advisory tests/
 Show
 Sleep 4s
 # Keep this visual fixture intentionally verbose, then commit the hook setup
-# off-camera and clear it so beat 2 starts on a clean screen. --no-verify skips
-# its hook box.
+# off-camera. That first eligible hook run consumes the once-per-clone welcome;
+# beat 2 clears the terminal before recording the established advisory flow.
 Hide
 Set TypingSpeed 1ms
-Type "npm pkg set precommitChecks.hookOutput=normal && git add . && git commit -q --no-verify -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
+Type "npm pkg set precommitChecks.hookOutput=normal && git add . && git commit -q -m 'chore: set up commitment-issues' && git push -q --no-verify && printf '__BASELINE_%s__\n' READY" Enter
 Wait+Screen@30s /__BASELINE_READY__/
 
 # --- 2. Commit as usual — a messy edit gets an advisory box, not a block ---
