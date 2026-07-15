@@ -438,6 +438,41 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
+function hasSubstantiveReleaseNotes(notes) {
+  let inHtmlComment = false;
+  for (const line of notes.split(/\r?\n/gu)) {
+    const visibleChunks = [];
+    let cursor = 0;
+    while (cursor < line.length) {
+      if (inHtmlComment) {
+        const commentEnd = line.indexOf("-->", cursor);
+        if (commentEnd === -1) break;
+        inHtmlComment = false;
+        cursor = commentEnd + 3;
+        continue;
+      }
+
+      const commentStart = line.indexOf("<!--", cursor);
+      const visibleEnd = commentStart === -1 ? line.length : commentStart;
+      visibleChunks.push(line.slice(cursor, visibleEnd));
+      cursor = visibleEnd;
+      if (commentStart !== -1) {
+        inHtmlComment = true;
+        cursor += 4;
+      }
+    }
+
+    const visibleLine = visibleChunks.join("");
+    if (
+      !/^\s*#{1,6}(?:\s|$)/u.test(visibleLine) &&
+      /[\p{L}\p{N}]/u.test(visibleLine)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function extractReleaseNotes(changelog, version) {
   const escapedVersion = escapeRegExp(version);
   const versionInHeading = new RegExp(
@@ -487,12 +522,7 @@ function extractReleaseNotes(changelog, version) {
 
   const nextHeading = headings.find(({ index }) => index > heading.index);
   const notes = changelog.slice(heading.end, nextHeading?.index).trim();
-  const substantive = notes
-    .replace(/<!--[\s\S]*?-->/gu, "")
-    .split(/\r?\n/gu)
-    .filter((line) => !/^\s*#{1,6}(?:\s|$)/u.test(line))
-    .join("\n");
-  if (!/[\p{L}\p{N}]/u.test(substantive)) {
+  if (!hasSubstantiveReleaseNotes(notes)) {
     fail(
       `CHANGELOG.md section ${version} must contain substantive reviewed release notes.`,
     );

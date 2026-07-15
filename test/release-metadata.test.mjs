@@ -329,6 +329,36 @@ test("validation rejects missing and mismatched release tags", (t) => {
   }
 });
 
+test("HTML comments do not count as substantive release notes", (t) => {
+  const root = createFixture(t);
+  for (const replacement of [
+    "<!-- internal release reminder -->",
+    "<!-- unclosed internal release reminder",
+    "<!-- nested <!-- reminder -->",
+  ]) {
+    fs.writeFileSync(
+      path.join(root, "CHANGELOG.md"),
+      validChangelog.replace(reviewedNotes, replacement),
+    );
+    assert.throws(
+      () => validateReleaseMetadata({ root }),
+      /must contain substantive reviewed release notes/u,
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(root, "CHANGELOG.md"),
+    validChangelog.replace(
+      reviewedNotes,
+      `<!-- internal reminder -->\n\n${reviewedNotes}`,
+    ),
+  );
+  assert.equal(
+    validateReleaseMetadata({ root }).notes.includes(reviewedNotes),
+    true,
+  );
+});
+
 for (const fixture of [
   {
     name: "missing ledger",
