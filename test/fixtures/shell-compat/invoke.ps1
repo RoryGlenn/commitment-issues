@@ -6,11 +6,14 @@ $OutputEncoding = [Console]::OutputEncoding
 
 switch ($env:SHELL_COMPAT_ACTION) {
   "version" { & $env:SHELL_COMPAT_BIN --version; break }
-  "init" { & $env:SHELL_COMPAT_BIN init; break }
+  # npm's generated PowerShell shim exits its host process. Keep it as the
+  # self-contained launch smoke above, then use the exact installed entry for
+  # stateful actions so this runner retains the project working directory.
+  "init" { & node $env:SHELL_COMPAT_ENTRY init; break }
   "commit" { git commit -m "shell compatibility commit"; break }
   "push" { git push --set-upstream origin main; break }
-  "doctor" { & $env:SHELL_COMPAT_BIN doctor; break }
-  "uninstall" { & $env:SHELL_COMPAT_BIN uninstall; break }
+  "doctor" { & node $env:SHELL_COMPAT_ENTRY doctor; break }
+  "uninstall" { & node $env:SHELL_COMPAT_ENTRY uninstall; break }
   default {
     [Console]::Error.WriteLine(
       "Unknown shell compatibility action: $env:SHELL_COMPAT_ACTION"
