@@ -52,6 +52,7 @@ They are evidence, not living descriptions of later code.
 - [Core CLI and Git behavior audit](audits/core-cli-git.md)
 - [Security, secrets, paths, and subprocesses audit](audits/security-secrets-paths-subprocesses.md)
 - [Test quality and meaningful coverage audit](audits/test-quality-and-meaningful-coverage.md)
+- [Terminal UX and output architecture audit](audits/terminal-ux-and-output-architecture.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)

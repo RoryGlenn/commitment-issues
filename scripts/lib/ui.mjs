@@ -3,6 +3,13 @@
 
 import boxen from "boxen";
 import pc from "picocolors";
+import { stripVTControlCharacters } from "node:util";
+
+function colorsAreDisabled() {
+  return (
+    Object.hasOwn(process.env, "NO_COLOR") || process.env.FORCE_COLOR === "0"
+  );
+}
 
 /**
  * Print a rounded, padded box to stdout.
@@ -10,18 +17,37 @@ import pc from "picocolors";
  * @param {(v: string) => string} [color] - Color transform for the body.
  * @param {object} [options] - Extra boxen options (merged over defaults).
  */
-export function printBox(message, color = (value) => value, options = {}) {
-  console.log(
-    boxen(color(message), {
-      padding: 1,
-      borderStyle: "round",
-      margin: {
-        top: 1,
-        bottom: 1,
-      },
-      ...options,
-    }),
-  );
+export function printBox(message, color = String, options = {}) {
+  const colorsDisabled = colorsAreDisabled();
+  const content = colorsDisabled
+    ? stripVTControlCharacters(String(message))
+    : color(message);
+  const boxOptions = {
+    padding: 1,
+    borderStyle: "round",
+    margin: {
+      top: 1,
+      bottom: 1,
+    },
+    ...options,
+  };
+  if (colorsDisabled) {
+    delete boxOptions.borderColor;
+  }
+  let output;
+  try {
+    output = boxen(content, boxOptions);
+  } catch (error) {
+    if (!(error instanceof RangeError)) {
+      throw error;
+    }
+    // Boxen derives its wrapping width from stdout/stderr or COLUMNS and can
+    // throw when that external value is malformed or below its border width.
+    // A three-column retry is the smallest valid rounded box and keeps every
+    // user-visible outcome available instead of crashing the command.
+    output = boxen(content, { ...boxOptions, width: 3 });
+  }
+  console.log(output);
 }
 
 function boxLines(linesOrResult) {

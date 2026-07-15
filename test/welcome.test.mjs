@@ -30,6 +30,7 @@ import {
   fakeGitEnv,
   repoRoot,
   run,
+  setPrecommitConfig,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
@@ -296,6 +297,39 @@ test("absent configuration shows the welcome once and creates the marker", (t) =
   assert.equal(fs.existsSync(markerPath), true);
   assert.equal(second.status, 0);
   assert.equal(combinedOutput(second).trim(), "");
+});
+
+test("a first-run finding takes priority without creating a second box", (t) => {
+  const tempDir = createTempRepo({ suppressWelcome: false });
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(
+    tempDir,
+    { hookOutput: "normal", protectedBranches: [] },
+    { suppressWelcome: false },
+  );
+
+  const markerPath = realWelcomeMarkerPath(tempDir);
+  writeFile(path.join(tempDir, "src", "messy.json"), '{"alpha":1}\n');
+  assert.equal(run("git", ["add", "src/messy.json"], tempDir).status, 0);
+
+  const finding = runHook(tempDir);
+  const findingOutput = stripAnsi(combinedOutput(finding));
+
+  assert.equal(finding.status, 0);
+  assert.equal(countTerminalBoxes(findingOutput), 1);
+  assert.match(findingOutput, /Pre-commit suggestions found/);
+  assert.doesNotMatch(findingOutput, /Commitment Issues is active here/);
+  assert.equal(fs.existsSync(markerPath), false);
+
+  writeFile(path.join(tempDir, "src", "messy.json"), '{ "alpha": 1 }\n');
+  assert.equal(run("git", ["add", "src/messy.json"], tempDir).status, 0);
+  const clean = runHook(tempDir);
+  const cleanOutput = stripAnsi(combinedOutput(clean));
+
+  assert.equal(clean.status, 0);
+  assert.equal(countTerminalBoxes(cleanOutput), 1);
+  assert.match(cleanOutput, /Commitment Issues is active here/);
+  assert.equal(fs.existsSync(markerPath), true);
 });
 
 test("explicit opt-out shows no welcome and creates no marker", (t) => {

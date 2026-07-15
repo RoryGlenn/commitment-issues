@@ -6,7 +6,7 @@
 > here or in a referenced SVG, and `tools/gen-message-state-svgs.mjs` regenerates
 > the visual fixtures.
 
-`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one normal outcome box; when several findings coexist, they are consolidated under the strongest severity. The first human-readable pre-commit run may precede that result with the one-time onboarding box documented below. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
+`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. On an eligible first run, the one-time onboarding box documented below replaces an otherwise clean or informational result. A warning or error takes priority and leaves the welcome unconsumed for a later clean run. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
 Routine hooks default to `hookOutput: "problems-only"`, so their success and
 informational states are normally silent. This gallery intentionally documents
@@ -153,9 +153,11 @@ preserved instead of being edited heuristically.
 ╰───────────────────────────────────────────────────╯
 ```
 
-Shown once per clone before the first human-readable pre-commit checks. It is
-visible under the default `hookOutput: "problems-only"` policy because it is
-onboarding, not a normal check result. The command follows the consuming
+Shown once per clone as the final presentation for the first eligible clean or
+informational human-readable pre-commit run. It is visible under the default
+`hookOutput: "problems-only"` policy because it is onboarding, not a normal
+check result. Warnings and errors take priority without consuming the welcome,
+so one invocation never renders two boxes. The command follows the consuming
 project's package manager. Its versioned Git-common-directory marker is shared
 by linked worktrees; JSON mode and hook bypasses do not consume it. Set
 `showWelcomeOnFirstCommit: false` to suppress both the message and marker.

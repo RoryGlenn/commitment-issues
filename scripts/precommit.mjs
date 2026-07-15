@@ -171,9 +171,18 @@ if (jsonMode) {
   }
 }
 
-showWelcomeOnFirstCommit({ config, jsonMode });
-
 function printHookMessage(severity, lines) {
+  // The one-time welcome is itself the final presentation for a clean or
+  // informational first run. Findings always take priority, and leaving the
+  // marker untouched lets onboarding happen on the next clean invocation.
+  // This preserves the one-box-per-command invariant in both hook-output
+  // modes without hiding a warning or error behind onboarding content.
+  if (
+    (severity === "info" || severity === "success") &&
+    showWelcomeOnFirstCommit({ config, jsonMode })
+  ) {
+    return;
+  }
   printHookBoxModel({ severity, lines }, hookOutput);
 }
 

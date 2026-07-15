@@ -49,10 +49,11 @@ owned and runs verbatim.
 
 ## Pre-commit flow
 
-On the first human-readable pre-commit run in a clone, a compact Commit Owl
-welcome appears before the checks and records a versioned marker below Git's
-common directory. Linked worktrees share that marker. JSON runs do not display
-or consume it, and projects can opt out with
+On the first eligible clean or informational human-readable pre-commit run in a
+clone, a compact Commit Owl welcome becomes the final box and records a
+versioned marker below Git's common directory. Warnings and errors take
+priority without consuming it. Linked worktrees share the marker. JSON runs do
+not display or consume it, and projects can opt out with
 `showWelcomeOnFirstCommit: false`.
 
 The pre-commit hook then inspects staged files.

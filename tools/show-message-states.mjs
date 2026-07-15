@@ -35,6 +35,27 @@ const AWS_KEY = ["AKIA", "ABCDEFGH", "IJKLMNOP"].join("");
 // about opting into the full human-readable output policy.
 function setPrecommitConfig(tempDir, config) {
   writePrecommitConfig(tempDir, { ...config, hookOutput: "normal" });
+  const add = run("git", ["add", "package.json"], tempDir);
+  if (add.status !== 0) {
+    throw new Error(`could not stage gallery configuration: ${add.stderr}`);
+  }
+  const changed = run("git", ["diff", "--cached", "--quiet"], tempDir);
+  if (changed.status === 0) {
+    return;
+  }
+  if (changed.status !== 1) {
+    throw new Error(
+      `could not inspect gallery configuration: ${changed.stderr}`,
+    );
+  }
+  const commit = run(
+    "git",
+    ["commit", "--no-verify", "-m", "configure message-state fixture"],
+    tempDir,
+  );
+  if (commit.status !== 0) {
+    throw new Error(`could not commit gallery configuration: ${commit.stderr}`);
+  }
 }
 
 function enableGalleryOutput(tempDir) {
@@ -75,6 +96,30 @@ const passingTest =
 // Every scenario gets a fresh temp repo and returns the completed run(s) to
 // print. Keep each one minimal: just enough state to trigger the box.
 const SCENARIOS = [
+  {
+    name: "precommit/first-run-welcome",
+    run(dir) {
+      setPrecommitConfig(dir, {
+        protectedBranches: [],
+        showWelcomeOnFirstCommit: true,
+      });
+      writeFile(path.join(dir, "src", "clean.json"), '{ "alpha": 1 }\n');
+      run("git", ["add", "src/clean.json"], dir);
+      return script(dir, "precommit.mjs");
+    },
+  },
+  {
+    name: "precommit/first-run-finding",
+    run(dir) {
+      setPrecommitConfig(dir, {
+        protectedBranches: [],
+        showWelcomeOnFirstCommit: true,
+      });
+      writeFile(path.join(dir, "src", "messy.json"), '{"alpha":1}\n');
+      run("git", ["add", "src/messy.json"], dir);
+      return script(dir, "precommit.mjs");
+    },
+  },
   {
     name: "precommit/all-passed",
     run(dir) {

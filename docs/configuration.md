@@ -112,14 +112,20 @@ entire hook should be bypassed instead.
 The once-per-clone pre-commit welcome is intentionally outside
 `hookOutput`: it remains visible with the default `"problems-only"` policy.
 Projects that require completely silent successful hooks can disable that
-onboarding message independently.
+onboarding message independently. A warning or error takes priority over the
+welcome and leaves it available for a later clean invocation.
 
 ## First-commit welcome
 
-The first human-readable pre-commit run in a clone shows a compact Commit Owl
-welcome before the normal checks. It explains that `commitment-issues` is active
-and asks contributors to report confusing hook guidance. The setup hint uses
-the detected package manager, such as `pnpm run doctor` in a pnpm project.
+The first eligible clean or informational human-readable pre-commit run in a
+clone shows a compact Commit Owl welcome as its one final presentation. It
+explains that `commitment-issues` is active and asks contributors to report
+confusing hook guidance. The setup hint uses the detected package manager, such
+as `pnpm run doctor` in a pnpm project.
+
+Warnings and errors always take priority. They render without the welcome and
+without creating its marker, so the contributor can still receive onboarding
+on a later clean invocation and no command emits two boxes.
 
 After displaying the message, the hook creates the versioned marker
 `<git-common-dir>/commitment-issues/welcome-v1`. Keeping it below Git's common
@@ -165,8 +171,9 @@ made absolute so Node cannot interpret a repository filename as an option.
 ## Active flow
 
 - The pre-commit hook runs `commitment-issues precommit`.
-- Its first human-readable run shows the default-on, once-per-clone welcome
-  before normal checks; `showWelcomeOnFirstCommit: false` opts out.
+- Its first eligible clean or informational human-readable run shows the
+  default-on, once-per-clone welcome as the final box;
+  `showWelcomeOnFirstCommit: false` opts out.
 - `scripts/precommit.mjs` inspects staged files and prints one consolidated summary box.
 - The pre-push hook runs `commitment-issues prepush "$@"` so Git's remote
   arguments reach first-push base selection.
