@@ -123,8 +123,9 @@ For each review:
 - **Releases and npm:** all ten current GitHub Releases report immutable. The
   registry lists only the `roryglenn` owner, and v3.3.2 exposes npm provenance.
   The npm CLI was not owner-authenticated and no browser session was available,
-  so the exact trusted-publisher and publishing-access settings remain a manual
-  owner check before the next release.
+  so the exact trusted-publisher and publishing-access settings remain the
+  manual owner release gate tracked in
+  [issue #195](https://github.com/RoryGlenn/commitment-issues/issues/195).
 - **Security and integrations:** private vulnerability reporting, secret
   scanning, push protection, and Dependabot security updates are enabled. No
   deploy keys were present. One active integration webhook remains configured;

@@ -549,6 +549,22 @@ test("sensitive access record names effective authority and recurring review", (
   );
 });
 
+test("Audit 7 closes with an explicit npm publication gate", () => {
+  const audit = readText("docs/audits/release-packaging-and-upgrades.md");
+  const roles = readText("docs/project-roles.md");
+
+  assert.match(audit, /Status: \*\*complete with a publication gate\*\*/);
+  assert.match(audit, /issues\/195/);
+  assert.match(audit, /not yet authorized to publish/);
+  assert.match(audit, /Accepted and deferred as non-blocking maintenance/);
+  assert.match(
+    audit,
+    /01cbf76a27b0bc82d4334021a067fcd34ad7a62aa0ec9c6044efe78c5932551e/,
+  );
+  assert.match(audit, /npm audit signatures/);
+  assert.match(roles, /issues\/195/);
+});
+
 test("package files entries exist", () => {
   const pkg = readJson("package.json");
   const trackedFiles = execFileSync("git", ["ls-files", "-z"], {
