@@ -6,7 +6,6 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import crossSpawn from "cross-spawn";
 import {
   hasExactOutputLine,
@@ -158,6 +157,21 @@ const HOOK_SUBCOMMANDS = {
   "commit-msg": 'commit-msg "$1"',
 };
 
+// Yarn Berry's file protocol expects a package identity and has ambiguous
+// absolute-drive handling on Windows. Stage the unchanged bytes at a fixed
+// sibling path so every OS can resolve the same relative locator.
+function yarnBerryTarballSpec(tarball) {
+  const artifactDir = path.join(tempRoot, "yarn-berry-artifact");
+  const artifact = path.join(artifactDir, "commitment-issues.tgz");
+  fs.mkdirSync(artifactDir, { recursive: true });
+  fs.copyFileSync(tarball, artifact);
+  assertSmoke(
+    sha256(artifact) === sha256(tarball),
+    "the staged Yarn Berry tarball must match the packed artifact",
+  );
+  return "commitment-issues@file:../yarn-berry-artifact/commitment-issues.tgz";
+}
+
 // Install the packed tarball plus the peer tools using the selected manager.
 function installDevDeps(tarball) {
   switch (packageManager) {
@@ -178,7 +192,7 @@ function installDevDeps(tarball) {
       return managerInvocation([
         "add",
         "--dev",
-        `commitment-issues@${pathToFileURL(tarball).href}`,
+        yarnBerryTarballSpec(tarball),
         ...DEV_DEPS,
       ]);
     case "bun":

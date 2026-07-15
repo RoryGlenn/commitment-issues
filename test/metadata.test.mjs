@@ -177,8 +177,13 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   assert.match(job, /bun-version: "1\.3\.14"/);
   assert.match(
     lifecycle,
-    /case "yarn-berry":[\s\S]*?`commitment-issues@\$\{pathToFileURL\(tarball\)\.href\}`[\s\S]*?case "bun":/u,
-    "Yarn Berry should receive an identified portable file URI for local tarballs",
+    /function yarnBerryTarballSpec\(tarball\)[\s\S]*?sha256\(artifact\) === sha256\(tarball\)[\s\S]*?return "commitment-issues@file:\.\.\/yarn-berry-artifact\/commitment-issues\.tgz"/u,
+    "Yarn Berry should receive an identified, digest-checked relative tarball locator",
+  );
+  assert.match(
+    lifecycle,
+    /case "yarn-berry":[\s\S]*?yarnBerryTarballSpec\(tarball\)[\s\S]*?case "bun":/u,
+    "the Yarn Berry install should use the portable staged locator",
   );
 });
 
