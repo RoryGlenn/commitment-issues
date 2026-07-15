@@ -19,8 +19,13 @@ import {
   parseLsFilesStage,
   parseNameStatusPaths,
   parseNulPaths,
+  inspectMutableProjectFile,
+  mutableProjectFileUnchanged,
+  preflightMutableProjectFile,
+  removeMutableProjectFile,
   removeOwnedPath,
   shortFileList,
+  writeMutableProjectFile,
 } from "../scripts/lib/files.mjs";
 
 // These are fast, pure unit tests (no child processes or temp repos).
@@ -167,6 +172,235 @@ test("shortFileList compacts long lists and handles empty input", () => {
     shortFileList(["a", "b", "c", "d", "e", "f"]),
     "a, b, c, d, e (+1 more)",
   );
+});
+
+test("mutable project files distinguish regular, missing, linked, and unsafe paths", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-project-file-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const regular = path.join(dir, "regular.json");
+  const linked = path.join(dir, "linked.json");
+  const directory = path.join(dir, "directory.json");
+  const blocked = path.join(dir, "blocked.json");
+  fs.writeFileSync(regular, "{}\n");
+  fs.symlinkSync(regular, linked);
+  fs.mkdirSync(directory);
+
+  const regularState = inspectMutableProjectFile(regular);
+  assert.equal(regularState.status, "regular");
+  assert.equal(typeof regularState.stats.ino, "bigint");
+  assert.deepEqual(inspectMutableProjectFile(path.join(dir, "missing.json")), {
+    filePath: path.join(dir, "missing.json"),
+    status: "missing",
+  });
+  assert.deepEqual(inspectMutableProjectFile(linked), {
+    filePath: linked,
+    status: "unsafe",
+    reason: "is a symbolic link",
+  });
+  assert.deepEqual(inspectMutableProjectFile(directory), {
+    filePath: directory,
+    status: "unsafe",
+    reason: "is not a regular file",
+  });
+
+  const originalLstat = fs.lstatSync;
+  t.mock.method(fs, "lstatSync", (filePath, ...args) => {
+    if (filePath === blocked) {
+      throw Object.assign(new Error("permission denied"), { code: "EACCES" });
+    }
+    return originalLstat(filePath, ...args);
+  });
+  assert.deepEqual(inspectMutableProjectFile(blocked), {
+    filePath: blocked,
+    status: "unsafe",
+    reason: "could not be inspected safely",
+  });
+});
+
+test("mutable project file preflight checks writes and removals without following replacements", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-preflight-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const regular = path.join(dir, "regular.json");
+  const missing = path.join(dir, "missing.json");
+  const directory = path.join(dir, "directory.json");
+  fs.writeFileSync(regular, "{}\n");
+  fs.mkdirSync(directory);
+
+  const regularState = inspectMutableProjectFile(regular);
+  const missingState = inspectMutableProjectFile(missing);
+  const unsafeState = inspectMutableProjectFile(directory);
+  assert.equal(preflightMutableProjectFile(regularState), true);
+  assert.equal(preflightMutableProjectFile(missingState), true);
+  assert.equal(
+    preflightMutableProjectFile(regularState, { remove: true }),
+    true,
+  );
+  assert.equal(
+    preflightMutableProjectFile(missingState, { remove: true }),
+    false,
+  );
+  assert.equal(preflightMutableProjectFile(unsafeState), false);
+
+  const originalAccess = fs.accessSync;
+  t.mock.method(fs, "accessSync", (filePath, ...args) => {
+    if (filePath === regular) {
+      throw new Error("permission denied");
+    }
+    return originalAccess(filePath, ...args);
+  });
+  assert.equal(preflightMutableProjectFile(regularState), false);
+});
+
+test("mutable project file preflight notices a replacement during its permission probe", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-preflight-race-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "package.json");
+  const outside = path.join(dir, "outside.json");
+  fs.writeFileSync(file, "{}\n");
+  fs.writeFileSync(outside, '{"outside":true}\n');
+  const state = inspectMutableProjectFile(file);
+
+  const originalAccess = fs.accessSync;
+  t.mock.method(fs, "accessSync", (filePath, ...args) => {
+    const result = originalAccess(filePath, ...args);
+    fs.rmSync(file);
+    fs.symlinkSync(outside, file);
+    return result;
+  });
+
+  assert.equal(preflightMutableProjectFile(state), false);
+  assert.equal(fs.readFileSync(outside, "utf8"), '{"outside":true}\n');
+});
+
+test("mutable project file writes use verified descriptors for existing and new files", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-write-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const existing = path.join(dir, "package.json");
+  const missing = path.join(dir, ".gitignore");
+  fs.writeFileSync(existing, '{"before":true}\n');
+
+  const existingState = inspectMutableProjectFile(existing);
+  const missingState = inspectMutableProjectFile(missing);
+  assert.equal(mutableProjectFileUnchanged(existingState), true);
+  assert.equal(mutableProjectFileUnchanged(missingState), true);
+  writeMutableProjectFile(existingState, '{"after":true}\n');
+  writeMutableProjectFile(missingState, "node_modules/\n");
+
+  assert.equal(fs.readFileSync(existing, "utf8"), '{"after":true}\n');
+  assert.equal(fs.readFileSync(missing, "utf8"), "node_modules/\n");
+});
+
+test("mutable project file writes reject links inserted after inspection", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-write-race-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "package.json");
+  const outside = path.join(dir, "outside.json");
+  const outsideContent = '{"outside":true}\n';
+  fs.writeFileSync(file, "{}\n");
+  fs.writeFileSync(outside, outsideContent);
+  const state = inspectMutableProjectFile(file);
+  fs.rmSync(file);
+  fs.symlinkSync(outside, file);
+
+  assert.equal(mutableProjectFileUnchanged(state), false);
+  assert.throws(
+    () => writeMutableProjectFile(state, '{"changed":true}\n'),
+    (error) => error.code === "ESTALE",
+  );
+  assert.equal(fs.readFileSync(outside, "utf8"), outsideContent);
+});
+
+test("missing mutable project files use exclusive creation", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-create-race-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, ".gitignore");
+  const outside = path.join(dir, "outside.txt");
+  fs.writeFileSync(outside, "outside\n");
+  const state = inspectMutableProjectFile(file);
+  fs.symlinkSync(outside, file);
+
+  assert.throws(() => writeMutableProjectFile(state, "changed\n"));
+  assert.equal(fs.readFileSync(outside, "utf8"), "outside\n");
+});
+
+for (const field of ["dev", "ino"]) {
+  test(`mutable project file writes reject a mismatched descriptor ${field}`, (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-fstat-race-"));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const file = path.join(dir, "package.json");
+    const originalContent = "{}\n";
+    fs.writeFileSync(file, originalContent);
+    const state = inspectMutableProjectFile(file);
+    const originalFstat = fs.fstatSync;
+    t.mock.method(fs, "fstatSync", (descriptor, ...args) => {
+      const stats = originalFstat(descriptor, ...args);
+      return {
+        ...stats,
+        [field]: stats[field] + 1n,
+        isFile: () => true,
+      };
+    });
+
+    assert.throws(
+      () => writeMutableProjectFile(state, '{"changed":true}\n'),
+      (error) => error.code === "ESTALE",
+    );
+    assert.equal(fs.readFileSync(file, "utf8"), originalContent);
+  });
+}
+
+test("mutable project file writes reject a non-file descriptor", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-fstat-type-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "package.json");
+  fs.writeFileSync(file, "{}\n");
+  const state = inspectMutableProjectFile(file);
+  const originalFstat = fs.fstatSync;
+  t.mock.method(fs, "fstatSync", (descriptor, ...args) => {
+    const stats = originalFstat(descriptor, ...args);
+    return { ...stats, isFile: () => false };
+  });
+
+  assert.throws(
+    () => writeMutableProjectFile(state, '{"changed":true}\n'),
+    (error) => error.code === "ESTALE",
+  );
+  assert.equal(fs.readFileSync(file, "utf8"), "{}\n");
+});
+
+test("mutable project file writes and removals reject invalid or replaced state", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-remove-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const removable = path.join(dir, "removable.json");
+  const replaced = path.join(dir, "replaced.json");
+  const missing = path.join(dir, "missing.json");
+  const unsafe = path.join(dir, "unsafe.json");
+  fs.writeFileSync(removable, "{}\n");
+  fs.writeFileSync(replaced, "before\n");
+  fs.mkdirSync(unsafe);
+
+  const removableState = inspectMutableProjectFile(removable);
+  const replacedState = inspectMutableProjectFile(replaced);
+  const missingState = inspectMutableProjectFile(missing);
+  const unsafeState = inspectMutableProjectFile(unsafe);
+  fs.rmSync(replaced);
+  fs.writeFileSync(replaced, "after\n");
+
+  assert.throws(
+    () => writeMutableProjectFile(unsafeState, "changed\n"),
+    (error) => error.code === "ESTALE",
+  );
+  removeMutableProjectFile(removableState);
+  assert.equal(fs.existsSync(removable), false);
+  assert.throws(
+    () => removeMutableProjectFile(replacedState),
+    (error) => error.code === "ESTALE",
+  );
+  assert.throws(
+    () => removeMutableProjectFile(missingState),
+    (error) => error.code === "ESTALE",
+  );
+  assert.equal(fs.readFileSync(replaced, "utf8"), "after\n");
 });
 
 test("removeOwnedPath reports successful and failed cleanup", (t) => {

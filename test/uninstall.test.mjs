@@ -136,6 +136,56 @@ test("uninstall refuses an unwritable package before removing hooks", (t) => {
   assert.equal(fs.readFileSync(hookPath, "utf8"), hookBefore);
 });
 
+for (const fileName of ["package.json", ".commitmentrc.json"]) {
+  test(`uninstall refuses a linked ${fileName} before changing project or hook state`, (t) => {
+    const tempDir = createTempRepo();
+    const outsideDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "commitment-outside-project-"),
+    );
+    t.after(() => {
+      cleanupTempRepo(tempDir);
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    });
+
+    if (fileName === ".commitmentrc.json") {
+      writeFile(
+        path.join(tempDir, fileName),
+        '{\n  "advisePushTests": true\n}\n',
+      );
+    }
+    assert.equal(runScript(tempDir, "init").status, 0);
+
+    const packageBefore = readFile(tempDir, "package.json");
+    const hookPath = gitHook(tempDir, "pre-commit");
+    const hookBefore = fs.readFileSync(hookPath, "utf8");
+    const projectPath = path.join(tempDir, fileName);
+    const outsidePath = path.join(outsideDir, fileName.replace(/^\./, ""));
+    const outsideContent =
+      fileName === "package.json"
+        ? packageBefore
+        : fs.readFileSync(projectPath, "utf8");
+    writeFile(outsidePath, outsideContent);
+    fs.rmSync(projectPath);
+    fs.symlinkSync(outsidePath, projectPath);
+
+    for (const args of [["--dry-run"], []]) {
+      const result = runScript(tempDir, "uninstall", args);
+      const output = `${result.stdout}${result.stderr}`;
+
+      assert.equal(result.status, 1);
+      assert.ok(output.includes(`Unsafe project file: ${fileName}.`));
+      assert.match(output, /symbolic link/);
+      assert.match(output, /No files or hooks were changed/);
+      assert.equal(fs.readFileSync(outsidePath, "utf8"), outsideContent);
+      assert.equal(fs.lstatSync(projectPath).isSymbolicLink(), true);
+      if (fileName !== "package.json") {
+        assert.equal(readFile(tempDir, "package.json"), packageBefore);
+      }
+      assert.equal(fs.readFileSync(hookPath, "utf8"), hookBefore);
+    }
+  });
+}
+
 test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

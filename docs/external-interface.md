@@ -88,6 +88,14 @@ Hook ownership checks do not follow symbolic links. A hook-file symlink,
 dangling symlink, or symlink used as the hooks directory is preserved as
 uninspectable; `init` and `doctor` report it instead of repairing through it.
 
+Mutable project files follow the same repository boundary. Existing
+`package.json`, `.gitignore`, and `.commitmentrc.json` paths must be regular
+files; `init` and `uninstall` refuse symbolic links, directories, and paths that
+cannot be inspected safely, including during `--dry-run`. Before a write, the
+open descriptor is matched to the originally inspected path and identity.
+Creating a missing file uses exclusive creation, and standalone-config removal
+rechecks the same identity immediately before deletion.
+
 ## Git hook interface
 
 `init` writes plain native hooks that call only the project-local binary:

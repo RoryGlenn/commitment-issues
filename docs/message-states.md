@@ -97,6 +97,15 @@ These cover permission/preflight and unexpected write failures. The states stop
 before hook installation or removal begins; rerunning `init` safely repairs any
 project-file change left by an interrupted filesystem write.
 
+### Unsafe project file
+
+`Unsafe project file: <path>.` is shown by `init`, `init --dry-run`,
+`uninstall`, or `uninstall --dry-run` when a mutable `package.json`,
+`.gitignore`, or `.commitmentrc.json` path is a symbolic link, a non-regular
+entry, or cannot be inspected safely. The command names the reason and exits
+before changing project files or hooks. Replace the path with a regular file
+inside the project before rerunning the command.
+
 ### Hook wiring needs attention
 
 <p>

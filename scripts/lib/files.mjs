@@ -453,6 +453,145 @@ export function shortFileList(files, max = 5) {
   return shown.join(", ");
 }
 
+function sameProjectFileIdentity(left, right) {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function projectFileChangedError(filePath) {
+  const error = new Error(
+    `Project file changed after safety inspection: ${filePath}`,
+  );
+  error.code = "ESTALE";
+  return error;
+}
+
+/**
+ * Inspect a mutable project path without following symbolic links. BigInt
+ * device/inode values keep replacement checks exact on Windows, where file
+ * identifiers can exceed JavaScript's safe integer range.
+ * @param {string} filePath - Project-relative path to inspect.
+ * @returns {{filePath: string, status: "missing"}|{filePath: string, status: "regular", stats: fs.BigIntStats}|{filePath: string, status: "unsafe", reason: string}}
+ */
+export function inspectMutableProjectFile(filePath) {
+  try {
+    const stats = fs.lstatSync(filePath, { bigint: true });
+    if (stats.isSymbolicLink()) {
+      return { filePath, status: "unsafe", reason: "is a symbolic link" };
+    }
+    if (!stats.isFile()) {
+      return { filePath, status: "unsafe", reason: "is not a regular file" };
+    }
+    return { filePath, status: "regular", stats };
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { filePath, status: "missing" }
+      : {
+          filePath,
+          status: "unsafe",
+          reason: "could not be inspected safely",
+        };
+  }
+}
+
+/**
+ * Confirm a mutable path still has the type and identity recorded during its
+ * initial inspection.
+ * @param {ReturnType<typeof inspectMutableProjectFile>} state - Initial state.
+ * @returns {boolean} Whether the path is unchanged.
+ */
+export function mutableProjectFileUnchanged(state) {
+  const current = inspectMutableProjectFile(state.filePath);
+  if (state.status === "missing") {
+    return current.status === "missing";
+  }
+  return (
+    state.status === "regular" &&
+    current.status === "regular" &&
+    sameProjectFileIdentity(state.stats, current.stats)
+  );
+}
+
+/**
+ * Check permissions for a later write/removal while rejecting replacements on
+ * both sides of the permission probe.
+ * @param {ReturnType<typeof inspectMutableProjectFile>} state - Initial state.
+ * @param {{remove?: boolean}} [options] - Removal checks parent permissions.
+ * @returns {boolean} Whether the operation is safe to attempt.
+ */
+export function preflightMutableProjectFile(state, { remove = false } = {}) {
+  if (
+    (remove && state.status !== "regular") ||
+    !mutableProjectFileUnchanged(state)
+  ) {
+    return false;
+  }
+  try {
+    const accessPath =
+      state.status === "regular" && !remove
+        ? state.filePath
+        : path.dirname(path.resolve(state.filePath));
+    fs.accessSync(accessPath, fs.constants.W_OK);
+    return mutableProjectFileUnchanged(state);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Write through a verified descriptor. Existing files are opened without
+ * truncation, compared with both the inspected path and the open descriptor,
+ * and only then replaced. Missing files use O_EXCL so a newly inserted link or
+ * file cannot be followed.
+ * @param {ReturnType<typeof inspectMutableProjectFile>} state - Initial state.
+ * @param {string} content - Complete replacement contents.
+ */
+export function writeMutableProjectFile(state, content) {
+  if (state.status !== "regular" && state.status !== "missing") {
+    throw projectFileChangedError(state.filePath);
+  }
+
+  const flags =
+    state.status === "missing"
+      ? fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL
+      : fs.constants.O_WRONLY;
+  let descriptor;
+  try {
+    descriptor = fs.openSync(state.filePath, flags, 0o666);
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    const current = inspectMutableProjectFile(state.filePath);
+    const currentIsExpected =
+      current.status === "regular" &&
+      (state.status === "missing" ||
+        sameProjectFileIdentity(state.stats, current.stats));
+    if (
+      !opened.isFile() ||
+      !currentIsExpected ||
+      !sameProjectFileIdentity(current.stats, opened)
+    ) {
+      throw projectFileChangedError(state.filePath);
+    }
+    if (state.status === "regular") {
+      fs.ftruncateSync(descriptor, 0);
+    }
+    fs.writeFileSync(descriptor, content, "utf8");
+  } finally {
+    if (descriptor !== undefined) {
+      fs.closeSync(descriptor);
+    }
+  }
+}
+
+/**
+ * Remove only the same regular file observed during initial inspection.
+ * @param {ReturnType<typeof inspectMutableProjectFile>} state - Initial state.
+ */
+export function removeMutableProjectFile(state) {
+  if (state.status !== "regular" || !mutableProjectFileUnchanged(state)) {
+    throw projectFileChangedError(state.filePath);
+  }
+  fs.rmSync(state.filePath);
+}
+
 /**
  * Remove an owned path while preserving a user-facing cleanup result. The
  * injectable remover keeps filesystem permission/race failures deterministic
