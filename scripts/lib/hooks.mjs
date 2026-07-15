@@ -203,10 +203,14 @@ export function hooksPathConfig(cwd = process.cwd(), env = process.env) {
  * @returns {boolean} True for husky-created hooksPath values.
  */
 export function isHuskyHooksPath(value) {
-  const normalized = String(value ?? "")
+  const separatorsNormalized = String(value ?? "")
     .trim()
-    .replace(/\\/g, "/")
-    .replace(/\/+$/, "");
+    .replaceAll("\\", "/");
+  let end = separatorsNormalized.length;
+  while (end > 0 && separatorsNormalized.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  const normalized = separatorsNormalized.slice(0, end);
   return normalized === ".husky/_" || normalized === ".husky";
 }
 
