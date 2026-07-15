@@ -108,6 +108,12 @@ production-readiness workstream #130 is consolidated in the
   `test/release-recovery.test.mjs`; workflow invariant:
   `test/release-integrity.test.mjs`; validator:
   `tools/validate-release-metadata.mjs`; tracking: #184.
+- **PKG-017** — every relative link in shipped Markdown resolves inside the
+  exact `npm pack` manifest; repository-only targets use canonical GitHub URLs
+  instead of entering the package accidentally. Positive and negative unit:
+  `test/packed-markdown-links.test.mjs`; real manifest:
+  `test/metadata.test.mjs`; clean installed copy across package managers:
+  `scripts/ci-lifecycle-smoke.mjs`; tracking: #186.
 
 ### Path normalization
 

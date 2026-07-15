@@ -16,6 +16,10 @@ import {
   BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
   BRANCH_COVERAGE_SOURCE_FILES,
 } from "../scripts/lib/coverage-badge.mjs";
+import {
+  findBrokenPackedMarkdownLinks,
+  formatBrokenMarkdownLink,
+} from "../tools/packed-markdown-links.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DCO_POLICY_ADOPTION_BASELINE = "81a9e412bc347f01300df62505ee378284646d15";
@@ -616,6 +620,10 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
   const packagedScripts = new Set(
     [...files].filter((file) => file.startsWith("scripts/")),
   );
+  const brokenMarkdownLinks = findBrokenPackedMarkdownLinks({
+    files,
+    readFile: readText,
+  });
   const expectedDocs = new Set([
     "docs/branch-coverage.md",
     "docs/ci-recipes.md",
@@ -669,6 +677,11 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
     }
   }
   assert.deepEqual(packagedDocs, expectedDocs);
+  assert.deepEqual(
+    brokenMarkdownLinks.map(formatBrokenMarkdownLink),
+    [],
+    "relative Markdown links should resolve inside the exact npm pack manifest",
+  );
   assert.equal(files.has("docs/index.md"), false);
   assert.equal(files.has("docs/maintainer-operations.md"), false);
   assert.equal(files.has("docs/message-states.md"), false);

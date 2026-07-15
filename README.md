@@ -210,7 +210,7 @@ observed its false-positive and failure behavior.
 - A configured `testCommand` remains repository-owned executable code and may
   have behavior of its own.
 
-See the [security policy](.github/SECURITY.md),
+See the [security policy](https://github.com/RoryGlenn/commitment-issues/blob/main/.github/SECURITY.md),
 [assurance case](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/security/assurance-case.md),
 and [release verification](docs/release-verification.md).
 
@@ -236,8 +236,10 @@ dependencies, ignores, and lockfiles are preserved.
 - [Complete repository documentation index](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/index.md)
 
 Maintainer direction and contribution policy live in the
-[roadmap](ROADMAP.md), [governance](GOVERNANCE.md), and
-[contribution guide](.github/CONTRIBUTING.md).
+[roadmap](https://github.com/RoryGlenn/commitment-issues/blob/main/ROADMAP.md),
+[governance](https://github.com/RoryGlenn/commitment-issues/blob/main/GOVERNANCE.md),
+and the
+[contribution guide](https://github.com/RoryGlenn/commitment-issues/blob/main/.github/CONTRIBUTING.md).
 
 ## Project status and support
 

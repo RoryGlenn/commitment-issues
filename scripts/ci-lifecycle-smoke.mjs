@@ -12,6 +12,10 @@ import {
   shouldEnforcePosixPackageModes,
   SUPPLIED_TARBALL_DIGEST_PREFIX,
 } from "./lib/lifecycle-managers.mjs";
+import {
+  findBrokenMarkdownLinksInDirectory,
+  formatBrokenMarkdownLink,
+} from "../tools/packed-markdown-links.mjs";
 
 const root = process.cwd();
 
@@ -772,6 +776,19 @@ try {
   const [installCommand, installArgs] = installDevDeps(tarball);
   run(installCommand, installArgs, smokeDir);
   assertInstalledCli(smokeDir, packedMetadata);
+  const installedPackage = path.join(
+    smokeDir,
+    "node_modules",
+    "commitment-issues",
+  );
+  const brokenInstalledLinks =
+    findBrokenMarkdownLinksInDirectory(installedPackage);
+  assertSmoke(
+    brokenInstalledLinks.length === 0,
+    `installed package has broken relative Markdown links:\n${brokenInstalledLinks
+      .map(formatBrokenMarkdownLink)
+      .join("\n")}`,
+  );
   assertManagerLockfile(smokeDir);
   assertWorkspaceConfigured(smokeDir);
   runWorkspaceTests(smokeDir);

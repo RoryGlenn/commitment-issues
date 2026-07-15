@@ -120,6 +120,13 @@ remain out of npm until a maintainer deliberately classifies them.
 The README loads the hero PNG and demo GIF from stable GitHub URLs so npm can
 render them without adding roughly 1.4 MB of promotional media to every package.
 
+Relative links in shipped Markdown must resolve within the exact `npm pack`
+manifest, not merely within the source checkout. Package tests validate that
+boundary directly, and the package-manager lifecycle validates it again from a
+clean installed copy. When shipped documentation needs repository-only policy,
+planning, or audit evidence, use its canonical GitHub URL rather than expanding
+the npm package solely to make the link resolve.
+
 The tarball must remain at or below **350 KiB compressed** and **750 KiB
 unpacked**. Tests fail when the budget is exceeded, required runtime or
 user-documentation files are missing, maintenance tooling or internal evidence
