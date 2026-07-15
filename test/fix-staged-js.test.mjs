@@ -94,5 +94,5 @@ test("reports every missing local fixer without a command fallback", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /missing local tool\(s\): eslint, prettier/i);
-  assert.match(output, /npm install -D eslint prettier/);
+  assert.match(output, /npm install -D eslint@\^9 prettier@\^3/);
 });

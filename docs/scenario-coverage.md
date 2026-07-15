@@ -348,9 +348,11 @@ production-readiness workstream #130 is consolidated in the
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
 - **PM-002** — uninstall prints a package-removal command for the detected manager. Unit: `test/package-manager.test.mjs`. Fixture: `test/uninstall.test.mjs`.
-- **PM-003** — pnpm end-to-end lifecycle integration (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
-- **PM-004** — Yarn Classic end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
-- **PM-005** — bun end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-003** — pnpm 10 end-to-end lifecycle integration (pack → install → init → commit → push → repair → uninstall → dependency removal) on Ubuntu, macOS, and Windows at Node 24, plus the exact Node 22.11.0 floor on Ubuntu. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-004** — Yarn Classic 1.22.22 runs the same manager-native lifecycle and platform matrix without an npm-runner fallback. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-005** — Bun 1.3.14 runs the same lifecycle and platform matrix through `bunx --no-install`. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-007** — installs with lifecycle scripts disabled leave clone-local hooks absent but keep the local CLI available; explicit `doctor` repair and a later scripts-enabled reinstall both restore exact generated hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-008** — package-manager guidance is workspace-aware, the lifecycle strips the outer npm user agent, and pre-commit/uninstall output must name the selected manager. Unit: `test/package-manager.test.mjs`; CI lifecycle matrix: `.github/workflows/ci.yml`.
 
 ### Monorepos and workspaces
 
@@ -362,7 +364,7 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 
 ## Deferred
 
-- **PM-006** — Yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
+- **PM-006** — Yarn Berry support. The `node-modules` mode is provisional pending dedicated issue #100 evidence; Plug'n'Play is unsupported because the runtime requires `node_modules/.bin`. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents both boundaries.
 - **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Manual and production validation
@@ -370,7 +372,7 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - **PKG-008** — the published npm package installs and exposes the CLI bin.
   Recheck in a clean project before launch with
   `npm install -D commitment-issues@latest` and
-  `npx commitment-issues --help`.
+  `npx --no-install commitment-issues --help`.
 - **LIFE-005** — the complete clean-registry launch path (`init`, advisory
   commit warning, `commit:fix`, and related push-time tests) remains a launch
   gate in issue #78.

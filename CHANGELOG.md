@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a shipped compatibility matrix for package managers, Node versions,
+  operating systems, shells, Git clients, install modes, and explicit
+  unsupported boundaries. Required lifecycle CI now covers pnpm 10, Yarn
+  Classic 1.22.22, and Bun 1.3.14 across Ubuntu, macOS, and Windows at Node 24,
+  plus exact-minimum-Node lanes on Ubuntu.
 - Pre-commit now shows a default-on Commit Owl welcome once per clone so
   contributors know the repository uses `commitment-issues` and that confusing
   guidance should be reported. A versioned marker below Git's common directory
@@ -17,6 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Generated hooks now invoke only the project-local
+  `node_modules/.bin/commitment-issues` entry. Missing local installs
+  self-neutralize instead of falling through to a same-named global binary,
+  and exact older generated hooks remain safely repairable by `doctor`.
+- The CLI now reports the required and detected Node versions before dispatch
+  when a lenient package manager launches it below Node 22.11.0.
+- pnpm and Yarn recovery/removal guidance now includes required workspace-root
+  flags. ESLint/Prettier install hints and quickstarts use major-bounded specs
+  that remain installable at the exact Node floor.
+- The package no longer ships its repository-only `prepare` command as a
+  dependency install script. Consumer hook repair remains composed explicitly
+  by `init` and works after normal clone installs.
 - First-run pre-commit warnings and errors now take priority over the Commit Owl
   welcome instead of producing two boxes. The welcome remains unconsumed until
   a later clean or informational run, preserving the one-box-per-invocation
@@ -74,6 +91,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Packed lifecycle integration now uses each manager's local-only runner,
+  rejects inherited npm identity, exercises paths with spaces and Unicode,
+  verifies scripts-disabled recovery and normal reinstall, asserts
+  manager-specific hints, and removes the package dependency while preserving
+  the manager lockfile.
 - Machine-readable integration tests now validate every exercised `--json`
   payload recursively against the published versioned schema. The live
   message-state runner also commits its presentation-only fixture config so it

@@ -22,7 +22,17 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
   );
 }
 
-const DEV_DEPS = ["eslint", "prettier", "@eslint/js", "globals"];
+// Keep the exact Node 22.11.0 lane on ESLint 9: ESLint 10 and its current
+// transitive packages require a newer Node 22 patch. Newer supported runtimes
+// exercise ESLint 10 so both declared peer majors stay covered.
+const [nodeMajor, nodeMinor] = process.versions.node.split(".").map(Number);
+const eslintMajor = nodeMajor === 22 && nodeMinor < 13 ? 9 : 10;
+const DEV_DEPS = [
+  `eslint@^${eslintMajor}`,
+  "prettier@^3",
+  `@eslint/js@^${eslintMajor}`,
+  "globals@^17",
+];
 const EXISTING_PREPARE = "node scripts/existing-prepare.mjs";
 const ROOT_PACKAGE_CONFIG = { tone: "standard" };
 const STANDALONE_CONFIG = { commitMessage: { enabled: true } };
@@ -84,16 +94,35 @@ function installDevDeps(tarball) {
 
 // Reinstall an already-configured checkout. This is the path that must invoke
 // composed prepare repair and recreate clone-local .git/hooks files.
-function installProject() {
+function installProject({ ignoreScripts = false } = {}) {
+  const scriptArgs = ignoreScripts ? ["--ignore-scripts"] : [];
   switch (packageManager) {
     case "pnpm":
-      return ["pnpm", ["install"]];
+      return ["pnpm", ["install", ...scriptArgs]];
     case "yarn":
-      return ["yarn", ["install"]];
+      return ["yarn", ["install", ...scriptArgs]];
     case "bun":
-      return ["bun", ["install"]];
+      return ["bun", ["install", ...scriptArgs]];
     default:
-      return ["npm", ["install"]];
+      return ["npm", ["install", ...scriptArgs]];
+  }
+}
+
+// Remove the package dependency after its own uninstaller has removed only the
+// configuration and hook artifacts it owns.
+function removeInstalledPackage() {
+  switch (packageManager) {
+    case "pnpm":
+      return ["pnpm", ["remove", "--workspace-root", "commitment-issues"]];
+    case "yarn":
+      return [
+        "yarn",
+        ["remove", "--ignore-workspace-root-check", "commitment-issues"],
+      ];
+    case "bun":
+      return ["bun", ["remove", "commitment-issues"]];
+    default:
+      return ["npm", ["remove", "commitment-issues"]];
   }
 }
 
@@ -126,30 +155,36 @@ function runWorkspaceTests(repoDir) {
   }
 }
 
-// Run the installed commitment-issues bin using the selected manager. npm and
-// yarn both expose it on node_modules/.bin, so npx --no-install runs it without
-// touching the network; pnpm and bun use their own runners.
+// Run the installed commitment-issues bin through each manager's offline/local
+// execution surface so a missing packed bin cannot be hidden by a download.
 function execBin(args) {
   switch (packageManager) {
     case "pnpm":
       return ["pnpm", ["exec", "commitment-issues", ...args]];
+    case "yarn":
+      return ["yarn", ["run", "commitment-issues", ...args]];
     case "bun":
-      return ["bunx", ["commitment-issues", ...args]];
+      return ["bunx", ["--no-install", "commitment-issues", ...args]];
     default:
       return ["npx", ["--no-install", "commitment-issues", ...args]];
   }
 }
 
-function run(command, args, cwd) {
+function lifecycleEnv() {
   const env = { ...process.env };
-  // CI disables hooks for the outer repo; the smoke repo's commits and pushes
-  // must actually exercise them, so strip the skip vars for subprocesses.
+  // CI invokes this integration through an outer npm script. Let manager
+  // subprocesses set their own user agent and let Git hooks use the fixture's
+  // lockfile instead of inheriting a false npm identity.
+  delete env.npm_config_user_agent;
   delete env.HUSKY;
   delete env.COMMITMENT_ISSUES;
+  return env;
+}
 
+function run(command, args, cwd) {
   const result = crossSpawn.sync(command, args, {
     cwd,
-    env,
+    env: lifecycleEnv(),
     stdio: "inherit",
   });
 
@@ -165,13 +200,9 @@ function run(command, args, cwd) {
 }
 
 function runForOutput(command, args, cwd) {
-  const env = { ...process.env };
-  delete env.HUSKY;
-  delete env.COMMITMENT_ISSUES;
-
   const result = crossSpawn.sync(command, args, {
     cwd,
-    env,
+    env: lifecycleEnv(),
     encoding: "utf8",
   });
 
@@ -186,6 +217,30 @@ function runForOutput(command, args, cwd) {
   }
 
   return result.stdout.trim();
+}
+
+function runForCombinedOutput(command, args, cwd) {
+  const result = crossSpawn.sync(command, args, {
+    cwd,
+    env: lifecycleEnv(),
+    encoding: "utf8",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const output = [result.stdout, result.stderr]
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} ${args.join(" ")} failed with exit ${result.status}: ${output}`,
+    );
+  }
+
+  return output;
 }
 
 function assertSmoke(condition, message) {
@@ -369,6 +424,27 @@ function assertGeneratedSetupRemoved(repoDir) {
   }
 }
 
+function assertPackageDependencyRemoved(repoDir) {
+  const pkg = readJson(path.join(repoDir, "package.json"));
+  assertSmoke(
+    !Object.hasOwn(pkg.devDependencies ?? {}, "commitment-issues"),
+    `${packageManager} should remove commitment-issues from devDependencies`,
+  );
+  for (const suffix of ["", ".cmd", ".ps1"]) {
+    assertSmoke(
+      !fs.existsSync(
+        path.join(
+          repoDir,
+          "node_modules",
+          ".bin",
+          `commitment-issues${suffix}`,
+        ),
+      ),
+      `${packageManager} should remove the local commitment-issues${suffix} bin`,
+    );
+  }
+}
+
 function assertManagerLockfile(repoDir) {
   const expectedLockfiles = {
     npm: ["package-lock.json"],
@@ -462,9 +538,10 @@ function updateNestedWorkspace(repoDir, revision) {
   );
 }
 
-const tempRoot = fs.mkdtempSync(
+const tempBase = fs.mkdtempSync(
   path.join(os.tmpdir(), "commitment-issues-lifecycle-"),
 );
+const tempRoot = path.join(tempBase, "path with spaces café");
 const packDir = path.join(tempRoot, "pack");
 const smokeDir = path.join(tempRoot, "repo");
 const cloneDir = path.join(tempRoot, "clone");
@@ -476,6 +553,9 @@ fs.mkdirSync(smokeDir, { recursive: true });
 
 try {
   console.log(`\n[lifecycle smoke] package manager: ${packageManager}\n`);
+  console.log(
+    `[lifecycle smoke] ${packageManager} version: ${runForOutput(packageManager, ["--version"], root)}\n`,
+  );
   run("npm", ["pack", "--pack-destination", packDir], root);
   const tarball = fs
     .readdirSync(packDir)
@@ -530,6 +610,9 @@ try {
   run(helpCommand, helpArgs, smokeDir);
   const [initCommand, initArgs] = execBin(["init"]);
   run(initCommand, initArgs, smokeDir);
+  // A repeated setup must remain idempotent under the manager's real local
+  // runner, not only in the unit fixture.
+  run(initCommand, initArgs, smokeDir);
 
   assertPackageJsonConfigured(smokeDir);
   assertWorkspaceConfigured(smokeDir);
@@ -558,17 +641,40 @@ try {
 
   const nestedWorkspaceDir = path.join(smokeDir, WORKSPACE_PACKAGES[1].dir);
 
+  // Guarantee a fixable staged finding so the manager-specific recovery hint
+  // is observable instead of depending on formatter drift in fixture files.
+  writeFile(
+    path.join(smokeDir, WORKSPACE_PACKAGES[0].dir, "src", "app-widget.mjs"),
+    "export const value=()=>10;\n",
+  );
   run("git", ["add", "-A"], smokeDir);
+  const [firstCheckCommand, firstCheckArgs] = execBin(["precommit"]);
+  const firstCheck = runForOutput(firstCheckCommand, firstCheckArgs, smokeDir);
+  assertSmoke(
+    firstCheck.includes(`${packageManager} run commit:fix`),
+    `pre-commit guidance should use ${packageManager}'s run command`,
+  );
   assertSmoke(
     !fs.existsSync(welcomeMarkerPath(smokeDir)),
     "a new clone should not start with a welcome marker",
   );
   // Starting Git lifecycle commands below the workspace root must still run
   // the root-owned hooks and config for files in both workspace depths.
-  run(
+  const checkedCommit = runForCombinedOutput(
     "git",
     ["commit", "-m", "first checked workspace commit"],
     nestedWorkspaceDir,
+  );
+  if (checkedCommit) {
+    console.log(checkedCommit);
+  }
+  assertSmoke(
+    checkedCommit.includes("Pre-commit suggestions found"),
+    "a real git commit should execute the installed pre-commit hook",
+  );
+  assertSmoke(
+    checkedCommit.includes("Commit-message check unavailable"),
+    "a real git commit should execute the installed commit-msg hook",
   );
   assertSmoke(
     !fs.existsSync(welcomeMarkerPath(smokeDir)),
@@ -596,11 +702,24 @@ try {
   run("git", ["init", "--bare", remoteDir], tempRoot);
   run("git", ["branch", "-M", "main"], smokeDir);
   run("git", ["remote", "add", "origin", remoteDir], smokeDir);
-  run("git", ["push", "-u", "origin", "main"], nestedWorkspaceDir);
+  const checkedPush = runForCombinedOutput(
+    "git",
+    ["push", "-u", "origin", "main"],
+    nestedWorkspaceDir,
+  );
+  if (checkedPush) {
+    console.log(checkedPush);
+  }
+  assertSmoke(
+    checkedPush.includes("Running tests for pushed files") &&
+      checkedPush.includes("All tests passed: 4 passed, 0 failed."),
+    "a real git push should execute the installed pre-push hook",
+  );
 
   // .git/hooks is intentionally clone-local and is not present in a fresh
-  // checkout. A normal install must run the preserved prepare followed by the
-  // appended repair and recreate the default hooks without another init call.
+  // checkout. A scripts-disabled install must leave hooks absent while keeping
+  // the local CLI available; explicit doctor repair and a later normal install
+  // both recreate the hooks without another init call.
   run("git", ["clone", "--branch", "main", remoteDir, cloneDir], tempRoot);
   for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
     assertSmoke(
@@ -608,6 +727,25 @@ try {
       `fresh clone should start without a ${name} hook`,
     );
   }
+  const [ignoredInstallCommand, ignoredInstallArgs] = installProject({
+    ignoreScripts: true,
+  });
+  run(ignoredInstallCommand, ignoredInstallArgs, cloneDir);
+  for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+    assertSmoke(
+      !fs.existsSync(hookPath(cloneDir, name)),
+      `--ignore-scripts should leave ${name} absent until explicit repair`,
+    );
+  }
+  const [cloneHelpCommand, cloneHelpArgs] = execBin(["--help"]);
+  run(cloneHelpCommand, cloneHelpArgs, cloneDir);
+  const [cloneDoctorCommand, cloneDoctorArgs] = execBin(["doctor"]);
+  run(cloneDoctorCommand, cloneDoctorArgs, cloneDir);
+  for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+    assertHookWired(cloneDir, name);
+    fs.rmSync(hookPath(cloneDir, name));
+  }
+
   const [projectInstallCommand, projectInstallArgs] = installProject();
   run(projectInstallCommand, projectInstallArgs, cloneDir);
   assertPackageJsonConfigured(cloneDir);
@@ -672,10 +810,22 @@ try {
   assertHookWired(smokeDir, "commit-msg");
 
   const [uninstallCommand, uninstallArgs] = execBin(["uninstall"]);
-  run(uninstallCommand, uninstallArgs, smokeDir);
+  const uninstallOutput = runForOutput(
+    uninstallCommand,
+    uninstallArgs,
+    smokeDir,
+  );
+  const [removeCommand, removeArgs] = removeInstalledPackage();
+  assertSmoke(
+    uninstallOutput.includes(`${removeCommand} ${removeArgs.join(" ")}`),
+    `uninstall guidance should use ${packageManager}'s workspace-aware remove command`,
+  );
   assertGeneratedSetupRemoved(smokeDir);
   assertWorkspaceConfigured(smokeDir);
   assertGitignoreConfigured(smokeDir);
+  run(removeCommand, removeArgs, smokeDir);
+  assertPackageDependencyRemoved(smokeDir);
+  assertManagerLockfile(smokeDir);
 } finally {
-  fs.rmSync(tempRoot, { recursive: true, force: true });
+  fs.rmSync(tempBase, { recursive: true, force: true });
 }

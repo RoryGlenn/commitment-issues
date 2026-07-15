@@ -8,7 +8,7 @@ output examples, see the repository's
 
 ## What `init` changes
 
-`npx commitment-issues init` updates the consuming repo so the installed package can run from Git hooks:
+`npx --no-install commitment-issues init` updates the consuming repo so the installed package can run from Git hooks:
 
 - wires the pre-commit hook to `commitment-issues precommit`
 - wires the pre-push hook to `commitment-issues prepush "$@"`
@@ -462,6 +462,6 @@ Recognized keys with the wrong value type (for example a string where a boolean 
 
 These scripts are Git-hook tooling, so set `COMMITMENT_ISSUES=0` in CI to skip hook runs.
 
-This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.11.0 and 24. `npm run test:coverage` measures the explicitly scoped user-facing runtime and enforces 100% line, branch, and function coverage on both Node lines. Package lifecycle integration remains a separately named pass/fail gate. See the [runtime coverage policy](branch-coverage.md) for the exact included and excluded files, badge freshness rule, and rationale.
+This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.11.0 and 24 across Ubuntu, macOS, and Windows. `npm run test:coverage` measures the explicitly scoped user-facing runtime and enforces 100% line, branch, and function coverage on both Node lines. Packed npm, pnpm, Yarn Classic, and Bun lifecycle integration remains a separately named pass/fail gate; the non-npm managers run on all three OSes at Node 24 and at the exact Node floor on Ubuntu. See the [compatibility matrix](compatibility.md) and [runtime coverage policy](branch-coverage.md) for the exact boundaries, badge freshness rule, and rationale.
 
 For ready-to-use pipelines, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.

@@ -11,8 +11,8 @@ workspace package using one root configuration.
 
 ```bash
 # from the repository root
-npm install -D commitment-issues eslint prettier
-npx commitment-issues init
+npm install -D commitment-issues eslint@^9 prettier@^3
+npx --no-install commitment-issues init
 ```
 
 ## How it works in a monorepo today
@@ -82,7 +82,7 @@ issue.
 
 1. Install `commitment-issues` and the peer tools at the repository root, not
    inside an individual workspace package.
-2. Run `npx commitment-issues init` from the root.
+2. Run `npx --no-install commitment-issues init` from the root.
 3. Keep a root-level ESLint flat config. Use its `files` patterns to scope rules
    to specific packages when needed.
 4. Set the root `.commitmentrc.json` or root `package.json` `precommitChecks` to
@@ -93,13 +93,13 @@ issue.
 For pnpm, use the workspace-root flag when adding the tools:
 
 ```bash
-pnpm add --save-dev --workspace-root commitment-issues eslint prettier
+pnpm add --save-dev --workspace-root commitment-issues eslint@^9 prettier@^3
 ```
 
 For Yarn Classic, acknowledge the root install explicitly:
 
 ```bash
-yarn add --dev --ignore-workspace-root-check commitment-issues eslint prettier
+yarn add --dev --ignore-workspace-root-check commitment-issues eslint@^9 prettier@^3
 ```
 
 ## Scoping checks per package
@@ -174,7 +174,7 @@ root-level advisory hooks.
 - If a custom no-hoist or isolated layout does not expose a root binary, add the
   tool as a root development dependency or run that package-specific check in
   CI.
-- Run `npx commitment-issues doctor` from the root to verify the hook wiring.
+- Run `npx --no-install commitment-issues doctor` from the root to verify the hook wiring.
 - Keep a `package.json` at every workspace root so related-test lookup can stop
   at the intended package boundary.
 

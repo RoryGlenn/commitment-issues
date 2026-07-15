@@ -54,8 +54,8 @@ Nothing mutates your work behind your back.
 ### One command, and it heals itself
 
 ```bash
-npm install -D commitment-issues eslint prettier
-npx commitment-issues init
+npm install -D commitment-issues eslint@^9 prettier@^3
+npx --no-install commitment-issues init
 ```
 
 That wires the hooks and npm scripts — no hook manager needed. Hooks are notorious for

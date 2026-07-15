@@ -34,6 +34,7 @@ const runtimeTestOwners = {
   "scripts/lib/package-manager.mjs": ["test/package-manager.test.mjs"],
   "scripts/lib/process.mjs": ["test/process.test.mjs"],
   "scripts/lib/push-base.mjs": ["test/push-base.test.mjs"],
+  "scripts/lib/runtime.mjs": ["test/runtime.test.mjs"],
   "scripts/lib/secret-scan.mjs": [
     "test/secret-scan.test.mjs",
     "test/secret-scan-integration.test.mjs",
