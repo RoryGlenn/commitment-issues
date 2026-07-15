@@ -14,6 +14,7 @@ import {
   hookNamesForConfig,
   hooksPathConfigState,
   isHuskyHooksPath,
+  legacyHuskyDirectoryState,
   leftoverHuskyHooks,
   legacyHuskyWiringPaths,
   removeLegacyHuskyWiring,
@@ -446,19 +447,27 @@ if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
   // while core.hooksPath still points into `.husky` (failed unset above):
   // deleting the files git currently runs would kill working hooks.
   if (hooksDir && hooksPathRetired) {
-    const legacyWiring = dryRun
-      ? legacyHuskyWiringPaths()
-      : removeLegacyHuskyWiring();
-    if (legacyWiring.length > 0) {
-      created.push("removed legacy .husky wiring");
-    }
-
-    const stranded = leftoverHuskyHooks();
-    if (stranded.length > 0) {
+    const legacyHuskyState = legacyHuskyDirectoryState();
+    if (legacyHuskyState.status === "uninspectable") {
       warnings.push(
-        `Leftover .husky hooks no longer run: ${stranded.join(", ")}.`,
-        "Move the logic into .git/hooks, or delete the files.",
+        "The legacy .husky path could not be safely inspected and was left unchanged.",
+        "If it is a symbolic link or another non-directory path, review it manually.",
       );
+    } else {
+      const legacyWiring = dryRun
+        ? legacyHuskyWiringPaths()
+        : removeLegacyHuskyWiring();
+      if (legacyWiring.length > 0) {
+        created.push("removed legacy .husky wiring");
+      }
+
+      const stranded = leftoverHuskyHooks();
+      if (stranded.length > 0) {
+        warnings.push(
+          `Leftover .husky hooks no longer run: ${stranded.join(", ")}.`,
+          "Move the logic into .git/hooks, or delete the files.",
+        );
+      }
     }
   }
 }

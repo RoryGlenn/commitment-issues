@@ -1141,3 +1141,38 @@ test("init --dry-run previews changes without writing files", (t) => {
   assert.equal(fs.existsSync(path.join(tempDir, ".gitignore")), false);
   assert.deepEqual(readPackage(tempDir), beforePackage);
 });
+
+test(
+  "init preserves a symbolic-link .husky directory and its external target",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "init-husky-link-"));
+    t.after(() => cleanupTempRepo(tempDir));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+
+    fs.mkdirSync(path.join(outside, "_"));
+    fs.writeFileSync(path.join(outside, "_", "keep"), "outside\n");
+    fs.writeFileSync(
+      path.join(outside, "pre-commit"),
+      "commitment-issues precommit\n",
+    );
+    fs.symlinkSync(outside, path.join(tempDir, ".husky"), "dir");
+    run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /symbolic link|could not be safely inspected/i);
+    assert.match(output, /left unchanged|manual/i);
+    assert.equal(
+      fs.readFileSync(path.join(outside, "_", "keep"), "utf8"),
+      "outside\n",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(outside, "pre-commit"), "utf8"),
+      "commitment-issues precommit\n",
+    );
+  },
+);

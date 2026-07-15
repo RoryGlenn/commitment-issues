@@ -427,6 +427,34 @@ test("uninstall reports legacy commands in an active Husky directory", (t) => {
   assert.match(output, /\.husky\/pre-commit is customized/);
 });
 
+test(
+  "uninstall preserves a symbolic-link .husky directory and its external target",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const outside = fs.mkdtempSync(
+      path.join(os.tmpdir(), "uninstall-husky-link-"),
+    );
+    t.after(() => cleanupTempRepo(tempDir));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+
+    fs.writeFileSync(path.join(outside, "pre-commit"), hookBody("pre-commit"));
+    fs.symlinkSync(outside, path.join(tempDir, ".husky"), "dir");
+    run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+
+    const result = runScript(tempDir, "uninstall");
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /symbolic link|could not be safely inspected/i);
+    assert.match(output, /left unchanged|manual/i);
+    assert.equal(
+      fs.readFileSync(path.join(outside, "pre-commit"), "utf8"),
+      hookBody("pre-commit"),
+    );
+  },
+);
+
 test("uninstall does not inspect the native hooks directory twice", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

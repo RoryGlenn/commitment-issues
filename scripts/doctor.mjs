@@ -17,6 +17,7 @@ import {
   hookNamesForConfig,
   hooksPathConfigState,
   isHuskyHooksPath,
+  legacyHuskyDirectoryState,
   leftoverHuskyHooks,
   writeHook,
 } from "./lib/hooks.mjs";
@@ -217,6 +218,25 @@ const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
 // time the install has already pruned it), the wiring is a dead end: hooks
 // point at shims nothing maintains, so migrating automatically only helps.
 const huskyEraLive = huskyEraHooksPath && isPackageInstalled("husky");
+const legacyHuskyState = legacyHuskyDirectoryState();
+if (legacyHuskyState.status === "uninspectable") {
+  if (quiet) {
+    console.warn(
+      pc.yellow(
+        "commitment-issues: the legacy .husky path could not be safely inspected and was left unchanged — review it manually.",
+      ),
+    );
+  } else {
+    advisorySections.push([
+      pc.bold("The legacy .husky path needs manual review."),
+      "",
+      pc.dim("It could not be safely inspected and was left unchanged."),
+      pc.dim(
+        "If it is a symbolic link or non-directory path, review it manually.",
+      ),
+    ]);
+  }
+}
 
 // Human-friendly path for reporting a hook file (absolute only when the hooks
 // dir lives outside the project, e.g. a linked worktree's common dir).

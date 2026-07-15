@@ -15,6 +15,7 @@ import {
   gitHooksDir,
   hooksPathConfigState,
   isHuskyHooksPath,
+  legacyHuskyDirectoryState,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
 import { removeOwnedPath } from "./lib/files.mjs";
@@ -166,12 +167,20 @@ if (isGitRepo) {
 
     const configuredHooksPath = hooksPathState.value;
     if (configuredHooksPath) {
-      const configuredDir = isHuskyHooksPath(configuredHooksPath)
-        ? path.resolve(".husky")
+      const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
+      const legacyHuskyState = huskyEraHooksPath
+        ? legacyHuskyDirectoryState()
+        : null;
+      const configuredDir = huskyEraHooksPath
+        ? legacyHuskyState.status === "uninspectable"
+          ? null
+          : path.resolve(".husky")
         : effectiveHooksDir();
       if (!configuredDir) {
         manualCleanup.push(
-          "Git could not resolve the configured hooks directory, so those hooks were left unchanged.",
+          huskyEraHooksPath && legacyHuskyState.status === "uninspectable"
+            ? "The legacy .husky path could not be safely inspected and was left unchanged; review a symbolic link or non-directory path manually."
+            : "Git could not resolve the configured hooks directory, so those hooks were left unchanged.",
         );
       } else if (!inspected.has(configuredDir)) {
         inspectHookDirectory(configuredDir);
