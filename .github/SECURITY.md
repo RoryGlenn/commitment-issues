@@ -61,8 +61,9 @@ months and after major architectural changes. The latest review is tracked in
 
 ## Scope
 
-This project runs local Git hooks and spawns `eslint`, `prettier`, and the
-configured test runner with argument arrays rather than shell interpolation.
+This project runs local Git hooks and spawns `eslint`, `prettier`, optional
+project-local `commitlint`, and the configured test runner with argument arrays
+rather than shell interpolation.
 Reports that are especially relevant include:
 
 - Command or argument injection via file names, config values, or crafted diffs.

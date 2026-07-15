@@ -145,5 +145,9 @@ Additional change-control and security signals:
 
 - If bestpractices.dev still shows `?`, copy the exact URL evidence from this
   page into the corresponding questionnaire field.
+- Keep the owner-managed public project description aligned with the current
+  native-hook architecture. The stale Husky/lint-staged wording is tracked in
+  [#199](https://github.com/RoryGlenn/commitment-issues/issues/199) until the
+  external profile is updated and rechecked.
 - Some criteria require platform settings or contributor count changes outside
   this repository; those cannot be fully satisfied with docs alone.

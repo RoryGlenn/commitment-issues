@@ -34,7 +34,8 @@ I wanted the opposite default: **hooks that inform, then get out of the way.**
 `commitment-issues` runs the checks you'd expect — ESLint, Prettier, missing-test
 detection, and pushed-file tests — but by default it **reports** and lets your
 commit through. You get a compact box: what it found, what's safe to do next, and
-the command to fix it when you're ready. Your commit is never held hostage.
+the command to fix it when you're ready. By default, your commit is not held
+hostage.
 
 When you _do_ want a hard gate, you opt in. Set `blockPushOnTestFailure: true` and
 failing tests block a push. Strictness is a deliberate choice — not the default
@@ -46,8 +47,8 @@ The fix commands refuse to do anything risky:
 
 - `fix:staged` only touches staged files, and refuses to run when a file has both
   staged and unstaged changes.
-- `commit:fix` only amends the latest commit when the working tree is safe, so it
-  can never rewrite pushed history or clobber unstaged work.
+- `commit:fix` refuses dirty tracked worktrees and commits found in local remote
+  refs, protecting unstaged work and known pushed history.
 
 Nothing mutates your work behind your back.
 
@@ -65,8 +66,9 @@ wiring through `prepare`, composing it after a project-owned command when
 needed, so it self-heals without overwriting project setup and works with Yarn
 Classic too.
 
-It works with npm, pnpm, yarn, and bun (each proven by an end-to-end CI smoke),
-on Linux, macOS, and Windows, on Node >=22.11.0.
+It supports local npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 installs.
+The [compatibility matrix](../docs/compatibility.md) records the exact required
+Linux, macOS, Windows, and Node.js evidence for each manager.
 
 ### The point
 
