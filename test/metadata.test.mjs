@@ -441,7 +441,10 @@ test("CI Success includes DCO and both DCO baselines stay documented", () => {
   const governance = readText("GOVERNANCE.md");
   const roles = readText("docs/project-roles.md");
 
-  assert.match(ci, /needs: \[dco, quality, check, pm-lifecycle, codeql\]/);
+  assert.match(
+    ci,
+    /needs: \[dco, quality, check, pm-lifecycle, migration-lifecycle, codeql\]/,
+  );
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
   assert.match(ci, /fetch-depth: 0/);
   assert.match(ci, /GITHUB_EVENT_NAME.*pull_request/);

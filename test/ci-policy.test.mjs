@@ -115,6 +115,7 @@ test("workflows keep a least-privilege, pinned action baseline", () => {
       },
     },
     "publish.yml": {
+      candidate: { contents: "read" },
       provenance: {
         actions: "read",
         contents: "write",
@@ -233,6 +234,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   );
   const quality = jobs.get("quality") ?? "";
   const check = jobs.get("check") ?? "";
+  const migration = jobs.get("migration-lifecycle") ?? "";
   const aggregate = jobs.get("ci-success") ?? "";
 
   assert.match(quality, /run: npm run lint/u);
@@ -250,9 +252,20 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.doesNotMatch(check, /npm run (?:lint|format:check)/u);
   assert.match(
     aggregate,
-    /needs: \[dco, quality, check, pm-lifecycle, codeql\]/u,
+    /needs: \[dco, quality, check, pm-lifecycle, migration-lifecycle, codeql\]/u,
   );
+  assert.match(migration, /runs-on: ubuntu-latest/u);
+  assert.match(migration, /node-version: "24"/u);
+  assert.match(
+    migration,
+    /run: node tools\/run-migration-lifecycle-test\.mjs npm/u,
+  );
+  assert.doesNotMatch(migration, /strategy:\s+fail-fast:/u);
   assert.match(aggregate, /needs\.quality\.result != 'success'/u);
+  assert.match(
+    aggregate,
+    /needs\['migration-lifecycle'\]\.result != 'success'/u,
+  );
   assert.match(aggregate, /needs\.codeql\.result != 'success'/u);
 });
 
@@ -296,6 +309,21 @@ test("package-manager matrix values never expand directly into shell code", () =
     );
   }
   assert.doesNotMatch(lifecycle, /run:[^\n]*\$\{\{/u);
+
+  const health = read(".github/workflows/repo-health.yml");
+  const migration =
+    workflowJobBlocks(health).find(({ name }) => name === "migration-lifecycle")
+      ?.source ?? "";
+  for (const manager of ["pnpm", "yarn", "bun"]) {
+    assert.match(
+      migration,
+      new RegExp(
+        `if: matrix\\.pm == '${manager}'\\s+run: node tools/run-migration-lifecycle-test\\.mjs ${manager}`,
+        "u",
+      ),
+    );
+  }
+  assert.doesNotMatch(migration, /run:[^\n]*\$\{\{/u);
 });
 
 test("weekly high-severity dependency findings fail visibly", () => {
@@ -306,6 +334,10 @@ test("weekly high-severity dependency findings fail visibly", () => {
   assert.doesNotMatch(auditStep, /continue-on-error:\s*true/u);
   assert.match(workflow, /run: npm test/u);
   assert.match(workflow, /run: npm run test:lifecycle:npm/u);
+  assert.match(workflow, /pm: \[pnpm, yarn, bun\][\s\S]*?node-version: "24"/u);
+  assert.match(workflow, /version: 10/u);
+  assert.match(workflow, /bun-version: "1\.3\.14"/u);
+  assert.match(workflow, /npm install --global yarn@1\.22\.22/u);
   assert.doesNotMatch(workflow, /run: npm run (?:lint|format:check)/u);
   assert.doesNotMatch(workflow, /run: npm pack --dry-run/u);
 });
@@ -331,15 +363,19 @@ test("publish shell scripts receive generated names through the environment", ()
   );
   assert.match(
     workflow,
+    /name: Verify exact npm upgrade migration\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: node tools\/run-migration-lifecycle-test\.mjs npm --tarball "\$TARBALL"/u,
+  );
+  assert.match(
+    workflow,
     /name: Generate provenance subject\s+id: hash\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: \|\s+hashes="\$\(sha256sum "\$TARBALL" \| base64 -w0\)"/su,
   );
   assert.match(
     workflow,
-    /name: Classify release recovery state\s+id: recovery\s+env:[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"/su,
+    /name: Classify release recovery state\s+id: recovery\s+env:[\s\S]*?TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"/su,
   );
   assert.match(
     workflow,
-    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/su,
+    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/su,
   );
   assert.doesNotMatch(
     workflow,

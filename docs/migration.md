@@ -37,6 +37,64 @@ Notes:
 - **Custom `lint-staged` configs** are left untouched — `fix:staged` no longer reads them. Keep running lint-staged yourself if you rely on custom tasks.
 - **CI recipes**: `COMMITMENT_ISSUES=0` is the new hook-skip variable; the old `HUSKY=0` is still honored.
 
+## Verified package upgrades
+
+The cross-version lifecycle starts from exact immutable release artifacts, not
+from a moving npm dist-tag:
+
+| Starting release | Verified boundary                                                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.5.1           | Last 2.x release: Husky `core.hooksPath`, exact generated `.husky` hooks, historical scripts/configuration, and the old peer-tool set migrate to native hooks. |
+| v3.2.0           | Previous minor: exact older native hooks, including the pre-push body that did not forward Git's remote arguments, are refreshed.                              |
+| v3.3.2           | Latest published baseline: exact PATH-fallback pre-commit, pre-push, and commit-msg bodies are refreshed to project-local-bin wiring.                          |
+
+Each fixture is pinned by SHA-256 to an immutable GitHub Release asset; the
+[release audit](audits/release-packaging-and-upgrades.md#pinned-upgrade-fixtures)
+records the exact digests. The required pull-request lane exercises every
+fixture with npm on Ubuntu and Node 24. The release workflow repeats the npm
+migration with the exact candidate tarball in a read-only build job, then
+hash-checks the artifact before the separate OIDC-enabled job publishes it.
+Weekly health extends the same migration to pnpm, Yarn Classic, and Bun.
+
+These are forward-upgrade guarantees. The lifecycle proves that exact generated
+hooks and scripts are refreshed or removed only when ownership is established,
+project-owned `prepare` logic is retained, custom hooks remain byte-for-byte
+unchanged, and the migrated hooks run during a real commit and push. Other
+historical starting versions are not a separate compatibility claim.
+
+Run the new version's `init` explicitly after changing dependencies. Package
+installation or peer removal does not guarantee that the consuming project's
+root `prepare` runs during that same command. Once `init` has added or composed
+the repair command, later normal installs can self-heal clone-local hooks.
+
+## Downgrades and manual rollback
+
+In-place downgrades are unsupported. An older release cannot safely reverse
+newer native wiring into Husky, recognize every newer generated body, or infer
+which newer configuration belongs to the project. It therefore must not rewrite
+unknown state as an automatic reverse migration.
+
+If you must return to an older release:
+
+1. Commit or back up custom hook and configuration changes.
+2. While the current version is still installed, run
+   `npx --no-install commitment-issues uninstall`. This removes only state the
+   current version can prove it owns and restores a composed project-owned
+   `prepare` command.
+3. Restore a package manifest and lockfile that pin the target version and its
+   peer tools. Do not substitute a moving tag or an unbounded dependency range.
+   Returning to 2.x also requires its compatible Husky and lint-staged peers and
+   a Node version accepted by that release.
+4. Install from the restored lockfile, then run the target version's
+   `npx --no-install commitment-issues init` and
+   `npx --no-install commitment-issues doctor`.
+5. Review the resulting hooks and package changes, then try a normal commit and
+   push before sharing the rollback.
+
+Custom hooks are preserved throughout this process, but an older release may
+not run logic written for a newer hook layout. Treat any manual-cleanup warning
+as work to review, not as permission to delete the file.
+
 ## From raw `husky` + `lint-staged`
 
 This is the most direct migration.

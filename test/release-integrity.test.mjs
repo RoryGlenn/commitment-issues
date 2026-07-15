@@ -134,6 +134,10 @@ test("release ancestry rule accepts reviewed mainline and rejects an off-main co
 
 test("publish workflow gates and publishes one immutable release", () => {
   const workflow = readText(".github/workflows/publish.yml");
+  const candidateJob = workflow.slice(
+    workflow.indexOf("\n  candidate:"),
+    workflow.indexOf("\n  publish:"),
+  );
   const publishJob = workflow.slice(
     workflow.indexOf("\n  publish:"),
     workflow.indexOf("\n  provenance:"),
@@ -145,6 +149,9 @@ test("publish workflow gates and publishes one immutable release", () => {
   const testStep = workflow.indexOf("- run: npm test");
   const lifecycleGate = workflow.indexOf(
     "- name: Verify exact npm package lifecycle",
+  );
+  const migrationGate = workflow.indexOf(
+    "- name: Verify exact npm upgrade migration",
   );
   const packStep = workflow.indexOf("- name: Pack tarball");
   const recoveryGate = workflow.indexOf(
@@ -165,33 +172,41 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
 
   assert.notEqual(lifecycleGate, -1);
+  assert.notEqual(migrationGate, -1);
   assert.notEqual(packStep, -1);
   assert.notEqual(recoveryGate, -1);
   assert.notEqual(publishStep, -1);
   assert.match(
-    publishJob,
+    candidateJob,
     /runs-on: ubuntu-latest/,
     "the release artifact must remain on a POSIX producer that enforces packed modes",
   );
   assert.ok(
     testStep < packStep &&
       packStep < lifecycleGate &&
-      lifecycleGate < recoveryGate &&
+      lifecycleGate < migrationGate &&
+      migrationGate < recoveryGate &&
       recoveryGate < publishStep,
-    "the release tarball must be packed once, lifecycle-tested, classified, and then conditionally published",
+    "the release tarball must be packed once, lifecycle-tested, migration-tested, classified, and then conditionally published",
+  );
+  assert.equal(
+    npmPackInvocations(candidateJob).length,
+    1,
+    "the candidate job must contain only one npm pack command, regardless of its flags",
   );
   assert.equal(
     npmPackInvocations(publishJob).length,
-    1,
-    "the publish job must contain only one npm pack command, regardless of its flags",
+    0,
+    "the privileged publish job must consume rather than rebuild the candidate",
   );
   assert.equal(
-    npmPackInvocations(`${publishJob}\nrun: npm --silent pack`).length,
+    npmPackInvocations(`${candidateJob}\nrun: npm --silent pack`).length,
     2,
     "the assertion must recognize npm global options before the pack command",
   );
   assert.equal(
-    npmPackInvocations(`${publishJob}\nrun: npm --workspace demo pack`).length,
+    npmPackInvocations(`${candidateJob}\nrun: npm --workspace demo pack`)
+      .length,
     2,
     "the assertion must recognize npm options with values before the pack command",
   );
@@ -200,14 +215,18 @@ test("publish workflow gates and publishes one immutable release", () => {
     workflow,
     /name: Verify exact npm package lifecycle[\s\S]*?env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm run test:lifecycle:npm -- --tarball "\$TARBALL"/,
   );
+  assert.match(
+    workflow,
+    /name: Verify exact npm upgrade migration\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: node tools\/run-migration-lifecycle-test\.mjs npm --tarball "\$TARBALL"/,
+  );
 
   assert.match(
     workflow,
-    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
+    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
   );
   assert.match(
     workflow,
-    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"\s+- "tools\/release-recovery\.mjs"\s+- "tools\/verify-release-mainline\.mjs"/,
+    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"\s+- "tools\/run-migration-lifecycle-test\.mjs"\s+- "tools\/release-recovery\.mjs"\s+- "tools\/verify-release-mainline\.mjs"/,
   );
   assert.match(
     workflow,
@@ -225,6 +244,16 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.match(
     publishJob,
     /outputs:[\s\S]*?release_needed: \$\{\{ steps\.confirm_recovery\.outputs\.release_needed \}\}/,
+  );
+  assert.match(
+    candidateJob,
+    /permissions:\s+contents: read[\s\S]*?Verify exact npm upgrade migration/,
+  );
+  assert.doesNotMatch(candidateJob, /id-token:\s+write/);
+  assert.doesNotMatch(publishJob, /(?:npm ci|run-migration-lifecycle-test)/);
+  assert.match(
+    publishJob,
+    /needs: \[candidate\][\s\S]*?id-token: write[\s\S]*?Download verified release candidate[\s\S]*?Verify release candidate handoff/,
   );
   assert.match(
     publishJob,

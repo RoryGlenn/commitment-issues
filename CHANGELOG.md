@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unsupported boundaries. Required lifecycle CI now covers pnpm 10, Yarn
   Classic 1.22.22, and Bun 1.3.14 across Ubuntu, macOS, and Windows at Node 24,
   plus exact-minimum-Node lanes on Ubuntu.
+- Added deterministic cross-version lifecycle coverage using pinned immutable
+  v2.5.1, v3.2.0, and v3.3.2 release fixtures. Required pull-request CI proves
+  npm upgrades on Ubuntu/Node 24, a read-only release-candidate job exercises
+  the exact tarball before its hash-checked handoff to the OIDC publish job, and
+  weekly health runs the migration through pnpm, Yarn, and Bun. The supported
+  forward path preserves project-owned `prepare` logic and custom hooks while
+  refreshing only exact generated state; in-place downgrades are explicitly
+  unsupported and have a documented manual rollback.
 - Pre-commit now shows a default-on Commit Owl welcome once per clone so
   contributors know the repository uses `commitment-issues` and that confusing
   guidance should be reported. A versioned marker below Git's common directory
