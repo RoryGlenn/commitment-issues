@@ -193,6 +193,49 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function linkInstalledPeer(name, destinationRoot) {
+  const source = path.join(root, "node_modules", name);
+  const destination = path.join(destinationRoot, "node_modules", name);
+  const metadata = readJson(path.join(source, "package.json"));
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.symlinkSync(
+    source,
+    destination,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+
+  const bins =
+    typeof metadata.bin === "string"
+      ? { [metadata.name]: metadata.bin }
+      : metadata.bin || {};
+  const binDir = path.join(destinationRoot, "node_modules", ".bin");
+  fs.mkdirSync(binDir, { recursive: true });
+  for (const binName of Object.keys(bins)) {
+    for (const extension of process.platform === "win32"
+      ? ["", ".cmd", ".ps1"]
+      : [""]) {
+      const sourceBin = path.join(
+        root,
+        "node_modules",
+        ".bin",
+        `${binName}${extension}`,
+      );
+      const destinationBin = path.join(binDir, `${binName}${extension}`);
+      if (!fs.existsSync(sourceBin)) continue;
+      const sourceStats = fs.lstatSync(sourceBin);
+      if (sourceStats.isSymbolicLink()) {
+        fs.symlinkSync(fs.readlinkSync(sourceBin), destinationBin);
+      } else {
+        fs.copyFileSync(sourceBin, destinationBin);
+        if (process.platform !== "win32") {
+          fs.chmodSync(destinationBin, sourceStats.mode);
+        }
+      }
+    }
+  }
+  return metadata.version;
+}
+
 function hasExactLine(output, expected) {
   return output.split(/\r?\n/u).some((line) => line.trim() === expected);
 }
@@ -290,13 +333,6 @@ try {
     'export default [{ files: ["**/*.mjs"] }];\n',
   );
 
-  const peerPackages = ["eslint", "prettier", "@eslint/js", "globals"];
-  const peerSpecs = peerPackages.map((name) => {
-    const installed = readJson(
-      path.join(root, "node_modules", name, "package.json"),
-    );
-    return `${name}@${installed.version}`;
-  });
   const installEnv = cleanEnv();
   installEnv.npm_config_offline = "true";
   installEnv.npm_config_audit = "false";
@@ -311,11 +347,25 @@ try {
       "--offline",
       "--no-audit",
       "--no-fund",
+      "--legacy-peer-deps",
       tarball,
-      ...peerSpecs,
     ],
     { cwd: repoDir, env: installEnv },
   );
+
+  // npm 11's fresh CI cache contains the exact peer tarballs after `npm ci`
+  // but not always the registry manifests needed for a second offline
+  // resolution. Reuse the lockfile-installed peers through local links so this
+  // shell-sensitive scenario stays network-free and deterministic. The package
+  // manager lifecycle suite owns independent peer-install validation.
+  for (const name of ["eslint", "prettier"]) {
+    const version = linkInstalledPeer(name, repoDir);
+    assert.equal(
+      readJson(path.join(repoDir, "node_modules", name, "package.json"))
+        .version,
+      version,
+    );
+  }
 
   const installedPackage = readJson(
     path.join(repoDir, "node_modules", "commitment-issues", "package.json"),
