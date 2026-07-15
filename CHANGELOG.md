@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Husky-era `core.hooksPath` recognition now removes trailing separators with
+  a bounded linear-time scan, preventing adversarial repository configuration
+  from stalling `init`, `doctor`, or `uninstall` through regular-expression
+  backtracking.
 - Packed Markdown links are now checked against the exact npm tarball manifest
   and again after installation. Links from shipped docs to repository-only
   policies, plans, and audit evidence now use canonical GitHub URLs instead of

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 import {
   classifyHook,
   effectiveHooksDir,
@@ -327,7 +328,22 @@ test("Husky hooksPath recognition tolerates absent and normalized values", () =>
   assert.equal(isHuskyHooksPath(undefined), false);
   assert.equal(isHuskyHooksPath(null), false);
   assert.equal(isHuskyHooksPath(" .husky/_/ "), true);
+  assert.equal(isHuskyHooksPath(".husky\\_\\\\"), true);
+  assert.equal(isHuskyHooksPath(".husky////"), true);
   assert.equal(isHuskyHooksPath("custom/hooks"), false);
+});
+
+test("Husky hooksPath recognition rejects long separator runs promptly", () => {
+  const adversarialValue = `.husky/${"/".repeat(40_000)}x`;
+  const startedAt = performance.now();
+
+  assert.equal(isHuskyHooksPath(adversarialValue), false);
+
+  const elapsedMs = performance.now() - startedAt;
+  assert.ok(
+    elapsedMs < 500,
+    `hooksPath normalization took ${elapsedMs.toFixed(1)} ms`,
+  );
 });
 
 test("generated commit-msg hooks are executable and exact-match owned", () => {
