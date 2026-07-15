@@ -12,6 +12,10 @@ import { KNOWN_PRECOMMIT_CONFIG_KEYS } from "../scripts/lib/config.mjs";
 import { DCO_ENFORCEMENT_BASELINE } from "../tools/check-dco-range.mjs";
 import { globToRegExp } from "../scripts/lib/files.mjs";
 import { run } from "../scripts/lib/process.mjs";
+import {
+  BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
+  BRANCH_COVERAGE_SOURCE_FILES,
+} from "../scripts/lib/coverage-badge.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DCO_POLICY_ADOPTION_BASELINE = "81a9e412bc347f01300df62505ee378284646d15";
@@ -75,6 +79,22 @@ function readmeImagePaths(readme) {
     ...readme.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi),
   ].map(([, imagePath]) => imagePath);
   return [...markdownImages, ...htmlImages];
+}
+
+function relativeModuleSpecifiers(source) {
+  return [
+    ...source.matchAll(/\bfrom\s+["'](\.[^"']+)["']/gu),
+    ...source.matchAll(/^\s*import\s+["'](\.[^"']+)["']/gmu),
+    ...source.matchAll(/\bimport\(\s*["'](\.[^"']+)["']\s*\)/gu),
+  ].map((match) => match[1]);
+}
+
+function cliDispatchTargets(source) {
+  return [
+    ...source.matchAll(/const (?:PUBLIC|HIDDEN)_COMMANDS = \{([\s\S]*?)\};/gu),
+  ]
+    .flatMap(([, block]) => [...block.matchAll(/:\s*["']([^"']+\.mjs)["']/gu)])
+    .map(([, target]) => `scripts/${target}`);
 }
 
 test("package-lock root metadata stays in sync with package.json", () => {
@@ -498,6 +518,43 @@ test("package files entries exist", () => {
   }
 });
 
+test("package files explicitly classify runtime and maintenance scripts", () => {
+  const pkg = readJson("package.json");
+  const scriptFiles = fs
+    .readdirSync(path.join(root, "scripts"), { recursive: true })
+    .filter((file) => file.endsWith(".mjs"))
+    .map((file) => `scripts/${file.replaceAll(path.sep, "/")}`)
+    .sort();
+  const runtimeFiles = [...BRANCH_COVERAGE_SOURCE_FILES].sort();
+  const maintenanceFiles = [...BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES].sort();
+
+  assert.deepEqual(
+    [...new Set([...runtimeFiles, ...maintenanceFiles])].sort(),
+    scriptFiles,
+    "every scripts module should be classified as installed runtime or repository-only maintenance",
+  );
+  assert.deepEqual(
+    runtimeFiles.filter((file) => maintenanceFiles.includes(file)),
+    [],
+    "runtime and maintenance classifications must not overlap",
+  );
+  assert.equal(
+    packageFilePatterns(pkg).has("scripts/"),
+    false,
+    "the package must not include every future script by default",
+  );
+  for (const file of runtimeFiles) {
+    assert.equal(isPackaged(file, pkg), true, `${file} should be packaged`);
+  }
+  for (const file of maintenanceFiles) {
+    assert.equal(
+      isPackaged(file, pkg),
+      false,
+      `${file} should remain repository-only`,
+    );
+  }
+});
+
 test("documentation index links every retained Markdown document", () => {
   const index = readText("docs/index.md");
   const markdownFiles = fs
@@ -539,7 +596,8 @@ test("README relative image assets exist and are included in npm package files",
   }
 });
 
-test("npm package excludes promotional media and stays within its size budget", (t) => {
+test("npm package contains only reviewed runtime, docs, and assets within budget", (t) => {
+  const pkg = readJson("package.json");
   const cache = fs.mkdtempSync(path.join(os.tmpdir(), "npm-pack-cache-"));
   t.after(() => fs.rmSync(cache, { recursive: true, force: true }));
   const result = run(
@@ -554,6 +612,9 @@ test("npm package excludes promotional media and stays within its size budget", 
   const readme = readText("README.md");
   const packagedDocs = new Set(
     [...files].filter((file) => file.startsWith("docs/")),
+  );
+  const packagedScripts = new Set(
+    [...files].filter((file) => file.startsWith("scripts/")),
   );
   const expectedDocs = new Set([
     "docs/branch-coverage.md",
@@ -580,7 +641,33 @@ test("npm package excludes promotional media and stays within its size budget", 
       file.startsWith("assets/") ? file.endsWith(".svg") : true,
     ),
   );
-  assert.ok(files.has("scripts/cli.mjs"));
+  assert.deepEqual(
+    packagedScripts,
+    new Set(BRANCH_COVERAGE_SOURCE_FILES),
+    "the tarball should contain the complete runtime classification and no maintenance scripts",
+  );
+  for (const binTarget of Object.values(pkg.bin ?? {})) {
+    assert.equal(files.has(binTarget), true, `${binTarget} should be packaged`);
+  }
+  for (const commandTarget of cliDispatchTargets(readText("scripts/cli.mjs"))) {
+    assert.equal(
+      files.has(commandTarget),
+      true,
+      `${commandTarget} should be packaged for CLI dispatch`,
+    );
+  }
+  for (const modulePath of packagedScripts) {
+    for (const specifier of relativeModuleSpecifiers(readText(modulePath))) {
+      const target = path
+        .normalize(path.join(path.dirname(modulePath), specifier))
+        .replaceAll(path.sep, "/");
+      assert.equal(
+        files.has(target),
+        true,
+        `${modulePath} imports ${target}, which should be packaged`,
+      );
+    }
+  }
   assert.deepEqual(packagedDocs, expectedDocs);
   assert.equal(files.has("docs/index.md"), false);
   assert.equal(files.has("docs/maintainer-operations.md"), false);

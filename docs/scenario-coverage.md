@@ -57,6 +57,11 @@ production-readiness workstream #130 is consolidated in the
   user-documentation allowlist; repository-only galleries and maintainer
   evidence stay out of the tarball. Unit: `test/metadata.test.mjs` using
   `npm pack --dry-run --json`.
+- **PKG-008** — the packed script set equals the complete runtime coverage set,
+  includes every relative runtime import and public bin target, and excludes
+  every lifecycle/coverage maintenance module. Unit:
+  `test/metadata.test.mjs`; full installed behavior: package-manager lifecycle
+  matrix.
 - **PKG-009** — exact minimum supported Node version runs the full npm test and
   lifecycle matrix on Ubuntu, macOS, and Windows, plus every supported non-npm
   lifecycle on Ubuntu. CI: `.github/workflows/ci.yml`.

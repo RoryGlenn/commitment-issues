@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The npm tarball now uses a closed allowlist for the 28 installed runtime
+  scripts instead of publishing the entire `scripts/` tree. Six lifecycle and
+  coverage maintenance modules remain repository-only, while package-content
+  tests verify the public bin, complete relative-import closure, and exact
+  runtime/maintenance classification.
 - Release tags now fail before dependency installation, packing, or publication
   unless their commit is reachable from the canonical `main` history, closing
   the gap between the reviewed-mainline release policy and the publish

@@ -16,12 +16,15 @@ aggregate branch metric for the same source and test scope.
 
 ## Source scope
 
-Every published `scripts/**/*.mjs` file is included in the public-runtime
-denominator automatically unless it appears in the exact maintenance-only list
-below. This keeps the scope closed by default: adding a new hook, command, or
-runtime helper cannot silently escape the threshold.
-These repository/package-maintenance files are deliberately outside the
-published runtime percentage:
+Every `scripts/**/*.mjs` file enters the public-runtime denominator
+automatically unless it appears in the exact maintenance-only list below.
+`package.json` separately allowlists every runtime module by path, and a package
+regression requires that list to equal the measured runtime set. This keeps both
+boundaries closed by default: a new hook, command, or runtime helper cannot
+silently escape coverage or enter the tarball accidentally.
+
+These repository-only maintenance files are neither published nor included in
+the runtime percentage:
 
 ```text
 scripts/ci-lifecycle-smoke.mjs
@@ -32,10 +35,12 @@ scripts/run-lifecycle-test.mjs
 scripts/update-readme-coverage-badge.mjs
 ```
 
-They still have unit or integration tests. A static invariant requires every
-exclusion to name an existing script and verifies that every other script is in
-the measured denominator. New runtime files are therefore covered by default;
-adding a maintenance-only script requires an explicit exclusion.
+They still have unit or integration tests. Static invariants require every
+script to be classified exactly once, every runtime script and relative import
+to be packed, every maintenance script to be absent, and the public bin target
+to exist. New runtime files are therefore covered but not shipped until the
+allowlist is reviewed; adding a maintenance-only script requires an explicit
+exclusion.
 
 ## Test scope
 
