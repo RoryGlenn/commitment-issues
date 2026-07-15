@@ -49,7 +49,7 @@ from a moving npm dist-tag:
 | v3.3.2           | Latest published baseline: exact PATH-fallback pre-commit, pre-push, and commit-msg bodies are refreshed to project-local-bin wiring.                          |
 
 Each fixture is pinned by SHA-256 to an immutable GitHub Release asset; the
-[release audit](audits/release-packaging-and-upgrades.md#pinned-upgrade-fixtures)
+[release audit](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/release-packaging-and-upgrades.md#pinned-upgrade-fixtures)
 records the exact digests. The required pull-request lane exercises every
 fixture with npm on Ubuntu and Node 24. The release workflow repeats the npm
 migration with the exact candidate tarball in a read-only build job, then

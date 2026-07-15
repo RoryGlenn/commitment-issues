@@ -269,8 +269,10 @@ npm-only path as a complete signed release.
   modules under `scripts/` stay repository-only. Promotional raster/video media
   stays in the source repository and is referenced by GitHub-hosted URLs.
   Everything in `.github/` (governance files, these skills) and `test/` is
-  intentionally excluded from the tarball. Verify with `npm pack --dry-run`
-  before publishing if the file list changed.
+  intentionally excluded from the tarball. Relative links in shipped Markdown
+  must resolve within that exact manifest; use canonical GitHub URLs when a
+  shipped guide references repository-only evidence. Verify with
+  `npm pack --dry-run` before publishing if the file list changed.
 
 ## CI / required checks
 

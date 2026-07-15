@@ -73,7 +73,7 @@ without executing package code during dependency installation.
 
 Cross-version evidence downloads only immutable release artifacts whose
 SHA-256 values are pinned in the
-[release audit](audits/release-packaging-and-upgrades.md#pinned-upgrade-fixtures).
+[release audit](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/release-packaging-and-upgrades.md#pinned-upgrade-fixtures).
 The required pull-request boundary is npm on Ubuntu/Node 24. A read-only release
 candidate job reruns that npm migration against the exact tarball, then hands
 the artifact and its hash to the separate OIDC-enabled publish job. Weekly

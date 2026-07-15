@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Packed Markdown links are now checked against the exact npm tarball manifest
+  and again after installation. Links from shipped docs to repository-only
+  policies, plans, and audit evidence now use canonical GitHub URLs instead of
+  paths that break on npm or inside `node_modules`.
 - The npm tarball now uses a closed allowlist for the 28 installed runtime
   scripts instead of publishing the entire `scripts/` tree. Six lifecycle and
   coverage maintenance modules remain repository-only, while package-content

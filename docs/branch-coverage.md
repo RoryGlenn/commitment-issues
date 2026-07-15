@@ -68,7 +68,8 @@ Coverage is not treated as proof by itself. This map assigns every measured
 runtime module to the test file that owns its behavior. The executable
 invariant in `test/test-quality.test.mjs` fails if a runtime source is missing,
 an owner disappears, or no named owner references its source. The finer-grained
-claim-to-scenario map remains in [Scenario Coverage](scenario-coverage.md).
+claim-to-scenario map remains in
+[Scenario Coverage](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/scenario-coverage.md).
 
 | Runtime source                    | Meaningful behavior owned                                                              | Primary automated evidence                                                             |
 | --------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
