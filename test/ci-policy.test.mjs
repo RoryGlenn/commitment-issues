@@ -327,6 +327,10 @@ test("publish shell scripts receive generated names through the environment", ()
 
   assert.match(
     workflow,
+    /name: Verify exact npm package lifecycle[\s\S]*?env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm run test:lifecycle:npm -- --tarball "\$TARBALL"/u,
+  );
+  assert.match(
+    workflow,
     /name: Generate provenance subject\s+id: hash\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: \|\s+hashes="\$\(sha256sum "\$TARBALL" \| base64 -w0\)"/su,
   );
   assert.match(
@@ -335,7 +339,7 @@ test("publish shell scripts receive generated names through the environment", ()
   );
   assert.doesNotMatch(
     workflow,
-    /(?:sha256sum|npm publish)[^\n]*\$\{\{ steps\.pack\.outputs\.tarball \}\}/u,
+    /(?:--tarball|sha256sum|npm publish)[^\n]*\$\{\{ steps\.pack\.outputs\.tarball \}\}/u,
   );
 });
 

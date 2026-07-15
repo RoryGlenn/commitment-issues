@@ -61,15 +61,26 @@ production-readiness workstream #130 is consolidated in the
   lifecycle matrix on Ubuntu, macOS, and Windows, plus every supported non-npm
   lifecycle on Ubuntu. CI: `.github/workflows/ci.yml`.
 - **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
-- **PKG-011** — the publish workflow sends the exact packed/hashed tarball to
-  npm, keeps SLSA generation separate, and uses one final immutable-release
-  uploader for the tarball and provenance. Unit: `test/release-integrity.test.mjs`.
+- **PKG-011** — the publish workflow packs once, lifecycle-tests the exact
+  tarball, confirms its CLI bin/shebang/version on every platform and normalized
+  0755/0644 file modes on POSIX/release producers, then hashes, uploads, and
+  publishes that unchanged artifact. Windows lanes retain platform-relevant
+  bin-shim, installability, and digest checks. SLSA generation remains separate,
+  and one final immutable-release uploader owns the tarball and provenance.
+  Unit/invariant:
+  `test/release-integrity.test.mjs`; integration:
+  `test/integration/lifecycle-manager.test.mjs` and
+  `scripts/ci-lifecycle-smoke.mjs`; tracking: #182.
 - **PKG-012** — release preflight rejects local/remote tag, GitHub Release, and
   npm-version collisions and fails closed when a registry cannot be checked.
   Unit: `test/release-integrity.test.mjs`.
 - **PKG-013** — release verification uses supported npm signature/attestation
   surfaces rather than the absent `npm view ... provenance` field. Unit:
   `test/release-integrity.test.mjs`.
+- **PKG-014** — version tags fetch complete canonical history and fail before
+  release-capable work unless their commit is an ancestor of `origin/main`.
+  Repository tag rules remain the external release-authority boundary.
+  Unit/fixture: `test/release-integrity.test.mjs`; tracking: #94.
 
 ### Path normalization
 

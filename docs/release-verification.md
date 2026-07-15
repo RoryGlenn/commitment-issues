@@ -66,6 +66,29 @@ Users should verify that:
 - the provenance points to the expected GitHub Actions release workflow;
 - the tarball integrity value matches npm metadata.
 
+## Reviewed-mainline authorization
+
+Provenance identifies the source commit, but it does not by itself prove that
+the commit passed the repository's mainline process. Before any install, pack,
+or publish-capable release step, the workflow fetches complete history and
+fails unless the tagged commit is an ancestor of canonical `origin/main`.
+
+Maintainers and independent verifiers can repeat that decision locally:
+
+```bash
+git fetch --no-tags origin \
+  +refs/heads/main:refs/remotes/origin/main
+git merge-base --is-ancestor \
+  "v$VERSION^{commit}" refs/remotes/origin/main
+```
+
+Exit status zero means the tagged commit belongs to the current mainline
+history; any other status must be treated as a failed release authorization.
+Repository tag rules must separately restrict `v*` creation to the release
+authority and prevent consumed tags from being updated or deleted. This
+settings-owned boundary prevents a writer from supplying an off-main workflow
+that omits the repository-controlled check.
+
 ## Verifying an installed package
 
 To inspect the installed version:
@@ -88,10 +111,16 @@ npm pack "commitment-issues@$VERSION"
 
 ## GitHub release assets
 
-Releases produced by the current workflow, beginning with v3.3.2, publish the
-exact npm tarball and a matching signed `.intoto.jsonl` SLSA provenance asset on
-the GitHub Release. The tarball is packed once, hashed for SLSA, published
-directly to npm, and retained as a workflow artifact. The provenance generator
+Beginning with v3.3.2, the npm and GitHub Release tarballs are byte-identical and
+the matching signed `.intoto.jsonl` SLSA provenance asset names that artifact.
+The Audit 7 workflow adds a stronger pre-publication invariant: it packs once,
+passes that exact path to the lifecycle integration, confirms its CLI entry
+point, shebang, and reported version on every platform, and enforces executable
+and non-executable archive modes on the POSIX lanes and Ubuntu release producer.
+Windows lanes independently verify the installed bin shim, shebang, version,
+installability, and unchanged digest because Windows metadata does not carry
+authoritative POSIX mode information. The workflow then hashes, publishes, and
+retains the unchanged tarball as a workflow artifact. The provenance generator
 retains its signed output separately. One final release action receives both
 files before publishing the immutable GitHub Release, so no later job needs to
 attach or replace an asset.
@@ -157,6 +186,12 @@ Changes to the release workflow trigger a non-publishing pull-request job. This
 forces GitHub to validate referenced reusable workflows and their permission
 contracts before the change can merge; all package and release jobs remain
 restricted to version-tag pushes.
+
+The repository's live tag rules are part of the release control, not optional
+documentation. Before pushing a release tag, confirm that only the release
+authority can create matching `v*` tags and that update/deletion restrictions
+remain active. Do not test those controls by pushing a disposable `v*` tag:
+every matching tag is a publication trigger.
 
 ## Signing keys
 
