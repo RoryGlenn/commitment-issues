@@ -4,15 +4,28 @@ This is the implementation and completion-evidence report for
 [audit workstream #135](https://github.com/RoryGlenn/commitment-issues/issues/135).
 The audit began on the tree at `b882972`; that same tree reached `main` as
 `ce8c9a3` through package-manager audit PR #176 while this work was in progress.
+The audited implementation then reached `main` as `4d1a2a8` through
+[PR #178](https://github.com/RoryGlenn/commitment-issues/pull/178).
 
 ## Status
 
-The implementation and local static verification are complete. The workstream
-is not ready to close until its pull request supplies hosted evidence for the
-new required `quality` job, the reusable CodeQL call, and the revised aggregate
-gate. Local tools can validate workflow syntax and policy, but they cannot prove
-that GitHub accepts every reusable-workflow permission contract or that the
-hosted fork, OS, and package-manager paths behave as configured.
+The implementation, local static verification, and hosted validation are
+complete. PR #178 passed the new required `quality` job, all six OS/Node lanes,
+all twelve package-manager lanes, the reusable CodeQL analysis, and the revised
+`CI Success` aggregate. Its path-specific release validation also proved that
+GitHub accepts the `concurrency.queue` property and the reusable SLSA permission
+contract. The resulting `main` push repeated the complete 22-job CI graph
+successfully.
+
+Fork evidence is intentionally composite rather than overstated: external PR
+#166 proves the fork-safe `pull_request` event, merge-ref checkout, downgraded
+token boundary, CodeQL upload, and fail-closed DCO/aggregate behavior. PR #178
+then proves the changed reusable-CodeQL permission contract and expanded
+aggregate under the same event type. No post-refactor external contributor has
+yet pushed a new revision, so that exact end-to-end combination remains useful
+live surveillance rather than an undisclosed completion claim. The exact
+fork-token run is tracked as Medium evidence gap
+[#180](https://github.com/RoryGlenn/commitment-issues/issues/180).
 
 No Critical or High finding owned by this workstream remains. The known High
 release-authorization gap is deliberately retained under
@@ -135,13 +148,15 @@ for a full commit SHA. The one exact exception is SLSA's documented
 semantic tag; Dependabot monitors it. The public CI recipe now models full-SHA
 pins, read-only permissions, a timeout, and non-persisted checkout credentials.
 
-Live cross-repository PRs #129 and #166 prove that the baseline CI and direct
-CodeQL workflow start under the fork-safe event. They predate the reusable
-CodeQL architecture in this audit, so a new hosted pull request must still prove
-the called workflow's permissions and aggregate result. PR #166 passed every
-OS/Node and package-manager lane while DCO and `CI Success` correctly failed its
-unsigned commit. Neither fork received release authority. The live fork
-approval policy requires approval for first-time contributors.
+Live cross-repository PRs #129 and #166 prove that CI and CodeQL start under the
+fork-safe event. PR #166 passed every then-current OS/Node and package-manager
+lane while DCO and `CI Success` correctly failed its unsigned commit. Neither
+fork received release authority. PR #178 subsequently proved the changed
+reusable CodeQL call, expanded matrix, exact-success aggregate, and release
+workflow parsing; its merged `main` run repeated the full required graph. This
+composite evidence covers the changed architecture without mutating an unrelated
+contributor branch merely to manufacture a new event. The live fork approval
+policy still requires approval for first-time contributors.
 
 ## Caches, artifacts, retention, and failure visibility
 
@@ -185,7 +200,8 @@ fixes. Documentation-only corrections were checked by the final suite.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Medium   | `b882972:.github/workflows/ci.yml:16-159`                                                                                                                                 | Workflow syntax and expression semantics depended only on GitHub accepting the file after push.                                               | Fixed: checksum-verified actionlint is part of required `quality`; local actionlint and zizmor runs supplement it.                         |
 | Medium   | `b882972:.github/workflows/ci.yml:140-154`; `b882972:.github/workflows/codeql.yml:3-10`                                                                                   | CodeQL analysis ran separately, so successful completion was not a dependency of required `CI Success`.                                       | Fixed: reusable CodeQL analysis is now an exact-success dependency of the aggregate.                                                       |
-| Medium   | `current:.github/workflows/codeql.yml:38-47`; `current:.github/workflows/ci.yml:206-230`; live ruleset `18531369`                                                         | A successful CodeQL job can report a new alert without the alert itself blocking the merge.                                                   | Tracked in #177: choose a severity threshold and update the live code-scanning merge-protection rule; findings remain supplemental today.  |
+| Medium   | `4d1a2a8:.github/workflows/codeql.yml:38-47`; `4d1a2a8:.github/workflows/ci.yml:206-230`; live ruleset `18531369`                                                         | A successful CodeQL job can report a new alert without the alert itself blocking the merge.                                                   | Tracked in #177: choose a severity threshold and update the live code-scanning merge-protection rule; findings remain supplemental today.  |
+| Medium   | Fork PR #166 run `29350550947`; same-repository PR #178 run `29381571143`                                                                                                 | The exact post-refactor graph has not run end to end with an external fork's downgraded token.                                                | Tracked in #180: use a disposable or natural fork revision to validate reusable CodeQL, the expanded matrix, and the aggregate together.   |
 | Medium   | `b882972:.github/workflows/repo-health.yml:53-55`; `b882972:.github/workflows/ci.yml:16-159`                                                                              | High-severity dependency findings were weekly and `continue-on-error`, so vulnerable changes could merge and scheduled failures stayed green. | Fixed: the dependency audit gates required `quality` and now fails weekly health.                                                          |
 | Medium   | `b882972:.github/workflows/publish.yml:1-26`                                                                                                                              | Different release tags could publish concurrently and race npm's `latest` dist-tag.                                                           | Fixed: one package-wide `queue: max` group serializes tags and retains up to GitHub's 100 pending runs.                                    |
 | Medium   | `b882972:.github/workflows/ci.yml:17-20,142-147`; `b882972:.github/workflows/publish.yml:14-27,119-124`; `b882972:.github/workflows/scorecard.yml:14-18`                  | Several jobs had no timeout, and DCO/Scorecard/publication lacked explicit overlap policy.                                                    | Fixed: every runnable job is bounded; safe stale work cancels, release work queues.                                                        |
@@ -211,7 +227,8 @@ fixes. Documentation-only corrections were checked by the final suite.
 | Yarn Classic is installed globally in its compatibility lanes                        | Accepted: the exact 1.22.22 pin is isolated to lifecycle compatibility evidence; normal build dependencies remain lockfile-controlled                                                                                                     |
 | Release upload uses `softprops/action-gh-release` instead of the GitHub CLI          | Accepted: the action supplies staged artifact upload and immutable finalization; it is full-SHA pinned and least-privileged                                                                                                               |
 | GitHub's release concurrency queue is bounded at 100 pending runs                    | Accepted [platform limit](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency); PR validation uses separate groups, and maintainers publish tags deliberately one at a time |
-| actionlint 1.7.12 does not yet recognize GitHub's `concurrency.queue` property       | Exact schema-lag diagnostic is suppressed; the property is regression-tested and hosted PR validation must confirm GitHub acceptance                                                                                                      |
+| actionlint 1.7.12 does not yet recognize GitHub's `concurrency.queue` property       | Exact schema-lag diagnostic is suppressed; the property is regression-tested, and PR #178's hosted release-workflow validation confirms GitHub acceptance                                                                                 |
+| No post-refactor external fork revision has run the complete new graph               | Medium #180: current evidence is composite—PR #166 proves fork token/event behavior, while PR #178 proves reusable CodeQL and the expanded aggregate; record the next external revision without mutating an unrelated contributor branch  |
 | Docs/community-only changes still instantiate the complete compatibility matrix      | Accepted to preserve a simple always-present fail-closed gate; a future skip classifier must prove it cannot weaken required coverage                                                                                                     |
 | Admin can bypass the ruleset                                                         | Existing public governance exception; unchanged by this audit                                                                                                                                                                             |
 
@@ -243,8 +260,8 @@ failed 0/2 in the defective state and passed 2/2 after the fixes were reapplied.
 
 Local final verification is recorded on macOS 26.5.2 with Node 26.4.0 and npm
 11.17.0 using the exact commands below.
-Hosted links here establish the audited baseline; they do not substitute for a
-new pull-request run of the changed architecture.
+Hosted PR and `main` links below validate the changed architecture in addition
+to the local evidence.
 
 | Check                                        | Result                                                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -262,15 +279,38 @@ new pull-request run of the changed architecture.
 | `npm pack --dry-run --json --ignore-scripts` | Passed; 59 files, 143,326-byte archive, 520,646 bytes unpacked                                   |
 | `git diff --check`                           | Passed                                                                                           |
 
-Relevant live baseline evidence:
+Hosted completion evidence:
+
+- [PR #178 CI](https://github.com/RoryGlenn/commitment-issues/actions/runs/29381571143):
+  all 22 required jobs passed, including static quality, six OS/Node lanes,
+  twelve package-manager lanes, reusable CodeQL, and `CI Success`
+- [PR #178 release-workflow validation](https://github.com/RoryGlenn/commitment-issues/actions/runs/29381571229):
+  GitHub accepted the queue and reusable-workflow schema while every
+  publish-capable job correctly skipped on the pull request
+- [merged `main` CI](https://github.com/RoryGlenn/commitment-issues/actions/runs/29381843944):
+  the same 22-job graph passed at merge commit `4d1a2a8`
+- [standalone CodeQL on `main`](https://github.com/RoryGlenn/commitment-issues/actions/runs/29384848393):
+  the revised manual/scheduled entry point initialized, analyzed, and uploaded
+  successfully at `4d1a2a8`
+- [Repository Health on `main`](https://github.com/RoryGlenn/commitment-issues/actions/runs/29384848376):
+  the revised scheduled/manual path passed its locked install, tests, packed npm
+  lifecycle, high-severity advisory gate, and stale-branch report
+- [OpenSSF Scorecard on merged Audit 6](https://github.com/RoryGlenn/commitment-issues/actions/runs/29381843821):
+  the post-merge settings/`main` path completed successfully
+- [fork PR #166](https://github.com/RoryGlenn/commitment-issues/pull/166):
+  fork-safe execution and CodeQL passed while unsigned DCO and the aggregate
+  failed closed
+- Live ruleset `18531369` remained active and strict with only `CI Success`
+  required; repository workflow permissions remained read-only by default and
+  first-time fork contributors still require approval
+
+Supporting baseline and scheduled evidence:
 
 - [CI on merged Audit 5](https://github.com/RoryGlenn/commitment-issues/actions/runs/29379811767)
 - [CodeQL on merged Audit 5](https://github.com/RoryGlenn/commitment-issues/actions/runs/29379811816)
 - [OpenSSF Scorecard on merged Audit 5](https://github.com/RoryGlenn/commitment-issues/actions/runs/29379811783)
-- [latest scheduled repository health](https://github.com/RoryGlenn/commitment-issues/actions/runs/29254870648)
 - [latest deterministic demo render](https://github.com/RoryGlenn/commitment-issues/actions/runs/29379535644)
 - [successful v3.3.2 publication](https://github.com/RoryGlenn/commitment-issues/actions/runs/29194551447)
-- [fork PR #166 fail-closed DCO evidence](https://github.com/RoryGlenn/commitment-issues/pull/166)
 
 ## Conclusion
 
@@ -278,7 +318,8 @@ The tracked automation now has one stable required gate, explicit permission and
 timeout/concurrency policies, semantic workflow validation, required CodeQL
 execution and dependency scanning, non-redundant static work, a support-aligned
 platform matrix, and documented supplemental/settings-owned boundaries. After a
-hosted pull request validates the new reusable and aggregate paths and this
-table is updated with those results, Audit 6/9 can close. Release authority
-remains explicitly open for Audit 7/9 rather than being hidden by this
-completion claim.
+hosted pull request and the resulting `main` push validated the new reusable and
+aggregate paths, Audit 6/9 is complete. Release authority remains explicitly
+open for Audit 7/9, and CodeQL alert merge protection remains separately tracked
+in #177. Current-architecture external-fork validation remains separately
+tracked in #180 rather than being hidden by this completion claim.
