@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-07-15",
+  "policy": {
+    "releaseNotesRequiredAfter": "3.3.2",
+    "consumedTags": "immutable"
+  },
+  "releases": [
+    {
+      "version": "3.3.0",
+      "tag": "v3.3.0",
+      "classification": "published-partial-legacy-empty-notes",
+      "releaseNotesState": "legacy-empty",
+      "tagObjectSha": "b9647a366c076c6e5d5d6483eb9eff856f660d7a",
+      "commitSha": "a653c1d24a8d5fe920fdb285922c91c2ebd14d87",
+      "workflowRun": {
+        "id": 29191486951,
+        "conclusion": "failure",
+        "url": "https://github.com/RoryGlenn/commitment-issues/actions/runs/29191486951"
+      },
+      "npm": {
+        "state": "published",
+        "url": "https://www.npmjs.com/package/commitment-issues/v/3.3.0"
+      },
+      "githubRelease": {
+        "state": "published-partial",
+        "id": 352739498,
+        "immutable": true,
+        "title": "v3.3.0",
+        "notes": "empty",
+        "assets": "empty",
+        "url": "https://github.com/RoryGlenn/commitment-issues/releases/tag/v3.3.0"
+      },
+      "replacement": "3.3.2"
+    },
+    {
+      "version": "3.3.1",
+      "tag": "v3.3.1",
+      "classification": "consumed-tag-unpublished",
+      "releaseNotesState": "not-applicable",
+      "tagObjectSha": "93981768f8a1b9872fd36494b822b614a6338019",
+      "commitSha": "b37d060139717460c20ea0de87b38ca7e18d7d64",
+      "workflowRun": {
+        "id": 29193471004,
+        "conclusion": "startup_failure",
+        "url": "https://github.com/RoryGlenn/commitment-issues/actions/runs/29193471004"
+      },
+      "npm": {
+        "state": "absent",
+        "lookupUrl": "https://registry.npmjs.org/commitment-issues/3.3.1"
+      },
+      "githubRelease": {
+        "state": "absent",
+        "lookupUrl": "https://api.github.com/repos/RoryGlenn/commitment-issues/releases/tags/v3.3.1"
+      },
+      "replacement": "3.3.2"
+    },
+    {
+      "version": "3.3.2",
+      "tag": "v3.3.2",
+      "classification": "artifact-complete-legacy-empty-notes",
+      "releaseNotesState": "legacy-empty",
+      "tagObjectSha": "21eb70cee616ea47af7d6de412bf803a4fb14297",
+      "commitSha": "57ac737538af1d9d7da7e2c3415f1d7d39a5320d",
+      "workflowRun": {
+        "id": 29194551447,
+        "conclusion": "success",
+        "url": "https://github.com/RoryGlenn/commitment-issues/actions/runs/29194551447"
+      },
+      "npm": {
+        "state": "published",
+        "url": "https://www.npmjs.com/package/commitment-issues/v/3.3.2"
+      },
+      "githubRelease": {
+        "state": "published-complete",
+        "id": 352759537,
+        "immutable": true,
+        "title": "v3.3.2",
+        "notes": "empty",
+        "assets": "complete",
+        "url": "https://github.com/RoryGlenn/commitment-issues/releases/tag/v3.3.2"
+      },
+      "replacement": null
+    }
+  ]
+}

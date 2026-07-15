@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a release metadata gate that requires `package.json`, both root
+  lockfile version records, the exact tag, one dated changelog section, and its
+  reviewed notes to agree before publication. GitHub Releases now use the
+  validated `vX.Y.Z` title and extracted changelog body; recovery checks the
+  same metadata, while a machine-readable ledger preserves the immutable
+  v3.3.0–v3.3.2 exceptions without weakening future releases.
 - Added a shipped compatibility matrix for package managers, Node versions,
   operating systems, shells, Git clients, install modes, and explicit
   unsupported boundaries. Required lifecycle CI now covers pnpm 10, Yarn

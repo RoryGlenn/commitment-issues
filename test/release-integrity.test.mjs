@@ -43,13 +43,19 @@ function availableGit(args) {
 
 test("publish workflow verifies canonical mainline before dependency or release work", () => {
   const workflow = readText(".github/workflows/publish.yml");
-  const ancestryGate = workflow.indexOf(
+  const candidateJob = workflow.slice(
+    workflow.indexOf("\n  candidate:"),
+    workflow.indexOf("\n  publish:"),
+  );
+  const ancestryGate = candidateJob.indexOf(
     "- name: Verify release commit belongs to reviewed mainline",
   );
-  const setupNode = workflow.indexOf("uses: actions/setup-node@");
-  const install = workflow.indexOf("- run: npm ci");
-  const pack = workflow.indexOf("- name: Pack tarball");
-  const publish = workflow.indexOf("- name: Publish to npm");
+  const metadataGate = candidateJob.indexOf(
+    "- name: Validate release metadata and reviewed notes",
+  );
+  const setupNode = candidateJob.indexOf("uses: actions/setup-node@");
+  const install = candidateJob.indexOf("- run: npm ci");
+  const pack = candidateJob.indexOf("- name: Pack tarball");
 
   assert.match(
     workflow,
@@ -57,6 +63,7 @@ test("publish workflow verifies canonical mainline before dependency or release 
     "the tag checkout must fetch complete canonical history without retaining credentials",
   );
   assert.notEqual(ancestryGate, -1);
+  assert.notEqual(metadataGate, -1);
   assert.match(
     workflow,
     /- name: Verify release commit belongs to reviewed mainline\s+run: node tools\/verify-release-mainline\.mjs/,
@@ -64,10 +71,14 @@ test("publish workflow verifies canonical mainline before dependency or release 
   );
   assert.ok(
     setupNode < ancestryGate &&
-      ancestryGate < install &&
-      ancestryGate < pack &&
-      ancestryGate < publish,
-    "mainline authorization must run after Node setup but before dependency installation, packing, or publication",
+      ancestryGate < metadataGate &&
+      metadataGate < install &&
+      metadataGate < pack,
+    "mainline authorization and release metadata validation must run before dependency installation or packing",
+  );
+  assert.match(
+    candidateJob,
+    /name: Validate release metadata and reviewed notes\s+env:\s+RELEASE_TAG: \$\{\{ github\.ref_name \}\}\s+run: npm run release:validate -- --tag "\$RELEASE_TAG"/u,
   );
 });
 
@@ -134,6 +145,14 @@ test("release ancestry rule accepts reviewed mainline and rejects an off-main co
 
 test("publish workflow gates and publishes one immutable release", () => {
   const workflow = readText(".github/workflows/publish.yml");
+  const pullRequestTrigger = workflow.slice(
+    workflow.indexOf("  pull_request:"),
+    workflow.indexOf("  push:"),
+  );
+  const validateJob = workflow.slice(
+    workflow.indexOf("\n  validate:"),
+    workflow.indexOf("\n  candidate:"),
+  );
   const candidateJob = workflow.slice(
     workflow.indexOf("\n  candidate:"),
     workflow.indexOf("\n  publish:"),
@@ -144,6 +163,9 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
   const provenanceJob = workflow.slice(
     workflow.indexOf("\n  provenance:"),
+    workflow.indexOf("\n  publish-release:"),
+  );
+  const publishReleaseJob = workflow.slice(
     workflow.indexOf("\n  publish-release:"),
   );
   const testStep = workflow.indexOf("- run: npm test");
@@ -166,6 +188,9 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
   const finalRecoveryGate = workflow.indexOf(
     "- name: Revalidate release draft and assets",
+  );
+  const releaseNotesGate = workflow.indexOf(
+    "- name: Generate reviewed release notes",
   );
   const releaseStep = workflow.indexOf(
     "- name: Publish immutable release with all assets",
@@ -224,13 +249,30 @@ test("publish workflow gates and publishes one immutable release", () => {
     workflow,
     /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
   );
+  for (const releaseInput of [
+    ".github/workflows/publish.yml",
+    ".github/release-history.json",
+    "CHANGELOG.md",
+    "package.json",
+    "package-lock.json",
+    "tools/release-preflight.mjs",
+    "tools/release-recovery.mjs",
+    "tools/validate-release-metadata.mjs",
+  ]) {
+    assert.match(
+      pullRequestTrigger,
+      new RegExp(`- "${releaseInput.replaceAll(".", "\\.")}"`, "u"),
+      `${releaseInput} must trigger the non-publishing release validation job`,
+    );
+  }
+  assert.match(validateJob, /if: github\.event_name == 'pull_request'/u);
+  assert.match(validateJob, /permissions:\s+contents: read/u);
+  assert.match(validateJob, /uses: actions\/checkout@[0-9a-f]{40} # v7/u);
+  assert.match(validateJob, /persist-credentials: false/u);
+  assert.match(validateJob, /node-version: "24"/u);
   assert.match(
-    workflow,
-    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"\s+- "tools\/run-migration-lifecycle-test\.mjs"\s+- "tools\/release-recovery\.mjs"\s+- "tools\/verify-release-mainline\.mjs"/,
-  );
-  assert.match(
-    workflow,
-    /validate:[\s\S]*?if: github\.event_name == 'pull_request'[\s\S]*?Confirm release workflow validation/,
+    validateJob,
+    /name: Confirm release workflow validation\s+run: npm run release:validate/u,
   );
   assert.match(
     workflow,
@@ -283,10 +325,18 @@ test("publish workflow gates and publishes one immutable release", () => {
     /name:\s+\$\{\{ needs\.provenance\.outputs\.provenance-name \}\}/,
   );
   assert.match(workflow, /draft:\s+false/);
+  assert.match(
+    publishReleaseJob,
+    /uses: actions\/setup-node@[0-9a-f]{40} # v6[\s\S]*?node-version: "24"/u,
+    "the final recovery and note generator must run on the pinned release runtime",
+  );
+  assert.match(workflow, /name:\s+\$\{\{ github\.ref_name \}\}/u);
+  assert.match(workflow, /body_path:\s+release-notes\.md/u);
+  assert.doesNotMatch(workflow, /generate_release_notes:/u);
   assert.match(workflow, /overwrite_files:\s+false/);
   assert.match(
     workflow,
-    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
+    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?name: Generate reviewed release notes[\s\S]*?npm run release:validate -- --tag "\$RELEASE_TAG" --notes-file release-notes\.md[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
   );
   assert.match(
     workflow,
@@ -312,8 +362,10 @@ test("publish workflow gates and publishes one immutable release", () => {
     publishStep < provenanceDownload &&
       provenanceDownload < provenanceVerification &&
       provenanceVerification < finalRecoveryGate &&
+      finalRecoveryGate < releaseNotesGate &&
+      releaseNotesGate < releaseStep &&
       finalRecoveryGate < releaseStep,
-    "npm publication, provenance generation, cryptographic verification, and final state classification must finish before one release action uploads both assets",
+    "npm publication, provenance verification, state classification, and reviewed release-note generation must finish before one release action publishes the assets",
   );
   assert.doesNotMatch(
     workflow,
@@ -370,6 +422,10 @@ test("required npm CI lifecycle lanes consume an explicitly prebuilt tarball", (
 
 test("manual exact-tarball publishing tests the artifact it publishes", () => {
   const guide = readText(".github/skills/release-and-publish/SKILL.md");
+  const packageJson = JSON.parse(readText("package.json"));
+  const metadataGate = guide.indexOf(
+    'npm run release:validate -- --tag "v$VERSION"',
+  );
   const lifecycleGate = guide.indexOf(
     'npm run test:lifecycle:npm -- --tarball "$tarball"',
   );
@@ -383,11 +439,19 @@ test("manual exact-tarball publishing tests the artifact it publishes", () => {
     /Publishing a tarball does not run this root package's `prepublishOnly`/,
   );
   assert.notEqual(lifecycleGate, -1);
+  assert.notEqual(metadataGate, -1);
   assert.notEqual(packCommand, -1);
   assert.notEqual(publishCommand, -1);
   assert.ok(
-    packCommand < lifecycleGate && lifecycleGate < publishCommand,
-    "manual publication must lifecycle-test the exact tarball it publishes",
+    metadataGate < packCommand &&
+      packCommand < lifecycleGate &&
+      lifecycleGate < publishCommand,
+    "manual publication must validate metadata and lifecycle-test the exact tarball it publishes",
+  );
+  assert.match(
+    packageJson.scripts.prepublishOnly,
+    /^npm run release:validate && npm test && npm run test:lifecycle:npm$/u,
+    "a direct root publish must validate metadata before its other safety gates",
   );
 });
 

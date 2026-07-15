@@ -9,14 +9,31 @@ Official releases use unique semantic version identifiers, such as `3.3.2`.
 Release identifiers appear in:
 
 - the npm package version;
-- GitHub releases and version tags when used;
-- `CHANGELOG.md` release entries.
+- both root version records in `package-lock.json`;
+- the immutable `vX.Y.Z` Git tag and GitHub Release title; and
+- exactly one dated `CHANGELOG.md` release entry.
 
 ## Release notes
 
-Each official release should describe functional changes and security-relevant changes in `CHANGELOG.md` and/or GitHub release notes.
+For releases after v3.3.2, the workflow extracts the body beneath the matching
+dated `CHANGELOG.md` heading and publishes it verbatim as a non-empty GitHub
+Release body. `CHANGELOG.md` is the reviewed source; the Release is not a
+separately maintained copy.
 
-Security fixes should be clearly identified when disclosure timing permits.
+Before the release PR merges, a human must choose the correct semantic-version
+impact and confirm that the extracted notes accurately describe functional,
+breaking, and security-relevant changes when disclosure timing permits. The
+validator catches structural drift but cannot judge editorial completeness:
+
+```bash
+npm run release:validate -- --tag vX.Y.Z
+```
+
+Historical irregularities are preserved in the machine-readable
+`.github/release-history.json` ledger. It is not a prospective exception
+mechanism: v3.3.0 and v3.3.2 have immutable Releases with legacy empty bodies,
+while v3.3.1 consumed a tag but intentionally has no npm package or GitHub
+Release. New releases must have exact reviewed notes.
 
 ## npm package provenance
 
@@ -151,9 +168,11 @@ Generated binaries or opaque release artifacts should not be committed to the re
 
 ## Validated release baseline
 
-v3.3.2 is the first release validated end to end against the current invariant:
+v3.3.2 is the first release validated end to end against the artifact invariant:
 the npm and GitHub tarballs are byte-identical, the SLSA subject names that
-SHA-256, and independent `slsa-verifier` and npm signature checks pass.
+SHA-256, and independent `slsa-verifier` and npm signature checks pass. Its
+immutable GitHub Release body is empty, so it is also the final documented
+release-note exception before the prospective metadata gate.
 
 Earlier fix-forward history remains immutable and should not be mistaken for
 that baseline: v3.3.0 reached npm but its GitHub Release could not accept the
@@ -166,23 +185,26 @@ fixed forward with pre-merge workflow validation.
 A release crosses separate external boundaries. Classify all of them before
 retrying a failed workflow:
 
-| State                                        | Required evidence                                                                                                                                                                                                   | Decision                                                                                                                                                                          |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before npm                                   | The run is for the expected tag and commit; the exact npm version and every GitHub Release state, including drafts, are absent.                                                                                     | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise use a new patch.                                                |
-| After npm, before a published GitHub Release | The npm tarball, npm provenance, `latest`, tag, source commit, workflow run, and rebuilt or retained tarball bytes match; any GitHub Release is still an unpublished draft containing no assets or an exact subset. | Prefer rerunning failed jobs. A full rerun additionally requires that the tagged workflow needs no edits and any draft does not already contain provenance from the original run. |
-| Complete                                     | npm and an immutable GitHub Release contain the same tarball and matching provenance for the expected tag and commit.                                                                                               | No action; verification is idempotent.                                                                                                                                            |
-| Inconsistent                                 | A service cannot be checked, source or digest differs, an unexpected asset exists, or a published release is empty or partial.                                                                                      | Fail closed, preserve the tag and public artifacts, record the incident, and release a new patch.                                                                                 |
+| State                                        | Required evidence                                                                                                                                                                                                                               | Decision                                                                                                                                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before npm                                   | The run is for the expected tag and commit; the exact npm version and every GitHub Release state, including drafts, are absent.                                                                                                                 | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise use a new patch.                                                |
+| After npm, before a published GitHub Release | The npm tarball, npm provenance, `latest`, tag, source commit, workflow run, and rebuilt or retained tarball bytes match; any GitHub Release is still an unpublished draft with the exact reviewed title/body and no assets or an exact subset. | Prefer rerunning failed jobs. A full rerun additionally requires that the tagged workflow needs no edits and any draft does not already contain provenance from the original run. |
+| Complete                                     | npm and an immutable GitHub Release contain the same tarball and matching provenance for the expected tag and commit, plus the exact validated title and reviewed changelog body.                                                               | No action; verification is idempotent.                                                                                                                                            |
+| Inconsistent                                 | A service cannot be checked, source or digest differs, an unexpected asset exists, or a published release is empty or partial outside the fixed historical ledger.                                                                              | Fail closed, preserve the tag and public artifacts, record the incident, and release a new patch.                                                                                 |
 
 The final release job cryptographically verifies the local SLSA bundle before
-it inspects or publishes a draft. Every existing draft asset must be
-byte-identical to the corresponding locally verified artifact. An empty draft
-or exact tarball-only subset may survive an exact full rerun. If a draft already
-contains provenance, only a failed-job rerun retaining the original provenance
-artifact can match those signed bytes; a full rerun must stop and use a new
-patch. A draft with a mismatched asset cannot be overwritten as routine
-recovery. Once a release is published, its tag and assets are immutable in this
-repository. A published empty or partial release therefore cannot be completed
-later.
+it inspects or publishes a draft. A draft's title and body must already match
+the validated tag and reviewed changelog section, and every existing draft
+asset must be byte-identical to the corresponding locally verified artifact.
+An exact empty-asset or tarball-only subset may survive an exact full rerun. If
+a draft already contains provenance, only a failed-job rerun retaining the
+original provenance artifact can match those signed bytes; a full rerun must
+stop and use a new patch. A draft with mismatched metadata or assets cannot be
+overwritten as routine recovery. Once a release is published, its tag and
+assets are immutable in this repository. A published empty or partial release
+therefore cannot be completed later. Only the already-observed v3.3.0 and
+v3.3.2 Releases may retain an empty body; the validator fixes that boundary in
+`.github/release-history.json`, so no prospective release can claim it.
 
 For a candidate retry, verify that the workflow event is a tag push, the run's
 head SHA equals the tag's peeled commit, and npm provenance names
@@ -246,10 +268,13 @@ Before creating a version commit or tag, maintainers run:
 
 ```bash
 npm run release:preflight -- <version>
+npm run release:validate -- --tag v<version>
 ```
 
 The preflight fails if the local or remote Git tag, GitHub Release, or npm
-package version already exists. The only deletion exception is a tag proven
+package version already exists. The metadata validator requires the package,
+both lockfile root records, proposed tag, one dated changelog heading, and its
+non-empty reviewed notes to agree. The only deletion exception is a tag proven
 unconsumed: no workflow observed it and no public GitHub or npm artifact exists.
 Once any public system has consumed the tag, preserve it permanently. Only the
 exact matching downstream recovery described above may continue that release;

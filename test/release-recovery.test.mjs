@@ -20,18 +20,25 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const VERSION = "4.5.6";
-const TAG = `v${VERSION}`;
 const COMMIT = "a".repeat(40);
 const REPOSITORY = "RoryGlenn/commitment-issues";
 const TARBALL = Buffer.from("the exact packed release artifact\n");
+const RELEASE_NOTES = "### Fixed\n\n- Exact reviewed release notes.";
 
-function expected() {
+function expected({
+  version = VERSION,
+  allowEmptyPublishedReleaseNotes = false,
+} = {}) {
+  const tag = `v${version}`;
   return expectedRelease({
-    version: VERSION,
-    tag: TAG,
+    version,
+    tag,
     commit: COMMIT,
     repository: REPOSITORY,
     tarballBytes: TARBALL,
+    releaseTitle: tag,
+    releaseNotes: RELEASE_NOTES,
+    allowEmptyPublishedReleaseNotes,
   });
 }
 
@@ -151,11 +158,19 @@ function asset(name, bytes) {
 
 function githubRelease(
   release,
-  { draft = false, assets = [], immutable = !draft } = {},
+  {
+    draft = false,
+    assets = [],
+    immutable = !draft,
+    name = release.releaseTitle,
+    body = release.releaseNotes,
+  } = {},
 ) {
   return {
     id: 123,
     tag_name: release.tag,
+    name,
+    body,
     draft,
     prerelease: false,
     immutable,
@@ -208,6 +223,93 @@ test("allows only empty or exact subsets on a mutable draft", () => {
       RELEASE_STATES.AFTER_NPM,
     );
   }
+});
+
+test("release title and reviewed body must match before recovery succeeds", () => {
+  const release = expected();
+  const npm = npmObservation(release);
+  const provenance = githubProvenance(release);
+  const assets = [
+    asset(release.tarballName, TARBALL),
+    asset(release.provenanceName, provenance),
+  ];
+
+  assert.throws(
+    () =>
+      classifyReleaseState({
+        expected: release,
+        npm,
+        releases: [githubRelease(release, { assets, name: "Release 4.5.6" })],
+      }),
+    /title must exactly match v4\.5\.6/u,
+  );
+  for (const body of ["", "Different notes."]) {
+    assert.throws(
+      () =>
+        classifyReleaseState({
+          expected: release,
+          npm,
+          releases: [githubRelease(release, { assets, body })],
+        }),
+      /body does not match the reviewed CHANGELOG\.md release notes/u,
+    );
+  }
+
+  assert.equal(
+    classifyReleaseState({
+      expected: release,
+      npm,
+      releases: [
+        githubRelease(release, {
+          assets,
+          body: `${RELEASE_NOTES.replaceAll("\n", "\r\n")}\r\n`,
+        }),
+      ],
+    }),
+    RELEASE_STATES.COMPLETE,
+    "GitHub newline normalization must not create false metadata drift",
+  );
+});
+
+test("only an immutable historical release may retain a legacy empty body", () => {
+  const release = expected({
+    version: "3.3.2",
+    allowEmptyPublishedReleaseNotes: true,
+  });
+  const npm = npmObservation(release);
+  const provenance = githubProvenance(release);
+  const assets = [
+    asset(release.tarballName, TARBALL),
+    asset(release.provenanceName, provenance),
+  ];
+
+  assert.equal(
+    classifyReleaseState({
+      expected: release,
+      npm,
+      releases: [githubRelease(release, { assets, body: null })],
+    }),
+    RELEASE_STATES.COMPLETE,
+  );
+  assert.throws(
+    () =>
+      classifyReleaseState({
+        expected: release,
+        npm,
+        releases: [githubRelease(release, { assets, body: "", draft: true })],
+      }),
+    /body does not match/u,
+    "a mutable draft must receive the reviewed body before finalization",
+  );
+
+  assert.throws(
+    () =>
+      classifyReleaseState({
+        expected: expected({ allowEmptyPublishedReleaseNotes: true }),
+      }),
+    /reviewed notes identity is invalid/u,
+    "a prospective version cannot opt itself into the historical exception",
+  );
 });
 
 test("fails closed on npm artifact and source mismatches", () => {
@@ -515,6 +617,9 @@ test("inspects npm bytes and authenticated GitHub drafts through mocked APIs", a
       repository: release.repository,
       githubToken: "read-only-test-token",
       tarballBytes: TARBALL,
+      releaseTitle: release.releaseTitle,
+      releaseNotes: release.releaseNotes,
+      allowEmptyPublishedReleaseNotes: release.allowEmptyPublishedReleaseNotes,
     },
     { request },
   );
