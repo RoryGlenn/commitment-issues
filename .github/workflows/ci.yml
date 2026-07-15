@@ -203,6 +203,26 @@ jobs:
         if: matrix.pm == 'bun'
         run: npm run test:lifecycle:bun
 
+  migration-lifecycle:
+    name: Ubuntu / Node 24 / npm migration lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Upgrade from supported historical package boundaries
+        run: node tools/run-migration-lifecycle-test.mjs npm
+
   codeql:
     name: CodeQL
     permissions:
@@ -216,7 +236,7 @@ jobs:
   ci-success:
     name: CI Success
     if: always()
-    needs: [dco, quality, check, pm-lifecycle, codeql]
+    needs: [dco, quality, check, pm-lifecycle, migration-lifecycle, codeql]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -227,6 +247,7 @@ jobs:
             needs.quality.result != 'success' ||
             needs.check.result != 'success' ||
             needs['pm-lifecycle'].result != 'success' ||
+            needs['migration-lifecycle'].result != 'success' ||
             needs.codeql.result != 'success'
           }}
         run: |

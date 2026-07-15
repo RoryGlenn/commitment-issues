@@ -15,10 +15,11 @@ links its results to #134. In particular, this checkout cannot turn configured
 macOS/Windows lanes for pnpm, Yarn, and Bun into observed hosted evidence.
 
 No Critical or High finding remains. Eight concrete Medium findings and three
-Low findings were fixed. Upgrade/downgrade testing, Yarn Berry,
-additional shells, and GUI Git clients remain explicitly unclaimed and retain
-their existing issue owners rather than being treated as supported by
-association.
+Low findings were fixed. A later release audit added pinned cross-version
+upgrade evidence; automatic in-place downgrade remains explicitly unsupported
+with a documented manual rollback. Yarn Berry, additional shells, and GUI Git
+clients remain unclaimed and retain their existing issue owners rather than
+being treated as supported by association.
 
 ## Scope inventory
 
@@ -89,18 +90,19 @@ tarball produced by `npm pack`; an install command alone does not count as a
 pass. The harness uses the manager's local-only execution surface and strips
 the outer npm user agent so manager detection is not accidentally faked.
 
-| Scenario                                    | Evidence or narrowed boundary                                                                                                                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Packed local install                        | Installs the exact tarball plus peer tools at a workspace root and launches the installed CLI                                                                                              |
-| Manager-native execution                    | `npx --no-install`, `pnpm exec`, `yarn run`, or `bunx --no-install`; no download can hide a missing bin                                                                                    |
-| Real hooks                                  | Performs checked commits and a push from nested workspaces; requires distinct pre-commit, commit-msg, and pre-push output from those Git operations                                        |
-| Existing project scripts and hooks          | Packed harness composes an existing `prepare` and preserves workspace scripts; focused real-repository `init`, `doctor`, and `uninstall` tests prove foreign/custom hooks remain untouched |
-| Repeated setup                              | Runs `init` twice and checks idempotent project metadata and hooks                                                                                                                         |
-| Fresh-clone reinstall                       | Confirms the consumer-owned composed `prepare` recreates clone-local hooks                                                                                                                 |
-| Lifecycle scripts disabled                  | `--ignore-scripts` leaves hooks absent while the local CLI works; explicit `doctor` and a later normal install both repair them                                                            |
-| Workspaces and lockfiles                    | Uses root and nested packages, manager-specific root flags, manager workspace scripts, and the manager's lockfile                                                                          |
-| Uninstall                                   | Previews and performs product cleanup, then removes the dependency with the selected manager, verifies the bin is gone, and keeps the lockfile                                             |
-| Upgrade/downgrade across published versions | Not supported by this matrix; registry upgrade/downgrade evidence remains in [#96](https://github.com/RoryGlenn/commitment-issues/issues/96)                                               |
+| Scenario                                   | Evidence or narrowed boundary                                                                                                                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Packed local install                       | Installs the exact tarball plus peer tools at a workspace root and launches the installed CLI                                                                                              |
+| Manager-native execution                   | `npx --no-install`, `pnpm exec`, `yarn run`, or `bunx --no-install`; no download can hide a missing bin                                                                                    |
+| Real hooks                                 | Performs checked commits and a push from nested workspaces; requires distinct pre-commit, commit-msg, and pre-push output from those Git operations                                        |
+| Existing project scripts and hooks         | Packed harness composes an existing `prepare` and preserves workspace scripts; focused real-repository `init`, `doctor`, and `uninstall` tests prove foreign/custom hooks remain untouched |
+| Repeated setup                             | Runs `init` twice and checks idempotent project metadata and hooks                                                                                                                         |
+| Fresh-clone reinstall                      | Confirms the consumer-owned composed `prepare` recreates clone-local hooks                                                                                                                 |
+| Lifecycle scripts disabled                 | `--ignore-scripts` leaves hooks absent while the local CLI works; explicit `doctor` and a later normal install both repair them                                                            |
+| Workspaces and lockfiles                   | Uses root and nested packages, manager-specific root flags, manager workspace scripts, and the manager's lockfile                                                                          |
+| Uninstall                                  | Previews and performs product cleanup, then removes the dependency with the selected manager, verifies the bin is gone, and keeps the lockfile                                             |
+| Forward upgrades across published versions | Immutable v2.5.1, v3.2.0, and v3.3.2 fixtures gate npm on Ubuntu/Node 24; publish reuses its exact tarball and weekly health extends coverage to pnpm, Yarn, and Bun                       |
+| In-place downgrade                         | Unsupported; the manual path runs current `uninstall`, restores a pinned target manifest/lockfile and peers, then runs the target `init` and `doctor`                                      |
 
 The package itself no longer declares `preinstall`, `install`, `postinstall`,
 or `prepare`, so adding it as a dependency does not execute package-owned
@@ -135,9 +137,10 @@ These are closure dispositions, not hidden follow-up work:
 - [#83](https://github.com/RoryGlenn/commitment-issues/issues/83) owns Fish,
   direct Command Prompt, VS Code, JetBrains, and GitHub Desktop-triggered Git
   evidence. They remain unverified.
-- [#96](https://github.com/RoryGlenn/commitment-issues/issues/96) owns registry
-  upgrade/downgrade and cross-version migration evidence. The supported matrix
-  currently promises same-version reinstall and repair only.
+- [#96](https://github.com/RoryGlenn/commitment-issues/issues/96) added pinned
+  forward-upgrade evidence for the Husky boundary, previous minor, and latest
+  published baseline. It deliberately did not turn automatic reverse migration
+  into a support claim; rollback uses cleanup and a pinned reinstall.
 - [#100](https://github.com/RoryGlenn/commitment-issues/issues/100) owns Yarn
   Berry `nodeLinker: node-modules`; Plug'n'Play remains unsupported.
 - [#175](https://github.com/RoryGlenn/commitment-issues/issues/175) owns turning
@@ -158,6 +161,10 @@ These are closure dispositions, not hidden follow-up work:
   scripts-disabled repair, workspace-aware hints, actual dependency removal,
   bin disappearance, lockfile preservation, repeated setup, and observable
   pre-commit/commit-msg/pre-push execution through real Git.
+- Added a separate cross-version lifecycle: npm/Ubuntu/Node 24 is required for
+  pull requests, the release workflow consumes its exact tarball, and weekly
+  health covers pnpm, Yarn Classic, and Bun without expanding the fresh-install
+  harness.
 - Added behavioral proof that generated hooks never execute a global fallback.
 - Added metadata gates for the peer/tool matrix, CI matrix, exact Bun support,
   the hook contract, dependency-install script absence, packed docs, and public

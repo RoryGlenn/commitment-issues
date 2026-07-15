@@ -368,6 +368,8 @@ production-readiness workstream #130 is consolidated in the
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
 - **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
+- **LIFE-007** — pinned immutable v2.5.1, v3.2.0, and v3.3.2 release fixtures upgrade to the candidate tarball, refresh or remove only exact generated state, preserve project-owned `prepare` logic and custom hooks, and execute the migrated hooks during a real commit and push. Required PR evidence: npm on Ubuntu/Node 24; release evidence: the exact publish tarball; scheduled evidence: pnpm, Yarn Classic, and Bun. Fixture: `test/integration/lifecycle-migration.test.mjs`.
+- **LIFE-008** — installing an older release over newer configured state is explicitly unsupported. The documented rollback runs the current version's `uninstall`, restores a lockfile and manifest with the pinned target and peers, installs, and runs the target version's `init` and `doctor`; custom state remains subject to manual review. Contract: [Downgrades and manual rollback](migration.md#downgrades-and-manual-rollback); ownership fixture: `test/uninstall.test.mjs`.
 
 ### Package managers
 
@@ -439,7 +441,6 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 
 ### Release and lifecycle
 
-- Registry-installed upgrade and downgrade behavior across published versions.
 - Corporate locked-down environment behavior.
 - Dedicated shell and GUI-client launch coverage tracked in
   [#83](https://github.com/RoryGlenn/commitment-issues/issues/83).
@@ -451,6 +452,5 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - Yarn Berry Plug'n'Play.
 - Custom no-hoist or non-`node_modules` workspace layouts outside the tested
   package-manager defaults.
-- Registry-installed upgrade/downgrade fixtures.
 - The cross-shell and Git-client matrix in #83, coordinated with the proposed
   v4 contract in #84.
