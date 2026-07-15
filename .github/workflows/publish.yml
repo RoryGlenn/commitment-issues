@@ -11,20 +11,32 @@ on:
 permissions:
   contents: read
 
+# Never cancel a publication after it may have crossed an external boundary.
+# Tag runs share GitHub's maximum pending queue so they cannot replace one
+# another before starting. Pull-request validation uses its own per-PR group.
+concurrency:
+  group: publish-${{ github.event_name == 'push' && 'package' || github.ref }}
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   # Loading this workflow on pull requests makes GitHub validate the complete
   # reusable-workflow permission contract before a release tag can consume it.
   validate:
+    name: Validate release workflow
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: Confirm release workflow validation
         run: echo "GitHub validated the release workflow and its reusable workflow contracts."
 
   publish:
+    name: Publish npm package
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write # npm trusted publishing (OIDC) + registry provenance
@@ -83,8 +95,10 @@ jobs:
 
       - name: Generate provenance subject
         id: hash
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
         run: |
-          hashes="$(sha256sum "${{ steps.pack.outputs.tarball }}" | base64 -w0)"
+          hashes="$(sha256sum "$TARBALL" | base64 -w0)"
           echo "hashes=$hashes" >> "$GITHUB_OUTPUT"
 
       - name: Upload tarball artifact
@@ -96,19 +110,22 @@ jobs:
           retention-days: 5
 
       - name: Publish to npm
-        run: npm publish "./${{ steps.pack.outputs.tarball }}" --access public
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "./$TARBALL" --access public
 
   # SLSA3 provenance for the packed tarball. The reusable workflow MUST be
   # referenced by a semantic version tag (never a SHA) per SLSA's design so it
   # can verify its own release; Dependabot keeps the tag current.
   provenance:
+    name: Generate SLSA provenance
     needs: [publish]
     permissions:
       actions: read # detect the workflow path for provenance
       id-token: write # sign the provenance
-      # The reusable workflow declares a nested contents:write upload job.
-      # GitHub validates that contract even though upload-assets is false.
-      contents: write
+      # GitHub validates the reusable workflow's declared permission even though
+      # upload-assets is false.
+      contents: write # satisfy the nested provenance upload-job contract
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.publish.outputs.hashes }}
@@ -117,8 +134,10 @@ jobs:
       upload-assets: false
 
   publish-release:
+    name: Publish immutable GitHub Release
     needs: [publish, provenance]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write # create the release and attach both immutable assets
     steps:

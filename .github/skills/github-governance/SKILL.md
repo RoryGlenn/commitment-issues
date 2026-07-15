@@ -44,21 +44,28 @@ the normal path cannot safely be used.
 
 ## The single required check: `CI Success`
 
-- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [dco, check, pm-lifecycle]`, `if: always()`, and it exits non-zero unless every needed job reports `success`. This fail-closed check also rejects skipped or otherwise incomplete required jobs.
+- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [dco, quality, check, pm-lifecycle, codeql]`, `if: always()`, and it exits non-zero unless every needed job reports `success`. This fail-closed check also rejects skipped or otherwise incomplete required jobs.
 - Requiring this **one** context keeps the required-checks list stable even as the test matrix changes. So: add/remove matrix legs freely, but do **not** rename the `CI Success` job (or add a new required job) without updating ruleset `18531369` to match.
 - `dco` checks every pull-request commit and every commit on `main` after the
-  prospective baseline `81a9e412bc347f01300df62505ee378284646d15`.
+  operational baseline `265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5`.
   [`tools/check-dco-range.mjs`](../../../tools/check-dco-range.mjs) is the
   shared checker. Pull requests use the true merge base so fork PRs and
   branches behind the latest `main` tip audit only their unique commits;
   `main` pushes and manual audits require the immutable baseline to remain an
-  ancestor. The focused DCO workflow provides an additional visible report.
-  Never advance the baseline to silence a failure.
-- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running `lint`, `format:check`, `test`, and npm lifecycle integration. Runtime branch coverage is gated on ubuntu for both Node lines; Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
+  ancestor. The required CI job is the single DCO workflow owner; do not add a
+  duplicate report. Never advance the baseline to silence a failure.
+- The single-lane `quality` job runs actionlint 1.7.12 from a checksum-verified release archive, rejects high-severity dependency advisories, and runs lint plus formatting on Ubuntu/Node 24.
+- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running the test suite once per lane and npm lifecycle integration. Ubuntu's two coverage gates own the test-suite execution there rather than rerunning it first without coverage. Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
+- The `codeql` job calls the scheduled/manual CodeQL workflow as a reusable
+  workflow. `CI Success` therefore blocks merges on analysis failures without
+  adding a second required status context to the live ruleset. The live ruleset
+  does not enable code-scanning alert merge protection, so a completed scan can
+  still succeed while reporting a new alert; reviewers must inspect that
+  supplemental signal.
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 
-- Weekly (Monday), two ecosystems: `npm` (dir `/`) and `github-actions`. `open-pull-requests-limit: 5` each; `dependencies` label (actions PRs also get `ci`).
+- Weekly (Monday), two ecosystems: `npm` (dir `/`) and `github-actions`. Routine releases have a seven-day cooldown; security updates bypass it. `open-pull-requests-limit: 5` each; `dependencies` label (actions PRs also get `ci`).
 - Grouping: `dev-minor-and-patch` and `prod-minor-and-patch` batch low-risk npm bumps; `github-actions` batches all action bumps (`patterns: ["*"]`).
 - **Major** version bumps are intentionally **not** grouped → they arrive as **individual** PRs. Some (e.g. `eslint` 9→10, `@eslint/js` 9→10) are **expected to fail CI** because they're breaking — the `CI Success` gate correctly blocks them. That's the system working, not a bug to force-merge. Handle the breaking change (or close the PR), don't bypass the gate.
 

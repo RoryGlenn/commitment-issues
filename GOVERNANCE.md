@@ -91,10 +91,10 @@ operational baseline must carry a valid `Signed-off-by` trailer, including
 commits that reach `main` through an authorized bypass.
 
 The DCO job inside `CI Success` checks pull-request commits and audits all
-commits on `main` after the operational baseline. The focused DCO workflow
-provides a second, visible report. The operational baseline must not be
-advanced again to hide a failure; any future exception requires its own public
-governance record.
+commits on `main` after the operational baseline. It is the single workflow
+owner for DCO enforcement; a second identical report would add no evidence. The
+operational baseline must not be advanced again to hide a failure; any future
+exception requires its own public governance record.
 Before a squash merge, the merger must ensure the generated commit message
 retains a valid sign-off; checking signed head commits cannot predict the final
 server-generated squash message.

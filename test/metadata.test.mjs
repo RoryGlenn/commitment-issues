@@ -291,7 +291,7 @@ test("Scorecard SARIF runs only for default-branch events", () => {
   assert.match(workflow, /^\s+branches:\s*\[main\]\s*$/m);
   assert.doesNotMatch(workflow, /^\s*pull_request:\s*$/m);
   assert.doesNotMatch(workflow, /github\.event\.pull_request/);
-  assert.match(workflow, /^\s+security-events:\s+write\s*$/m);
+  assert.match(workflow, /^\s+security-events:\s+write(?:\s+#.*)?\s*$/m);
   assert.match(
     workflow,
     /github\/codeql-action\/upload-sarif@[0-9a-f]{40}\s+# v\d+\.\d+\.\d+/,
@@ -438,30 +438,21 @@ test("all supported precommitChecks keys appear on canonical reference surfaces"
 
 test("CI Success includes DCO and both DCO baselines stay documented", () => {
   const ci = readText(".github/workflows/ci.yml");
-  const dco = readText(".github/workflows/dco.yml");
   const governance = readText("GOVERNANCE.md");
   const roles = readText("docs/project-roles.md");
 
-  assert.match(ci, /needs: \[dco, check, pm-lifecycle\]/);
+  assert.match(ci, /needs: \[dco, quality, check, pm-lifecycle, codeql\]/);
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
-  assert.match(dco, /push:\s*\n\s+branches: \[main\]/);
-  assert.match(dco, /node tools\/check-dco-range\.mjs/);
-  for (const [file, workflow] of [
-    [".github/workflows/ci.yml", ci],
-    [".github/workflows/dco.yml", dco],
-  ]) {
-    assert.match(workflow, /fetch-depth: 0/);
-    assert.match(workflow, /GITHUB_EVENT_NAME.*pull_request/);
-    assert.match(workflow, /check-dco-range\.mjs --merge-base/);
-    assert.doesNotMatch(
-      workflow,
-      /ref:.*github\.event\.pull_request\.head\.sha/,
-      `${file} should keep the default merge-ref checkout for fork PR history`,
-    );
-  }
+  assert.match(ci, /fetch-depth: 0/);
+  assert.match(ci, /GITHUB_EVENT_NAME.*pull_request/);
+  assert.match(ci, /check-dco-range\.mjs --merge-base/);
+  assert.doesNotMatch(
+    ci,
+    /ref:.*github\.event\.pull_request\.head\.sha/,
+    "CI should keep the default merge-ref checkout for fork PR history",
+  );
   for (const [file, text] of [
     [".github/workflows/ci.yml", ci],
-    [".github/workflows/dco.yml", dco],
     ["GOVERNANCE.md", governance],
     ["docs/project-roles.md", roles],
   ]) {

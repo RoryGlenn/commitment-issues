@@ -44,23 +44,36 @@ residual risk, and release a fix when users may be affected.
 
 Dependabot checks npm dependencies and GitHub Actions each Monday in the
 `America/New_York` time zone. Low-risk minor and patch updates are grouped to
-reduce pull request noise; grouped updates still require normal review.
+reduce pull request noise; grouped updates still require normal review. Routine
+version releases must be at least seven days old before Dependabot proposes
+them. Security updates bypass that cooldown.
+
+The required CI `quality` job runs lint, formatting, actionlint 1.7.12, and
+`npm audit --audit-level=high` once on Ubuntu/Node 24. The actionlint archive is
+version-pinned and checksum-verified; it checks workflow syntax, expressions,
+action inputs, inline shell, and common injection hazards before `CI Success`
+can pass. Dependabot updates action references, but not this downloaded binary;
+update the actionlint version and its official Linux AMD64 checksum together
+during a deliberate automation-maintenance change. The exact `concurrency.queue`
+diagnostic is temporarily ignored because GitHub supports the property while
+actionlint 1.7.12's bundled schema does not; remove that suppression once the
+pinned validator understands `queue`.
 
 The weekly and manually dispatchable `Repository Health` workflow runs:
 
 ```sh
 npm ci
-npm run lint
-npm run format:check
 npm test
 npm run test:lifecycle:npm
-npm pack --dry-run
 npm audit --audit-level=high
 ```
 
-The audit step is report-first. For a high-severity advisory, review production
-reachability, whether the finding affects runtime or development tooling, and
-whether a safe update exists.
+The weekly run retains tests and the packed npm lifecycle to catch Node, runner,
+registry, and other time-dependent drift while avoiding duplicate static checks
+and package inspection. A high-severity advisory fails both required CI and the
+weekly workflow visibly. Review production reachability, whether the finding
+affects runtime or development tooling, and whether a safe update exists; do not
+silence the gate without a documented disposition.
 
 The workflow reports branches that have not changed in 90 days but does not
 delete them. Before deleting a branch, confirm that it has no open pull request
