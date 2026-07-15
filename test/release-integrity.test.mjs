@@ -14,6 +14,7 @@ import {
 } from "../tools/release-preflight.mjs";
 import {
   hasExactOutputLine,
+  hasSuppliedTarballDigest,
   shouldEnforcePosixPackageModes,
 } from "../scripts/lib/lifecycle-managers.mjs";
 
@@ -250,6 +251,12 @@ test("required npm CI lifecycle lanes consume an explicitly prebuilt tarball", (
     workflow.indexOf("\n  pm-lifecycle:"),
   );
   const wrapper = readText("tools/run-prebuilt-lifecycle-test.mjs");
+  const wrapperHash = wrapper.indexOf(
+    "const expectedTarballHash = sha256(tarball)",
+  );
+  const wrapperLifecycle = wrapper.indexOf(
+    "const lifecycle = run(process.execPath",
+  );
 
   assert.match(
     checkJob,
@@ -264,7 +271,23 @@ test("required npm CI lifecycle lanes consume an explicitly prebuilt tarball", (
     wrapper,
     /run\(process\.execPath, \[\s*"scripts\/run-lifecycle-test\.mjs",\s*"npm",\s*"--tarball",\s*tarball,/,
   );
-  assert.match(wrapper, /\[lifecycle smoke\] supplied tarball:/);
+  assert.match(wrapper, /const expectedTarballHash = sha256\(tarball\)/);
+  assert.match(
+    wrapper,
+    /hasSuppliedTarballDigest\(lifecycle\.stdout, expectedTarballHash\)/,
+    "the wrapper should confirm supplied bytes without matching a platform-rendered path",
+  );
+  assert.ok(
+    wrapperHash !== -1 &&
+      wrapperLifecycle !== -1 &&
+      wrapperHash < wrapperLifecycle,
+    "the wrapper must hash its tarball before launching the lifecycle",
+  );
+  assert.doesNotMatch(
+    wrapper,
+    /includes\(`\[lifecycle smoke\] supplied tarball: \$\{tarball\}`\)/,
+    "TAP escapes Windows path separators differently across Node versions",
+  );
 });
 
 test("manual exact-tarball publishing tests the artifact it publishes", () => {
@@ -302,6 +325,10 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
     smoke.indexOf("function assertInstalledCli"),
     smoke.indexOf("function assertFileContains"),
   );
+  const digestMarker = smoke.slice(
+    smoke.indexOf("const initialTarballHash"),
+    smoke.indexOf("const packedMetadata"),
+  );
 
   assert.match(runner, /--tarball/);
   assert.match(runner, /COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
@@ -332,6 +359,11 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
   );
   assert.match(smoke, /delete env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
   assert.match(
+    digestMarker,
+    /if \(suppliedTarball\) \{[\s\S]*?SUPPLIED_TARBALL_DIGEST_PREFIX[\s\S]*?initialTarballHash/,
+    "only a supplied artifact should emit its initial digest handshake",
+  );
+  assert.match(
     smoke,
     /let tarball = suppliedTarball;\s+if \(tarball\) \{[\s\S]*?supplied tarball:[\s\S]*?\} else \{[\s\S]*?run\("npm", \["pack", "--pack-destination", packDir\], root\)/,
     "a supplied tarball must bypass the branch that creates a disposable package",
@@ -359,6 +391,27 @@ test("lifecycle artifact helpers preserve exact output and platform boundaries",
   assert.equal(shouldEnforcePosixPackageModes("linux"), true);
   assert.equal(shouldEnforcePosixPackageModes("darwin"), true);
   assert.equal(shouldEnforcePosixPackageModes("win32"), false);
+
+  const digest = "0123456789abcdef".repeat(4);
+  const marker = `[lifecycle smoke] supplied tarball sha256: ${digest}`;
+  assert.equal(
+    hasSuppliedTarballDigest(
+      `# [lifecycle smoke] supplied tarball: C:\\\\Temp\\\\package.tgz\r\n# ${marker}\r\n`,
+      digest,
+    ),
+    true,
+    "TAP prefixes and escaped Windows diagnostic paths must not affect byte identity",
+  );
+  assert.equal(
+    hasSuppliedTarballDigest(`# ${marker}0\n`, digest),
+    false,
+    "a digest suffix must not be accepted as an exact marker",
+  );
+  assert.equal(
+    hasSuppliedTarballDigest(`# ${marker}\n`, `${digest.slice(0, -1)}0`),
+    false,
+    "the marker must contain the expected digest",
+  );
 });
 
 test("lifecycle launcher rejects malformed tarball arguments before integration", (t) => {

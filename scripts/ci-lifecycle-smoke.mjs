@@ -10,6 +10,7 @@ import crossSpawn from "cross-spawn";
 import {
   hasExactOutputLine,
   shouldEnforcePosixPackageModes,
+  SUPPLIED_TARBALL_DIGEST_PREFIX,
 } from "./lib/lifecycle-managers.mjs";
 
 const root = process.cwd();
@@ -729,6 +730,9 @@ try {
     throw new Error("npm pack did not produce a tarball");
   }
   const initialTarballHash = sha256(tarball);
+  if (suppliedTarball) {
+    console.log(`${SUPPLIED_TARBALL_DIGEST_PREFIX} ${initialTarballHash}\n`);
+  }
   const packedMetadata = inspectPackedTarball(tarball);
 
   run("git", ["init"], smokeDir);

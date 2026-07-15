@@ -2,11 +2,13 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crossSpawn from "cross-spawn";
+import { hasSuppliedTarballDigest } from "../scripts/lib/lifecycle-managers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tempDir = fs.mkdtempSync(
@@ -21,6 +23,10 @@ function run(command, args, options = {}) {
   });
   if (result.error) throw result.error;
   return result;
+}
+
+function sha256(filePath) {
+  return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
 try {
@@ -38,6 +44,7 @@ try {
     );
   }
   const tarball = fs.realpathSync.native(path.join(tempDir, tarballs[0]));
+  const expectedTarballHash = sha256(tarball);
   const lifecycle = run(process.execPath, [
     "scripts/run-lifecycle-test.mjs",
     "npm",
@@ -52,11 +59,9 @@ try {
       `prebuilt lifecycle integration failed with exit ${lifecycle.status}`,
     );
   }
-  if (
-    !lifecycle.stdout.includes(`[lifecycle smoke] supplied tarball: ${tarball}`)
-  ) {
+  if (!hasSuppliedTarballDigest(lifecycle.stdout, expectedTarballHash)) {
     throw new Error(
-      "lifecycle integration did not confirm that it consumed the supplied tarball",
+      "lifecycle integration did not confirm that it consumed the supplied tarball bytes",
     );
   }
 } finally {
