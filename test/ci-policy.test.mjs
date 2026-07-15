@@ -335,7 +335,11 @@ test("publish shell scripts receive generated names through the environment", ()
   );
   assert.match(
     workflow,
-    /name: Publish to npm\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/su,
+    /name: Classify release recovery state\s+id: recovery\s+env:[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"/su,
+  );
+  assert.match(
+    workflow,
+    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/su,
   );
   assert.doesNotMatch(
     workflow,

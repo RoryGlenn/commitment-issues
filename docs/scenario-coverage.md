@@ -81,6 +81,18 @@ production-readiness workstream #130 is consolidated in the
   release-capable work unless their commit is an ancestor of `origin/main`.
   Repository tag rules remain the external release-authority boundary.
   Unit/fixture: `test/release-integrity.test.mjs`; tracking: #94.
+- **PKG-015** — partial-publication recovery distinguishes `before-npm`,
+  `after-npm`, and `complete` states; inconsistent or unavailable evidence and
+  source/digest mismatches fail closed. Before-npm requires no GitHub draft or
+  release, and incomplete recovery requires `latest` to remain on the candidate.
+  The final job cryptographically verifies local SLSA provenance; every existing
+  draft asset must be byte-identical, so a draft containing provenance can
+  resume only through a failed-job rerun retaining the original bundle.
+  Published partial releases cannot resume. Registry metadata changes and
+  unpublish remain outside automation. Mocked unit: `test/release-recovery.test.mjs`;
+  workflow invariant:
+  `test/release-integrity.test.mjs`; classifier: `tools/release-recovery.mjs`;
+  tracking: #183.
 
 ### Path normalization
 
@@ -417,6 +429,11 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
   SLSA subject share one SHA-256; independent npm signature and
   `slsa-verifier` checks passed. See the
   [release-verification baseline](release-verification.md#validated-release-baseline).
+- **REL-002** — live history anchors the recovery states without creating a
+  test publication: v3.3.0 is an npm-published but immutable zero-asset GitHub
+  Release that cannot resume, v3.3.1 failed before npm but required a workflow
+  edit, and v3.3.2 is complete. Evidence:
+  [release audit](audits/release-packaging-and-upgrades.md#historical-release-and-tag-evidence).
 
 ## Not covered yet
 

@@ -161,11 +161,83 @@ later provenance upload, and v3.3.1 consumed a tag before GitHub rejected the
 reusable-workflow permission contract. Neither tag was moved or reused; v3.3.2
 fixed forward with pre-merge workflow validation.
 
+## Partial publication and recovery
+
+A release crosses separate external boundaries. Classify all of them before
+retrying a failed workflow:
+
+| State                                        | Required evidence                                                                                                                                                                                                   | Decision                                                                                                                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before npm                                   | The run is for the expected tag and commit; the exact npm version and every GitHub Release state, including drafts, are absent.                                                                                     | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise use a new patch.                                                |
+| After npm, before a published GitHub Release | The npm tarball, npm provenance, `latest`, tag, source commit, workflow run, and rebuilt or retained tarball bytes match; any GitHub Release is still an unpublished draft containing no assets or an exact subset. | Prefer rerunning failed jobs. A full rerun additionally requires that the tagged workflow needs no edits and any draft does not already contain provenance from the original run. |
+| Complete                                     | npm and an immutable GitHub Release contain the same tarball and matching provenance for the expected tag and commit.                                                                                               | No action; verification is idempotent.                                                                                                                                            |
+| Inconsistent                                 | A service cannot be checked, source or digest differs, an unexpected asset exists, or a published release is empty or partial.                                                                                      | Fail closed, preserve the tag and public artifacts, record the incident, and release a new patch.                                                                                 |
+
+The final release job cryptographically verifies the local SLSA bundle before
+it inspects or publishes a draft. Every existing draft asset must be
+byte-identical to the corresponding locally verified artifact. An empty draft
+or exact tarball-only subset may survive an exact full rerun. If a draft already
+contains provenance, only a failed-job rerun retaining the original provenance
+artifact can match those signed bytes; a full rerun must stop and use a new
+patch. A draft with a mismatched asset cannot be overwritten as routine
+recovery. Once a release is published, its tag and assets are immutable in this
+repository. A published empty or partial release therefore cannot be completed
+later.
+
+For a candidate retry, verify that the workflow event is a tag push, the run's
+head SHA equals the tag's peeled commit, and npm provenance names
+`RoryGlenn/commitment-issues`, `.github/workflows/publish.yml`, the exact tag,
+and that same commit. An npm `E404` means the version is absent; any other
+lookup failure is unknown state and must stop recovery.
+
+An incomplete or draft release may resume automatically only while npm's
+`dist-tags.latest` still equals the candidate version. If an owner rolled the
+pointer back or a newer release moved it forward, automatic resume must stop.
+Do not move `latest` merely to satisfy recovery; the owner must choose the
+incident disposition and publish a new patch for any later automated release.
+
+npm's `dist.integrity` and registry attestation subject use SHA-512. The
+workflow's generic SLSA subject uses SHA-256. To prove byte identity, download
+the exact npm tarball and calculate SHA-256 over those bytes before comparing
+it with the rebuilt or retained workflow tarball and the SLSA subject. Do not
+compare a SHA-512 integrity string directly with the workflow's SHA-256.
+
+When every source and digest check matches, maintainers should prefer:
+
+```bash
+gh run rerun "$RUN_ID" --failed
+```
+
+This leaves a successful npm job untouched. A full rerun may be used only when
+the tagged workflow itself needs no edit and its `tools/release-recovery.mjs`
+gate proves the rebuilt artifact is byte-identical to the existing npm version
+before treating publication as a no-op. `latest` must still equal the candidate,
+and a draft must not already contain provenance from the original run. Never
+invoke `npm publish` again for an existing exact version. If the original
+provenance bytes are required, use a failed-job rerun that retains them. If
+neither a retained artifact nor a byte-identical rebuild is available, the
+rebuild differs, or a workflow change is required, use a new patch version.
+
+npm dist-tags are moving convenience pointers, not release identities. If an
+incomplete version became `latest`, an npm owner may explicitly restore
+`latest` to an independently verified complete version and deprecate the
+incomplete exact version with a replacement message. Those registry mutations
+are manual incident actions; recovery automation must not perform them. Never
+use `npm unpublish`: removal is destructive and does not make the version
+reusable.
+
+The historical states demonstrate each fail-closed path. v3.3.0 has npm
+provenance but a published immutable GitHub Release with no assets, so it is a
+published partial release and cannot resume. v3.3.1 has a consumed tag but no
+npm version or GitHub Release; its tagged workflow required a fix, so it could
+not be retried unchanged. v3.3.2 is the complete replacement.
+
 ## Immutable release tags
 
 A `vX.Y.Z` tag must never be moved or reused once it is pushed or consumed by a
-release workflow. If publishing fails after a tag is pushed, fix forward with a
-new patch version and a new tag.
+release workflow. An exact retry resumes work attached to that same immutable
+identity; it does not move or reuse the tag. Any source, workflow, provenance,
+or digest change requires a new patch version and tag.
 
 The historical `v3.1.0` tag predates this prospective policy and remains an
 unchanged baseline exception. It must not be rewritten again.
@@ -179,8 +251,9 @@ npm run release:preflight -- <version>
 The preflight fails if the local or remote Git tag, GitHub Release, or npm
 package version already exists. The only deletion exception is a tag proven
 unconsumed: no workflow observed it and no public GitHub or npm artifact exists.
-Once any public system has consumed the tag, recovery is always a new patch
-version.
+Once any public system has consumed the tag, preserve it permanently. Only the
+exact matching downstream recovery described above may continue that release;
+all other recovery uses a new patch version.
 
 Changes to the release workflow trigger a non-publishing pull-request job. This
 forces GitHub to validate referenced reusable workflows and their permission

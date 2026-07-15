@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before hashing, uploading, and publishing it. The integration verifies the
   packed CLI bin, Node shebang, and reported version on every platform, plus
   normalized executable and non-executable modes on the POSIX release producer.
+- Failed releases now use a tested, fail-closed recovery classification instead
+  of blindly repeating publication. Exact same-source and same-byte runs may
+  resume unfinished downstream work only while `latest` still names the
+  candidate. The final job cryptographically verifies its local SLSA bundle;
+  existing draft assets must be byte-identical, and a draft already containing
+  provenance requires a failed-job rerun that retains the original bundle.
+  Mismatches and published partial releases require a new patch. npm dist-tag
+  changes and deprecation remain manual owner actions, and destructive
+  unpublish is never a recovery step.
 - Generated hooks now invoke only the project-local
   `node_modules/.bin/commitment-issues` entry. Missing local installs
   self-neutralize instead of falling through to a same-named global binary,

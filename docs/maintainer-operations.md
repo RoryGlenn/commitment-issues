@@ -118,6 +118,43 @@ user-documentation files are missing, internal evidence enters the tarball, or
 promotional media is included. Do not raise the limits merely to accommodate
 documentation or media growth.
 
+## Partial release incidents
+
+Do not rerun a failed tag workflow until the release state is known. Record the
+exact version, tag, peeled tag commit, workflow run ID and head SHA, job
+conclusions, npm version/provenance/dist-tags, and GitHub Release draft,
+immutability, and asset state. A failed or malformed lookup is unknown state,
+not evidence that an artifact is absent.
+
+Use the state table and byte-verification procedure in the
+[release-verification guide](release-verification.md#partial-publication-and-recovery):
+
+- Before npm, the same tagged run may be retried only when the exact npm version
+  is absent, no GitHub draft or release exists, the failure is transient, and
+  neither its source nor workflow needs an edit.
+- After npm, an exact artifact may resume only when the tag, run, npm
+  provenance, source commit, rebuilt or retained tarball bytes, and npm
+  `dist-tags.latest` all name the same candidate. A moved, rolled-back, or newer
+  `latest` blocks automatic resume and requires an owner decision and new patch.
+  Prefer rerunning failed jobs so the successful npm job remains untouched.
+- The final release job cryptographically verifies its local SLSA bundle.
+  Existing draft assets must be byte-identical to those locally verified
+  artifacts. An empty or exact tarball-only draft may survive a full rerun, but
+  a draft that already contains provenance can resume only through a failed-job
+  rerun retaining the original provenance bytes. A full rerun must stop and use
+  a new patch instead.
+- An empty or partial published release cannot be repaired because published
+  releases and assets are immutable. Preserve it and release a new patch.
+- A complete matching npm version and immutable GitHub Release require no
+  action.
+
+Never move or reuse a consumed tag, republish an existing npm version, delete
+or replace a published release asset, or use `npm unpublish`. If an incomplete
+version points `latest`, first verify a known-complete exact version. Moving the
+dist-tag and deprecating the incomplete version are explicit npm-owner actions,
+never automated recovery steps. Record the authorization, commands, results,
+and replacement version in the incident issue.
+
 ## Release and housekeeping checklist
 
 - Review open Dependabot pull requests and unexpected lockfile changes.
@@ -127,6 +164,8 @@ documentation or media growth.
 - Run `npm pack --dry-run --json --ignore-scripts` and review the exact files
   and sizes.
 - Run the release collision preflight before versioning.
+- Classify any failed tag workflow before authorizing a retry or registry
+  metadata change.
 - Follow the [release-verification guide](release-verification.md) after
   publishing.
 - Review sensitive access and continuity coverage at each release.
