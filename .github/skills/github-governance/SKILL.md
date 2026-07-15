@@ -62,6 +62,31 @@ the normal path cannot safely be used.
   does not enable code-scanning alert merge protection, so a completed scan can
   still succeed while reporting a new alert; reviewers must inspect that
   supplemental signal.
+- Issue #177 selects `CodeQL` tool-severity `errors` and security severity
+  `high_or_higher` as the launch alert thresholds. Activation is still an
+  owner-confirmed shared-infrastructure change until the issue records the live
+  read-back and positive/negative pull-request evidence. Append this exact rule
+  to the otherwise unchanged full ruleset payload:
+  ```json
+  {
+    "type": "code_scanning",
+    "parameters": {
+      "code_scanning_tools": [
+        {
+          "tool": "CodeQL",
+          "alerts_threshold": "errors",
+          "security_alerts_threshold": "high_or_higher"
+        }
+      ]
+    }
+  }
+  ```
+  After the PUT, read the ruleset back and verify every pre-existing rule and
+  bypass actor before testing one clean PR and one disposable PR with an
+  in-scope alert. GitHub excludes merge-queue groups and Dependabot PRs analyzed
+  by default setup; this repository currently uses advanced setup and no merge
+  queue. Roll back by restoring the captured full payload with only the
+  `code_scanning` rule removed; never remove required CodeQL from `CI Success`.
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 
