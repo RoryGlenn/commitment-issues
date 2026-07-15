@@ -122,6 +122,7 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   const lock = readJson("package-lock.json");
   const berryFixture = readJson("test/fixtures/yarn-berry/package.json");
   const berryLock = readJson("test/fixtures/yarn-berry/package-lock.json");
+  const lifecycle = readText("scripts/ci-lifecycle-smoke.mjs");
   const workflow = readText(".github/workflows/ci.yml");
   const job = workflow
     .split(/^ {2}pm-lifecycle:$/m)[1]
@@ -174,6 +175,11 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   assert.match(job, /Yarn Classic 1\.22\.22 lifecycle integration/u);
   assert.match(job, /Yarn Berry 4\.17\.0 node-modules lifecycle integration/u);
   assert.match(job, /bun-version: "1\.3\.14"/);
+  assert.match(
+    lifecycle,
+    /case "yarn-berry":[\s\S]*?`commitment-issues@\$\{pathToFileURL\(tarball\)\.href\}`[\s\S]*?case "bun":/u,
+    "Yarn Berry should receive an identified portable file URI for local tarballs",
+  );
 });
 
 test("public Bun support stays pinned to the exact CI-tested version", () => {

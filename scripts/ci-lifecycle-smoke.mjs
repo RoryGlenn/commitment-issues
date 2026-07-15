@@ -6,6 +6,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import crossSpawn from "cross-spawn";
 import {
   hasExactOutputLine,
@@ -174,7 +175,12 @@ function installDevDeps(tarball) {
         ...DEV_DEPS,
       ]);
     case "yarn-berry":
-      return managerInvocation(["add", "--dev", tarball, ...DEV_DEPS]);
+      return managerInvocation([
+        "add",
+        "--dev",
+        `commitment-issues@${pathToFileURL(tarball).href}`,
+        ...DEV_DEPS,
+      ]);
     case "bun":
       return ["bun", ["add", "--dev", tarball, ...DEV_DEPS]];
     default:
