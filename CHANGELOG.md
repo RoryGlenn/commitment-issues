@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and again after installation. Links from shipped docs to repository-only
   policies, plans, and audit evidence now use canonical GitHub URLs instead of
   paths that break on npm or inside `node_modules`.
+- Public adoption, launch, OpenSSF, and security guidance now reflects the exact
+  supported package managers, v3.3.2's documented legacy empty release notes,
+  local secret-scanning boundary, and completed mainline-tag authorization
+  control instead of carrying forward broader or historical claims.
 - The npm tarball now uses a closed allowlist for the 28 installed runtime
   scripts instead of publishing the entire `scripts/` tree. Six lifecycle and
   coverage maintenance modules remain repository-only, while package-content

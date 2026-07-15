@@ -15,7 +15,7 @@
 GitHub Actions catches mistakes after they become expensive.
 Commitment Issues catches them while they are still cheap.
 
-Stop test failures, staged secrets, and Git mistakes before they reach your repo.
+Catch test failures, staged secrets, and Git mistakes while they are still local.
 
 No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 · Node.js >=22.11.0
 

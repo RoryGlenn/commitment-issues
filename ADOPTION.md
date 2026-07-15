@@ -15,7 +15,9 @@ in `package.json` `files`.)
 ## Trust signals
 
 - [x] `CHANGELOG.md` in Keep a Changelog format, shipped in the tarball.
-- [x] Current GitHub Release with notes and immutable assets (v3.3.2).
+- [x] Current immutable GitHub Release with independently verified assets
+      (v3.3.2). Its legacy empty notes are documented; future releases require
+      reviewed changelog notes.
 - [x] Cross-platform CI (Ubuntu/macOS/Windows × Node 22.11.0/24) with coverage.
 - [x] Scenario-coverage tracker mapping the full test suite.
 - [x] `CONTRIBUTING.md`, issue/PR templates, and a Code of Conduct.
@@ -37,7 +39,8 @@ direct adoption lever.
 
 ## Reach & compatibility (remove adoption blockers)
 
-- [x] npm, pnpm, yarn, and bun supported — each with an end-to-end CI lifecycle smoke.
+- [x] npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 supported — each with
+      an end-to-end packed CI lifecycle.
 - [x] Yarn Berry: documented `nodeLinker: node-modules` support path and
       Plug'n'Play boundary (PM-006).
 - [x] Monorepo / workspaces support (MONO-001/002).

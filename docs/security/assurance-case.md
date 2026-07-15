@@ -87,7 +87,8 @@ The project security requirements are:
 
 - do not transmit repository contents or telemetry;
 - do not expose a network service;
-- do not store or process authentication credentials as runtime data;
+- do not collect, persist, or transmit authentication credentials; inspect
+  staged additions only locally for likely secret patterns;
 - avoid shell injection when spawning tools;
 - validate user-controlled configuration;
 - preserve user working-tree safety;
@@ -246,10 +247,13 @@ independent verification guidance. Release-workflow pull requests also force
 GitHub to validate the reusable-workflow permission contract before a tag can
 consume it.
 
-The workflow does not yet prove that a release tag is reachable from `main`.
-That High finding remains open as #94 and is assigned to the release and
-supply-chain audit in #136; the security audit does not treat current
-provenance as a substitute for that authorization check.
+The workflow fetches complete canonical history and refuses publication unless
+the version-tag commit is reachable from `origin/main`. Live tag rules restrict
+new `v*` tags to repository admins and prohibit version-tag updates or deletion.
+[Issue #94](https://github.com/RoryGlenn/commitment-issues/issues/94) closed
+through PR #188, with the final control and residual trust boundary recorded in
+the [release audit](../audits/release-packaging-and-upgrades.md). Provenance
+complements that authorization check; it does not replace it.
 
 ### Vulnerability disclosure risks
 
