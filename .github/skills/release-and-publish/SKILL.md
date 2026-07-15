@@ -263,7 +263,14 @@ npm-only path as a complete signed release.
 - **`prepublishOnly` failing** blocks a direct root-directory publish by design
   — it validates release metadata, runs the full test suite, and exercises the
   packaging lifecycle. Fix the failure; do not bypass it.
-- **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. Promotional raster/video media stays in the source repository and is referenced by GitHub-hosted URLs. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
+- **What ships:** `package.json` `files` explicitly allowlists the installed CLI,
+  command, and runtime-helper modules plus selected `assets/*.svg`, `docs/`,
+  `README.md`, `CHANGELOG.md`, and `LICENSE`. Lifecycle/coverage maintenance
+  modules under `scripts/` stay repository-only. Promotional raster/video media
+  stays in the source repository and is referenced by GitHub-hosted URLs.
+  Everything in `.github/` (governance files, these skills) and `test/` is
+  intentionally excluded from the tarball. Verify with `npm pack --dry-run`
+  before publishing if the file list changed.
 
 ## CI / required checks
 

@@ -80,8 +80,8 @@ transpilation step.
 
 | Path                 | Purpose                                                     |
 | -------------------- | ----------------------------------------------------------- |
-| `scripts/`           | Published CLI commands and Git-hook entry points            |
-| `scripts/lib/`       | Shared runtime modules                                      |
+| `scripts/`           | Installed commands plus repository-only lifecycle tooling   |
+| `scripts/lib/`       | Shared runtime modules plus maintenance-policy helpers      |
 | `test/`              | Top-level `node:test` suites and test helpers               |
 | `test/integration/`  | Package lifecycle integration tests                         |
 | `tools/`             | Repository maintenance and documentation utilities          |
@@ -92,6 +92,14 @@ transpilation step.
 Entry scripts are tested through subprocesses in disposable Git repositories.
 Reusable setup helpers live in
 [`test/helpers/temp-repo.mjs`](../test/helpers/temp-repo.mjs).
+
+The complete `scripts/` inventory is classified as installed runtime or
+repository-only maintenance by the
+[runtime coverage policy](../docs/branch-coverage.md). `package.json` lists each
+runtime module explicitly; do not restore a directory-wide `scripts/`
+allowlist. A new runtime module must enter that allowlist and the packed import
+closure, while a new maintenance module must be added to the exact coverage
+exclusion list.
 
 Start documentation changes from the
 [documentation index](../docs/index.md). Update the canonical source for a

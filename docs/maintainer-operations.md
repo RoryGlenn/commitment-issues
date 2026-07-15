@@ -101,22 +101,30 @@ npm pack --dry-run --json --ignore-scripts
 
 The package boundary is explicit:
 
-| Class                         | Included in npm? | Contents                                                                      |
-| ----------------------------- | ---------------- | ----------------------------------------------------------------------------- |
-| Runtime                       | Yes              | `scripts/`, `package.json`, and npm-installed dependencies                    |
-| User documentation            | Yes              | Explicit guides in `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE` |
-| README assets                 | Yes              | Only SVGs referenced by the installed README                                  |
-| Maintainer and audit evidence | No               | Repository-only planning, galleries, reviews, and operational records         |
-| Promotional media             | No               | `assets/commitment-issues.png` and `assets/demo.gif`                          |
+| Class                          | Included in npm? | Contents                                                                      |
+| ------------------------------ | ---------------- | ----------------------------------------------------------------------------- |
+| Runtime                        | Yes              | Explicit CLI, command, and transitive helper paths in `package.json`          |
+| User documentation             | Yes              | Explicit guides in `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE` |
+| README assets                  | Yes              | Only SVGs referenced by the installed README                                  |
+| Lifecycle and coverage tooling | No               | The six repository-only modules classified in `branch-coverage.md`            |
+| Maintainer and audit evidence  | No               | Repository-only planning, galleries, reviews, and operational records         |
+| Promotional media              | No               | `assets/commitment-issues.png` and `assets/demo.gif`                          |
+
+The runtime script allowlist is intentionally file-by-file. The
+[coverage policy](branch-coverage.md#source-scope) records the complementary
+maintenance-only set. Package tests compare those classifications with the
+actual `npm pack` manifest, require the public bin target, and follow every
+relative runtime import so a helper cannot be omitted accidentally. New scripts
+remain out of npm until a maintainer deliberately classifies them.
 
 The README loads the hero PNG and demo GIF from stable GitHub URLs so npm can
 render them without adding roughly 1.4 MB of promotional media to every package.
 
 The tarball must remain at or below **350 KiB compressed** and **750 KiB
 unpacked**. Tests fail when the budget is exceeded, required runtime or
-user-documentation files are missing, internal evidence enters the tarball, or
-promotional media is included. Do not raise the limits merely to accommodate
-documentation or media growth.
+user-documentation files are missing, maintenance tooling or internal evidence
+enters the tarball, or promotional media is included. Do not raise the limits
+merely to accommodate documentation or media growth.
 
 ## Partial release incidents
 
