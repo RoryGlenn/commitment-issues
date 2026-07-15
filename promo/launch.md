@@ -15,17 +15,17 @@ Recheck those signals on launch day rather than relying on this snapshot.
 
 **Title:** Why I stopped letting pre-commit hooks block my commits
 
-Every team eventually adds Git hooks. And every team eventually learns the same
-reflex: `git commit --no-verify`.
+Many teams add Git hooks and develop the same reflex:
 
-It happens because most hook setups are **blocking by default**. You're
-mid-thought, you commit a WIP, and a hook rejects it because Prettier wanted
-different quotes — or worse, it reformats and re-stages files you didn't mean to
-touch, or fails a test suite you were about to fix in the next commit. The hook
-was trying to help. It just picked the worst possible moment.
+`git commit --no-verify`.
 
-So people reach for `--no-verify`, and once that's muscle memory, the hooks may
-as well not exist.
+Blocking-by-default setups teach it. You're mid-thought, you commit a WIP, and a
+hook rejects it because Prettier wanted different quotes — or worse, it
+reformats and re-stages files you didn't mean to touch, or fails a test suite
+you were about to fix in the next commit. The hook was trying to help. It just
+picked the worst possible moment.
+
+Once `--no-verify` becomes muscle memory, the hooks may as well not exist.
 
 I wanted the opposite default: **hooks that inform, then get out of the way.**
 
