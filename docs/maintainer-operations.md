@@ -183,4 +183,6 @@ and replacement version in the incident issue.
   metadata change.
 - Follow the [release-verification guide](release-verification.md) after
   publishing.
-- Review sensitive access and continuity coverage at each release.
+- Complete the recurring
+  [sensitive-access checklist](project-roles.md#recurring-access-review), record
+  dated evidence, and resolve expired contributor grants before each release.

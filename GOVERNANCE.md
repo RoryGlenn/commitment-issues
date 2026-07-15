@@ -58,6 +58,19 @@ Contributors may:
 
 Contributors must follow the contribution guide, sign off commits with the Developer Certificate of Origin, and include tests for major new functionality.
 
+Designated contributors may receive time-bounded write access only when they
+are listed in [Project roles](docs/project-roles.md) with an active assignment
+and review deadline. Because a personal-account collaborator's technical write
+permission also permits merge-affecting reviews, pull-request merges, and
+GitHub Release management, that grant is broader than the approved contributor
+role. Unless separately promoted to maintainer, a designated contributor may
+push only assigned topic branches, maintain the assigned issue, open pull
+requests, and provide requested reviews. They may not merge, create or edit
+Releases, create version tags, or act for the project on npm, repository
+administration, or private security reports. Remove the grant when the
+assignment ends; use an organization with narrower custom roles if ongoing
+direct access becomes necessary.
+
 ## Change process
 
 The normal change process is:
@@ -128,9 +141,10 @@ record that the temporary exception was used and why. Self-approval is not
 treated as independent review.
 
 The continuity plan is to recruit and onboard a second trusted reviewer who
-has the repository permission needed to satisfy the live approval rule,
-review sensitive-resource coverage at each release and whenever access
-changes, and remove this exception once two-person review is sustainable.
+has the repository permission needed to satisfy the live approval rule, follow
+the recurring access-review cadence in
+[Project roles](docs/project-roles.md#recurring-access-review), and remove this
+exception once two-person review is sustainable.
 
 ### Emergency bypass
 

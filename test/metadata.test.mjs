@@ -505,6 +505,50 @@ test("CI Success includes DCO and both DCO baselines stay documented", () => {
   );
 });
 
+test("sensitive access record names effective authority and recurring review", () => {
+  const roles = readText("docs/project-roles.md");
+  const governance = readText("GOVERNANCE.md");
+  const operations = readText("docs/maintainer-operations.md");
+
+  for (const account of ["RoryGlenn", "tdkchandler", "rahul-aravind-opti"]) {
+    assert.match(roles, new RegExp(`github\\.com/${account}`));
+  }
+  for (const issue of [141, 142]) {
+    assert.match(roles, new RegExp(`issues/${issue}`));
+  }
+  for (const ruleset of [18531369, 18965736, 18965738]) {
+    assert.match(roles, new RegExp(`rules/${ruleset}`));
+  }
+  for (const authority of [
+    "Repository administration and rulesets",
+    "`main` changes and merges",
+    "`v*` release tags",
+    "GitHub Actions, secrets, and environments",
+    "GitHub Releases",
+    "npm package",
+    "Private vulnerability reports",
+  ]) {
+    assert.match(roles, new RegExp(escapeRegExp(authority)));
+  }
+
+  assert.match(roles, /Owner:\*\* Rory Glenn/);
+  assert.match(roles, /Cadence:\*\* monthly, before every release/);
+  assert.match(roles, /### 2026-07-15/);
+  assert.match(roles, /Next scheduled review:\*\* \*\*2026-08-15\*\*/);
+  assert.match(roles, /no browser session was available/);
+  assert.doesNotMatch(
+    roles,
+    /[a-z\d._%+-]+@[a-z\d.-]+\.[a-z]{2,}/i,
+    "the public access record should not contain email addresses",
+  );
+  assert.match(governance, /time-bounded write access/);
+  assert.match(governance, /They may not merge, create or edit\s+Releases/);
+  assert.match(
+    operations,
+    /\[sensitive-access checklist\]\(project-roles\.md#recurring-access-review\)/,
+  );
+});
+
 test("package files entries exist", () => {
   const pkg = readJson("package.json");
   const trackedFiles = execFileSync("git", ["ls-files", "-z"], {
