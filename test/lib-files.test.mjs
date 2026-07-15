@@ -323,7 +323,7 @@ test("missing mutable project files use exclusive creation", (t) => {
   assert.equal(fs.readFileSync(outside, "utf8"), "outside\n");
 });
 
-for (const field of ["dev", "ino"]) {
+for (const field of ["dev", "ino", "ctimeNs", "birthtimeNs"]) {
   test(`mutable project file writes reject a mismatched descriptor ${field}`, (t) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutable-fstat-race-"));
     t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

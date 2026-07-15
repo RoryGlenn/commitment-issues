@@ -454,7 +454,12 @@ export function shortFileList(files, max = 5) {
 }
 
 function sameProjectFileIdentity(left, right) {
-  return left.dev === right.dev && left.ino === right.ino;
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.ctimeNs === right.ctimeNs &&
+    left.birthtimeNs === right.birthtimeNs
+  );
 }
 
 function projectFileChangedError(filePath) {
@@ -467,8 +472,9 @@ function projectFileChangedError(filePath) {
 
 /**
  * Inspect a mutable project path without following symbolic links. BigInt
- * device/inode values keep replacement checks exact on Windows, where file
- * identifiers can exceed JavaScript's safe integer range.
+ * device/inode and timestamp values keep replacement checks exact on Windows,
+ * where file identifiers can exceed JavaScript's safe integer range, and
+ * distinguish filesystems that immediately recycle a removed file's inode.
  * @param {string} filePath - Project-relative path to inspect.
  * @returns {{filePath: string, status: "missing"}|{filePath: string, status: "regular", stats: fs.BigIntStats}|{filePath: string, status: "unsafe", reason: string}}
  */
