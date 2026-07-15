@@ -128,8 +128,8 @@ test("CI Success accepts only explicit success from every required job", () => {
 
   assert.match(ci, /name: CI Success/);
   assert.match(ci, /if: always\(\)/);
-  assert.match(ci, /needs: \[dco, check, pm-lifecycle\]/);
-  for (const job of ["dco", "check"]) {
+  assert.match(ci, /needs: \[dco, quality, check, pm-lifecycle, codeql\]/);
+  for (const job of ["dco", "quality", "check", "codeql"]) {
     assert.match(ci, new RegExp(`needs\\.${job}\\.result != 'success'`));
   }
   assert.match(ci, /needs\['pm-lifecycle'\]\.result != 'success'/);

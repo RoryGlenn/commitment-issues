@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -35,24 +36,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Format check
-        run: npm run format:check
-
       - name: Unit tests
         run: npm test
 
       - name: npm lifecycle integration
         run: npm run test:lifecycle:npm
 
-      - name: Package dry run
-        run: npm pack --dry-run
-
-      - name: Security advisory report
+      - name: Security advisory gate
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Stale branch report
         shell: bash

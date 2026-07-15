@@ -17,10 +17,16 @@ jobs:
   dco:
     name: DCO
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
 
       - name: Verify prospective DCO enforcement
         shell: bash
@@ -38,6 +44,53 @@ jobs:
             # operational baseline as an ancestor.
             node tools/check-dco-range.mjs "$DCO_BASE" "$DCO_HEAD"
           fi
+
+  quality:
+    name: Static quality and workflow policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install pinned actionlint
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          archive_path="$RUNNER_TEMP/$archive"
+          curl --fail --location --silent --show-error \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$archive" \
+            --output "$archive_path"
+          echo "$ACTIONLINT_SHA256  $archive_path" | sha256sum --check
+          tar -xzf "$archive_path" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Validate GitHub Actions syntax, expressions, and scripts
+        # GitHub supports concurrency.queue, but actionlint 1.7.12's schema
+        # predates it. Ignore only that exact schema-lag diagnostic.
+        run: actionlint -ignore 'unexpected key "queue" for "concurrency" section'
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Reject high-severity dependency advisories
+        run: npm audit --audit-level=high
+
+      - run: npm run lint
+
+      - run: npm run format:check
 
   check:
     name: ${{ matrix.os }} / Node ${{ matrix.node-version }}
@@ -57,6 +110,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -65,11 +120,11 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run lint
-
-      - run: npm run format:check
-
-      - run: npm test
+      # The two Ubuntu lanes run the same suite once under the coverage gates
+      # below. The remaining OS lanes run it directly without duplicating work.
+      - name: Unit and integration tests
+        if: matrix.os != 'ubuntu-latest'
+        run: npm test
 
       - name: Message-state single-box invariant
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
@@ -113,6 +168,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -134,23 +191,43 @@ jobs:
 
       - run: npm ci
 
-      - name: ${{ matrix.pm }} lifecycle integration (separate from runtime coverage)
-        run: npm run test:lifecycle:${{ matrix.pm }}
+      - name: pnpm lifecycle integration (separate from runtime coverage)
+        if: matrix.pm == 'pnpm'
+        run: npm run test:lifecycle:pnpm
+
+      - name: Yarn lifecycle integration (separate from runtime coverage)
+        if: matrix.pm == 'yarn'
+        run: npm run test:lifecycle:yarn
+
+      - name: Bun lifecycle integration (separate from runtime coverage)
+        if: matrix.pm == 'bun'
+        run: npm run test:lifecycle:bun
+
+  codeql:
+    name: CodeQL
+    permissions:
+      actions: read # let CodeQL inspect workflow metadata
+      contents: read # scan the checked-out source
+      security-events: write # upload SARIF to code scanning
+    uses: ./.github/workflows/codeql.yml
 
   # Single aggregate gate for branch protection. Requiring this one context
   # keeps the required-checks list stable even as the matrix above changes.
   ci-success:
     name: CI Success
     if: always()
-    needs: [dco, check, pm-lifecycle]
+    needs: [dco, quality, check, pm-lifecycle, codeql]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify all required jobs succeeded
         if: >-
           ${{
             needs.dco.result != 'success' ||
+            needs.quality.result != 'success' ||
             needs.check.result != 'success' ||
-            needs['pm-lifecycle'].result != 'success'
+            needs['pm-lifecycle'].result != 'success' ||
+            needs.codeql.result != 'success'
           }}
         run: |
           echo "One or more required jobs did not succeed."

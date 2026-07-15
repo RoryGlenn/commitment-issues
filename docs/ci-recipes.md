@@ -27,16 +27,22 @@ npm test
 Set `COMMITMENT_ISSUES: "0"` at the job (or workflow) level:
 
 ```yaml
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       COMMITMENT_ISSUES: "0"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          node-version: "22"
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "22.11.0"
           cache: npm
       - run: npm ci
       - run: npm run lint
@@ -95,3 +101,5 @@ workflows:
   `npm run` for the equivalent commands.
 - Use CI for real enforcement: run lint, format, and test commands directly so
   every pipeline fails on problems, independent of the advisory local hooks.
+- Keep third-party GitHub Actions pinned to reviewed full commit SHAs and use a
+  dependency updater such as Dependabot to propose version changes.

@@ -1,13 +1,10 @@
 name: CodeQL
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   schedule:
     - cron: "41 2 * * 3"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -24,8 +21,8 @@ jobs:
 
     permissions:
       contents: read
-      security-events: write
-      actions: read
+      security-events: write # upload SARIF to code scanning
+      actions: read # inspect workflow metadata for analysis
 
     strategy:
       fail-fast: false

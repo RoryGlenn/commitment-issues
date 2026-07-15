@@ -48,7 +48,7 @@ test("publish workflow gates and publishes one immutable release", () => {
 
   assert.match(
     workflow,
-    /npm publish "\.\/\$\{\{ steps\.pack\.outputs\.tarball \}\}" --access public/,
+    /name: Publish to npm\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
   );
   assert.match(
     workflow,
@@ -56,16 +56,16 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
   assert.match(
     workflow,
-    /validate:\s+if: github\.event_name == 'pull_request'[\s\S]*Confirm release workflow validation/,
+    /validate:[\s\S]*?if: github\.event_name == 'pull_request'[\s\S]*?Confirm release workflow validation/,
   );
   assert.match(
     workflow,
-    /publish:\s+if: github\.event_name == 'push'/,
+    /publish:[\s\S]*?if: github\.event_name == 'push'/,
     "publishing must remain disabled during pull-request validation",
   );
   assert.match(
     workflow,
-    /sha256sum "\$\{\{ steps\.pack\.outputs\.tarball \}\}"/,
+    /name: Generate provenance subject[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}[\s\S]*?sha256sum "\$TARBALL"/,
   );
   assert.match(workflow, /path:\s+\$\{\{ steps\.pack\.outputs\.tarball \}\}/);
   assert.match(workflow, /upload-assets:\s+false/);

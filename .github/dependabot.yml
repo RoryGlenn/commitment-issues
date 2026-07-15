@@ -8,6 +8,10 @@ updates:
       day: monday
       time: "10:00"
       timezone: America/New_York
+    # Let routine releases age before adoption. Dependabot security updates
+    # bypass cooldowns and remain immediate.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     labels:
       - dependencies
@@ -35,6 +39,8 @@ updates:
       day: monday
       time: "10:30"
       timezone: America/New_York
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     labels:
       - dependencies

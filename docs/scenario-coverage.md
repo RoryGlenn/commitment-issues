@@ -57,7 +57,9 @@ production-readiness workstream #130 is consolidated in the
   user-documentation allowlist; repository-only galleries and maintainer
   evidence stay out of the tarball. Unit: `test/metadata.test.mjs` using
   `npm pack --dry-run --json`.
-- **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
+- **PKG-009** — exact minimum supported Node version runs the full npm test and
+  lifecycle matrix on Ubuntu, macOS, and Windows, plus every supported non-npm
+  lifecycle on Ubuntu. CI: `.github/workflows/ci.yml`.
 - **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
 - **PKG-011** — the publish workflow sends the exact packed/hashed tarball to
   npm, keeps SLSA generation separate, and uses one final immutable-release
@@ -359,6 +361,29 @@ production-readiness workstream #130 is consolidated in the
 - **MONO-001** — workspace-root behavior across npm, pnpm, Yarn, and Bun. The real packed package is installed at the root, each manager's workspace selector runs both package test scripts, root config owns staged checks, and root-native hooks run for commits and pushes. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
 - **MONO-002** — shallow and nested workspace packages are checked together, including when `git commit` starts in the nested package. Package-local `precommitChecks` values remain untouched and do not override the root. CI lifecycle matrix: `.github/workflows/ci.yml`; guide: [Monorepo & workspaces](monorepo.md).
 - **MONO-003** — linked Git worktrees share hooks through Git's common directory, repair safely during a worktree-local install, and run the root checks from a nested package. CI lifecycle matrix: `.github/workflows/ci.yml`.
+
+### CI/CD and repository automation
+
+- **CI-001** — every tracked workflow has read-only defaults, an explicit
+  concurrency policy, bounded runnable jobs, non-persisted checkout credentials,
+  and an allowlisted job-permission surface. Unit: `test/ci-policy.test.mjs`;
+  semantic validation: actionlint in `.github/workflows/ci.yml`.
+- **CI-002** — the sole branch-protection context fails unless DCO, static
+  quality, dependency audit, every supported runtime/lifecycle lane, and CodeQL
+  each report exact success. Unit: `test/ci-policy.test.mjs` and
+  `test/test-quality.test.mjs`; CI: `.github/workflows/ci.yml`.
+- **CI-003** — CodeQL is reusable by required CI while retaining scheduled and
+  manual analysis. Unit: `test/ci-policy.test.mjs`; workflow:
+  `.github/workflows/codeql.yml`.
+- **CI-004** — release tags serialize through GitHub's maximum 100-run pending
+  queue without cancelling in-flight or already-pending publications, generated
+  artifact names cross into shell through quoted environment variables, and
+  every ordinary action reference is immutable. Unit: `test/ci-policy.test.mjs`
+  and `test/release-integrity.test.mjs`.
+- **CI-005** — routine npm and Actions releases age for seven days, security
+  updates remain immediate, and both required CI and weekly health fail on
+  high-severity advisories. Unit: `test/ci-policy.test.mjs`; automation:
+  `.github/dependabot.yml` and `.github/workflows/repo-health.yml`.
 
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
 
