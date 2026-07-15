@@ -153,6 +153,7 @@ function cleanEnv() {
   delete env.HUSKY;
   delete env.SHELL_COMPAT_ACTION;
   delete env.SHELL_COMPAT_BIN;
+  delete env.SHELL_COMPAT_CWD;
   delete env.SHELL_COMPAT_ENTRY;
   env.NO_COLOR = "1";
   return env;
@@ -381,6 +382,7 @@ try {
         ...env,
         SHELL_COMPAT_ACTION: action,
         SHELL_COMPAT_BIN: bin,
+        SHELL_COMPAT_CWD: repoDir,
         SHELL_COMPAT_ENTRY: entry,
       },
     });

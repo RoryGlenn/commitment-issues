@@ -3,6 +3,7 @@
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Console]::OutputEncoding
+Set-Location -LiteralPath $env:SHELL_COMPAT_CWD
 
 switch ($env:SHELL_COMPAT_ACTION) {
   "version" { & $env:SHELL_COMPAT_BIN --version; break }
