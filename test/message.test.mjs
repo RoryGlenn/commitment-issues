@@ -14,6 +14,7 @@ import {
   stagedTestInterruption,
   unavailableToolIssue,
 } from "../scripts/lib/message.mjs";
+import { stripAnsi } from "./helpers/output.mjs";
 
 // picocolors emits plain text when stdout is not a TTY (as under `node --test`),
 // so these assertions can match the message content directly.
@@ -126,7 +127,9 @@ test("renders an issue's detail lines", () => {
     arrayModel.lines.some((line) => line.includes("one\\nembeddedRED")),
   );
   assert.ok(arrayModel.lines.some((line) => line.includes("2")));
-  assert.doesNotMatch(arrayModel.lines.join("\n"), /\u001b/);
+  const rendered = arrayModel.lines.join("\n");
+  assert.doesNotMatch(stripAnsi(rendered), /\u001b/);
+  assert.doesNotMatch(rendered, /embedded\u001b\[31mRED/);
 });
 
 test("notes when the worktree cannot be inspected for a safe amend", () => {

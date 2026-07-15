@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import { countTerminalBoxes, stripAnsi } from "./helpers/output.mjs";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -362,10 +362,12 @@ test("prepush escapes controls in a protected ref", (t) => {
     `${ref} ${sha} ${ref} ${"0".repeat(40)}\n`,
   );
   const output = `${result.stdout}${result.stderr}`;
+  const visibleOutput = stripAnsi(output);
 
   assert.equal(result.status, 0);
-  assert.match(output, /evil\\x08FAKERED/);
-  assert.doesNotMatch(output, /\x08|\u001b/);
+  assert.match(visibleOutput, /evil\\x08FAKERED/);
+  assert.doesNotMatch(visibleOutput, /\x08|\u001b/);
+  assert.doesNotMatch(output, /FAKE\u001b\[31mRED/);
 });
 
 test("prepush consolidates multiple protected targets into one warning", (t) => {

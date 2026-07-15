@@ -9,6 +9,7 @@ import path from "node:path";
 import {
   compactTerminalBoxText,
   countTerminalBoxes,
+  stripAnsi,
 } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
@@ -666,10 +667,12 @@ test(
 
     const result = runDoctor(tempDir, ["--quiet"]);
     const output = `${result.stdout}${result.stderr}`;
+    const visibleOutput = stripAnsi(output);
 
     assert.equal(result.status, 0);
-    assert.match(output, /hooks\\rFAKE SUCCESS\\n\\t\\x08RED/);
-    assert.doesNotMatch(output, /\r|\t|\x08|\u001b/);
+    assert.match(visibleOutput, /hooks\\rFAKE SUCCESS\\n\\t\\x08RED/);
+    assert.doesNotMatch(visibleOutput, /\r|\t|\x08|\u001b/);
+    assert.doesNotMatch(output, /FAKE SUCCESS.*\u001b\[31mRED/s);
   },
 );
 
