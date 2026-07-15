@@ -71,7 +71,7 @@ test("tracked shell adapters expose the same black-box actions", () => {
   assert.match(read(fixtures[0]), /^#!\/bin\/sh\n/u);
   assert.match(read(fixtures[1]), /^#!\/usr\/bin\/env fish\n/u);
   assert.match(read(fixtures[2]), /OutputEncoding/u);
-  assert.match(read(fixtures[3]), /call "%SHELL_COMPAT_BIN%"/u);
+  assert.match(read(fixtures[3]), /node "%SHELL_COMPAT_ENTRY%"/u);
 });
 
 test("required CI runs the packed shell matrix behind the aggregate gate", () => {

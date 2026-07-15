@@ -13,11 +13,14 @@ echo Unknown shell compatibility action: %SHELL_COMPAT_ACTION% 1>&2
 exit /b 64
 
 :version
-call "%SHELL_COMPAT_BIN%" --version
+rem npm's generated .cmd shim cannot parse an ampersand in its own directory.
+rem Invoke the exact installed entry with Node while Git-hook actions below
+rem continue to exercise the package's POSIX shim from the hostile long path.
+node "%SHELL_COMPAT_ENTRY%" --version
 exit /b %ERRORLEVEL%
 
 :init
-call "%SHELL_COMPAT_BIN%" init
+node "%SHELL_COMPAT_ENTRY%" init
 exit /b %ERRORLEVEL%
 
 :commit
@@ -29,9 +32,9 @@ git push --set-upstream origin main
 exit /b %ERRORLEVEL%
 
 :doctor
-call "%SHELL_COMPAT_BIN%" doctor
+node "%SHELL_COMPAT_ENTRY%" doctor
 exit /b %ERRORLEVEL%
 
 :uninstall
-call "%SHELL_COMPAT_BIN%" uninstall
+node "%SHELL_COMPAT_ENTRY%" uninstall
 exit /b %ERRORLEVEL%

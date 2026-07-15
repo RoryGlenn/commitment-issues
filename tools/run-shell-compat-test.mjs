@@ -43,12 +43,14 @@ const TARGETS = {
     executable: "powershell.exe",
     fixture: "invoke.ps1",
     runner: "shell-compat.ps1",
+    binExtension: ".ps1",
   },
   cmd: {
     platforms: new Set(["win32"]),
     executable: "cmd.exe",
     fixture: "invoke.cmd",
     runner: "shell-compat.cmd",
+    binExtension: ".cmd",
   },
 };
 
@@ -151,6 +153,7 @@ function cleanEnv() {
   delete env.HUSKY;
   delete env.SHELL_COMPAT_ACTION;
   delete env.SHELL_COMPAT_BIN;
+  delete env.SHELL_COMPAT_ENTRY;
   env.NO_COLOR = "1";
   return env;
 }
@@ -353,21 +356,33 @@ try {
     path.join(fixtureDir, target.fixture),
     path.join(repoDir, runner),
   );
-  const bin = path.join(
+  const binBase = path.join(
     repoDir,
     "node_modules",
     ".bin",
-    process.platform === "win32"
-      ? "commitment-issues.cmd"
-      : "commitment-issues",
+    "commitment-issues",
+  );
+  const bin = `${binBase}${target.binExtension || ""}`;
+  const entry = path.join(
+    repoDir,
+    "node_modules",
+    rootPackage.name,
+    installedPackage.bin[rootPackage.name],
   );
   assert.ok(fs.existsSync(bin), `installed bin should exist: ${bin}`);
+  assert.ok(fs.existsSync(binBase), `hook bin should exist: ${binBase}`);
+  assert.ok(fs.existsSync(entry), `packed CLI entry should exist: ${entry}`);
 
   const fullEnv = cleanEnv();
   const invoke = (action, env = fullEnv) =>
     run(shellExecutable, shellArgs(runner), {
       cwd: repoDir,
-      env: { ...env, SHELL_COMPAT_ACTION: action, SHELL_COMPAT_BIN: bin },
+      env: {
+        ...env,
+        SHELL_COMPAT_ACTION: action,
+        SHELL_COMPAT_BIN: bin,
+        SHELL_COMPAT_ENTRY: entry,
+      },
     });
 
   assert.ok(
