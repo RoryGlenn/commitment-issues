@@ -17,9 +17,10 @@ macOS/Windows lanes for pnpm, Yarn, and Bun into observed hosted evidence.
 No Critical or High finding remains. Eight concrete Medium findings and three
 Low findings were fixed. A later release audit added pinned cross-version
 upgrade evidence; automatic in-place downgrade remains explicitly unsupported
-with a documented manual rollback. Yarn Berry, additional shells, and GUI Git
-clients remain unclaimed and retain their existing issue owners rather than
-being treated as supported by association.
+with a documented manual rollback. At this audit snapshot, Yarn Berry,
+additional shells, and GUI Git clients remained unclaimed. The later #83
+follow-up adds focused shell CI and a manual GUI release gate rather than
+treating either as supported by association.
 
 ## Scope inventory
 
@@ -77,11 +78,11 @@ positive compatibility claims.
 | macOS                                   | Required CI plus local | npm at Node 22.11.0/24; other supported managers at Node 24; local zsh/npm and zsh/pnpm evidence at Node 26.4.0      |
 | Windows                                 | Required CI            | npm at Node 22.11.0/24; other supported managers at Node 24; real Git executes hooks through its bundled POSIX shell |
 | POSIX `sh` / Git for Windows shell      | Required CI            | Generated `#!/bin/sh` hooks run during real commits and pushes                                                       |
-| Bash                                    | CI launcher evidence   | GitHub-hosted Linux/macOS steps launch from Bash; hooks themselves run in `sh`                                       |
-| PowerShell                              | CI launcher evidence   | Windows steps launch from PowerShell; hooks themselves run through Git's shell                                       |
-| Zsh                                     | Locally verified       | Full packed npm and pnpm lifecycle on macOS                                                                          |
-| Fish and direct Command Prompt launch   | Unverified             | No blanket support claim; retained under [#83](https://github.com/RoryGlenn/commitment-issues/issues/83)             |
-| VS Code, JetBrains IDEs, GitHub Desktop | Unverified             | Git must inherit a usable Node and local-bin environment; manual evidence remains under #83                          |
+| Bash                                    | Required CI follow-up  | #83 launches the exact packed artifact through the full offline scenario on Linux; hooks themselves remain `sh`      |
+| PowerShell                              | Required CI follow-up  | #83 launches the exact packed artifact and real Git lifecycle on Windows                                             |
+| Zsh                                     | Required CI plus local | #83 launches the exact packed artifact on macOS; the audit also recorded local npm/pnpm evidence                     |
+| Fish and direct Command Prompt launch   | Required CI follow-up  | #83 gives each target its own packed-artifact commit/push/doctor/uninstall lane                                      |
+| VS Code, JetBrains IDEs, GitHub Desktop | Manual release gate    | #83 adds a candidate-specific checklist; Git must inherit usable Node and project-local-bin paths                    |
 
 ## Lifecycle and artifact coverage
 
@@ -134,9 +135,11 @@ documentation gaps were converted into executable assertions before completion.
 
 These are closure dispositions, not hidden follow-up work:
 
-- [#83](https://github.com/RoryGlenn/commitment-issues/issues/83) owns Fish,
-  direct Command Prompt, VS Code, JetBrains, and GitHub Desktop-triggered Git
-  evidence. They remain unverified.
+- At this audit snapshot, [#83](https://github.com/RoryGlenn/commitment-issues/issues/83)
+  owned the unverified Fish, direct Command Prompt, and GUI-client boundary.
+  Its later focused follow-up adds required packed shell lanes and a separate
+  manual GUI-client release checklist without rewriting the original local
+  verification record below.
 - [#96](https://github.com/RoryGlenn/commitment-issues/issues/96) added pinned
   forward-upgrade evidence for the Husky boundary, previous minor, and latest
   published baseline. It deliberately did not turn automatic reverse migration

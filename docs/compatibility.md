@@ -4,8 +4,9 @@ This page is the canonical environment support boundary for
 `commitment-issues`. “CI-verified” means a required pull-request job installs
 the packed package and exercises its real CLI, native Git hooks, workspaces,
 clone repair, linked worktrees, and removal. “Locally verified” records useful
-additional evidence but is not a required cross-platform gate. “Unverified” is
-not an affirmative compatibility claim.
+additional evidence but is not a required cross-platform gate. “Manual release
+check” means a human must execute and record the named client workflow against
+the exact candidate. “Unverified” is not an affirmative compatibility claim.
 
 ## Package managers
 
@@ -110,17 +111,30 @@ Node requirements below this package's declared floor.
 
 ## Operating systems, shells, and Git clients
 
-| Environment                                   | Evidence level       | Boundary                                                                            |
-| --------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------- |
-| Ubuntu, macOS, Windows                        | CI-verified          | npm at Node 22.11.0/24; pnpm, Yarn Classic, and Bun at Node 24                      |
-| POSIX `sh` and Git for Windows' bundled shell | CI-verified          | These execute the generated `#!/bin/sh` hooks during real commits and pushes        |
-| Bash                                          | CI launcher evidence | Linux/macOS Actions launch the suite; the hook itself still uses `sh`               |
-| PowerShell                                    | CI launcher evidence | Windows Actions launch the full suite; Git executes hooks through its bundled shell |
-| Zsh                                           | Locally verified     | Full packed npm lifecycle on macOS                                                  |
-| Fish and direct Command Prompt launch         | Unverified           | No blanket compatibility claim                                                      |
-| VS Code, JetBrains IDEs, GitHub Desktop       | Unverified           | Node and the local bin must be reachable in the environment inherited by Git        |
+| Environment                           | Evidence level       | Boundary                                                                                                               |
+| ------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Ubuntu, macOS, Windows                | CI-verified          | npm at Node 22.11.0/24; pnpm, Yarn Classic, and Bun at Node 24                                                         |
+| POSIX `/bin/sh`                       | CI-verified          | The packed artifact runs the full commit/push/doctor/uninstall scenario on Linux and a portability smoke on macOS      |
+| Bash and Fish                         | CI-verified on Linux | Each launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`        |
+| Zsh                                   | CI-verified on macOS | Launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`             |
+| Windows PowerShell and Command Prompt | CI-verified          | Each launches the packed CLI and real Git lifecycle; Git for Windows executes generated hooks through its bundled `sh` |
+| VS Code Source Control                | Manual release check | Commit and push must pass from the UI with the GUI-inherited Node/local-bin environment                                |
+| IntelliJ IDEA or PyCharm              | Manual release check | One current JetBrains client provides the shared commit/push lane                                                      |
+| GitHub Desktop on macOS and Windows   | Manual release check | Both operating-system lanes must execute commit and push from the UI                                                   |
 
-Dedicated shell and GUI Git-client evidence remains tracked in
-[#83](https://github.com/RoryGlenn/commitment-issues/issues/83). Until that work
-closes, the project does not claim blanket Fish, Command Prompt, VS Code,
-JetBrains, or GitHub Desktop compatibility.
+Every automated shell lane installs the exact `npm pack` artifact without
+registry access, uses a path containing spaces, Unicode, `$`, and `&`, preserves
+an existing hook, verifies LF hook bodies and Unix executable bits, and runs
+Git with a deliberately stripped `PATH`. Shell support means that shell can
+launch the CLI and Git scenario; it does not change the generated hook
+interpreter.
+
+GUI clients are not shells and do not run in required pull-request CI. Their
+candidate-specific evidence is recorded with the release using the
+[GUI Git-client checklist](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/git-client-release-checklist.md).
+Node.js and the project-local bin must be reachable in the environment the
+client gives Git; success from an integrated terminal is not a substitute.
+
+The current CLI does not ship shell-completion scripts. Bash, Zsh, Fish, and
+PowerShell parser checks become required if completion files enter the package;
+the launch matrix is not a substitute for validating completion syntax.

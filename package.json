@@ -98,6 +98,7 @@
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",
     "coverage:check": "node scripts/update-readme-coverage-badge.mjs --check",
     "test:precommit": "node scripts/precommit.mjs",
+    "test:shell-compat": "node tools/run-shell-compat-test.mjs",
     "test:lifecycle": "node scripts/run-lifecycle-test.mjs npm",
     "test:lifecycle:npm": "node scripts/run-lifecycle-test.mjs npm",
     "test:lifecycle:pnpm": "node scripts/run-lifecycle-test.mjs pnpm",

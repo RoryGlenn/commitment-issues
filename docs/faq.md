@@ -155,10 +155,16 @@ The main matrix runs on Ubuntu, macOS, and Windows. Generated hooks are POSIX
 `sh`; Git for Windows uses its bundled shell. Node.js and the local binary must
 still be reachable in the environment inherited by Git.
 
-Dedicated coverage for every shell and GUI client is not complete. Until
-[#83](https://github.com/RoryGlenn/commitment-issues/issues/83) closes, the
-project does not claim blanket Bash, Zsh, Fish, PowerShell, Command Prompt, VS
-Code, JetBrains, or GitHub Desktop compatibility.
+Required CI launches the packed artifact through Linux `/bin/sh`, Bash, and
+Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command Prompt. Each
+lane performs a real commit and push with a stripped `PATH`; the hooks
+themselves continue to run under POSIX `sh` (Git's bundled `sh` on Windows).
+
+VS Code Source Control, one current IntelliJ IDEA or PyCharm version, and GitHub
+Desktop on macOS and Windows use a separate manual pre-release checklist. An
+integrated terminal proves its selected shell, not the GUI client's inherited
+environment. See the [compatibility matrix](compatibility.md) and the
+[GUI checklist](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/git-client-release-checklist.md).
 
 ## Should I use this in CI?
 

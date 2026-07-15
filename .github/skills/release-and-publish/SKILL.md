@@ -276,7 +276,7 @@ npm-only path as a complete signed release.
 
 ## CI / required checks
 
-- The required status check is the aggregate job **`CI Success`** in `.github/workflows/ci.yml` (`needs: [dco, quality, check, pm-lifecycle, codeql]`, `if: always()`), which fails unless DCO, static workflow/dependency quality, every OS/Node matrix leg, every package-manager lifecycle integration, and CodeQL report success. Skipped or otherwise incomplete required jobs fail closed too. This keeps the required-check list stable across matrix changes — don't rename it without updating the ruleset.
+- The required status check is the aggregate job **`CI Success`** in `.github/workflows/ci.yml` (`if: always()`), which fails unless DCO, static workflow/dependency quality, every OS/Node and packed shell matrix leg, every package-manager and migration lifecycle integration, and CodeQL report success. Skipped or otherwise incomplete required jobs fail closed too. This keeps the required-check list stable across matrix changes — don't rename it without updating the ruleset.
 - Dependabot groups minor/patch bumps; **major** dependency bumps arrive as individual PRs and some (e.g. eslint 9→10) are expected to fail CI until the breaking change is handled — that's the `CI Success` gate doing its job, not a regression to force-merge.
 
 ## Post-release

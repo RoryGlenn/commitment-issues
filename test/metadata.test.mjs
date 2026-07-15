@@ -476,7 +476,7 @@ test("CI Success includes DCO and both DCO baselines stay documented", () => {
 
   assert.match(
     ci,
-    /needs: \[dco, quality, check, pm-lifecycle, migration-lifecycle, codeql\]/,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
   assert.match(ci, /fetch-depth: 0/);
