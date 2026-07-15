@@ -137,12 +137,11 @@ defines the complete trust boundary.
 
 The supported v3 product targets JavaScript and TypeScript projects running
 Node.js >=22.11.0. Local installs through npm, pnpm 10, Yarn Classic 1.22.22,
-and Bun 1.3.14 are supported. TypeScript file discovery is built in, while parsing
-and lint rules remain owned by the project's ESLint setup.
+Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 are supported.
+TypeScript file discovery is built in, while parsing and lint rules remain
+owned by the project's ESLint setup.
 
-Yarn Berry with `nodeLinker: node-modules` is provisional until
-[#100](https://github.com/RoryGlenn/commitment-issues/issues/100) adds dedicated
-evidence; Plug'n'Play is unsupported. Global installs are unsupported because
+Yarn Plug'n'Play is unsupported. Global installs are unsupported because
 hooks intentionally invoke the project-local bin. Install once at a monorepo
 root and use root-owned configuration/tools. See the
 [compatibility](compatibility.md), [Yarn Berry](yarn-berry.md),

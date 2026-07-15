@@ -102,11 +102,13 @@
     "test:lifecycle:npm": "node scripts/run-lifecycle-test.mjs npm",
     "test:lifecycle:pnpm": "node scripts/run-lifecycle-test.mjs pnpm",
     "test:lifecycle:yarn": "node scripts/run-lifecycle-test.mjs yarn",
+    "test:lifecycle:yarn-berry": "node scripts/run-lifecycle-test.mjs yarn-berry",
     "test:lifecycle:bun": "node scripts/run-lifecycle-test.mjs bun",
     "test:migration:yarn": "node tools/run-migration-lifecycle-test.mjs yarn",
     "test:smoke": "npm run test:lifecycle:npm",
     "test:smoke:pnpm": "npm run test:lifecycle:pnpm",
     "test:smoke:yarn": "npm run test:lifecycle:yarn",
+    "test:smoke:yarn-berry": "npm run test:lifecycle:yarn-berry",
     "test:smoke:bun": "npm run test:lifecycle:bun"
   },
   "precommitChecks": {

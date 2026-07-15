@@ -10,7 +10,7 @@ import crossSpawn from "cross-spawn";
 import { hookBody } from "../../../scripts/lib/hooks.mjs";
 import {
   hasExactOutputLine,
-  SUPPORTED_LIFECYCLE_MANAGERS,
+  SUPPORTED_MIGRATION_MANAGERS,
 } from "../../../scripts/lib/lifecycle-managers.mjs";
 
 export const MIGRATION_TARBALL_DIGEST_PREFIX =
@@ -957,7 +957,7 @@ export async function createMigrationContext({
   fetchImpl = fetch,
 }) {
   assert.ok(
-    SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager),
+    SUPPORTED_MIGRATION_MANAGERS.has(packageManager),
     `unsupported migration package manager: ${packageManager}`,
   );
   const [nodeMajor] = process.versions.node.split(".").map(Number);

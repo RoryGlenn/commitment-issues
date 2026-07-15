@@ -170,6 +170,7 @@ test("migration runner parses package managers and exact tarballs", () => {
 
 test("migration runner rejects unsupported or unsafe arguments", () => {
   assert.throws(() => parseMigrationArgs(["pip"], root), /Unsupported/u);
+  assert.throws(() => parseMigrationArgs(["yarn-berry"], root), /Unsupported/u);
   assert.throws(() => parseMigrationArgs(["npm", "--wat"], root), /Unknown/u);
   assert.throws(
     () => parseMigrationArgs(["npm", "--tarball"], root),

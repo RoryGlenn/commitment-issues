@@ -60,7 +60,8 @@ separate **package lifecycle integration** pass/fail gate. It installs and runs
 an unpacked package copy in a temporary repository; mixing those duplicate,
 temporary source paths into the source-tree percentage would make the badge
 less reproducible rather than more complete. CI runs the npm lifecycle gate in
-the Node/OS matrix and separate pnpm, Yarn, and Bun lifecycle gates.
+the Node/OS matrix and separate pnpm, Yarn Classic, Yarn Berry `node-modules`,
+and Bun lifecycle gates.
 
 ## Runtime behavior ownership
 
