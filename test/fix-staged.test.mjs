@@ -316,5 +316,5 @@ test("reports local install guidance when fixer peer tools are missing", (t) => 
 
   assert.equal(result.status, 1);
   assert.match(output, /Missing local tool\(s\): eslint, prettier/);
-  assert.match(output, /npm install -D eslint prettier/);
+  assert.match(output, /npm install -D eslint@\^9 prettier@\^3/);
 });

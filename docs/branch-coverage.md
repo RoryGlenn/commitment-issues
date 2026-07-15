@@ -90,6 +90,7 @@ claim-to-scenario map remains in [Scenario Coverage](scenario-coverage.md).
 | `scripts/lib/package-manager.mjs` | package-manager detection and command construction                                     | `test/package-manager.test.mjs`                                                        |
 | `scripts/lib/process.mjs`         | shell-free child execution, environment isolation, timeout and process-tree cleanup    | `test/process.test.mjs`                                                                |
 | `scripts/lib/push-base.mjs`       | upstream, first-push, remote, and range-base inference                                 | `test/push-base.test.mjs`                                                              |
+| `scripts/lib/runtime.mjs`         | package-engine minimum parsing and unsupported-Node diagnostics                        | `test/runtime.test.mjs`; normal CLI subprocess coverage                                |
 | `scripts/lib/secret-scan.mjs`     | staged-added-line parsing, credential patterns, exemptions, and fail-closed scan state | `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`                   |
 | `scripts/lib/ui.mjs`              | terminal capability detection, output routing, colors, and width                       | `test/ui.test.mjs`                                                                     |
 | `scripts/lib/vows.mjs`            | deterministic vow content, ANSI behavior, wrapping, and immutability                   | `test/vows.test.mjs`                                                                   |
@@ -124,7 +125,8 @@ The test strategy also enforces behavior that a percentage cannot:
 - generated message-state SVGs are regenerated in a private temporary
   directory and compared byte-for-byte with all 64 committed assets;
 - the aggregate `CI Success` job accepts only explicit success from DCO, the
-  full OS/Node check matrix, and the package-manager lifecycle matrix;
+  full OS/Node check matrix, and the package-manager lifecycle matrix across
+  Ubuntu, macOS, and Windows (plus exact-minimum-Node manager lanes);
 - property tests exercise path normalization and ownership invariants, while
   real disposable Git repositories cover CLI and hook behavior;
 - no snapshot update can mask behavior: assertions target exact structured

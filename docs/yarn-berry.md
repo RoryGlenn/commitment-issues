@@ -1,12 +1,15 @@
 # Yarn Berry Guide
 
-This guide covers using `commitment-issues` with **Yarn Berry** (Yarn 2 and
-later).
+This guide describes the provisional setup for using `commitment-issues` with
+**Yarn Berry** (Yarn 2 and later). Required CI currently verifies Yarn Classic;
+dedicated Berry `node-modules` evidence remains tracked in
+[#100](https://github.com/RoryGlenn/commitment-issues/issues/100). Until that
+issue closes, this guide is compatibility guidance rather than an affirmative
+support claim.
 
 ## The short version
 
-`commitment-issues` works with Yarn Berry when the project uses the
-`node-modules` linker:
+The expected compatible mode uses Yarn Berry's `node-modules` linker:
 
 ```yaml
 # .yarnrc.yml
@@ -46,7 +49,7 @@ would require resolving every tool through the Yarn runtime instead of
 3. Add `commitment-issues` and the peer tools it runs:
 
    ```bash
-   yarn add -D commitment-issues eslint prettier
+   yarn add -D commitment-issues eslint@^9 prettier@^3
    ```
 
 4. Run the initializer:
@@ -56,7 +59,8 @@ would require resolving every tool through the Yarn runtime instead of
    ```
 
 5. Commit and push normally. The hook entrypoint and peer tools resolve from the
-   local `node_modules` tree, just like in an npm or pnpm project.
+   local `node_modules` tree, just like in an npm or pnpm project. Report a
+   reproducible Berry-specific gap on #100 while the mode remains provisional.
 
 If you enable optional commit-message linting, also add `@commitlint/cli` and
 your chosen config package at the project root. That integration follows the

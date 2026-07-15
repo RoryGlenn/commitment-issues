@@ -16,6 +16,34 @@ const LOCKFILES = {
 };
 
 const KNOWN = new Set(["npm", "pnpm", "yarn", "bun"]);
+const RECOMMENDED_DEV_SPECS = new Map([
+  ["eslint", "eslint@^9"],
+  ["prettier", "prettier@^3"],
+]);
+
+/**
+ * Whether package-manager mutations must explicitly target the workspace root.
+ * Malformed or absent project metadata stays fail-soft because this helper is
+ * used only to format recovery guidance after another check already failed.
+ * @param {string} [cwd] - Project root to inspect.
+ * @returns {boolean} Whether cwd declares a package-manager workspace.
+ */
+export function isWorkspaceRoot(cwd = process.cwd()) {
+  if (fs.existsSync(path.join(cwd, "pnpm-workspace.yaml"))) {
+    return true;
+  }
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
+    );
+    const workspaces = Array.isArray(pkg.workspaces)
+      ? pkg.workspaces
+      : pkg.workspaces?.packages;
+    return Array.isArray(workspaces) && workspaces.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Detect the package manager driving a project.
@@ -67,19 +95,22 @@ export function installCommand(cwd) {
 
 /**
  * The command to add dev dependencies under the detected package manager, e.g.
- * "npm install -D a b" or "pnpm add -D a b". Mirrors the forms the lifecycle
- * smoke test installs with, so a suggestion always matches the real manager.
+ * "npm install -D a b" or "pnpm add -D a b". Baseline ESLint/Prettier hints
+ * stay on the majors verified at the exact minimum Node version.
  * @param {string[]} packages - Package names to install.
  * @param {string} [cwd] - Project root, forwarded to detectPackageManager.
  * @returns {string} e.g. "yarn add -D eslint prettier".
  */
 export function devInstallCommand(packages, cwd) {
-  const list = packages.join(" ");
+  const list = packages
+    .map((name) => RECOMMENDED_DEV_SPECS.get(name) ?? name)
+    .join(" ");
+  const workspaceRoot = isWorkspaceRoot(cwd);
   switch (detectPackageManager(cwd)) {
     case "pnpm":
-      return `pnpm add -D ${list}`;
+      return `pnpm add -D${workspaceRoot ? " --workspace-root" : ""} ${list}`;
     case "yarn":
-      return `yarn add -D ${list}`;
+      return `yarn add -D${workspaceRoot ? " --ignore-workspace-root-check" : ""} ${list}`;
     case "bun":
       return `bun add --dev ${list}`;
     default:
@@ -95,5 +126,12 @@ export function devInstallCommand(packages, cwd) {
  * @returns {string} e.g. "pnpm remove commitment-issues".
  */
 export function removeCommand(packages, cwd) {
-  return `${detectPackageManager(cwd)} remove ${packages.join(" ")}`;
+  const manager = detectPackageManager(cwd);
+  const rootFlag =
+    isWorkspaceRoot(cwd) && manager === "pnpm"
+      ? " --workspace-root"
+      : isWorkspaceRoot(cwd) && manager === "yarn"
+        ? " --ignore-workspace-root-check"
+        : "";
+  return `${manager} remove${rootFlag} ${packages.join(" ")}`;
 }

@@ -90,6 +90,88 @@ test("package-lock root metadata stays in sync with package.json", () => {
   assert.deepEqual(rootPackage.engines, pkg.engines);
   assert.deepEqual(rootPackage.dependencies, pkg.dependencies);
   assert.deepEqual(rootPackage.devDependencies, pkg.devDependencies);
+  assert.deepEqual(rootPackage.peerDependencies, pkg.peerDependencies);
+});
+
+test("package-manager lifecycle CI covers supported OSes and the Node floor", () => {
+  const workflow = readText(".github/workflows/ci.yml");
+  const job = workflow
+    .split(/^ {2}pm-lifecycle:$/m)[1]
+    ?.split(/^ {2}ci-success:$/m)[0];
+  assert.ok(job, "ci.yml should define the pm-lifecycle job");
+
+  assert.match(job, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
+  assert.match(job, /node-version: \["24"\]/);
+  for (const manager of ["pnpm", "yarn", "bun"]) {
+    assert.match(
+      job,
+      new RegExp(
+        `- pm: ${manager}\\s+os: ubuntu-latest\\s+node-version: "22\\.11\\.0"`,
+      ),
+    );
+  }
+  assert.match(job, /npm install --global yarn@1\.22\.22/);
+  assert.match(job, /bun-version: "1\.3\.14"/);
+});
+
+test("public Bun support stays pinned to the exact CI-tested version", () => {
+  for (const file of [
+    "README.md",
+    "CHANGELOG.md",
+    ".github/skills/github-governance/SKILL.md",
+    "docs/compatibility.md",
+    "docs/faq.md",
+    "docs/scenario-coverage.md",
+  ]) {
+    const contents = readText(file);
+    assert.match(contents, /Bun 1\.3\.14/, `${file} should name Bun 1.3.14`);
+    assert.doesNotMatch(
+      contents,
+      /Bun 1\.3(?!\.14)/,
+      `${file} should not broaden Bun support beyond CI evidence`,
+    );
+  }
+});
+
+test("the hook contract documents local-only missing-bin behavior", () => {
+  const contract = readText("docs/external-interface.md");
+  assert.match(contract, /node_modules\/\.bin\/commitment-issues precommit/);
+  assert.match(contract, /skip notice to stderr and exit 0/);
+  assert.doesNotMatch(contract, /exit silently/);
+});
+
+test("bootstrap dependency ranges stay inside the verified Node and tool matrix", () => {
+  const pkg = readJson("package.json");
+  assert.deepEqual(pkg.peerDependencies, {
+    eslint: "^9.0.0 || ^10.0.0",
+    prettier: "^3.0.0",
+  });
+  assert.match(readText("scripts/ci-lifecycle-smoke.mjs"), /"globals@\^17"/);
+
+  for (const file of [
+    "README.md",
+    "docs/framework-recipes.md",
+    "docs/how-it-works.md",
+    "docs/migration.md",
+    "docs/monorepo.md",
+    "docs/yarn-berry.md",
+  ]) {
+    const contents = readText(file);
+    assert.match(contents, /eslint@\^9/);
+    assert.match(contents, /prettier@\^3/);
+  }
+});
+
+test("the published package has no dependency install lifecycle scripts", () => {
+  const pkg = readJson("package.json");
+  for (const script of ["preinstall", "install", "postinstall", "prepare"]) {
+    assert.equal(
+      Object.hasOwn(pkg.scripts ?? {}, script),
+      false,
+      `${script} should not make a dependency install execute package code`,
+    );
+  }
+  assert.equal(pkg.scripts.doctor, "node scripts/doctor.mjs");
 });
 
 test("husky and lint-staged stay out of the dependency tree", () => {
@@ -195,7 +277,7 @@ test("repository metadata uses canonical sponsor and version values", () => {
 
   assert.match(funding, /^ko_fi:\s+roryglenn\s*$/m);
   assert.doesNotMatch(funding, /^ko_fi:\s+https?:\/\//m);
-  assert.match(bugReport, /npx commitment-issues --version/);
+  assert.match(bugReport, /npx --no-install commitment-issues --version/);
   assert.doesNotMatch(
     bugReport,
     /commitment-issues --help[^\n]*(?:header|version)/i,
@@ -482,6 +564,7 @@ test("npm package excludes promotional media and stays within its size budget", 
   const expectedDocs = new Set([
     "docs/branch-coverage.md",
     "docs/ci-recipes.md",
+    "docs/compatibility.md",
     "docs/configuration.md",
     "docs/external-interface.md",
     "docs/faq.md",

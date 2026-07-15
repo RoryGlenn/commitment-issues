@@ -770,7 +770,7 @@ test("init distinguishes configured package settings from inactive hooks", (t) =
   assertHookClaimsWithheld(output);
 });
 
-test("init refreshes the exact older generated pre-push hook", (t) => {
+test("init refreshes the exact path-fallback generated pre-push hook", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -780,10 +780,18 @@ test("init refreshes the exact older generated pre-push hook", (t) => {
   const current = fs.readFileSync(hookPath, "utf8");
   fs.writeFileSync(
     hookPath,
-    current.replace(
-      'commitment-issues prepush "$@"',
-      "commitment-issues prepush",
-    ),
+    `#!/bin/sh
+# Installed by commitment-issues. Recreate anytime with: commitment-issues doctor
+if [ "$COMMITMENT_ISSUES" = "0" ] || [ "$HUSKY" = "0" ]; then
+  exit 0
+fi
+export PATH="node_modules/.bin:$PATH"
+if ! command -v commitment-issues >/dev/null 2>&1; then
+  echo "commitment-issues: command not found; skipping pre-push checks." >&2
+  exit 0
+fi
+commitment-issues prepush
+`,
   );
 
   const result = runInit(tempDir);

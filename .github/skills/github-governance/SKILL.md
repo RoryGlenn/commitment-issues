@@ -54,7 +54,7 @@ the normal path cannot safely be used.
   `main` pushes and manual audits require the immutable baseline to remain an
   ancestor. The focused DCO workflow provides an additional visible report.
   Never advance the baseline to silence a failure.
-- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running `lint`, `format:check`, `test`, and npm lifecycle integration. Runtime branch coverage is gated on ubuntu for both Node lines; Node 24 also verifies badge freshness. `pm-lifecycle` runs the separately named pnpm/yarn/bun lifecycle gates. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
+- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running `lint`, `format:check`, `test`, and npm lifecycle integration. Runtime branch coverage is gated on ubuntu for both Node lines; Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 

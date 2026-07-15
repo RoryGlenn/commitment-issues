@@ -24,6 +24,7 @@ import {
   createTempRepo,
   fakeGitEnv,
   run,
+  writeCrossPlatformShim,
 } from "./helpers/temp-repo.mjs";
 
 for (const name of ["pre-commit", "pre-push"]) {
@@ -135,6 +136,45 @@ test("commit-msg wiring is opt-in and quotes Git's message-file argument", () =>
   ]);
   assert.equal(hookCommand("commit-msg"), 'commitment-issues commit-msg "$1"');
   assert.match(hookBody("commit-msg"), /commitment-issues commit-msg "\$1"/);
+});
+
+test("generated hooks never fall back to a global commitment-issues binary", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const hooksDir = path.join(tempDir, ".git", "hooks");
+  writeHook(hooksDir, "pre-commit");
+  fs.rmSync(path.join(tempDir, "node_modules"), {
+    recursive: true,
+    force: true,
+  });
+
+  const globalBin = path.join(tempDir, ".global-bin");
+  fs.mkdirSync(globalBin);
+  const marker = path.join(tempDir, "global-hook-ran");
+  writeCrossPlatformShim(
+    globalBin,
+    "commitment-issues",
+    'import fs from "node:fs"; fs.writeFileSync(process.env.GLOBAL_HOOK_MARKER, process.argv.slice(2).join(" "));\n',
+  );
+
+  fs.writeFileSync(path.join(tempDir, "change.txt"), "change\n");
+  assert.equal(run("git", ["add", "change.txt"], tempDir).status, 0);
+  const result = run(
+    "git",
+    ["commit", "-m", "test local hook boundary"],
+    tempDir,
+    {
+      env: {
+        ...process.env,
+        PATH: `${globalBin}${path.delimiter}${process.env.PATH}`,
+        GLOBAL_HOOK_MARKER: marker,
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(marker), false);
+  assert.match(result.stderr, /command not found; skipping pre-commit checks/);
 });
 
 test(

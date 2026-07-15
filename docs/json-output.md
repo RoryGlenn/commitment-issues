@@ -3,8 +3,8 @@
 `precommit` and `prepush` support an opt-in, machine-readable result:
 
 ```bash
-npx commitment-issues precommit --json
-npx commitment-issues prepush --json
+npx --no-install commitment-issues precommit --json
+npx --no-install commitment-issues prepush --json
 ```
 
 These are the only commands with a JSON contract. Without `--json`, every

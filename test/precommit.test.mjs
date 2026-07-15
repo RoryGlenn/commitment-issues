@@ -653,8 +653,8 @@ test("missing peer tools stay advisory and never fall back to npx", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /ESLint is not installed locally/);
   assert.match(output, /Prettier is not installed locally/);
-  assert.match(output, /pnpm add -D eslint/);
-  assert.match(output, /pnpm add -D prettier/);
+  assert.match(output, /pnpm add -D eslint@\^9/);
+  assert.match(output, /pnpm add -D prettier@\^3/);
   assert.doesNotMatch(output, /Unable to run (ESLint|Prettier)/);
   assert.equal(fs.existsSync(marker), false);
 });

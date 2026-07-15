@@ -210,17 +210,25 @@ test("doctor recreates a missing hook file", (t) => {
   assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
 });
 
-test("doctor refreshes the exact older generated pre-push hook", (t) => {
+test("doctor refreshes the exact path-fallback generated pre-push hook", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir);
   const hookPath = gitHook(tempDir, "pre-push");
   const current = fs.readFileSync(hookPath, "utf8");
-  const stale = current.replace(
-    'commitment-issues prepush "$@"',
-    "commitment-issues prepush",
-  );
+  const stale = `#!/bin/sh
+# Installed by commitment-issues. Recreate anytime with: commitment-issues doctor
+if [ "$COMMITMENT_ISSUES" = "0" ] || [ "$HUSKY" = "0" ]; then
+  exit 0
+fi
+export PATH="node_modules/.bin:$PATH"
+if ! command -v commitment-issues >/dev/null 2>&1; then
+  echo "commitment-issues: command not found; skipping pre-push checks." >&2
+  exit 0
+fi
+commitment-issues prepush "$@"
+`;
   fs.writeFileSync(hookPath, stale);
 
   const result = runDoctor(tempDir);

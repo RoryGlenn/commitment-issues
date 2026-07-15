@@ -33,6 +33,7 @@
     "assets/project-flowchart-light.svg",
     "docs/branch-coverage.md",
     "docs/ci-recipes.md",
+    "docs/compatibility.md",
     "docs/configuration.md",
     "docs/external-interface.md",
     "docs/faq.md",
@@ -53,7 +54,6 @@
     "commitment-issues": "scripts/cli.mjs"
   },
   "scripts": {
-    "prepare": "node scripts/doctor.mjs --quiet",
     "prepublishOnly": "npm test && npm run test:lifecycle:npm",
     "init": "node scripts/init.mjs",
     "lint": "eslint .",
@@ -107,8 +107,8 @@
     "prettier": "^3.9.4"
   },
   "peerDependencies": {
-    "eslint": ">=9",
-    "prettier": ">=3"
+    "eslint": "^9.0.0 || ^10.0.0",
+    "prettier": "^3.0.0"
   },
   "engines": {
     "node": ">=22.11.0"

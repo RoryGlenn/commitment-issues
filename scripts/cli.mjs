@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { enforceSupportedNodeVersion } from "./lib/runtime.mjs";
 
 // Single entry point for the `commitment-issues` bin. It dispatches a
 // subcommand to the matching script that lives alongside it inside the
@@ -32,6 +33,7 @@ const HIDDEN_COMMANDS = {
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = path.join(path.dirname(scriptsDir), "package.json");
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+enforceSupportedNodeVersion(process.versions.node, packageJson.engines.node);
 const [subcommand, ...rest] = process.argv.slice(2);
 
 function printUsage(stream) {

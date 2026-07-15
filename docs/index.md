@@ -16,6 +16,8 @@ not installed with the npm package unless users need it offline.
 
 ## Compatibility guides
 
+- [Compatibility and installation support](compatibility.md) — canonical
+  package-manager, Node, OS, shell, client, and lifecycle boundary
 - [Monorepos and workspaces](monorepo.md)
 - [Yarn Berry](yarn-berry.md)
 - [Framework recipes](framework-recipes.md)
@@ -53,6 +55,7 @@ They are evidence, not living descriptions of later code.
 - [Security, secrets, paths, and subprocesses audit](audits/security-secrets-paths-subprocesses.md)
 - [Test quality and meaningful coverage audit](audits/test-quality-and-meaningful-coverage.md)
 - [Terminal UX and output architecture audit](audits/terminal-ux-and-output-architecture.md)
+- [Package managers and cross-platform behavior audit](audits/package-managers-and-cross-platform.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)

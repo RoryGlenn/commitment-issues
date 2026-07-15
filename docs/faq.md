@@ -39,7 +39,7 @@ working tree or commit.
 `prepare` command, native Git hooks, and common cache/dependency ignores. It
 preserves project-owned scripts, custom hooks, foreign `core.hooksPath`
 configurations, dependencies, source files, and lockfiles. Use
-`npx commitment-issues init --dry-run` for the exact proposed diff.
+`npx --no-install commitment-issues init --dry-run` for the exact proposed diff.
 
 The full ownership and precedence rules are documented under
 [What `init` changes](configuration.md#what-init-changes).
@@ -136,14 +136,18 @@ defines the complete trust boundary.
 ## What projects and package managers are supported?
 
 The supported v3 product targets JavaScript and TypeScript projects running
-Node.js >=22.11.0. npm, pnpm, Yarn, and Bun are supported. TypeScript file
-discovery is built in, while parsing and lint rules remain owned by the
-project's ESLint setup.
+Node.js >=22.11.0. Local installs through npm, pnpm 10, Yarn Classic 1.22.22,
+and Bun 1.3.14 are supported. TypeScript file discovery is built in, while parsing
+and lint rules remain owned by the project's ESLint setup.
 
-Yarn Berry requires `nodeLinker: node-modules`; Plug'n'Play is not supported.
-Install once at a monorepo root and use root-owned configuration/tools. See the
-[Yarn Berry](yarn-berry.md), [monorepo](monorepo.md), and
-[framework](framework-recipes.md) guides for the tested boundaries.
+Yarn Berry with `nodeLinker: node-modules` is provisional until
+[#100](https://github.com/RoryGlenn/commitment-issues/issues/100) adds dedicated
+evidence; Plug'n'Play is unsupported. Global installs are unsupported because
+hooks intentionally invoke the project-local bin. Install once at a monorepo
+root and use root-owned configuration/tools. See the
+[compatibility](compatibility.md), [Yarn Berry](yarn-berry.md),
+[monorepo](monorepo.md), and [framework](framework-recipes.md) guides for the
+tested boundaries.
 
 ## Which shells and GUI Git clients are supported?
 
@@ -182,8 +186,8 @@ SLSA provenance against the artifact digest and source tag.
 Run removal while the package is still installed:
 
 ```bash
-npx commitment-issues uninstall --dry-run
-npx commitment-issues uninstall
+npx --no-install commitment-issues uninstall --dry-run
+npx --no-install commitment-issues uninstall
 npm remove commitment-issues
 ```
 

@@ -15,13 +15,13 @@
 Install the package with the peer tools it runs:
 
 ```bash
-npm install -D commitment-issues eslint prettier
+npm install -D commitment-issues eslint@^9 prettier@^3
 ```
 
 Then initialize the project:
 
 ```bash
-npx commitment-issues init
+npx --no-install commitment-issues init
 ```
 
 Run this from the project root of a non-bare Git working tree. Bare repositories

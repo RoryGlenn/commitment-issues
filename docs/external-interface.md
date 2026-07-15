@@ -25,13 +25,13 @@ For installation and quick usage, see the [README](../README.md).
 Examples:
 
 ```bash
-npx commitment-issues init
-npx commitment-issues uninstall --dry-run
-npx commitment-issues doctor
-npx commitment-issues precommit --json
-npx commitment-issues prepush --json
-npx commitment-issues commit-msg .git/COMMIT_EDITMSG
-npx commitment-issues --version
+npx --no-install commitment-issues init
+npx --no-install commitment-issues uninstall --dry-run
+npx --no-install commitment-issues doctor
+npx --no-install commitment-issues precommit --json
+npx --no-install commitment-issues prepush --json
+npx --no-install commitment-issues commit-msg .git/COMMIT_EDITMSG
+npx --no-install commitment-issues --version
 ```
 
 ### Arguments and options
@@ -90,16 +90,18 @@ uninspectable; `init` and `doctor` report it instead of repairing through it.
 
 ## Git hook interface
 
-`init` writes plain native hooks that call the installed binary:
+`init` writes plain native hooks that call only the project-local binary:
 
-- pre-commit → `commitment-issues precommit`
-- pre-push → `commitment-issues prepush "$@"`
-- commit-msg, when enabled → `commitment-issues commit-msg "$1"`
+- pre-commit → `node_modules/.bin/commitment-issues precommit`
+- pre-push → `node_modules/.bin/commitment-issues prepush "$@"`
+- commit-msg, when enabled →
+  `node_modules/.bin/commitment-issues commit-msg "$1"`
 
 The hooks honor `COMMITMENT_ISSUES=0` and the pre-3.0 `HUSKY=0` compatibility
-skip. They exit silently when the binary is no longer installed. The pre-push
-hook forwards Git's remote name and URL for remote-specific first-push base
-selection. Package source is not copied into the consumer repository.
+skip. When the local binary is no longer installed, they print one bounded
+skip notice to stderr and exit 0. The pre-push hook forwards Git's remote name
+and URL for remote-specific first-push base selection. Package source is not
+copied into the consumer repository.
 
 The first eligible clean or informational human-readable pre-commit invocation
 shows a default-on contributor welcome, then records

@@ -17,7 +17,7 @@ Commitment Issues catches them while they are still cheap.
 
 Stop test failures, staged secrets, and Git mistakes before they reach your repo.
 
-No telemetry · npm, pnpm, Yarn, and Bun · Node.js >=22.11.0
+No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 · Node.js >=22.11.0
 
 [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) ·
 [Configuration](docs/configuration.md) · [Migration](docs/migration.md) ·
@@ -76,12 +76,12 @@ could have been identified immediately.
 
 ## Quickstart
 
-You need Git, Node.js >=22.11.0, ESLint 9+ with a flat config, and Prettier 3+.
+You need Git, Node.js >=22.11.0, ESLint 9 with a flat config, and Prettier 3.
 
 ```bash
-npm install -D commitment-issues eslint prettier
-npx commitment-issues init --dry-run
-npx commitment-issues init
+npm install -D commitment-issues eslint@^9 prettier@^3
+npx --no-install commitment-issues init --dry-run
+npx --no-install commitment-issues init
 ```
 
 Then commit and push normally:
@@ -151,19 +151,20 @@ preserved and reported for manual composition.
 
 ## Does it fit your project?
 
-| Requirement or boundary | Support                                                                |
-| ----------------------- | ---------------------------------------------------------------------- |
-| Primary ecosystem       | JavaScript and TypeScript                                              |
-| Runtime                 | Node.js >=22.11.0                                                      |
-| Linting and formatting  | ESLint >=9 flat config and Prettier >=3                                |
-| Package managers        | npm, pnpm, Yarn, and Bun                                               |
-| Yarn Berry              | Supported with `nodeLinker: node-modules`; Plug'n'Play unsupported     |
-| Monorepos               | Root-owned workspaces and linked Git worktrees                         |
-| Existing hooks          | Preserved; compose the command manually                                |
-| Commit messages         | Optional project-local commitlint and rules                            |
-| CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0` |
+| Requirement or boundary | Support                                                                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Primary ecosystem       | JavaScript and TypeScript                                                                                                   |
+| Runtime                 | Node.js >=22.11.0                                                                                                           |
+| Linting and formatting  | ESLint 9 or 10 flat config and Prettier 3                                                                                   |
+| Package managers        | Local npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14                                                                    |
+| Yarn Berry              | `node-modules` provisional under [#100](https://github.com/RoryGlenn/commitment-issues/issues/100); Plug'n'Play unsupported |
+| Monorepos               | Root-owned workspaces and linked Git worktrees                                                                              |
+| Existing hooks          | Preserved; compose the command manually                                                                                     |
+| Commit messages         | Optional project-local commitlint and rules                                                                                 |
+| CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0`                                                      |
 
-Setup details: [frameworks](docs/framework-recipes.md) ·
+Setup details: [compatibility](docs/compatibility.md) ·
+[frameworks](docs/framework-recipes.md) ·
 [monorepos](docs/monorepo.md) · [Yarn Berry](docs/yarn-berry.md) ·
 [CI providers](docs/ci-recipes.md)
 
@@ -216,8 +217,8 @@ and [release verification](docs/release-verification.md).
 ## Removal
 
 ```bash
-npx commitment-issues uninstall --dry-run
-npx commitment-issues uninstall
+npx --no-install commitment-issues uninstall --dry-run
+npx --no-install commitment-issues uninstall
 npm remove commitment-issues
 ```
 
@@ -227,6 +228,7 @@ dependencies, ignores, and lockfiles are preserved.
 ## Documentation
 
 - [Configuration and behavior](docs/configuration.md)
+- [Compatibility and installation support](docs/compatibility.md)
 - [FAQ and troubleshooting](docs/faq.md)
 - [Migration guide](docs/migration.md)
 - [External interface](docs/external-interface.md)
