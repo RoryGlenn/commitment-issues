@@ -121,6 +121,12 @@ test("black-box shell scenario keeps the compatibility boundary hostile and offl
   assert.match(launcher, /"-ExecutionPolicy"/u);
   assert.match(launcher, /npm_config_offline = "true"/u);
   assert.match(launcher, /"--offline"/u);
+  assert.match(
+    launcher,
+    /\[rootPackage\.name\]: localPackageSpec\(repoDir, tarball\)/u,
+  );
+  assert.match(launcher, /Object\.keys\(rootPackage\.dependencies/u);
+  assert.match(launcher, /Object\.keys\(rootPackage\.peerDependencies/u);
   assert.match(launcher, /project-owned hook remains untouched/u);
   assert.match(launcher, /body\.startsWith\("#!\/bin\/sh\\n"\)/u);
   assert.match(launcher, /!body\.includes\("\\r"\)/u);

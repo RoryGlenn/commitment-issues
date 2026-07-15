@@ -193,47 +193,15 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-function linkInstalledPeer(name, destinationRoot) {
-  const source = path.join(root, "node_modules", name);
-  const destination = path.join(destinationRoot, "node_modules", name);
-  const metadata = readJson(path.join(source, "package.json"));
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.symlinkSync(
-    source,
-    destination,
-    process.platform === "win32" ? "junction" : "dir",
-  );
-
-  const bins =
-    typeof metadata.bin === "string"
-      ? { [metadata.name]: metadata.bin }
-      : metadata.bin || {};
-  const binDir = path.join(destinationRoot, "node_modules", ".bin");
-  fs.mkdirSync(binDir, { recursive: true });
-  for (const binName of Object.keys(bins)) {
-    for (const extension of process.platform === "win32"
-      ? ["", ".cmd", ".ps1"]
-      : [""]) {
-      const sourceBin = path.join(
-        root,
-        "node_modules",
-        ".bin",
-        `${binName}${extension}`,
-      );
-      const destinationBin = path.join(binDir, `${binName}${extension}`);
-      if (!fs.existsSync(sourceBin)) continue;
-      const sourceStats = fs.lstatSync(sourceBin);
-      if (sourceStats.isSymbolicLink()) {
-        fs.symlinkSync(fs.readlinkSync(sourceBin), destinationBin);
-      } else {
-        fs.copyFileSync(sourceBin, destinationBin);
-        if (process.platform !== "win32") {
-          fs.chmodSync(destinationBin, sourceStats.mode);
-        }
-      }
-    }
-  }
-  return metadata.version;
+function localPackageSpec(fromDir, packagePath) {
+  const relative = path
+    .relative(
+      fs.realpathSync.native(fromDir),
+      fs.realpathSync.native(packagePath),
+    )
+    .split(path.sep)
+    .join("/");
+  return `file:${relative}`;
 }
 
 function hasExactLine(output, expected) {
@@ -309,6 +277,10 @@ try {
   run("git", ["config", "commit.gpgsign", "false"], { cwd: repoDir });
 
   const rootPackage = readJson(path.join(root, "package.json"));
+  const localPackages = [
+    ...Object.keys(rootPackage.dependencies || {}),
+    ...Object.keys(rootPackage.peerDependencies || {}),
+  ];
   writeFile(
     path.join(repoDir, "package.json"),
     `${JSON.stringify(
@@ -318,6 +290,15 @@ try {
         private: true,
         type: "module",
         scripts: { test: "node --test" },
+        devDependencies: {
+          [rootPackage.name]: localPackageSpec(repoDir, tarball),
+          ...Object.fromEntries(
+            localPackages.map((name) => [
+              name,
+              localPackageSpec(repoDir, path.join(root, "node_modules", name)),
+            ]),
+          ),
+        },
         precommitChecks: {
           showWelcomeOnFirstCommit: false,
           tone: "standard",
@@ -339,27 +320,19 @@ try {
   installEnv.npm_config_fund = "false";
   run(
     "npm",
-    [
-      "install",
-      "--save-dev",
-      "--save-exact",
-      "--ignore-scripts",
-      "--offline",
-      "--no-audit",
-      "--no-fund",
-      "--legacy-peer-deps",
-      tarball,
-    ],
+    ["install", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
     { cwd: repoDir, env: installEnv },
   );
 
-  // npm 11's fresh CI cache contains the exact peer tarballs after `npm ci`
-  // but not always the registry manifests needed for a second offline
-  // resolution. Reuse the lockfile-installed peers through local links so this
-  // shell-sensitive scenario stays network-free and deterministic. The package
-  // manager lifecycle suite owns independent peer-install validation.
-  for (const name of ["eslint", "prettier"]) {
-    const version = linkInstalledPeer(name, repoDir);
+  // npm 11's fresh CI cache contains tarballs after `npm ci` but not always the
+  // registry manifests needed for a second offline resolution. The fixture
+  // installs the product from its exact tarball and exposes the already
+  // lockfile-installed runtime and peer packages through local file specs. The
+  // package-manager lifecycle suite owns independent registry-install coverage.
+  for (const name of localPackages) {
+    const version = readJson(
+      path.join(root, "node_modules", name, "package.json"),
+    ).version;
     assert.equal(
       readJson(path.join(repoDir, "node_modules", name, "package.json"))
         .version,
