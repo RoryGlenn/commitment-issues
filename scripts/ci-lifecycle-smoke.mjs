@@ -7,6 +7,10 @@ import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import crossSpawn from "cross-spawn";
+import {
+  hasExactOutputLine,
+  shouldEnforcePosixPackageModes,
+} from "./lib/lifecycle-managers.mjs";
 
 const root = process.cwd();
 
@@ -303,6 +307,40 @@ function sha256(filePath) {
   return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
+function assertPackedModes(metadata) {
+  // npm creates executable package bins on every platform, but npm's tarball
+  // metadata on Windows does not expose authoritative POSIX mode information.
+  // The Ubuntu release producer and every POSIX lifecycle lane enforce the
+  // archive-mode contract; Windows still exercises every semantic CLI check.
+  if (!shouldEnforcePosixPackageModes()) {
+    console.log(
+      "[lifecycle smoke] POSIX package modes: enforced by the Ubuntu/macOS lanes\n",
+    );
+    return;
+  }
+
+  const executableFiles = metadata.files
+    .filter((file) => (file.mode & 0o111) !== 0)
+    .map((file) => file.path)
+    .sort();
+  assertSmoke(
+    JSON.stringify(executableFiles) === JSON.stringify(["scripts/cli.mjs"]),
+    `only scripts/cli.mjs should be executable, found ${JSON.stringify(executableFiles)}`,
+  );
+  const cli = metadata.files.find((file) => file.path === "scripts/cli.mjs");
+  assertSmoke(
+    cli?.mode === 0o755,
+    `scripts/cli.mjs should have packed mode 0755, found ${cli?.mode ?? "missing"}`,
+  );
+  const nonCliModeDrift = metadata.files
+    .filter((file) => file.path !== "scripts/cli.mjs" && file.mode !== 0o644)
+    .map((file) => `${file.path}:${file.mode}`);
+  assertSmoke(
+    nonCliModeDrift.length === 0,
+    `non-CLI files should have packed mode 0644, found ${nonCliModeDrift.join(", ")}`,
+  );
+}
+
 function inspectPackedTarball(tarball) {
   const output = runForOutput(
     "npm",
@@ -331,26 +369,7 @@ function inspectPackedTarball(tarball) {
     "packed metadata should include the exact file inventory",
   );
 
-  const executableFiles = metadata.files
-    .filter((file) => (file.mode & 0o111) !== 0)
-    .map((file) => file.path)
-    .sort();
-  assertSmoke(
-    JSON.stringify(executableFiles) === JSON.stringify(["scripts/cli.mjs"]),
-    `only scripts/cli.mjs should be executable, found ${JSON.stringify(executableFiles)}`,
-  );
-  const cli = metadata.files.find((file) => file.path === "scripts/cli.mjs");
-  assertSmoke(
-    cli?.mode === 0o755,
-    `scripts/cli.mjs should have packed mode 0755, found ${cli?.mode ?? "missing"}`,
-  );
-  const nonCliModeDrift = metadata.files
-    .filter((file) => file.path !== "scripts/cli.mjs" && file.mode !== 0o644)
-    .map((file) => `${file.path}:${file.mode}`);
-  assertSmoke(
-    nonCliModeDrift.length === 0,
-    `non-CLI files should have packed mode 0644, found ${nonCliModeDrift.join(", ")}`,
-  );
+  assertPackedModes(metadata);
 
   return metadata;
 }
@@ -379,10 +398,10 @@ function assertInstalledCli(repoDir, packedMetadata) {
   );
 
   const [versionCommand, versionArgs] = execBin(["--version"]);
-  const reportedVersion = runForOutput(versionCommand, versionArgs, repoDir);
+  const versionOutput = runForOutput(versionCommand, versionArgs, repoDir);
   assertSmoke(
-    reportedVersion === packedMetadata.version,
-    `packed CLI should report ${packedMetadata.version}, found ${reportedVersion}`,
+    hasExactOutputLine(versionOutput, packedMetadata.version),
+    `packed CLI should report ${packedMetadata.version} on its own line, found ${JSON.stringify(versionOutput)}`,
   );
 }
 

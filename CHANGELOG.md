@@ -28,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow.
 - The publish workflow now packs once and lifecycle-tests that exact tarball
   before hashing, uploading, and publishing it. The integration verifies the
-  packed CLI bin, Node shebang, reported version, and normalized executable and
-  non-executable file modes.
+  packed CLI bin, Node shebang, and reported version on every platform, plus
+  normalized executable and non-executable modes on the POSIX release producer.
 - Generated hooks now invoke only the project-local
   `node_modules/.bin/commitment-issues` entry. Missing local installs
   self-neutralize instead of falling through to a same-named global binary,

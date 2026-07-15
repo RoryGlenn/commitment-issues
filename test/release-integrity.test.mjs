@@ -12,6 +12,10 @@ import {
   checkReleaseAvailability,
   normalizeReleaseVersion,
 } from "../tools/release-preflight.mjs";
+import {
+  hasExactOutputLine,
+  shouldEnforcePosixPackageModes,
+} from "../scripts/lib/lifecycle-managers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -153,6 +157,11 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.notEqual(lifecycleGate, -1);
   assert.notEqual(packStep, -1);
   assert.notEqual(publishStep, -1);
+  assert.match(
+    publishJob,
+    /runs-on: ubuntu-latest/,
+    "the release artifact must remain on a POSIX producer that enforces packed modes",
+  );
   assert.ok(
     testStep < packStep &&
       packStep < lifecycleGate &&
@@ -285,6 +294,14 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
   const runner = readText("scripts/run-lifecycle-test.mjs");
   const integration = readText("test/integration/lifecycle-manager.test.mjs");
   const smoke = readText("scripts/ci-lifecycle-smoke.mjs");
+  const packedModes = smoke.slice(
+    smoke.indexOf("function assertPackedModes"),
+    smoke.indexOf("function inspectPackedTarball"),
+  );
+  const installedCli = smoke.slice(
+    smoke.indexOf("function assertInstalledCli"),
+    smoke.indexOf("function assertFileContains"),
+  );
 
   assert.match(runner, /--tarball/);
   assert.match(runner, /COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
@@ -297,10 +314,22 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
   );
   assert.match(smoke, /--tarball/);
   assert.match(smoke, /lstatSync\(resolved\)\.isFile\(\)/);
-  assert.match(smoke, /cli\?\.mode === 0o755/);
-  assert.match(smoke, /file\.mode !== 0o644/);
-  assert.match(smoke, /startsWith\("#!\/usr\/bin\/env node\\n"\)/);
-  assert.match(smoke, /execBin\(\["--version"\]\)/);
+  assert.match(
+    packedModes,
+    /if \(!shouldEnforcePosixPackageModes\(\)\) \{[\s\S]*?return;[\s\S]*?cli\?\.mode === 0o755[\s\S]*?file\.mode !== 0o644/,
+    "only POSIX producers should enforce tarball mode metadata",
+  );
+  assert.match(installedCli, /startsWith\("#!\/usr\/bin\/env node\\n"\)/);
+  assert.match(installedCli, /execBin\(\["--version"\]\)/);
+  assert.match(
+    installedCli,
+    /hasExactOutputLine\(versionOutput, packedMetadata\.version\)/,
+  );
+  assert.doesNotMatch(
+    installedCli,
+    /shouldEnforcePosixPackageModes/,
+    "bin, shebang, and version checks must remain unconditional on Windows",
+  );
   assert.match(smoke, /delete env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
   assert.match(
     smoke,
@@ -312,6 +341,24 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
     /(?:execSync|spawnSync)\([^\n]*\$\{/,
     "tarball paths must cross process boundaries as argv, never shell text",
   );
+});
+
+test("lifecycle artifact helpers preserve exact output and platform boundaries", () => {
+  assert.equal(
+    hasExactOutputLine(
+      "yarn run v1.22.22\r\n$ commitment-issues --version\r\n3.3.2\r\nDone in 0.06s.",
+      "3.3.2",
+    ),
+    true,
+  );
+  assert.equal(
+    hasExactOutputLine("commitment-issues@3.3.2\n13.3.20", "3.3.2"),
+    false,
+    "version wrappers and near matches must not impersonate exact CLI output",
+  );
+  assert.equal(shouldEnforcePosixPackageModes("linux"), true);
+  assert.equal(shouldEnforcePosixPackageModes("darwin"), true);
+  assert.equal(shouldEnforcePosixPackageModes("win32"), false);
 });
 
 test("lifecycle launcher rejects malformed tarball arguments before integration", (t) => {

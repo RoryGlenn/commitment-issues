@@ -115,11 +115,15 @@ Beginning with v3.3.2, the npm and GitHub Release tarballs are byte-identical an
 the matching signed `.intoto.jsonl` SLSA provenance asset names that artifact.
 The Audit 7 workflow adds a stronger pre-publication invariant: it packs once,
 passes that exact path to the lifecycle integration, confirms its CLI entry
-point, shebang, executable mode, file modes, and reported version, and then
-hashes, publishes, and retains the unchanged tarball as a workflow artifact.
-The provenance generator retains its signed output separately. One final
-release action receives both files before publishing the immutable GitHub
-Release, so no later job needs to attach or replace an asset.
+point, shebang, and reported version on every platform, and enforces executable
+and non-executable archive modes on the POSIX lanes and Ubuntu release producer.
+Windows lanes independently verify the installed bin shim, shebang, version,
+installability, and unchanged digest because Windows metadata does not carry
+authoritative POSIX mode information. The workflow then hashes, publishes, and
+retains the unchanged tarball as a workflow artifact. The provenance generator
+retains its signed output separately. One final release action receives both
+files before publishing the immutable GitHub Release, so no later job needs to
+attach or replace an asset.
 
 Download both assets from the release page and compare the GitHub tarball with
 the tarball downloaded from npm:
