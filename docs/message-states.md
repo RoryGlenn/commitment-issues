@@ -822,6 +822,15 @@ Shown when `core.hooksPath` points at a directory this tool does not manage (ano
 
 Shown when user-authored hooks are stranded in `.husky/` after the husky-era wiring is retired. Advisory only — the files are never deleted.
 
+### Legacy Husky path needs manual review
+
+`The legacy .husky path needs manual review.` is included in interactive
+`doctor` output when `.husky` is a symbolic link, a non-directory entry, or
+cannot be read safely. `init` and `uninstall` report the same preservation
+decision in their existing summaries. No command follows or removes the path;
+the user must inspect it manually. Quiet doctor prints the decision as a plain
+warning and still exits successfully so dependency installation is not broken.
+
 ### Not a git working tree
 
 <p>

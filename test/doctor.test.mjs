@@ -854,6 +854,50 @@ test(
   },
 );
 
+test(
+  "doctor reports and preserves a symbolic-link .husky directory",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const outside = fs.mkdtempSync(
+      path.join(os.tmpdir(), "doctor-husky-link-"),
+    );
+    t.after(() => cleanupTempRepo(tempDir));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+
+    fs.mkdirSync(path.join(outside, "_"));
+    fs.writeFileSync(path.join(outside, "_", "keep"), "outside\n");
+    fs.writeFileSync(
+      path.join(outside, "pre-commit"),
+      "commitment-issues precommit\n",
+    );
+    fs.symlinkSync(outside, path.join(tempDir, ".husky"), "dir");
+    run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+
+    const result = runDoctor(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /symbolic link|could not be safely inspected/i);
+    assert.match(output, /left unchanged|manual/i);
+    assert.equal(
+      fs.readFileSync(path.join(outside, "_", "keep"), "utf8"),
+      "outside\n",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(outside, "pre-commit"), "utf8"),
+      "commitment-issues precommit\n",
+    );
+
+    const quiet = runDoctor(tempDir, ["--quiet"]);
+    assert.equal(quiet.status, 0);
+    assert.match(
+      `${quiet.stdout}${quiet.stderr}`,
+      /could not be safely inspected.*left unchanged/i,
+    );
+  },
+);
+
 test("doctor errors (interactive) when there is no package.json", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-nopkg-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

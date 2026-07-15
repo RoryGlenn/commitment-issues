@@ -23,6 +23,17 @@ export const HOOK_SUBCOMMANDS = {
 export const HOOK_NAMES = Object.keys(HOOK_SUBCOMMANDS);
 export const ALWAYS_HOOK_NAMES = ["pre-commit", "pre-push"];
 
+function sameFile(left, right) {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function identityStats(filePath) {
+  // Windows file IDs can exceed Number.MAX_SAFE_INTEGER. BigInt stats keep
+  // replacement checks exact on every supported platform instead of rounding
+  // two distinct filesystem identities to the same JavaScript number.
+  return fs.lstatSync(filePath, { bigint: true });
+}
+
 /**
  * Hooks that should be active for a sanitized project configuration.
  * Commit-message linting is the only optional hook and requires an explicit
@@ -519,6 +530,82 @@ export const LEGACY_HUSKY_HOOK_BODIES = {
 };
 
 /**
+ * Classify the legacy `.husky` root without following it. Inventory and
+ * cleanup callers use the returned identity to notice a simple replacement
+ * between inspection steps instead of walking a different directory.
+ * @param {string} [cwd] - Project root to inspect.
+ * @returns {{status: "missing"|"directory"|"uninspectable", directory: string, stats?: import("node:fs").Stats}}
+ */
+export function legacyHuskyDirectoryState(cwd = process.cwd()) {
+  const directory = path.join(cwd, ".husky");
+  let before;
+  try {
+    before = identityStats(directory);
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { status: "missing", directory }
+      : { status: "uninspectable", directory };
+  }
+  if (!before.isDirectory()) {
+    return { status: "uninspectable", directory };
+  }
+
+  try {
+    // Prove the directory is readable now, then verify it is still the same
+    // non-link entry. The operation-specific helpers recheck this identity
+    // again immediately before every removal.
+    fs.readdirSync(directory);
+    const after = identityStats(directory);
+    return after.isDirectory() && sameFile(before, after)
+      ? { status: "directory", directory, stats: after }
+      : { status: "uninspectable", directory };
+  } catch {
+    return { status: "uninspectable", directory };
+  }
+}
+
+function isSameLegacyHuskyDirectory(state) {
+  try {
+    const current = identityStats(state.directory);
+    return current.isDirectory() && sameFile(state.stats, current);
+  } catch {
+    return false;
+  }
+}
+
+function exactLegacyHookPath(state, name, bodies) {
+  if (!isSameLegacyHuskyDirectory(state)) {
+    return null;
+  }
+  const hookPath = path.join(state.directory, name);
+  try {
+    const before = identityStats(hookPath);
+    if (!before.isFile()) {
+      return null;
+    }
+    const content = fs.readFileSync(hookPath, "utf8");
+    const after = identityStats(hookPath);
+    return sameFile(before, after) && bodies.includes(content)
+      ? hookPath
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function legacyRuntimePath(state) {
+  if (!isSameLegacyHuskyDirectory(state)) {
+    return null;
+  }
+  const runtimePath = path.join(state.directory, "_");
+  try {
+    return identityStats(runtimePath).isDirectory() ? runtimePath : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * User-authored hook files still sitting in `.husky/` that git no longer runs
  * once core.hooksPath stops pointing there. Our own generated legacy wiring
  * and husky's runtime (`_`, `.gitignore`) are not the user's work, so they are
@@ -527,19 +614,24 @@ export const LEGACY_HUSKY_HOOK_BODIES = {
  * @returns {string[]} Repo-relative paths (e.g. ".husky/commit-msg").
  */
 export function leftoverHuskyHooks(cwd = process.cwd()) {
-  const dir = path.join(cwd, ".husky");
-  if (!fs.existsSync(dir)) {
+  const state = legacyHuskyDirectoryState(cwd);
+  if (state.status !== "directory") {
     return [];
   }
   const leftovers = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  let entries;
+  try {
+    entries = fs.readdirSync(state.directory, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  for (const entry of entries) {
     if (!entry.isFile() || entry.name === ".gitignore") {
       continue;
     }
     const ourBodies = LEGACY_HUSKY_HOOK_BODIES[entry.name];
     if (ourBodies) {
-      const content = fs.readFileSync(path.join(dir, entry.name), "utf8");
-      if (ourBodies.includes(content)) {
+      if (exactLegacyHookPath(state, entry.name, ourBodies)) {
         continue;
       }
     }
@@ -556,24 +648,20 @@ export function leftoverHuskyHooks(cwd = process.cwd()) {
  * @returns {string[]} Repo-relative paths (e.g. ".husky/pre-commit").
  */
 export function legacyHuskyWiringPaths(cwd = process.cwd()) {
-  const dir = path.join(cwd, ".husky");
-  if (!fs.existsSync(dir)) {
+  const state = legacyHuskyDirectoryState(cwd);
+  if (state.status !== "directory") {
     return [];
   }
   const targets = [];
   for (const [name, bodies] of Object.entries(LEGACY_HUSKY_HOOK_BODIES)) {
-    const hookPath = path.join(dir, name);
-    if (
-      fs.existsSync(hookPath) &&
-      bodies.includes(fs.readFileSync(hookPath, "utf8"))
-    ) {
+    if (exactLegacyHookPath(state, name, bodies)) {
       targets.push(`.husky/${name}`);
     }
   }
-  if (fs.existsSync(path.join(dir, "_"))) {
+  if (legacyRuntimePath(state)) {
     targets.push(".husky/_");
   }
-  return targets;
+  return isSameLegacyHuskyDirectory(state) ? targets : [];
 }
 
 /**
@@ -585,17 +673,54 @@ export function legacyHuskyWiringPaths(cwd = process.cwd()) {
  * @returns {string[]} Repo-relative paths that were removed.
  */
 export function removeLegacyHuskyWiring(cwd = process.cwd()) {
-  const removed = legacyHuskyWiringPaths(cwd);
-  for (const target of removed) {
-    fs.rmSync(path.join(cwd, target), { recursive: true, force: true });
+  const state = legacyHuskyDirectoryState(cwd);
+  if (state.status !== "directory") {
+    return [];
   }
+  const removed = [];
+  for (const [name, bodies] of Object.entries(LEGACY_HUSKY_HOOK_BODIES)) {
+    const hookPath = exactLegacyHookPath(state, name, bodies);
+    if (!hookPath || !isSameLegacyHuskyDirectory(state)) {
+      continue;
+    }
+    try {
+      fs.rmSync(hookPath);
+      removed.push(`.husky/${name}`);
+    } catch {
+      // A concurrent replacement or permission change is manual cleanup.
+    }
+  }
+  const runtimePath = legacyRuntimePath(state);
+  if (runtimePath && isSameLegacyHuskyDirectory(state)) {
+    try {
+      fs.rmSync(runtimePath, { recursive: true });
+      removed.push(".husky/_");
+    } catch {
+      // Preserve anything that cannot still be removed as the owned runtime.
+    }
+  }
+
   if (removed.length > 0) {
-    const dir = path.join(cwd, ".husky");
-    const remaining = fs
-      .readdirSync(dir)
-      .filter((name) => name !== ".gitignore");
-    if (remaining.length === 0) {
-      fs.rmSync(dir, { recursive: true, force: true });
+    try {
+      const entries = fs.readdirSync(state.directory, { withFileTypes: true });
+      const remaining = entries.filter((entry) => entry.name !== ".gitignore");
+      const gitignore = entries.find((entry) => entry.name === ".gitignore");
+      if (
+        remaining.length === 0 &&
+        gitignore?.isFile() &&
+        isSameLegacyHuskyDirectory(state)
+      ) {
+        fs.rmSync(path.join(state.directory, ".gitignore"));
+      }
+      if (
+        remaining.length === 0 &&
+        (!gitignore || gitignore.isFile()) &&
+        isSameLegacyHuskyDirectory(state)
+      ) {
+        fs.rmdirSync(state.directory);
+      }
+    } catch {
+      // Cleanup is best effort; never broaden it after an inspection failure.
     }
   }
   return removed;
