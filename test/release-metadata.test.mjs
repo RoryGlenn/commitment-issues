@@ -365,7 +365,7 @@ for (const fixture of [
     change(root) {
       fs.rmSync(path.join(root, ledgerPath));
     },
-    expected: /Unable to read \.github\/release-history\.json/u,
+    expected: /Unable to read \.github[\\/]release-history\.json/u,
   },
   {
     name: "malformed ledger JSON",
