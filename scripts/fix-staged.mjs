@@ -12,6 +12,7 @@ import {
   shortFileList,
 } from "./lib/files.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
 
@@ -112,7 +113,7 @@ if (partiallyStagedFiles.length > 0) {
     "",
     pc.dim("Resolve staged vs unstaged changes first:"),
     "",
-    `  ${shortFileList(partiallyStagedFiles)}`,
+    `  ${escapeTerminalText(shortFileList(partiallyStagedFiles))}`,
     "",
     pc.dim(`Then run ${runScript("fix:staged")} again.`),
   ]);
@@ -125,7 +126,7 @@ if (missingWorkingTreeFiles.length > 0) {
     "",
     pc.dim("Restore or unstage these files first:"),
     "",
-    `  ${shortFileList(missingWorkingTreeFiles)}`,
+    `  ${escapeTerminalText(shortFileList(missingWorkingTreeFiles))}`,
   ]);
   process.exit(1);
 }
@@ -209,7 +210,7 @@ if (!toolFailed) {
     pc.bold(summaryTitle),
     "",
     pc.dim(summaryDetail),
-    pc.dim(`${shortFileList(fixableFiles)}`),
+    pc.dim(escapeTerminalText(shortFileList(fixableFiles))),
   ]);
   process.exit(0);
 }

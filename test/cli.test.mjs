@@ -208,6 +208,19 @@ test("cli preserves shell-sensitive unknown command tokens", (t) => {
   }
 });
 
+test("cli visibly escapes controls in an unknown command", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const result = cli(tempDir, [
+    "evil\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m",
+  ]);
+  const output = combinedOutput(result);
+
+  assert.equal(result.status, 1);
+  assert.match(output, /evil\\rFAKE SUCCESS\\n\\t\\x08RED/);
+  assert.doesNotMatch(output, /\r|\t|\x08|\u001b/);
+});
+
 test("cli dispatches to init", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

@@ -348,6 +348,26 @@ test("prepush warns when pushing to a protected branch (advisory)", (t) => {
   assert.equal(countTerminalBoxes(output), 1);
 });
 
+test("prepush escapes controls in a protected ref", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const branch = "evil\bFAKE\u001b[31mRED\u001b[39m";
+  setPrecommitConfig(tempDir, { protectedBranches: [branch] });
+  const sha = headSha(tempDir);
+  const ref = `refs/heads/${branch}`;
+
+  const result = runPrepush(
+    tempDir,
+    `${ref} ${sha} ${ref} ${"0".repeat(40)}\n`,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /evil\\x08FAKERED/);
+  assert.doesNotMatch(output, /\x08|\u001b/);
+});
+
 test("prepush consolidates multiple protected targets into one warning", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

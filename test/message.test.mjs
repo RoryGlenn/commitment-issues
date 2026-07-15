@@ -113,6 +113,20 @@ test("renders an issue's detail lines", () => {
   const text = lines.join("\n");
   assert.ok(text.includes("src/a.js:1:2 (no-undef)"));
   assert.ok(text.includes("src/b.js:3:4 (no-undef)"));
+
+  const arrayModel = buildAdvisoryMessage([
+    {
+      type: "git",
+      autoFixable: false,
+      message: "Git detail",
+      detail: ["one\nembedded\u001b[31mRED\u001b[39m", 2],
+    },
+  ]);
+  assert.ok(
+    arrayModel.lines.some((line) => line.includes("one\\nembeddedRED")),
+  );
+  assert.ok(arrayModel.lines.some((line) => line.includes("2")));
+  assert.doesNotMatch(arrayModel.lines.join("\n"), /\u001b/);
 });
 
 test("notes when the worktree cannot be inspected for a safe amend", () => {

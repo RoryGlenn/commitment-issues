@@ -167,6 +167,10 @@ test("shortFileList compacts long lists and handles empty input", () => {
     shortFileList(["a", "b", "c", "d", "e", "f"]),
     "a, b, c, d, e (+1 more)",
   );
+  assert.equal(
+    shortFileList(["evil\rline\n\t\b\u001b[31mred\u001b[39m.mjs"]),
+    "evil\rline\n\t\b\u001b[31mred\u001b[39m.mjs",
+  );
 });
 
 test("removeOwnedPath reports successful and failed cleanup", (t) => {

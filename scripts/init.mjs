@@ -28,6 +28,7 @@ import {
 } from "./lib/config.mjs";
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // One-command setup for a consuming repo: wires up the git hooks, npm scripts,
 // and gitignored caches without clobbering existing values. Hooks are plain
@@ -50,7 +51,7 @@ const unknownOption = args.find(
 );
 if (unknownOption) {
   errorBox([
-    pc.bold(`Unknown init option: ${unknownOption}`),
+    pc.bold(`Unknown init option: ${escapeTerminalText(unknownOption)}`),
     "",
     pc.dim("Supported options: --dry-run, -n."),
     pc.dim("No files or hooks were changed."),
@@ -80,7 +81,9 @@ function rejectInvalidContainer(property) {
   errorBox([
     pc.bold("Invalid package.json structure."),
     "",
-    pc.dim(`The ${location} must be a non-null, non-array JSON object.`),
+    pc.dim(
+      `The ${escapeTerminalText(location)} must be a non-null, non-array JSON object.`,
+    ),
     pc.dim("Fix package.json, then run init again. No files were changed."),
   ]);
   process.exit(1);
@@ -106,7 +109,7 @@ if (standalone.error) {
   errorBox([
     pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
     "",
-    pc.dim(`The file ${standalone.error}.`),
+    pc.dim(`The file ${escapeTerminalText(standalone.error)}.`),
     pc.dim("Fix or remove it, then run init again. No files were changed."),
   ]);
   process.exit(1);
@@ -237,7 +240,7 @@ if (!dryRun) {
       }
     } catch {
       errorBox([
-        pc.bold(`Could not update ${filePath}.`),
+        pc.bold(`Could not update ${escapeTerminalText(filePath)}.`),
         "",
         pc.dim("Make the project file writable, then run init again."),
         pc.dim("No files or hooks were changed."),
@@ -480,7 +483,7 @@ const setupSummary =
   created.length > 0
     ? [
         pc.dim(dryRun ? "Would add:" : "Added:"),
-        ...created.map((item) => pc.dim(`- ${item}`)),
+        ...created.map((item) => pc.dim(`- ${escapeTerminalText(item)}`)),
       ]
     : [
         pc.dim(
@@ -524,7 +527,7 @@ const warningSections = [
         "",
         pc.bold("Hook wiring needs your attention."),
         "",
-        ...warnings.map((line) => pc.dim(line)),
+        ...warnings.map((line) => pc.dim(escapeTerminalText(line))),
       ]
     : []),
   ...(configWarnings.length > 0
@@ -532,7 +535,9 @@ const warningSections = [
         "",
         pc.bold("Configuration needs attention."),
         "",
-        ...configWarnings.map((message) => pc.dim(`• ${message}`)),
+        ...configWarnings.map((message) =>
+          pc.dim(`• ${escapeTerminalText(message)}`),
+        ),
       ]
     : []),
 ];
@@ -559,5 +564,5 @@ if (warningSections.length > 0) {
 } else if (dryRun) {
   infoBox(body);
 } else {
-  printBox(body.join("\n"), undefined, { borderColor: "green" });
+  printBox(body, undefined, { borderColor: "green" });
 }

@@ -403,6 +403,6 @@ export function secretsIssue(findings) {
     detail: [
       ...findingLines(findings),
       "Never commit real credentials — rotate anything already exposed.",
-    ].join("\n"),
+    ],
   };
 }

@@ -198,6 +198,26 @@ separator protects discovered Node test paths, including repository filenames
 that begin with `-`. The generated commit-msg hook quotes Git's `$1`, and the
 entrypoint resolves it to one absolute argv value before invoking commitlint.
 
+### Terminal output injection
+
+Product-owned human presentation treats repository filenames, refs,
+configuration, Git/process diagnostics, and command-line arguments as
+untrusted. A dependency-free boundary helper strips complete ANSI CSI/OSC
+sequences and renders C0/C1 controls as visible `\\r`, `\\n`, `\\t`, or
+`\\xNN` text before product styling is applied. The styled box boundary retains
+only product-owned SGR sequences and removes other terminal sequences; raw
+repository values are escaped before they can reach those styles. Intentional
+layout is represented by separate message-model entries, so an embedded newline
+in a repository value cannot create a new product line. Unicode, spaces, normal
+punctuation, and established bold/dim/severity presentation are preserved.
+
+Captured data that enters a product summary uses array-backed detail fields so
+filenames containing newlines remain one semantic value. JSON serialization is
+separate from human rendering and preserves those exact values through JSON's
+own escaping. Raw child-process output remains a deliberate passthrough outside
+the product renderer; users should treat output from explicitly configured
+project tools according to that tool's own trust boundary.
+
 ### Path handling and path traversal
 
 The project treats Git file lists as data, uses NUL delimiters for pathname

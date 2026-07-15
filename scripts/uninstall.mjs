@@ -23,6 +23,7 @@ import {
   readStandalonePrecommitConfig,
   STANDALONE_CONFIG_FILE,
 } from "./lib/config.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // Remove only setup that commitment-issues can identify as its own. Exact
 // generated scripts and hook bodies are safe to delete; customized scripts,
@@ -35,7 +36,7 @@ const unknownOption = args.find(
 );
 if (unknownOption) {
   errorBox([
-    pc.bold(`Unknown uninstall option: ${unknownOption}`),
+    pc.bold(`Unknown uninstall option: ${escapeTerminalText(unknownOption)}`),
     "",
     pc.dim("Supported options: --dry-run, -n."),
     pc.dim("No files or hooks were changed."),
@@ -70,7 +71,7 @@ if (standalone.error) {
   errorBox([
     pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
     "",
-    pc.dim(`The file ${standalone.error}.`),
+    pc.dim(`The file ${escapeTerminalText(standalone.error)}.`),
     pc.dim(
       "Fix or remove it, then run uninstall again. No files were changed.",
     ),
@@ -264,9 +265,9 @@ function actionSummaryLines(items, label) {
   return [
     pc.dim(label),
     ...(scripts.length > 0
-      ? [pc.dim(`- package scripts: ${scripts.join(", ")}`)]
+      ? [pc.dim(`- package scripts: ${escapeTerminalText(scripts.join(", "))}`)]
       : []),
-    ...remaining.map((item) => pc.dim(`- ${item}`)),
+    ...remaining.map((item) => pc.dim(`- ${escapeTerminalText(item)}`)),
   ];
 }
 
@@ -282,10 +283,12 @@ function manualCleanupSummaryLines(items) {
     );
     return customized
       ? [
-          pc.dim(`- ${customized[1]} is customized.`),
-          pc.dim(`  Remove its ${customized[2]} command manually.`),
+          pc.dim(`- ${escapeTerminalText(customized[1])} is customized.`),
+          pc.dim(
+            `  Remove its ${escapeTerminalText(customized[2])} command manually.`,
+          ),
         ]
-      : [pc.dim(`- ${item}`)];
+      : [pc.dim(`- ${escapeTerminalText(item)}`)];
   });
 }
 
@@ -317,7 +320,9 @@ const body = [
     ? [
         "",
         pc.dim("Preserved shared .gitignore entries:"),
-        ...preservedIgnores.map((entry) => pc.dim(`- ${entry}`)),
+        ...preservedIgnores.map((entry) =>
+          pc.dim(`- ${escapeTerminalText(entry)}`),
+        ),
       ]
     : []),
   ...(manualCleanup.length > 0
@@ -339,7 +344,7 @@ const body = [
       ]
     : [
         pc.dim("Finish by removing the package and updating the lockfile:"),
-        pc.dim(`  ${removeCommand([BIN])}`),
+        pc.dim(`  ${escapeTerminalText(removeCommand([BIN]))}`),
       ]),
 ];
 

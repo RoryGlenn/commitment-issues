@@ -352,7 +352,7 @@ production-readiness workstream #130 is consolidated in the
 - **LIB-002** — Prettier list parsing and Node test-summary parsing (TAP/spec, pass-only/fail-only, unrecognized → null). Unit: `test/checks.test.mjs`.
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
 - **LIB-004** — package-aware test discovery and strict NUL-delimited Git-path helpers: `findTestFile(s)`, `collectTestsForFiles`, `parseNulPaths`, `parseLsFilesStage`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
-- **LIB-005** — shared box rendering colors the whole border, honors `NO_COLOR`/disabled color in captured CI output, wraps long and Unicode content to the reported width, and recovers from malformed or impossibly narrow `COLUMNS` values. Unit/subprocess: `test/ui.test.mjs`.
+- **LIB-005** — shared box rendering colors the whole border, honors `NO_COLOR`/disabled color in captured CI output, preserves product-owned SGR styling while removing other terminal sequences, visibly escapes remaining C0/C1 controls, wraps long and Unicode content to the reported width, and recovers from malformed or impossibly narrow `COLUMNS` values. Unit/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`.
 - **LIB-006** — process outcomes distinguish missing tool, spawn failure, timeout, external signal, normal nonzero exit, and success. Unit: `test/process.test.mjs`.
 - **LIB-007** — Prettier classification is exit-status-first; `[error]` in a filename remains a formatting path. Unit: `test/checks.test.mjs`.
 - **LIB-008** — project-local optional-bin resolution walks ancestor `node_modules/.bin` directories while preserving argv and returning null instead of an implicit fallback. Unit: `test/local-tool.test.mjs`.
@@ -376,6 +376,7 @@ production-readiness workstream #130 is consolidated in the
 - **SEC-015** — hook repair does not follow hook-file, dangling, or hook-directory symbolic links. Unit/subprocess: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **SEC-016** — pre-push Node reporter output uses a randomized private temporary directory and does not reuse or delete a predictable colliding path. Subprocess: `test/prepush.test.mjs`.
 - **SEC-017** — hook-launched test commands and temporary-repository helpers remove Git's repository-local environment routing; representative `GIT_DIR`, work-tree, index, and counted-config variables cannot redirect fixture initialization into the caller. Unit/subprocess: `test/process.test.mjs`, `test/repository-shapes.test.mjs`, pre-push hook reproduction.
+- **SEC-018** — product-owned human output visibly escapes repository-controlled C0/C1 bytes, strips injected CSI/OSC sequences from paths, refs, configuration, argv, and captured Git diagnostics, preserves intentional model lines and Unicode, and leaves raw child passthrough unchanged; JSON round-trips the exact semantic filename. Unit/real-Git/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`, `test/lib-files.test.mjs`, `test/cli.test.mjs`, `test/doctor.test.mjs`, `test/fix-staged.test.mjs`, `test/commit-guards-integration.test.mjs`, `test/prepush.test.mjs`, `test/json-output.test.mjs`.
 
 ### Performance
 

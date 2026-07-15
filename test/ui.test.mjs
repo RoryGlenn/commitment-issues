@@ -160,6 +160,7 @@ test("severity boxes color the entire border, not just the body", () => {
   assert.equal(child.status, 0);
   // An ANSI color escape immediately preceding a rounded-box border character.
   assert.match(child.stdout, /\u001b\[[0-9;]*m[╭╮╰╯│─]/u);
+  assert.match(child.stdout, /\u001b\[1mboom\u001b\[22m/);
 });
 
 test("invalid or impossibly narrow terminal widths never crash rendering", () => {
@@ -221,6 +222,42 @@ test("captured CI output honors NO_COLOR and wraps Unicode content", () => {
       .split(/\r?\n/)
       .every((line) => Array.from(line).length <= 20),
   );
+});
+
+test("severity boxes escape embedded controls but preserve model line breaks", () => {
+  const output = capture(() =>
+    warningBox([
+      "unsafe\rreturn\nnewline\ttab\bbackspace\0nul\x7fdelete",
+      "Unicode: 猫 café — punctuation!",
+    ]),
+  );
+
+  assert.match(
+    output,
+    /unsafe\\rreturn\\nnewline\\ttab\\x08backspace\\x00nul\\x7fdelete/,
+  );
+  assert.match(output, /Unicode: 猫 café — punctuation!/);
+  assert.doesNotMatch(output, /\r|\t|\x08|\0|\x7f/);
+  assert.doesNotMatch(output, /unsafe\\r.*\\nUnicode/s);
+});
+
+test("colored rendering strips injected CSI and OSC sequences", () => {
+  const uiUrl = new URL("../scripts/lib/ui.mjs", import.meta.url);
+  const env = { ...process.env, FORCE_COLOR: "1", COLUMNS: "120" };
+  delete env.NO_COLOR;
+  const child = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `import { warningBox } from ${JSON.stringify(uiUrl.href)}; warningBox(["before\\u001b[2Jafter \\u001b]8;;https://evil.invalid\\u0007link\\u001b]8;;\\u0007"]);`,
+    ],
+    { encoding: "utf8", env },
+  );
+
+  assert.equal(child.status, 0, child.stderr);
+  assert.doesNotMatch(child.stdout, /\u001b\[2J|evil\.invalid/);
+  assert.match(stripAnsi(child.stdout), /beforeafter link/);
 });
 
 test("FORCE_COLOR=0 disables body and border colors", () => {

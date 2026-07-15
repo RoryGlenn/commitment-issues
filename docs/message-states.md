@@ -13,6 +13,23 @@ informational states are normally silent. This gallery intentionally documents
 those states under an explicit `hookOutput: "normal"` override; warnings and
 errors are visible in either mode.
 
+### Untrusted values and terminal controls
+
+Repository filenames, refs, configuration values, Git diagnostics, argv, and
+captured tool diagnostics are untrusted inside product-owned human messages.
+Carriage returns, embedded newlines, and tabs appear visibly as `\\r`, `\\n`,
+and `\\t`; other C0/C1 controls use `\\xNN`, and ANSI CSI/OSC sequences are
+removed. Separate message-model entries still create the intended box line
+breaks, while Unicode, spaces, and normal punctuation are preserved. Raw
+project-tool output intentionally remains outside the box renderer.
+Product-owned bold, dim, border, and severity colors are retained around the
+escaped text. JSON mode keeps the original semantic strings and uses JSON's own
+escaping.
+
+The renderer unit coverage and the real-Git partially staged filename scenario
+exercise this boundary with carriage-return, newline, tab, backspace, ANSI,
+Unicode, and JSON round-trip cases.
+
 To watch representative states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run. The static gallery below is the exhaustive catalog; the runner intentionally keeps a smaller, maintainable set of executable examples.
 
 ```bash

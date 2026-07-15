@@ -654,6 +654,25 @@ test("doctor --quiet warns but exits 0 for an unwired foreign core.hooksPath", (
   assert.equal(hooksPath(tempDir), "githooks");
 });
 
+test(
+  "doctor --quiet escapes controls in a configured hooks path",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const configured = "hooks\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m";
+    fs.mkdirSync(path.join(tempDir, configured), { recursive: true });
+    run("git", ["config", "core.hooksPath", configured], tempDir);
+
+    const result = runDoctor(tempDir, ["--quiet"]);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /hooks\\rFAKE SUCCESS\\n\\t\\x08RED/);
+    assert.doesNotMatch(output, /\r|\t|\x08|\u001b/);
+  },
+);
+
 test("doctor reports an uninspectable hook in a foreign core.hooksPath", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

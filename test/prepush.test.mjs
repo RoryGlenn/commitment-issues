@@ -694,6 +694,28 @@ test("blocks the push when the pushed-files diff cannot be computed", (t) => {
   assert.match(output, /Push blocked: could not inspect pushed files/);
 });
 
+test("escapes controls in captured Git diagnostics", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  const diagnostic = "git failed\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m";
+  const env = fakeGitEnv(tempDir, "--name-status -z", 1, "", diagnostic);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /git failed\\rFAKE SUCCESS\\n\\t\\x08RED/);
+  assert.doesNotMatch(output, /\r|\t|\x08|\u001b/);
+});
+
 test("blocks the push when Git returns malformed name-status output", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

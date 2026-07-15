@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Repository-controlled filenames, refs, configuration values, and captured
+  diagnostics can no longer inject carriage returns, line breaks, tabs, or
+  other terminal controls into product-owned human output. Unsafe bytes render
+  visibly, ANSI CSI/OSC sequences are stripped, intentional message layout and
+  Unicode remain intact, and JSON mode keeps the exact semantic values.
 - Husky-era `core.hooksPath` recognition now removes trailing separators with
   a bounded linear-time scan, preventing adversarial repository configuration
   from stalling `init`, `doctor`, or `uninstall` through regular-expression
