@@ -33,11 +33,12 @@ The workflow ([`publish.yml`](../../workflows/publish.yml)) triggers on `v*`
 tags, fetches complete `main` history, and rejects any tag whose commit is not
 reachable from the canonical `origin/main` before release-capable work begins.
 It then sets `id-token: write`, verifies the bundled npm supports trusted
-publishing, checks the tag against `package.json`, runs the suite, packs once,
-and passes that exact tarball through lifecycle integration, hashing, artifact
-upload, and npm publication. The SLSA generator retains its signed output as a
-workflow artifact, and one final release action stages both files before
-publishing the immutable GitHub Release.
+publishing, validates the package and lockfile versions, tag, unique changelog
+section, and reviewed release notes, runs the suite, packs once, and passes that
+exact tarball through lifecycle integration, hashing, artifact upload, and npm
+publication. The SLSA generator retains its signed output as a workflow
+artifact, and one final release action stages both files and publishes the
+reviewed changelog section as the immutable GitHub Release body.
 
 ## Release flow (in order)
 
@@ -48,18 +49,26 @@ publishing the immutable GitHub Release.
    npm run format:check
    npm run test:lifecycle:npm  # end-to-end npm packaging lifecycle
    ```
-2. **Choose and preflight the exact version.** This is read-only and fails if
+2. **Choose and preflight the exact version.** Decide whether the user-visible
+   impact is patch, minor, or major; automation cannot make that semantic
+   judgment. The preflight is read-only and fails if
    the version or tag already exists locally, on the remote, in GitHub
    Releases, or on npm:
    ```bash
    npm run release:preflight -- <version>
    ```
-3. **Update the changelog.** Move items under `## [Unreleased]` in [`CHANGELOG.md`](../../../CHANGELOG.md) to a new `## [X.Y.Z] - YYYY-MM-DD` heading. Keep an empty `## [Unreleased]` at the top and commit it together with the version files in the next step.
+3. **Update and review the release notes.** Move items under `## [Unreleased]`
+   in [`CHANGELOG.md`](../../../CHANGELOG.md) to one new
+   `## [X.Y.Z] - YYYY-MM-DD` heading. Keep an empty `## [Unreleased]` at the
+   top. A human must confirm that the section accurately describes functional,
+   breaking, and security-relevant changes; the validator proves consistency,
+   not editorial completeness.
 4. **Bump to that exact version on a release branch without creating a tag yet.** This
    updates `package.json` and `package-lock.json`; the normal PR/DCO/review path
    still applies to release preparation:
    ```bash
    npm version <version> --no-git-tag-version
+   npm run release:validate -- --tag vX.Y.Z
    git commit -s -am "chore: release vX.Y.Z"
    ```
    Open a pull request, pass `CI Success`, obtain approval (or record the
@@ -71,11 +80,12 @@ publishing the immutable GitHub Release.
    git push origin vX.Y.Z
    ```
    Pushing the `vX.Y.Z` tag triggers [`publish.yml`](../../workflows/publish.yml),
-   which first proves that the tagged commit belongs to `origin/main`, then
-   publishes to npm via OIDC trusted publishing with automatic provenance. No
-   `npm login`, no token. Before pushing, confirm the live `v*` tag rules still
-   restrict release-tag creation to the release authority and prevent updates
-   or deletion.
+   which first proves that the tagged commit belongs to `origin/main`, validates
+   the same release metadata again, then publishes to npm via OIDC trusted
+   publishing with automatic provenance and the reviewed changelog section as
+   the GitHub Release notes. No `npm login`, no token. Before pushing, confirm
+   the live `v*` tag rules still restrict release-tag creation to the release
+   authority and prevent updates or deletion.
 6. **Verify** the exact version is live, confirm the npm provenance/signature
    surfaces, confirm the GitHub Release contains both `.tgz` and
    `.intoto.jsonl`, compare the npm and GitHub tarballs, and run the independent
@@ -102,23 +112,25 @@ immediately rerun it. First record the version, run ID, tag commit, workflow job
 results, npm state, npm dist-tags, and GitHub Release state. Classify the
 failure at the external boundaries below:
 
-| Observed state                                                                                                                                                                                            | Recovery                                                                                                                                                                                                          |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before npm: the exact version is absent from npm and no GitHub Release, including a draft, exists                                                                                                         | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise fix through a normal pull request and release a new patch.                                      |
-| After npm: npm contains the exact expected artifact and provenance, `latest` still names this version, and the GitHub Release is absent or remains an unpublished draft with no assets or an exact subset | Prefer rerunning only failed jobs. A full rerun is allowed only when the tagged workflow needs no edits, rebuilt source and bytes match, and any draft does not already contain provenance from the original run. |
-| Complete: npm and the immutable GitHub Release contain the exact tarball and matching provenance                                                                                                          | Do nothing. Verification is idempotent; publication is complete.                                                                                                                                                  |
-| Inconsistent: a lookup is unavailable, source or digest differs, an unexpected asset exists, or a published release is empty or partial                                                                   | Fail closed. Preserve every public identifier, record the incident, and fix forward with a new patch.                                                                                                             |
+| Observed state                                                                                                                                                                                                                              | Recovery                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before npm: the exact version is absent from npm and no GitHub Release, including a draft, exists                                                                                                                                           | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise fix through a normal pull request and release a new patch.                                      |
+| After npm: npm contains the exact expected artifact and provenance, `latest` still names this version, and the GitHub Release is absent or remains an unpublished draft with the exact reviewed title/body and no assets or an exact subset | Prefer rerunning only failed jobs. A full rerun is allowed only when the tagged workflow needs no edits, rebuilt source and bytes match, and any draft does not already contain provenance from the original run. |
+| Complete: npm and the immutable GitHub Release contain the exact tarball and matching provenance, validated `vX.Y.Z` title, and reviewed changelog body                                                                                     | Do nothing. Verification is idempotent; publication is complete.                                                                                                                                                  |
+| Inconsistent: a lookup is unavailable, source or digest differs, an unexpected asset exists, or a published release is empty or partial outside the fixed historical ledger                                                                 | Fail closed. Preserve every public identifier, record the incident, and fix forward with a new patch.                                                                                                             |
 
 GitHub recommends creating a draft, attaching every asset, and only then
 publishing it. The final job cryptographically verifies its local SLSA bundle
-before inspecting or publishing the draft. Every existing draft asset must then
-be byte-identical to that locally verified artifact. An empty draft or exact
-tarball-only subset may resume through an exact full rerun. If the draft already
-contains provenance, only a failed-job rerun retaining that original provenance
-artifact may resume; a full rerun produces a new signed bundle and must stop in
-favor of a new patch. A published release is immutable in this repository; an
-empty or partial published release cannot be repaired by adding, deleting, or
-replacing assets.
+before inspecting or publishing the draft. The draft title and body must match
+the validated tag and reviewed changelog section, and every existing draft asset
+must be byte-identical to that locally verified artifact. An empty draft or
+exact tarball-only subset may resume through an exact full rerun. If the draft
+already contains provenance, only a failed-job rerun retaining that original
+provenance artifact may resume; a full rerun produces a new signed bundle and
+must stop in favor of a new patch. A published release is immutable in this
+repository; an empty or partial published release cannot be repaired by adding,
+deleting, or replacing assets. The only empty-body exceptions are the fixed
+v3.3.0 and v3.3.2 observations in `.github/release-history.json`.
 
 ### Recovery checks and retry
 
@@ -137,7 +149,7 @@ npm view "commitment-issues@$VERSION" \
   version dist.integrity dist.attestations deprecated
 npm dist-tag ls commitment-issues
 gh release view "v$VERSION" \
-  --json isDraft,isImmutable,targetCommitish,assets,url
+  --json name,body,isDraft,isImmutable,targetCommitish,assets,url
 ```
 
 An npm `E404` means the npm boundary was not crossed; any other failed or
@@ -200,8 +212,10 @@ account. Publishing a tarball does not run this root package's
 before publishing it:
 
 ```bash
+VERSION=X.Y.Z
 npm login
 npm whoami
+npm run release:validate -- --tag "v$VERSION"
 npm test
 tarball="$(npm pack --silent | tail -n1)"
 npm run test:lifecycle:npm -- --tarball "$tarball"
@@ -213,7 +227,11 @@ npm-only path as a complete signed release.
 
 ## Gotchas
 
-- **Trusted publishing needs the tag to match `package.json`.** `publish.yml` fails fast if the pushed tag (e.g. `v2.4.0`) doesn't equal `v$(package.json version)`. Always bump with `npm version` so the tag and manifest agree.
+- **Trusted publishing needs all release metadata to agree.** `publish.yml`
+  fails fast unless the package and lockfile versions, pushed `vX.Y.Z` tag,
+  unique dated changelog section, and reviewed notes match. Always bump with
+  `npm version`, review the changelog, and run `release:validate` before
+  creating the tag.
 - **Release tags must belong to reviewed mainline history.** The workflow fetches
   complete history and fails before dependency installation, packing, or
   publication unless the tagged commit is an ancestor of canonical
@@ -242,7 +260,9 @@ npm-only path as a complete signed release.
   `.tgz` to `npm run test:lifecycle:npm -- --tarball ...` before hashing or
   publishing it. Keep both gates; `prepublishOnly` remains defense in depth for
   a direct root-directory publish.
-- **`prepublishOnly` failing** blocks a direct root-directory publish by design — it runs the full test suite and the packaging smoke. Fix the failure; do not bypass it.
+- **`prepublishOnly` failing** blocks a direct root-directory publish by design
+  — it validates release metadata, runs the full test suite, and exercises the
+  packaging lifecycle. Fix the failure; do not bypass it.
 - **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. Promotional raster/video media stays in the source repository and is referenced by GitHub-hosted URLs. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
 
 ## CI / required checks

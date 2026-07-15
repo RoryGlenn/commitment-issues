@@ -93,6 +93,16 @@ production-readiness workstream #130 is consolidated in the
   workflow invariant:
   `test/release-integrity.test.mjs`; classifier: `tools/release-recovery.mjs`;
   tracking: #183.
+- **PKG-016** — release validation requires `package.json`, both root lockfile
+  version records, the exact `vX.Y.Z` tag, one dated changelog section, the
+  GitHub Release title, and its non-empty reviewed body to agree. The final
+  action publishes the extracted changelog section instead of generating or
+  maintaining separate notes. A schema-checked ledger preserves the exact
+  v3.3.0–v3.3.2 irregularities without allowing prospective empty-note
+  exceptions. Unit: `test/release-metadata.test.mjs` and
+  `test/release-recovery.test.mjs`; workflow invariant:
+  `test/release-integrity.test.mjs`; validator:
+  `tools/validate-release-metadata.mjs`; tracking: #184.
 
 ### Path normalization
 

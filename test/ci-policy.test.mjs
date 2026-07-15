@@ -123,7 +123,7 @@ test("workflows keep a least-privilege, pinned action baseline", () => {
       },
       publish: { contents: "read", "id-token": "write" },
       "publish-release": { contents: "write" },
-      validate: {},
+      validate: { contents: "read" },
     },
     "scorecard.yml": {
       scorecard: {

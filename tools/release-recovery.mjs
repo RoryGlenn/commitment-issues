@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { normalizeReleaseVersion } from "./release-preflight.mjs";
+import { validateReleaseMetadata } from "./validate-release-metadata.mjs";
 
 const PACKAGE_NAME = "commitment-issues";
 const REPOSITORY = "RoryGlenn/commitment-issues";
@@ -17,6 +18,7 @@ const NPM_REGISTRY = "https://registry.npmjs.org";
 const GITHUB_API = "https://api.github.com";
 const MAX_REMOTE_ARTIFACT_BYTES = 5 * 1024 * 1024;
 const MAX_RELEASE_PAGES = 20;
+const LEGACY_EMPTY_RELEASE_NOTE_VERSIONS = new Set(["3.3.0", "3.3.2"]);
 
 export const RELEASE_STATES = Object.freeze({
   BEFORE_NPM: "before-npm",
@@ -250,6 +252,28 @@ function validateRelease(release, expected, localProvenanceBytes) {
     fail("GitHub Release identity does not match the stable release tag.");
   }
 
+  if (release.name !== expected.releaseTitle) {
+    fail(
+      `GitHub Release title must exactly match ${expected.releaseTitle}; received ${JSON.stringify(
+        release.name ?? null,
+      )}.`,
+    );
+  }
+  const actualBody =
+    typeof release.body === "string"
+      ? release.body.replaceAll("\r\n", "\n").trimEnd()
+      : "";
+  const expectedBody = expected.releaseNotes.replaceAll("\r\n", "\n").trimEnd();
+  const legacyEmptyBody =
+    !release.draft &&
+    expected.allowEmptyPublishedReleaseNotes === true &&
+    actualBody === "";
+  if (actualBody !== expectedBody && !legacyEmptyBody) {
+    fail(
+      "GitHub Release body does not match the reviewed CHANGELOG.md release notes.",
+    );
+  }
+
   const allowedNames = new Set([expected.tarballName, expected.provenanceName]);
   const assets = Array.isArray(release.assets) ? release.assets : [];
   const names = assets.map((asset) => asset?.name);
@@ -312,9 +336,17 @@ export function classifyReleaseState({
     expected.packageName !== PACKAGE_NAME ||
     expected.repository !== REPOSITORY ||
     expected.tag !== `v${normalized}` ||
-    !/^[0-9a-f]{40}$/u.test(expected.commit)
+    !/^[0-9a-f]{40}$/u.test(expected.commit) ||
+    expected.releaseTitle !== expected.tag ||
+    typeof expected.releaseNotes !== "string" ||
+    !expected.releaseNotes.trim() ||
+    typeof expected.allowEmptyPublishedReleaseNotes !== "boolean" ||
+    (expected.allowEmptyPublishedReleaseNotes &&
+      !LEGACY_EMPTY_RELEASE_NOTE_VERSIONS.has(normalized))
   ) {
-    fail("Release package, repository, tag, or commit identity is invalid.");
+    fail(
+      "Release package, repository, tag, commit, title, or reviewed notes identity is invalid.",
+    );
   }
 
   const computed = artifactDigests(expected.tarballBytes);
@@ -557,6 +589,9 @@ export function expectedRelease({
   commit,
   repository = REPOSITORY,
   tarballBytes,
+  releaseTitle,
+  releaseNotes,
+  allowEmptyPublishedReleaseNotes = false,
 }) {
   const normalized = normalizeReleaseVersion(version);
   const tarballName = `${packageName}-${normalized}.tgz`;
@@ -571,6 +606,9 @@ export function expectedRelease({
     provenanceName: `${tarballName}.intoto.jsonl`,
     tarballBytes: bytes,
     tarballDigests: artifactDigests(bytes),
+    releaseTitle,
+    releaseNotes,
+    allowEmptyPublishedReleaseNotes,
   };
 }
 
@@ -724,10 +762,12 @@ async function main() {
   const commit = requireEnvironment("GITHUB_SHA");
   const repository = requireEnvironment("GITHUB_REPOSITORY");
   const githubToken = requireEnvironment("GITHUB_TOKEN");
+  const releaseMetadata = validateReleaseMetadata({ tag });
   if (
     packageJson.name !== PACKAGE_NAME ||
     repository !== REPOSITORY ||
-    tag !== `v${version}`
+    tag !== `v${version}` ||
+    releaseMetadata.version !== version
   ) {
     fail("Package metadata and GitHub release identity do not match.");
   }
@@ -747,6 +787,10 @@ async function main() {
     repository,
     githubToken,
     tarballBytes: readRegularFile(options.tarball, "Release tarball"),
+    releaseTitle: releaseMetadata.title,
+    releaseNotes: releaseMetadata.notes,
+    allowEmptyPublishedReleaseNotes:
+      releaseMetadata.historical?.releaseNotesState === "legacy-empty",
     provenanceBytes: options.provenance
       ? readRegularFile(options.provenance, "Release provenance")
       : null,
