@@ -118,6 +118,8 @@ test("package-lock root metadata stays in sync with package.json", () => {
 });
 
 test("package-manager lifecycle CI covers supported OSes and the Node floor", () => {
+  const pkg = readJson("package.json");
+  const lock = readJson("package-lock.json");
   const workflow = readText(".github/workflows/ci.yml");
   const job = workflow
     .split(/^ {2}pm-lifecycle:$/m)[1]
@@ -134,7 +136,14 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
       ),
     );
   }
-  assert.match(job, /npm install --global yarn@1\.22\.22/);
+  assert.equal(pkg.devDependencies.yarn, "1.22.22");
+  assert.equal(
+    pkg.scripts["test:migration:yarn"],
+    "node tools/run-migration-lifecycle-test.mjs yarn",
+  );
+  assert.equal(lock.packages["node_modules/yarn"].version, "1.22.22");
+  assert.match(lock.packages["node_modules/yarn"].integrity, /^sha512-/);
+  assert.doesNotMatch(job, /npm install --global yarn/u);
   assert.match(job, /bun-version: "1\.3\.14"/);
 });
 

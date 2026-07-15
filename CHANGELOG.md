@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a bounded linear-time scan, preventing adversarial repository configuration
   from stalling `init`, `doctor`, or `uninstall` through regular-expression
   backtracking.
+- Required and scheduled Yarn Classic jobs now resolve exact version `1.22.22`
+  from the reviewed npm lockfile instead of installing a second global copy
+  outside the repository's integrity-pinned dependency graph.
 - Packed Markdown links are now checked against the exact npm tarball manifest
   and again after installation. Links from shipped docs to repository-only
   policies, plans, and audit evidence now use canonical GitHub URLs instead of

@@ -24,6 +24,10 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function workflowFiles() {
   return fs
     .readdirSync(workflowDirectory)
@@ -315,10 +319,14 @@ test("package-manager matrix values never expand directly into shell code", () =
     workflowJobBlocks(health).find(({ name }) => name === "migration-lifecycle")
       ?.source ?? "";
   for (const manager of ["pnpm", "yarn", "bun"]) {
+    const command =
+      manager === "yarn"
+        ? "npm run test:migration:yarn"
+        : `node tools/run-migration-lifecycle-test.mjs ${manager}`;
     assert.match(
       migration,
       new RegExp(
-        `if: matrix\\.pm == '${manager}'\\s+run: node tools/run-migration-lifecycle-test\\.mjs ${manager}`,
+        `if: matrix\\.pm == '${manager}'\\s+run: ${escapeRegExp(command)}`,
         "u",
       ),
     );
@@ -337,7 +345,11 @@ test("weekly high-severity dependency findings fail visibly", () => {
   assert.match(workflow, /pm: \[pnpm, yarn, bun\][\s\S]*?node-version: "24"/u);
   assert.match(workflow, /version: 10/u);
   assert.match(workflow, /bun-version: "1\.3\.14"/u);
-  assert.match(workflow, /npm install --global yarn@1\.22\.22/u);
+  assert.doesNotMatch(workflow, /npm install --global yarn/u);
+  assert.match(
+    workflow,
+    /if: matrix\.pm == 'yarn'\s+run: npm run test:migration:yarn/u,
+  );
   assert.doesNotMatch(workflow, /run: npm run (?:lint|format:check)/u);
   assert.doesNotMatch(workflow, /run: npm pack --dry-run/u);
 });

@@ -103,6 +103,7 @@
     "test:lifecycle:pnpm": "node scripts/run-lifecycle-test.mjs pnpm",
     "test:lifecycle:yarn": "node scripts/run-lifecycle-test.mjs yarn",
     "test:lifecycle:bun": "node scripts/run-lifecycle-test.mjs bun",
+    "test:migration:yarn": "node tools/run-migration-lifecycle-test.mjs yarn",
     "test:smoke": "npm run test:lifecycle:npm",
     "test:smoke:pnpm": "npm run test:lifecycle:pnpm",
     "test:smoke:yarn": "npm run test:lifecycle:yarn",
@@ -132,7 +133,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "fast-check": "^4.8.0",
     "globals": "^17.7.0",
-    "prettier": "^3.9.4"
+    "prettier": "^3.9.4",
+    "yarn": "1.22.22"
   },
   "peerDependencies": {
     "eslint": "^9.0.0 || ^10.0.0",
