@@ -147,9 +147,18 @@ test("publish workflow gates and publishes one immutable release", () => {
     "- name: Verify exact npm package lifecycle",
   );
   const packStep = workflow.indexOf("- name: Pack tarball");
+  const recoveryGate = workflow.indexOf(
+    "- name: Classify release recovery state",
+  );
   const publishStep = workflow.indexOf("- name: Publish to npm");
   const provenanceDownload = workflow.indexOf(
     "- name: Download provenance artifact",
+  );
+  const provenanceVerification = workflow.indexOf(
+    "- name: Cryptographically verify signed provenance",
+  );
+  const finalRecoveryGate = workflow.indexOf(
+    "- name: Revalidate release draft and assets",
   );
   const releaseStep = workflow.indexOf(
     "- name: Publish immutable release with all assets",
@@ -157,6 +166,7 @@ test("publish workflow gates and publishes one immutable release", () => {
 
   assert.notEqual(lifecycleGate, -1);
   assert.notEqual(packStep, -1);
+  assert.notEqual(recoveryGate, -1);
   assert.notEqual(publishStep, -1);
   assert.match(
     publishJob,
@@ -166,8 +176,9 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.ok(
     testStep < packStep &&
       packStep < lifecycleGate &&
-      lifecycleGate < publishStep,
-    "the release tarball must be packed once, lifecycle-tested, and then published",
+      lifecycleGate < recoveryGate &&
+      recoveryGate < publishStep,
+    "the release tarball must be packed once, lifecycle-tested, classified, and then conditionally published",
   );
   assert.equal(
     npmPackInvocations(publishJob).length,
@@ -192,11 +203,11 @@ test("publish workflow gates and publishes one immutable release", () => {
 
   assert.match(
     workflow,
-    /name: Publish to npm\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
+    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
   );
   assert.match(
     workflow,
-    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"\s+- "tools\/verify-release-mainline\.mjs"/,
+    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"\s+- "tools\/release-recovery\.mjs"\s+- "tools\/verify-release-mainline\.mjs"/,
   );
   assert.match(
     workflow,
@@ -211,21 +222,51 @@ test("publish workflow gates and publishes one immutable release", () => {
     workflow,
     /name: Generate provenance subject[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}[\s\S]*?sha256sum "\$TARBALL"/,
   );
+  assert.match(
+    publishJob,
+    /outputs:[\s\S]*?release_needed: \$\{\{ steps\.confirm_recovery\.outputs\.release_needed \}\}/,
+  );
+  assert.match(
+    publishJob,
+    /name: Classify release recovery state\s+id: recovery[\s\S]*?run: node tools\/release-recovery\.mjs/,
+  );
+  assert.match(
+    publishJob,
+    /name: Upload tarball artifact\s+if: steps\.recovery\.outputs\.release_needed == 'true'[\s\S]*?overwrite: true/,
+    "an exact full rerun may replace only its ephemeral Actions artifact",
+  );
   assert.match(workflow, /path:\s+\$\{\{ steps\.pack\.outputs\.tarball \}\}/);
   assert.match(workflow, /upload-assets:\s+false/);
   assert.doesNotMatch(workflow, /upload-assets:\s+true/);
   assert.doesNotMatch(workflow, /upload-tag-name:/);
   assert.match(
     provenanceJob,
-    /contents:\s+write/,
+    /if: needs\.publish\.outputs\.release_needed == 'true'[\s\S]*?contents:\s+write/,
     "GitHub requires the caller to grant the reusable SLSA workflow's declared permission even when its upload job is skipped",
   );
   assert.match(workflow, /needs:\s+\[publish, provenance\]/);
   assert.match(
     workflow,
+    /publish-release:[\s\S]*?if: needs\.publish\.outputs\.release_needed == 'true'/,
+  );
+  assert.match(
+    workflow,
     /name:\s+\$\{\{ needs\.provenance\.outputs\.provenance-name \}\}/,
   );
   assert.match(workflow, /draft:\s+false/);
+  assert.match(workflow, /overwrite_files:\s+false/);
+  assert.match(
+    workflow,
+    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
+  );
+  assert.match(
+    workflow,
+    /slsa-framework\/slsa-verifier\/actions\/installer@[0-9a-f]{40} # v2\.7\.1/,
+  );
+  assert.match(
+    workflow,
+    /name: Cryptographically verify signed provenance[\s\S]*?slsa-verifier verify-artifact release-assets\/\*\.tgz[\s\S]*?--source-uri github\.com\/RoryGlenn\/commitment-issues[\s\S]*?--source-tag "\$RELEASE_TAG"/,
+  );
   assert.match(workflow, /release-assets\/\*\.tgz/);
   assert.match(workflow, /release-assets\/\*\.intoto\.jsonl/);
   assert.equal(
@@ -239,8 +280,16 @@ test("publish workflow gates and publishes one immutable release", () => {
     "the only release uploader must use the Node 24 action line",
   );
   assert.ok(
-    publishStep < provenanceDownload && provenanceDownload < releaseStep,
-    "npm publish and provenance generation must finish before one release action uploads both assets",
+    publishStep < provenanceDownload &&
+      provenanceDownload < provenanceVerification &&
+      provenanceVerification < finalRecoveryGate &&
+      finalRecoveryGate < releaseStep,
+    "npm publication, provenance generation, cryptographic verification, and final state classification must finish before one release action uploads both assets",
+  );
+  assert.doesNotMatch(
+    workflow,
+    /npm (?:unpublish|deprecate|dist-tag)|git tag -[df]|gh release delete/,
+    "automated recovery must not mutate public identifiers or registry policy",
   );
 });
 

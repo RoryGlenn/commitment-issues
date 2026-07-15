@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/publish.yml"
+      - "tools/release-recovery.mjs"
       - "tools/verify-release-mainline.mjs"
   push:
     tags:
@@ -43,6 +44,8 @@ jobs:
       id-token: write # npm trusted publishing (OIDC) + registry provenance
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
+      release_needed: ${{ steps.confirm_recovery.outputs.release_needed }}
+      state: ${{ steps.confirm_recovery.outputs.state }}
       tarball: ${{ steps.pack.outputs.tarball }}
 
     steps:
@@ -108,18 +111,37 @@ jobs:
           hashes="$(sha256sum "$TARBALL" | base64 -w0)"
           echo "hashes=$hashes" >> "$GITHUB_OUTPUT"
 
+      - name: Classify release recovery state
+        id: recovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: node tools/release-recovery.mjs --tarball "$TARBALL"
+
       - name: Upload tarball artifact
+        if: steps.recovery.outputs.release_needed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-tarball
           path: ${{ steps.pack.outputs.tarball }}
           if-no-files-found: error
+          # A full rerun is allowed only after the classifier proves that the
+          # rebuilt bytes exactly match every crossed public boundary.
+          overwrite: true
           retention-days: 5
 
       - name: Publish to npm
+        if: steps.recovery.outputs.publish_npm == 'true'
         env:
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: npm publish "./$TARBALL" --access public
+
+      - name: Confirm npm publication boundary
+        id: confirm_recovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: node tools/release-recovery.mjs --tarball "$TARBALL" --require-npm
 
   # SLSA3 provenance for the packed tarball. The reusable workflow MUST be
   # referenced by a semantic version tag (never a SHA) per SLSA's design so it
@@ -127,6 +149,7 @@ jobs:
   provenance:
     name: Generate SLSA provenance
     needs: [publish]
+    if: needs.publish.outputs.release_needed == 'true'
     permissions:
       actions: read # detect the workflow path for provenance
       id-token: write # sign the provenance
@@ -143,11 +166,17 @@ jobs:
   publish-release:
     name: Publish immutable GitHub Release
     needs: [publish, provenance]
+    if: needs.publish.outputs.release_needed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write # create the release and attach both immutable assets
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
       - name: Download tarball artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -160,7 +189,30 @@ jobs:
           name: ${{ needs.provenance.outputs.provenance-name }}
           path: release-assets
 
+      - name: Install SLSA verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
+
+      - name: Cryptographically verify signed provenance
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          slsa-verifier verify-artifact release-assets/*.tgz \
+            --provenance-path release-assets/*.intoto.jsonl \
+            --source-uri github.com/RoryGlenn/commitment-issues \
+            --source-tag "$RELEASE_TAG"
+
+      - name: Revalidate release draft and assets
+        id: final_recovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          node tools/release-recovery.mjs
+          --tarball release-assets/*.tgz
+          --provenance release-assets/*.intoto.jsonl
+          --require-npm
+
       - name: Publish immutable release with all assets
+        if: steps.final_recovery.outputs.state != 'complete'
         # v3 stages a standard release as a draft, uploads every file, and
         # publishes only after the uploads succeed. Published releases are
         # immutable in this repository, so no later job can add an asset.
@@ -168,6 +220,9 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           draft: false
+          # The classifier accepts only exact existing draft assets. Preserve
+          # those bytes and upload only the missing files before publication.
+          overwrite_files: false
           files: |
             release-assets/*.tgz
             release-assets/*.intoto.jsonl
