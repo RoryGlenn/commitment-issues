@@ -29,12 +29,14 @@ by v3.3.2. Its expected npm configuration is:
 - On npmjs.com → package `commitment-issues` → **Settings → Trusted Publishing** → add a GitHub Actions publisher: user `RoryGlenn`, repository `commitment-issues`, workflow `publish.yml` (leave environment blank unless one is added).
 
 The workflow ([`publish.yml`](../../workflows/publish.yml)) triggers on `v*`
-tags, sets `id-token: write`, verifies the bundled npm supports trusted
-publishing, checks the tag against `package.json`, runs the suite and npm
-lifecycle smoke, packs once, and publishes that exact tarball. The SLSA
-generator retains its signed output as a workflow artifact, and one final
-release action stages both files before publishing the immutable GitHub
-Release.
+tags, fetches complete `main` history, and rejects any tag whose commit is not
+reachable from the canonical `origin/main` before release-capable work begins.
+It then sets `id-token: write`, verifies the bundled npm supports trusted
+publishing, checks the tag against `package.json`, runs the suite, packs once,
+and passes that exact tarball through lifecycle integration, hashing, artifact
+upload, and npm publication. The SLSA generator retains its signed output as a
+workflow artifact, and one final release action stages both files before
+publishing the immutable GitHub Release.
 
 ## Release flow (in order)
 
@@ -67,7 +69,12 @@ Release.
    git tag -a vX.Y.Z -m "vX.Y.Z"
    git push origin vX.Y.Z
    ```
-   Pushing the `vX.Y.Z` tag triggers [`publish.yml`](../../workflows/publish.yml), which publishes to npm via OIDC trusted publishing with automatic provenance. No `npm login`, no token.
+   Pushing the `vX.Y.Z` tag triggers [`publish.yml`](../../workflows/publish.yml),
+   which first proves that the tagged commit belongs to `origin/main`, then
+   publishes to npm via OIDC trusted publishing with automatic provenance. No
+   `npm login`, no token. Before pushing, confirm the live `v*` tag rules still
+   restrict release-tag creation to the release authority and prevent updates
+   or deletion.
 6. **Verify** the exact version is live, confirm the npm provenance/signature
    surfaces, confirm the GitHub Release contains both `.tgz` and
    `.intoto.jsonl`, compare the npm and GitHub tarballs, and run the independent
@@ -105,14 +112,15 @@ automated path, and resume complete releases with a new patch version.
 
 The user must authenticate interactively with npm and verify the expected
 account. Publishing a tarball does not run this root package's
-`prepublishOnly`, so the gates must run immediately before packing:
+`prepublishOnly`, so run the suite, pack once, and exercise that exact artifact
+before publishing it:
 
 ```bash
 npm login
 npm whoami
 npm test
-npm run test:lifecycle:npm
 tarball="$(npm pack --silent | tail -n1)"
+npm run test:lifecycle:npm -- --tarball "$tarball"
 npm publish "./$tarball" --access public
 ```
 
@@ -122,6 +130,12 @@ npm-only path as a complete signed release.
 ## Gotchas
 
 - **Trusted publishing needs the tag to match `package.json`.** `publish.yml` fails fast if the pushed tag (e.g. `v2.4.0`) doesn't equal `v$(package.json version)`. Always bump with `npm version` so the tag and manifest agree.
+- **Release tags must belong to reviewed mainline history.** The workflow fetches
+  complete history and fails before dependency installation, packing, or
+  publication unless the tagged commit is an ancestor of canonical
+  `origin/main`. Live tag rules are the external authority boundary: keep `v*`
+  creation restricted to the release manager and keep consumed tags
+  non-updatable and non-deletable.
 - **Trusted publishing requires npm ≥ 11.5.1 and `id-token: write`.** `publish.yml` verifies the bundled npm version and sets the permission; it does not self-update npm during a release. If a publish job errors with an OIDC/authentication message, confirm the trusted publisher is registered on npm for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`.
 - **Never retry a failed publish by moving its tag.** Fix the cause, bump to a
   new patch version, rerun the preflight, and push the new tag. A local or
@@ -134,9 +148,14 @@ npm-only path as a complete signed release.
   add or replace assets on the published release. The SLSA caller must still
   grant `contents: write`: its reusable workflow declares a nested upload job,
   and GitHub validates that permission contract even when the input skips the
-  job. Changes to `publish.yml` run its harmless pull-request validation job so
-  GitHub checks this external contract before merge.
-- **Publishing a tarball does not run this root package's `prepublishOnly`.** The automated and manual exact-tarball flows explicitly run `npm test` and `npm run test:lifecycle:npm` before packing. Keep both gates; `prepublishOnly` remains defense in depth for a direct root-directory publish.
+  job. Changes to `publish.yml` or its ancestry helper run the harmless
+  pull-request validation job so GitHub checks this external contract before
+  merge.
+- **Publishing a tarball does not run this root package's `prepublishOnly`.** The
+  automated and manual flows run `npm test`, pack once, and then pass that exact
+  `.tgz` to `npm run test:lifecycle:npm -- --tarball ...` before hashing or
+  publishing it. Keep both gates; `prepublishOnly` remains defense in depth for
+  a direct root-directory publish.
 - **`prepublishOnly` failing** blocks a direct root-directory publish by design — it runs the full test suite and the packaging smoke. Fix the failure; do not bypass it.
 - **What ships:** `package.json` `files` allowlists only `scripts/`, `assets/*.svg`, `docs/`, `README.md`, `CHANGELOG.md`, and `LICENSE`. Promotional raster/video media stays in the source repository and is referenced by GitHub-hosted URLs. Everything in `.github/` (governance files, these skills) and `test/` is intentionally excluded from the tarball. Verify with `npm pack --dry-run` before publishing if the file list changed.
 

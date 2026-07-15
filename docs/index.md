@@ -57,6 +57,7 @@ They are evidence, not living descriptions of later code.
 - [Terminal UX and output architecture audit](audits/terminal-ux-and-output-architecture.md)
 - [Package managers and cross-platform behavior audit](audits/package-managers-and-cross-platform.md)
 - [CI/CD and GitHub Actions audit](audits/ci-cd-and-github-actions.md)
+- [Release, packaging, and upgrades audit](audits/release-packaging-and-upgrades.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)

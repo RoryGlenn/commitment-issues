@@ -130,8 +130,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run states
 
-      - name: Package lifecycle integration (separate from runtime coverage)
-        run: npm run test:lifecycle:npm
+      - name: Prebuilt package lifecycle integration (separate from runtime coverage)
+        run: node tools/run-prebuilt-lifecycle-test.mjs
 
       - name: 100% runtime coverage (Node 22.11.0)
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.11.0'

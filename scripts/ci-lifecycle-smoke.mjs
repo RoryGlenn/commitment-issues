@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import crossSpawn from "cross-spawn";
@@ -12,8 +13,10 @@ const root = process.cwd();
 // Which package manager to exercise end to end. Defaults to npm; pass "pnpm" as
 // the first arg (the pm-lifecycle CI job does) to prove the tool installs, wires
 // its hooks, and runs under pnpm's linked node_modules layout.
-const packageManager = process.argv[2] || "npm";
 const SUPPORTED_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);
+const args = process.argv.slice(2);
+const packageManager =
+  args[0] && !args[0].startsWith("-") ? args.shift() : "npm";
 if (!SUPPORTED_MANAGERS.has(packageManager)) {
   throw new Error(
     `Unsupported package manager "${packageManager}" (expected: ${[
@@ -21,6 +24,47 @@ if (!SUPPORTED_MANAGERS.has(packageManager)) {
     ].join(", ")}).`,
   );
 }
+
+let suppliedTarballInput;
+while (args.length > 0) {
+  const option = args.shift();
+  if (option !== "--tarball") {
+    throw new Error(`Unknown lifecycle option: ${option}`);
+  }
+  if (suppliedTarballInput !== undefined) {
+    throw new Error("Lifecycle tarball may be provided only once.");
+  }
+  suppliedTarballInput = args.shift();
+  if (!suppliedTarballInput) {
+    throw new Error("--tarball requires a path to a packed .tgz file.");
+  }
+}
+
+function resolveTarball(input) {
+  if (input === undefined) return undefined;
+
+  const resolved = path.resolve(root, input);
+  if (path.extname(resolved) !== ".tgz") {
+    throw new Error(`Lifecycle tarball must use the .tgz extension: ${input}`);
+  }
+  try {
+    if (!fs.lstatSync(resolved).isFile()) {
+      throw new Error(`Lifecycle tarball is not a regular file: ${input}`);
+    }
+    fs.accessSync(resolved, fs.constants.R_OK);
+    return fs.realpathSync.native(resolved);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error(`Lifecycle tarball does not exist: ${input}`);
+    }
+    if (error?.code === "EACCES") {
+      throw new Error(`Lifecycle tarball is not readable: ${input}`);
+    }
+    throw error;
+  }
+}
+
+const suppliedTarball = resolveTarball(suppliedTarballInput);
 
 // Keep the exact Node 22.11.0 lane on ESLint 9: ESLint 10 and its current
 // transitive packages require a newer Node 22 patch. Newer supported runtimes
@@ -178,6 +222,8 @@ function lifecycleEnv() {
   delete env.npm_config_user_agent;
   delete env.HUSKY;
   delete env.COMMITMENT_ISSUES;
+  delete env.COMMITMENT_ISSUES_LIFECYCLE_PM;
+  delete env.COMMITMENT_ISSUES_LIFECYCLE_TARBALL;
   return env;
 }
 
@@ -251,6 +297,93 @@ function assertSmoke(condition, message) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function sha256(filePath) {
+  return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+function inspectPackedTarball(tarball) {
+  const output = runForOutput(
+    "npm",
+    ["pack", tarball, "--dry-run", "--json", "--ignore-scripts"],
+    root,
+  );
+  let records;
+  try {
+    records = JSON.parse(output);
+  } catch {
+    throw new Error("npm did not return valid JSON metadata for the tarball");
+  }
+
+  assertSmoke(
+    Array.isArray(records) && records.length === 1,
+    "npm should report metadata for exactly one packed artifact",
+  );
+  const metadata = records[0];
+  assertSmoke(
+    metadata.name === "commitment-issues" &&
+      typeof metadata.version === "string",
+    "packed metadata should identify commitment-issues and its version",
+  );
+  assertSmoke(
+    Array.isArray(metadata.files),
+    "packed metadata should include the exact file inventory",
+  );
+
+  const executableFiles = metadata.files
+    .filter((file) => (file.mode & 0o111) !== 0)
+    .map((file) => file.path)
+    .sort();
+  assertSmoke(
+    JSON.stringify(executableFiles) === JSON.stringify(["scripts/cli.mjs"]),
+    `only scripts/cli.mjs should be executable, found ${JSON.stringify(executableFiles)}`,
+  );
+  const cli = metadata.files.find((file) => file.path === "scripts/cli.mjs");
+  assertSmoke(
+    cli?.mode === 0o755,
+    `scripts/cli.mjs should have packed mode 0755, found ${cli?.mode ?? "missing"}`,
+  );
+  const nonCliModeDrift = metadata.files
+    .filter((file) => file.path !== "scripts/cli.mjs" && file.mode !== 0o644)
+    .map((file) => `${file.path}:${file.mode}`);
+  assertSmoke(
+    nonCliModeDrift.length === 0,
+    `non-CLI files should have packed mode 0644, found ${nonCliModeDrift.join(", ")}`,
+  );
+
+  return metadata;
+}
+
+function assertInstalledCli(repoDir, packedMetadata) {
+  const packageDir = path.join(repoDir, "node_modules", "commitment-issues");
+  const installedPackage = readJson(path.join(packageDir, "package.json"));
+  assertSmoke(
+    installedPackage.name === packedMetadata.name &&
+      installedPackage.version === packedMetadata.version,
+    "the installed package identity should match the supplied tarball metadata",
+  );
+  assertSmoke(
+    JSON.stringify(installedPackage.bin) ===
+      JSON.stringify({ "commitment-issues": "scripts/cli.mjs" }),
+    "the packed package bin should point only to scripts/cli.mjs",
+  );
+
+  const cliSource = fs.readFileSync(
+    path.join(packageDir, "scripts", "cli.mjs"),
+    "utf8",
+  );
+  assertSmoke(
+    cliSource.startsWith("#!/usr/bin/env node\n"),
+    "scripts/cli.mjs should start with the exact Node shebang",
+  );
+
+  const [versionCommand, versionArgs] = execBin(["--version"]);
+  const reportedVersion = runForOutput(versionCommand, versionArgs, repoDir);
+  assertSmoke(
+    reportedVersion === packedMetadata.version,
+    `packed CLI should report ${packedMetadata.version}, found ${reportedVersion}`,
+  );
 }
 
 function assertFileContains(filePath, expected) {
@@ -548,7 +681,6 @@ const cloneDir = path.join(tempRoot, "clone");
 const worktreeDir = path.join(tempRoot, "worktree");
 const remoteDir = path.join(tempRoot, "remote.git");
 
-fs.mkdirSync(packDir, { recursive: true });
 fs.mkdirSync(smokeDir, { recursive: true });
 
 try {
@@ -556,15 +688,29 @@ try {
   console.log(
     `[lifecycle smoke] ${packageManager} version: ${runForOutput(packageManager, ["--version"], root)}\n`,
   );
-  run("npm", ["pack", "--pack-destination", packDir], root);
-  const tarball = fs
-    .readdirSync(packDir)
-    .filter((file) => file.endsWith(".tgz"))
-    .map((file) => path.join(packDir, file))[0];
+  let tarball = suppliedTarball;
+  if (tarball) {
+    console.log(`[lifecycle smoke] supplied tarball: ${tarball}\n`);
+  } else {
+    fs.mkdirSync(packDir, { recursive: true });
+    run("npm", ["pack", "--pack-destination", packDir], root);
+    const tarballs = fs
+      .readdirSync(packDir)
+      .filter((file) => file.endsWith(".tgz"))
+      .map((file) => path.join(packDir, file));
+    if (tarballs.length !== 1) {
+      throw new Error(
+        `npm pack should produce exactly one tarball, found ${tarballs.length}`,
+      );
+    }
+    [tarball] = tarballs;
+  }
 
   if (!tarball) {
     throw new Error("npm pack did not produce a tarball");
   }
+  const initialTarballHash = sha256(tarball);
+  const packedMetadata = inspectPackedTarball(tarball);
 
   run("git", ["init"], smokeDir);
   run("git", ["config", "user.name", "commitment-issues-ci"], smokeDir);
@@ -602,6 +748,7 @@ try {
 
   const [installCommand, installArgs] = installDevDeps(tarball);
   run(installCommand, installArgs, smokeDir);
+  assertInstalledCli(smokeDir, packedMetadata);
   assertManagerLockfile(smokeDir);
   assertWorkspaceConfigured(smokeDir);
   runWorkspaceTests(smokeDir);
@@ -826,6 +973,10 @@ try {
   run(removeCommand, removeArgs, smokeDir);
   assertPackageDependencyRemoved(smokeDir);
   assertManagerLockfile(smokeDir);
+  assertSmoke(
+    sha256(tarball) === initialTarballHash,
+    "the lifecycle integration must not modify the supplied tarball",
+  );
 } finally {
   fs.rmSync(tempBase, { recursive: true, force: true });
 }

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/publish.yml"
+      - "tools/verify-release-mainline.mjs"
   push:
     tags:
       - "v*"
@@ -48,12 +49,16 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
+
+      - name: Verify release commit belongs to reviewed mainline
+        run: node tools/verify-release-mainline.mjs
 
       - name: Verify tag matches package.json version
         run: |
@@ -82,16 +87,18 @@ jobs:
       - run: npm run build --if-present
       - run: npm test
 
-      - name: Verify npm package lifecycle
-        # Publishing a tarball skips this package's prepublishOnly lifecycle.
-        # Run the packaging smoke before creating the exact release artifact.
-        run: npm run test:lifecycle:npm
-
       - name: Pack tarball
         id: pack
         run: |
           tarball="$(npm pack --silent | tail -n1)"
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      - name: Verify exact npm package lifecycle
+        # Publishing a tarball skips this package's prepublishOnly lifecycle.
+        # Exercise the exact artifact before it is hashed, uploaded, or published.
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm run test:lifecycle:npm -- --tarball "$TARBALL"
 
       - name: Generate provenance subject
         id: hash
