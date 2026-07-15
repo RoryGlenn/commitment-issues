@@ -91,6 +91,7 @@
     "fix:staged": "node scripts/fix-staged.mjs",
     "doctor": "node scripts/doctor.mjs",
     "states": "node tools/show-message-states.mjs",
+    "benchmark:hooks": "node tools/benchmark-hook-performance.mjs",
     "release:preflight": "node tools/release-preflight.mjs",
     "release:validate": "node tools/validate-release-metadata.mjs",
     "test": "node --test test/*.test.mjs test/*.test.js",

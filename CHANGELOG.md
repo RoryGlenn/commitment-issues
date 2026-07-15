@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added bounded hook-performance benchmarks for smoke, 250-pair full-hook, and
+  1,000-pair argument-pressure repositories. The reproducible reports measure
+  discovery, commit/push latency, process-tree memory, fixture size, hostile
+  path handling, and conservative Windows argv limits without putting timing
+  assertions in ordinary pull-request CI.
 - Added a release metadata gate that requires `package.json`, both root
   lockfile version records, the exact tag, one dated changelog section, and its
   reviewed notes to agree before publication. GitHub Releases now use the
@@ -36,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Large machine-readable hook results now drain every partial or temporarily
+  blocked pipe write before immediate exit, preventing JSON above the first
+  roughly 64 KiB from being truncated.
 - Husky-era `core.hooksPath` recognition now removes trailing separators with
   a bounded linear-time scan, preventing adversarial repository configuration
   from stalling `init`, `doctor`, or `uninstall` through regular-expression

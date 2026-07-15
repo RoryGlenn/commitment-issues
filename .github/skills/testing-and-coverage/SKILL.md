@@ -16,6 +16,14 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 | Runtime coverage gate         | `npm run test:coverage` (100% lines, branches, and functions)       |
 | Reproduce CI locally          | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below) |
 | Package lifecycle integration | `npm run test:lifecycle:npm` (also `:pnpm`, `:yarn`, `:bun`)        |
+| Bounded hook benchmark        | `npm run benchmark:hooks -- --tier large --enforce-budgets`         |
+
+The normal suite runs the benchmark's `smoke` tier for correctness without
+asserting time. Use the explicit `large` tier on a controlled host for changes
+to discovery, process execution, output size, or path argv construction, and
+the `argv-pressure` tier for Windows/batching work. Record machine details and
+results; do not add wall-clock assertions to normal CI. The tier definitions,
+budgets, and baseline live in [`docs/performance.md`](../../../docs/performance.md).
 
 ## The two kinds of code, and how each is tested
 
