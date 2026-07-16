@@ -424,6 +424,36 @@ test("precommit --json reports advisory findings and a safe command", (t) => {
   assert.doesNotMatch(result.stdout, /Pre-commit suggestions found|╭|╰/);
 });
 
+test(
+  "precommit JSON preserves an exact control-character filename",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const file = "src/json\rline\n\t\b\u001b[31mRED\u001b[39m.mjs";
+    writeFile(path.join(tempDir, file), "export const value = 1;\n");
+    run("git", ["add", "--", file], tempDir);
+
+    const result = cli(tempDir, ["precommit", "--json"]);
+    const payload = jsonPayload(result);
+    const missingTests = payload.findings.find(
+      (finding) => finding.check === "tests",
+    );
+
+    assert.equal(result.stderr, "");
+    assert.deepEqual(missingTests.details, [file]);
+    assert.deepEqual(
+      payload.checks.find((check) => check.id === "missing-tests").details
+        .sourceFiles,
+      [file],
+    );
+    assert.match(
+      result.stdout,
+      /json\\rline\\n\\t\\b\\u001b\[31mRED\\u001b\[39m\.mjs/,
+    );
+  },
+);
+
 test("JSON configuration diagnostics stay structured", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discovery, commit/push latency, process-tree memory, fixture size, hostile
   path handling, and conservative Windows argv limits without putting timing
   assertions in ordinary pull-request CI.
+- Added required packed-artifact shell compatibility CI for Linux `/bin/sh`,
+  Bash, and Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command
+  Prompt. Every lane runs an offline commit/push/doctor/uninstall scenario from
+  a hostile path with stripped executable discovery, while a separate manual
+  release checklist covers VS Code, JetBrains, and GitHub Desktop UI behavior.
 - Added a release metadata gate that requires `package.json`, both root
   lockfile version records, the exact tag, one dated changelog section, and its
   reviewed notes to agree before publication. GitHub Releases now use the
@@ -22,9 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   v3.3.0–v3.3.2 exceptions without weakening future releases.
 - Added a shipped compatibility matrix for package managers, Node versions,
   operating systems, shells, Git clients, install modes, and explicit
-  unsupported boundaries. Required lifecycle CI now covers pnpm 10, Yarn
-  Classic 1.22.22, and Bun 1.3.14 across Ubuntu, macOS, and Windows at Node 24,
-  plus exact-minimum-Node lanes on Ubuntu.
+  unsupported boundaries. Required lifecycle CI now covers Bun 1.3.14, pnpm 10,
+  Yarn Classic 1.22.22, and Yarn Berry 4.17.0 with
+  `nodeLinker: node-modules` across Ubuntu, macOS, and Windows at Node 24, plus
+  exact-minimum-Node lanes on Ubuntu. Berry uses an independent
+  integrity-locked CLI fixture, manager-native workspace commands, and explicit
+  `doctor` repair after clones because it does not run npm's `prepare`
+  lifecycle; Plug'n'Play remains unsupported.
 - Added deterministic cross-version lifecycle coverage using pinned immutable
   v2.5.1, v3.2.0, and v3.3.2 release fixtures. Required pull-request CI proves
   npm upgrades on Ubuntu/Node 24, a read-only release-candidate job exercises
@@ -44,6 +53,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large machine-readable hook results now drain every partial or temporarily
   blocked pipe write before immediate exit, preventing JSON above the first
   roughly 64 KiB from being truncated.
+- Repository-controlled filenames, refs, configuration values, and captured
+  diagnostics can no longer inject carriage returns, line breaks, tabs, or
+  other terminal controls into product-owned human output. Unsafe bytes render
+  visibly, ANSI CSI/OSC sequences are stripped, intentional message layout and
+  Unicode remain intact, and JSON mode keeps the exact semantic values.
 - Husky-era `core.hooksPath` recognition now removes trailing separators with
   a bounded linear-time scan, preventing adversarial repository configuration
   from stalling `init`, `doctor`, or `uninstall` through regular-expression
@@ -54,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy Husky migration and uninstall cleanup now refuse to follow a linked or
   otherwise uninspectable `.husky` directory, preventing owned-artifact cleanup
   from deleting files outside the repository.
+- Setup and removal now refuse linked or non-regular `package.json`,
+  `.gitignore`, and `.commitmentrc.json` paths. Descriptor and file-identity
+  checks prevent a repository-controlled replacement from redirecting project
+  writes outside the checkout.
 - Packed Markdown links are now checked against the exact npm tarball manifest
   and again after installation. Links from shipped docs to repository-only
   policies, plans, and audit evidence now use canonical GitHub URLs instead of

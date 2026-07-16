@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import { countTerminalBoxes, stripAnsi } from "./helpers/output.mjs";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -346,6 +346,28 @@ test("prepush warns when pushing to a protected branch (advisory)", (t) => {
   assert.match(output, /Direct push to protected branch/);
   assert.match(output, /"main"/);
   assert.equal(countTerminalBoxes(output), 1);
+});
+
+test("prepush escapes controls in a protected ref", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const branch = "evil\bFAKE\u001b[31mRED\u001b[39m";
+  setPrecommitConfig(tempDir, { protectedBranches: [branch] });
+  const sha = headSha(tempDir);
+  const ref = `refs/heads/${branch}`;
+
+  const result = runPrepush(
+    tempDir,
+    `${ref} ${sha} ${ref} ${"0".repeat(40)}\n`,
+  );
+  const output = `${result.stdout}${result.stderr}`;
+  const visibleOutput = stripAnsi(output);
+
+  assert.equal(result.status, 0);
+  assert.match(visibleOutput, /evil\\x08FAKERED/);
+  assert.doesNotMatch(visibleOutput, /\x08|\u001b/);
+  assert.doesNotMatch(output, /FAKE\u001b\[31mRED/);
 });
 
 test("prepush consolidates multiple protected targets into one warning", (t) => {

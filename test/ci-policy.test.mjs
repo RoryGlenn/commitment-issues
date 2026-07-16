@@ -256,7 +256,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.doesNotMatch(check, /npm run (?:lint|format:check)/u);
   assert.match(
     aggregate,
-    /needs: \[dco, quality, check, pm-lifecycle, migration-lifecycle, codeql\]/u,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
   );
   assert.match(migration, /runs-on: ubuntu-latest/u);
   assert.match(migration, /node-version: "24"/u);
@@ -266,6 +266,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   );
   assert.doesNotMatch(migration, /strategy:\s+fail-fast:/u);
   assert.match(aggregate, /needs\.quality\.result != 'success'/u);
+  assert.match(aggregate, /needs\['shell-compat'\]\.result != 'success'/u);
   assert.match(
     aggregate,
     /needs\['migration-lifecycle'\]\.result != 'success'/u,
@@ -303,7 +304,7 @@ test("package-manager matrix values never expand directly into shell code", () =
     workflowJobBlocks(workflow).find(({ name }) => name === "pm-lifecycle")
       ?.source ?? "";
 
-  for (const manager of ["pnpm", "yarn", "bun"]) {
+  for (const manager of ["pnpm", "yarn", "yarn-berry", "bun"]) {
     assert.match(
       lifecycle,
       new RegExp(

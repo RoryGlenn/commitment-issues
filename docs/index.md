@@ -18,6 +18,8 @@ not installed with the npm package unless users need it offline.
 
 - [Compatibility and installation support](compatibility.md) — canonical
   package-manager, Node, OS, shell, client, and lifecycle boundary
+- [GUI Git-client release checklist](git-client-release-checklist.md) — manual
+  VS Code, JetBrains, and GitHub Desktop candidate evidence
 - [Monorepos and workspaces](monorepo.md)
 - [Yarn Berry](yarn-berry.md)
 - [Framework recipes](framework-recipes.md)

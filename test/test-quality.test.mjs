@@ -39,6 +39,7 @@ const runtimeTestOwners = {
     "test/secret-scan.test.mjs",
     "test/secret-scan-integration.test.mjs",
   ],
+  "scripts/lib/terminal.mjs": ["test/terminal.test.mjs"],
   "scripts/lib/ui.mjs": ["test/ui.test.mjs"],
   "scripts/lib/vows.mjs": ["test/vows.test.mjs"],
   "scripts/lib/welcome.mjs": ["test/welcome.test.mjs"],
@@ -130,11 +131,12 @@ test("CI Success accepts only explicit success from every required job", () => {
   assert.match(ci, /if: always\(\)/);
   assert.match(
     ci,
-    /needs: \[dco, quality, check, pm-lifecycle, migration-lifecycle, codeql\]/,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
   for (const job of ["dco", "quality", "check", "codeql"]) {
     assert.match(ci, new RegExp(`needs\\.${job}\\.result != 'success'`));
   }
+  assert.match(ci, /needs\['shell-compat'\]\.result != 'success'/);
   assert.match(ci, /needs\['pm-lifecycle'\]\.result != 'success'/);
   assert.match(ci, /needs\['migration-lifecycle'\]\.result != 'success'/);
   assert.doesNotMatch(ci, /contains\(needs\.\*\.result/);

@@ -60,7 +60,8 @@ separate **package lifecycle integration** pass/fail gate. It installs and runs
 an unpacked package copy in a temporary repository; mixing those duplicate,
 temporary source paths into the source-tree percentage would make the badge
 less reproducible rather than more complete. CI runs the npm lifecycle gate in
-the Node/OS matrix and separate pnpm, Yarn, and Bun lifecycle gates.
+the Node/OS matrix and separate pnpm, Yarn Classic, Yarn Berry `node-modules`,
+and Bun lifecycle gates.
 
 ## Runtime behavior ownership
 
@@ -87,7 +88,7 @@ claim-to-scenario map remains in
 | `scripts/lib/checks.mjs`          | lint, formatting, test, timeout, and finding classification                            | `test/checks.test.mjs`                                                                 |
 | `scripts/lib/commit-guards.mjs`   | branch and worktree guards across Git states                                           | `test/commit-guards.test.mjs`                                                          |
 | `scripts/lib/config.mjs`          | package/standalone precedence, validation, defaults, and diagnostics                   | `test/config.test.mjs`                                                                 |
-| `scripts/lib/files.mjs`           | NUL-safe Git paths, ownership, matching, workspace roots, and path properties          | `test/lib-files.test.mjs`, `test/path-normalization.test.mjs`, `test/property.test.js` |
+| `scripts/lib/files.mjs`           | NUL-safe Git paths, ownership, stable project-file writes, workspace roots, and paths  | `test/lib-files.test.mjs`, `test/path-normalization.test.mjs`, `test/property.test.js` |
 | `scripts/lib/hooks.mjs`           | hook classification, resolution, ownership, and safe writes                            | `test/hooks.test.mjs`                                                                  |
 | `scripts/lib/json-output.mjs`     | stable machine-readable schema and status mapping                                      | `test/json-output.test.mjs`                                                            |
 | `scripts/lib/local-tool.mjs`      | project-local executable discovery without global/network fallback                     | `test/local-tool.test.mjs`                                                             |
@@ -117,11 +118,13 @@ The six percentage exclusions are not test exclusions:
 
 ## Suppressions and meaningful-coverage rules
 
-There are exactly two `node:coverage` suppressions: the post-preflight write
-race handlers in `scripts/init.mjs` and `scripts/uninstall.mjs`. The preceding
-preflight behavior is fully exercised; forcing a filesystem permission race
-between that check and the write is nondeterministic. An executable inventory
-prevents new or enlarged suppressions from being added silently.
+There are exactly two `node:coverage` suppressions: the fallback error boxes
+after mutation preflight in `scripts/init.mjs` and `scripts/uninstall.mjs`.
+Permission and identity preflight, replacement races, open-descriptor
+comparison, and exclusive creation are exercised deterministically. The
+remaining post-preflight operating-system write failure is nondeterministic.
+An executable inventory prevents new or enlarged suppressions from being added
+silently.
 
 The test strategy also enforces behavior that a percentage cannot:
 

@@ -129,6 +129,46 @@ Pull requests are reviewed against the standards in the contributing guide.
 Maintainers may request changes, ask for additional tests, or reject changes
 that are too broad or outside the roadmap.
 
+### Code scanning alert policy
+
+The launch policy selected for owner activation on `main` requires the `CodeQL`
+tool with these merge-protection thresholds:
+
+- block tool-severity **Errors** (`alerts_threshold: errors`); and
+- block security alerts rated **High or Critical**
+  (`security_alerts_threshold: high_or_higher`).
+
+`CI Success` remains required because it proves that CodeQL ran successfully;
+the separate ruleset rule evaluates what the completed scan found. This
+threshold matches the launch gate's treatment of Critical and High security
+findings while keeping Medium and lower findings visible for review and normal
+triage. A lower-severity finding can still justify blocking a merge, and the
+threshold may be tightened through a later reviewed governance change.
+
+The live change and its positive and negative evidence are tracked in
+[issue #177](https://github.com/RoryGlenn/commitment-issues/issues/177). Until
+that issue records a ruleset read-back, a clean pull request, and a disposable
+pull request blocked by an in-scope alert, this section describes the selected
+policy rather than claiming that GitHub is enforcing it.
+
+[GitHub documents](https://docs.github.com/en/code-security/concepts/code-scanning/merge-protection)
+two platform exceptions: code-scanning merge protection does not apply to
+merge-queue groups or to Dependabot pull requests analyzed by default setup.
+This repository currently uses advanced CodeQL setup and no merge queue;
+re-evaluate the rule before either condition changes. The existing
+repository-admin ruleset bypass also applies. Bypassing an alert for convenience
+is prohibited; fix the finding or dismiss it through code scanning with a
+reviewable reason.
+
+To activate or modify this control, capture the current full ruleset, change
+only its `code_scanning` rule, write the complete ruleset document, and read it
+back. Verify that deletion, non-fast-forward, linear-history, review,
+`CI Success`, and admin-bypass controls are unchanged. If GitHub incorrectly
+blocks a clean pull request, restore the captured document with only the
+`code_scanning` rule removed, verify the read-back, and record the rollback and
+follow-up in #177. The required CodeQL execution inside `CI Success` must remain
+active during a rollback.
+
 ### Temporary single-maintainer exception
 
 The project currently has one trusted maintainer, so a second eligible approver

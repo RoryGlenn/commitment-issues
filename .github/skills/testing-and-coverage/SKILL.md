@@ -16,6 +16,7 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 | Runtime coverage gate         | `npm run test:coverage` (100% lines, branches, and functions)       |
 | Reproduce CI locally          | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below) |
 | Package lifecycle integration | `npm run test:lifecycle:npm` (also `:pnpm`, `:yarn`, `:bun`)        |
+| Shell compatibility lifecycle | `npm run test:shell-compat -- sh` (also platform-native targets)    |
 | Bounded hook benchmark        | `npm run benchmark:hooks -- --tier large --enforce-budgets`         |
 
 The normal suite runs the benchmark's `smoke` tier for correctness without
@@ -89,6 +90,12 @@ The fix already lives in `run()` inside the helper: it deletes `HUSKY` and `COMM
 | `REAL_GIT`, `repoRoot`                    | The real git path captured before any PATH override, and the repo root.                                                                                                                                                                          |
 
 All shim helpers are cross-platform (POSIX launcher + `.cmd`), so keep tests free of shell-specific and hard-coded-separator assumptions — CI runs on Ubuntu, macOS, and Windows.
+
+## Shell compatibility lifecycle
+
+`npm run test:shell-compat -- <target>` exercises the exact packed artifact through install, init, advisory commit, push to a local bare remote, doctor, and uninstall. Supported targets are `sh`, `bash`, `fish`, `zsh`, `powershell`, and `cmd`; each target must run on its native platform. CI owns the authoritative matrix across Linux, macOS, and Windows. Use `SHELL_COMPAT_TARBALL=/absolute/path/to/package.tgz` to reuse a previously packed candidate while debugging locally.
+
+The scenario deliberately constrains `PATH` for Git-hook invocations and uses paths containing spaces, Unicode, and shell metacharacters. Do not replace the argument-array process spawning with `shell: true`, interpolate fixture paths into shell source, or introduce registry/network access into the consumer install.
 
 ## Driving specific branches (patterns that already exist here)
 
