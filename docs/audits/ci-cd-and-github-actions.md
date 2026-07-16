@@ -119,12 +119,14 @@ validation remains the explicit, bounded work in
 availability is intentionally not a network-dependent merge gate.
 
 The environment contract follows the completed
-[package-manager and cross-platform audit](package-managers-and-cross-platform.md):
-GitHub launches these steps through Bash on Linux/macOS and PowerShell on
-Windows, while the black-box lifecycle exercises the generated POSIX `sh` hooks
-on every runner. Fish, direct Command Prompt, and GUI clients remain explicitly
-unverified rather than being implied by this matrix; #83 and #84 own that future
-boundary.
+[package-manager and cross-platform audit](package-managers-and-cross-platform.md).
+The later #83 follow-up adds a required exact-package matrix for Linux
+`/bin/sh`, Bash, and Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and
+Command Prompt. Those targets launch Git, while generated hooks remain POSIX
+`sh` (Git's bundled shell on Windows). GUI clients are a separate manual
+candidate gate in the
+[Git-client release checklist](../git-client-release-checklist.md), not an
+inference from the workflow step shell.
 
 ## Trust, permissions, and fork behavior
 

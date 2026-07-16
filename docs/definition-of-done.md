@@ -56,6 +56,9 @@ when it delivers this promise reliably within its documented scope.
   enforcement blocks only the documented condition.
 - Claims for Node.js, operating systems, package managers, shells, workspaces,
   and Git clients do not exceed the tested support matrix.
+- Required packed-artifact shell CI passes, and the manual
+  [GUI Git-client checklist](git-client-release-checklist.md) is recorded for
+  the exact candidate.
 - README instructions, examples, message states, and promotional media describe
   behavior available in that release.
 - Trusted publishing, npm provenance, the GitHub release assets, and independent

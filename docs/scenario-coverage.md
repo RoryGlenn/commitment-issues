@@ -432,6 +432,20 @@ production-readiness workstream #130 is consolidated in the
 - **MONO-002** — shallow and nested workspace packages are checked together, including when `git commit` starts in the nested package. Package-local `precommitChecks` values remain untouched and do not override the root. CI lifecycle matrix: `.github/workflows/ci.yml`; guide: [Monorepo & workspaces](monorepo.md).
 - **MONO-003** — linked Git worktrees share hooks through Git's common directory, repair safely during a worktree-local install, and run the root checks from a nested package. CI lifecycle matrix: `.github/workflows/ci.yml`.
 
+### Shells and Git clients
+
+- **SHELL-001** — Linux `/bin/sh`, Bash, and Fish; macOS `/bin/sh` and Zsh;
+  and Windows PowerShell and Command Prompt each launch the same exact packed
+  artifact through `--version`, `init`, a real advisory commit, a tested push to
+  a local bare remote, `doctor`, and `uninstall`. The consumer install is forced
+  offline. Required CI: `.github/workflows/ci.yml` (`shell-compat`); runner:
+  `tools/run-shell-compat-test.mjs`.
+- **SHELL-002** — the shared scenario runs in a path containing spaces,
+  Unicode, `$`, and `&`; preserves a project-owned hook; verifies generated
+  `#!/bin/sh` bodies use LF and Unix executable bits; and performs commit, push,
+  doctor, and uninstall with a stripped `PATH`. Policy regression:
+  `test/shell-compat.test.mjs`; hosted behavior: the required shell matrix.
+
 ### CI/CD and repository automation
 
 - **CI-001** — every tracked workflow has read-only defaults, an explicit
@@ -439,8 +453,8 @@ production-readiness workstream #130 is consolidated in the
   and an allowlisted job-permission surface. Unit: `test/ci-policy.test.mjs`;
   semantic validation: actionlint in `.github/workflows/ci.yml`.
 - **CI-002** — the sole branch-protection context fails unless DCO, static
-  quality, dependency audit, every supported runtime/lifecycle lane, and CodeQL
-  each report exact success. Unit: `test/ci-policy.test.mjs` and
+  quality, dependency audit, every supported runtime/lifecycle/shell lane, and
+  CodeQL each report exact success. Unit: `test/ci-policy.test.mjs` and
   `test/test-quality.test.mjs`; CI: `.github/workflows/ci.yml`.
 - **CI-003** — CodeQL is reusable by required CI while retaining scheduled and
   manual analysis. Unit: `test/ci-policy.test.mjs`; workflow:
@@ -470,6 +484,10 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - **LIFE-005** — the complete clean-registry launch path (`init`, advisory
   commit warning, `commit:fix`, and related push-time tests) remains a launch
   gate in issue #78.
+- **CLIENT-001** — the exact release candidate must complete the manual VS Code,
+  JetBrains, and GitHub Desktop lanes before publication. Evidence is attached
+  to the release issue rather than committed with machine-specific paths or
+  logs. Checklist: [GUI Git-client release checklist](git-client-release-checklist.md).
 - **REL-001** — the production v3.3.2 tag workflow published the exact npm
   tarball and both immutable GitHub Release assets. The npm/GitHub tarballs and
   SLSA subject share one SHA-256; independent npm signature and
@@ -486,8 +504,6 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 ### Release and lifecycle
 
 - Corporate locked-down environment behavior.
-- Dedicated shell and GUI-client launch coverage tracked in
-  [#83](https://github.com/RoryGlenn/commitment-issues/issues/83).
 
 ## Next batches
 
@@ -496,5 +512,3 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - Yarn Berry Plug'n'Play.
 - Custom no-hoist or non-`node_modules` workspace layouts outside the tested
   package-manager defaults.
-- The cross-shell and Git-client matrix in #83, coordinated with the proposed
-  v4 contract in #84.

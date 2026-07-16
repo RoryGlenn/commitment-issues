@@ -183,6 +183,9 @@ and replacement version in the incident issue.
   metadata change.
 - Follow the [release-verification guide](release-verification.md) after
   publishing.
+- Complete and retain the exact-candidate
+  [GUI Git-client checklist](git-client-release-checklist.md) before publishing;
+  shell-matrix success does not substitute for client-started Git operations.
 - Complete the recurring
   [sensitive-access checklist](project-roles.md#recurring-access-review), record
   dated evidence, and resolve expired contributor grants before each release.
