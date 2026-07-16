@@ -85,21 +85,26 @@ const args = process.argv.slice(2);
 const positionalTarget =
   args[0] && !args[0].startsWith("-") ? args.shift() : undefined;
 const targetName = process.env.SHELL_COMPAT_TARGET || positionalTarget;
-let suppliedTarball;
+let suppliedTarballInput = process.env.SHELL_COMPAT_TARBALL || undefined;
 while (args.length > 0) {
   const option = args.shift();
   if (option !== "--tarball") {
     fail(`Unknown shell compatibility option: ${option}`);
   }
-  if (suppliedTarball) {
-    fail("Shell compatibility tarball may be provided only once.");
+  if (suppliedTarballInput) {
+    fail(
+      "Shell compatibility tarball may be provided only once; use either SHELL_COMPAT_TARBALL or --tarball.",
+    );
   }
   const value = args.shift();
   if (!value) {
     fail("--tarball requires a path to a packed .tgz file.");
   }
-  suppliedTarball = resolveTarball(value);
+  suppliedTarballInput = value;
 }
+const suppliedTarball = suppliedTarballInput
+  ? resolveTarball(suppliedTarballInput)
+  : undefined;
 
 if (!targetName) {
   fail(

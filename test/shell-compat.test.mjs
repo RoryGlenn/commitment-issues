@@ -18,9 +18,11 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function runLauncher(args) {
+function runLauncher(args, envOverrides = {}) {
   const env = { ...process.env };
   delete env.SHELL_COMPAT_TARGET;
+  delete env.SHELL_COMPAT_TARBALL;
+  Object.assign(env, envOverrides);
   return spawnSync(
     process.execPath,
     ["tools/run-shell-compat-test.mjs", ...args],
@@ -44,6 +46,24 @@ test("shell compatibility launcher rejects missing and malformed inputs", () => 
   const unknownOption = runLauncher(["sh", "--network"]);
   assert.equal(unknownOption.status, 1);
   assert.match(unknownOption.stderr, /Unknown shell compatibility option/u);
+
+  const malformedEnvironmentTarball = runLauncher(["sh"], {
+    SHELL_COMPAT_TARBALL: "candidate.zip",
+  });
+  assert.equal(malformedEnvironmentTarball.status, 1);
+  assert.match(
+    malformedEnvironmentTarball.stderr,
+    /tarball must use the \.tgz extension/u,
+  );
+
+  const duplicateTarball = runLauncher(["sh", "--tarball", "candidate.tgz"], {
+    SHELL_COMPAT_TARBALL: "candidate.tgz",
+  });
+  assert.equal(duplicateTarball.status, 1);
+  assert.match(
+    duplicateTarball.stderr,
+    /use either SHELL_COMPAT_TARBALL or --tarball/u,
+  );
 });
 
 test("tracked shell adapters expose the same black-box actions", () => {
