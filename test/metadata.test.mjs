@@ -654,6 +654,29 @@ test("Audit 7 records the completed npm publication control", () => {
   assert.match(roles, /issues\/195/);
 });
 
+test("Audit 8 records the completed OpenSSF metadata control", () => {
+  const audit8 = readText(
+    "docs/audits/documentation-governance-and-promotional-assets.md",
+  );
+  const audit9 = readText("docs/audits/independent-final-verification.md");
+  const release = readText("docs/audits/release-packaging-and-upgrades.md");
+  const evidence = readText("docs/openssf-best-practices.md");
+
+  assert.match(audit8, /2026-07-16 owner-authenticated OpenSSF follow-up/);
+  assert.match(audit8, /2026-07-16T20:44:46\.606Z/);
+  assert.match(audit8, /`badge_level` as `passing`/);
+  assert.match(audit8, /tiered percentage\s+193/);
+  assert.match(
+    audit8,
+    /Local Git hooks for JavaScript and TypeScript projects/,
+  );
+  assert.match(audit9, /Two release-boundary checks remain/);
+  assert.match(audit9, /After #180 is complete/);
+  assert.match(evidence, /2026-07-16 owner-authenticated correction/);
+  assert.doesNotMatch(audit9, /unresolved #199 gate/);
+  assert.doesNotMatch(release, /external-fork, OpenSSF/);
+});
+
 test("package files entries exist", () => {
   const pkg = readJson("package.json");
   const trackedFiles = execFileSync("git", ["ls-files", "-z"], {

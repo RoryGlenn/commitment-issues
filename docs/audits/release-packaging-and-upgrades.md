@@ -141,8 +141,8 @@ account tokens. The matching 3.4.0 release preflight passed without changing a
 version, tag, Release, registry entry, or package publication.
 
 This Audit 7 result does not authorize an immediate publish. Final release
-readiness remains blocked by the external-fork, OpenSSF, exact-candidate, and
-GUI-client evidence owned by #138.
+readiness remains blocked by the external-fork, exact-candidate, and GUI-client
+evidence owned by #138.
 
 Issue #175 remains scheduled maintenance rather than a release blocker because
 the current lifecycle already exercises the real artifact and Git/package-manager

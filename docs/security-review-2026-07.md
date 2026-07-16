@@ -183,16 +183,15 @@ entrypoint-specific integration suites.
   evidence confirms read-only permissions, no secrets, successful CodeQL and
   compatibility work, and fail-closed DCO/aggregate behavior; the newly added
   Yarn Berry and packed-shell lanes await a legitimate external update.
-- [Issue #195](https://github.com/RoryGlenn/commitment-issues/issues/195) owns
-  authenticated npm trusted-publisher, access, 2FA, and token-policy evidence.
-  Repository-controlled OIDC and provenance evidence is complete, but account
-  settings cannot be inferred from public workflow code.
-- [Issue #199](https://github.com/RoryGlenn/commitment-issues/issues/199) is a
-  Low external OpenSSF profile-description correction, not a runtime
-  vulnerability.
+- [Issue #195](https://github.com/RoryGlenn/commitment-issues/issues/195)
+  records the completed 2026-07-16 npm trusted-publisher, access, 2FA, and
+  zero-token evidence.
+- [Issue #199](https://github.com/RoryGlenn/commitment-issues/issues/199)
+  records the completed 2026-07-16 OpenSSF native-hook description correction;
+  the public badge remains Passing.
 - [Issue #138](https://github.com/RoryGlenn/commitment-issues/issues/138) owns
-  independent integrated launch verification after the remaining external
-  controls are dispositioned.
+  independent integrated launch verification after the remaining external-fork
+  control and exact-candidate checks are complete.
 - Non-milestone [issue #212](https://github.com/RoryGlenn/commitment-issues/issues/212)
   owns Windows-specific very-large argv batching; current bounded workloads are
   measured and the limitation is documented.

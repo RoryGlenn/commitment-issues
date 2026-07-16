@@ -23,12 +23,11 @@ documentation, generated visual evidence, and launch material agree with the
 merged implementation and its supported boundary. Every concrete repository
 finding is fixed and merged.
 
-This verdict does not claim that owner-only third-party settings are complete.
-The stale OpenSSF profile description remains an explicit owner-authenticated
-external action in #199, npm account controls remain gated by #195, and the
-current full external-fork trigger remains gated by #180. Those items have an
-owner, exact next action, and dated evidence; Audit 9 and launch readiness must
-continue to treat them as unresolved external controls.
+Owner-only third-party controls were not prerequisites to the evidence commit.
+Follow-up owner-authenticated reviews on 2026-07-16 completed the npm control in
+#195 and the OpenSSF description correction in #199. The current full
+external-fork trigger remains gated by #180; Audit 9 and launch readiness must
+continue to treat that as unresolved external evidence.
 
 ## Inventory and method
 
@@ -76,11 +75,24 @@ The detailed progress inventory is retained on
   owns a future repository-wide local-link maintenance tool.
 - Live repository topics exactly match the launch list: `developer-tools`,
   `eslint`, `git-hooks`, `husky`, `lint-staged`, `pre-commit`, and `prettier`.
-- The live OpenSSF project and badge still report Passing (tiered percentage
-  193), but its description still names the removed Husky/lint-staged runtime
-  architecture. [Issue #199](https://github.com/RoryGlenn/commitment-issues/issues/199#issuecomment-4993419466)
-  records the exact replacement wording and owner-authenticated read-back gate;
-  this report does not repeat the stale description as a current claim.
+- The live OpenSSF project description now matches the native-hook architecture,
+  and the public read-back still reports Passing at tiered percentage 193.
+
+### 2026-07-16 owner-authenticated OpenSSF follow-up
+
+The owner-authenticated edit replaced the description for public project
+[13528](https://www.bestpractices.dev/projects/13528) with:
+
+> Local Git hooks for JavaScript and TypeScript projects. commitment-issues owns
+> native Git hook wiring—no Husky or lint-staged runtime dependency—and runs
+> advisory-first pre-commit and pre-push checks with optional per-check
+> enforcement. It integrates with project-local ESLint and Prettier, refuses
+> unsafe fixes, and adds no telemetry or hosted service.
+
+The public JSON read-back reports `updated_at` as
+`2026-07-16T20:44:46.606Z`, `badge_level` as `passing`, and tiered percentage 193. No account or credential detail is recorded. This completes the external
+metadata control in
+[#199](https://github.com/RoryGlenn/commitment-issues/issues/199).
 
 ### Commands and output match current behavior
 
@@ -107,8 +119,8 @@ The detailed progress inventory is retained on
 | Stale repository documentation claims              | Low/Medium                   | Fixed by PR #200 (`859c045`) and the focused child PRs above.                                                                  |
 | Historical security-review baseline (#99)          | Medium assurance gap         | Refreshed by PR #218, merged as `db3ccf0`, against integrated commit `e7d096d`.                                                |
 | CodeQL alert merge protection (#177)               | Configuration gate           | Active in ruleset `18531369`; PRs #216/#217 prove blocked and clean paths.                                                     |
-| Stale OpenSSF Husky/lint-staged description (#199) | Low external metadata        | Open owner-only action with exact wording and dated Passing-badge read-back; no repository claim depends on the stale text.    |
-| npm publication settings (#195)                    | Medium external release gate | Repository OIDC evidence is complete; authenticated publisher, 2FA, and token-policy read-back remains open.                   |
+| Stale OpenSSF Husky/lint-staged description (#199) | Low external metadata        | Completed 2026-07-16: native-hook wording is public and the badge remains Passing at tiered percentage 193.                    |
+| npm publication settings (#195)                    | Medium external release gate | Completed 2026-07-16: publisher identity, 2FA/token policy, and zero-token inventory are recorded in Audit 7.                  |
 | Current external-fork graph (#180)                 | Medium external validation   | Read-only/no-secret/fail-closed evidence is recorded; a legitimate new revision must exercise the added Berry and shell lanes. |
 
 Non-milestone enhancements remain separate from launch claims: #141 owns future
@@ -161,13 +173,11 @@ sole-maintainer exception if no second eligible reviewer is available.
 
 ## Remaining manual or organizational requirements
 
-| Requirement                                            | Owner                                | Exact remaining action                                                                                                                                                                          |
-| ------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| npm package settings and credential disposition (#195) | Rory Glenn                           | Use an owner-authenticated npm session to verify the trusted publisher, blank environment binding, 2FA/token policy, and obsolete-credential disposition; record only privacy-bounded evidence. |
-| OpenSSF project description (#199)                     | Rory Glenn                           | Save the prepared native-hook wording in project 13528, then verify the public JSON no longer names Husky/lint-staged and the badge remains Passing.                                            |
-| External-fork graph (#180)                             | External contributor plus Rory Glenn | Let a legitimate fork revision trigger current CI, approve it under the first-time-contributor policy, and record the complete green/fail-closed result without mutating an unrelated branch.   |
-| Independent final verification (#138)                  | Independent verification pass        | Run from a clean clone after prerequisites and verify the integrated repository and live external controls.                                                                                     |
-| Release and Show HN (#78)                              | Rory Glenn                           | Publish and post only after the release gate and independent verification are complete.                                                                                                         |
+| Requirement                           | Owner                                | Exact remaining action                                                                                                                                                                        |
+| ------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| External-fork graph (#180)            | External contributor plus Rory Glenn | Let a legitimate fork revision trigger current CI, approve it under the first-time-contributor policy, and record the complete green/fail-closed result without mutating an unrelated branch. |
+| Independent final verification (#138) | Independent verification pass        | Run from a clean clone after prerequisites and verify the integrated repository and live external controls.                                                                                   |
+| Release and Show HN (#78)             | Rory Glenn                           | Publish and post only after the release gate and independent verification are complete.                                                                                                       |
 
 ## Closure checklist
 
