@@ -151,9 +151,11 @@ Local verification on the report branch:
 Hosted [required CI on integrated `main`](https://github.com/RoryGlenn/commitment-issues/actions/runs/29511127093)
 repeated the Linux/macOS/Windows Node matrix, coverage, packed shells,
 npm/pnpm/Yarn Classic/Yarn Berry/Bun lifecycles, migration, CodeQL, DCO, static
-quality, and `CI Success` on `db3ccf0`. The final report PR must repeat that gate
-and record the documented sole-maintainer review exception if no second eligible
-reviewer is available.
+quality, and `CI Success` on `db3ccf0`.
+[PR #219](https://github.com/RoryGlenn/commitment-issues/pull/219) repeated that
+gate on [run 29511746117](https://github.com/RoryGlenn/commitment-issues/actions/runs/29511746117);
+all checks passed. Its review record must include the documented
+sole-maintainer exception if no second eligible reviewer is available.
 
 ## Remaining manual or organizational requirements
 
@@ -176,8 +178,11 @@ reviewer is available.
       disposition that does not overclaim launch readiness.
 - [x] Generated assets are unchanged and their source/equality/visual checks
       pass.
-- [ ] Required checks and maintainer review pass on the final report PR.
-- [ ] #137 links this merged report and accurately unblocks #138.
+- [x] Required checks passed on final report PR #219; its merge record must
+      preserve the documented review decision.
+- [x] PR #219 carries `Closes #137`, so merging it links this report and
+      accurately unblocks #138.
 
-Audit 8 is complete only after the last two checklist items are satisfied by
-the report PR and its merged evidence.
+PR #219 is the closure transition: after it merges, this report is on `main`,
+#137 closes automatically, and #138 becomes eligible for its prerequisite
+check.
