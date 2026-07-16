@@ -157,6 +157,11 @@ Also run the checks that match your change:
 | Install, init, doctor, hook wiring, uninstall, or package behavior | `npm run test:lifecycle:npm`                                      |
 | Shell launch, hook portability, or GUI-environment behavior        | `SHELL_COMPAT_TARGET=sh npm run test:shell-compat` plus hosted CI |
 | Package contents, shipped Markdown links, or release tooling       | `npm run test:lifecycle:npm` and the relevant release checks      |
+| Hook traversal, discovery, process argv, or output volume          | `npm run benchmark:hooks -- --tier large --enforce-budgets`       |
+
+Run the performance command on a controlled host and include its machine and
+report summary in the pull request. Timing budgets are intentionally excluded
+from ordinary CI; see [Hook performance and scaling](../docs/performance.md).
 
 The runtime coverage gate requires 100% line, branch, and function coverage.
 See the [Runtime Coverage Policy](../docs/branch-coverage.md) for the exact source

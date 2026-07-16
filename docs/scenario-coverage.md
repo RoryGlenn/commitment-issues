@@ -404,6 +404,23 @@ production-readiness workstream #130 is consolidated in the
 
 - **PERF-001** — timeout is enforced and reported separately from signals/spawn failures. Fixture: precommit / prepush / process tests.
 - **PERF-002** — timeout cleanup terminates an attached grandchild on supported platforms. Fixture: `test/process.test.mjs`; CI matrix: Ubuntu, macOS, Windows.
+- **PERF-003** — bounded smoke, 250-pair full-hook, and 1,000-pair
+  argument-pressure tiers cover large staged sets, pushed diffs, discovered
+  tests, and long hostile paths without enforcing wall time in ordinary CI.
+  Harness: `tools/benchmark-hook-performance.mjs`; behavior regression:
+  `test/performance-benchmark.test.mjs`; results and budgets:
+  [Hook performance and scaling](performance.md).
+- **PERF-004** — conservative Windows direct-process and `cmd.exe` accounting
+  identifies bounded prefixes for Git, ESLint, Prettier, and configured tests;
+  the measured large tiers require future batching/pathspec transport tracked
+  in [#212](https://github.com/RoryGlenn/commitment-issues/issues/212). Harness
+  and unit: `tools/benchmark-hook-performance.mjs`,
+  `test/performance-benchmark.test.mjs`; boundary:
+  [Current path-count boundary](performance.md#current-path-count-boundary).
+- **PERF-005** — JSON hook output larger than a pipe's first write is delivered
+  completely before immediate exit, including partial-write and retryable pipe
+  states. Unit/subprocess: `test/json-output.test.mjs`; measured large-hook
+  evidence: [Measured baseline](performance.md#measured-baseline).
 
 ### User lifecycle
 
@@ -470,10 +487,6 @@ production-readiness workstream #130 is consolidated in the
   `.github/dependabot.yml` and `.github/workflows/repo-health.yml`.
 
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
-
-## Deferred
-
-- **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Manual and production validation
 

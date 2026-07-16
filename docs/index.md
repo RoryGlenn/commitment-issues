@@ -52,6 +52,7 @@ They are evidence, not living descriptions of later code.
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
   health, package contents, and release housekeeping
 - [Runtime coverage policy](branch-coverage.md)
+- [Hook performance and scaling](performance.md)
 - [Scenario coverage](scenario-coverage.md)
 - [Core CLI and Git behavior audit](audits/core-cli-git.md)
 - [Security, secrets, paths, and subprocesses audit](audits/security-secrets-paths-subprocesses.md)
