@@ -31,7 +31,7 @@ jobs:
       - name: Verify prospective DCO enforcement
         shell: bash
         env:
-          DCO_BASE: ${{ github.event.pull_request.base.sha || '265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5' }}
+          DCO_BASE: ${{ github.event.pull_request.base.sha || '495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19' }}
           DCO_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
