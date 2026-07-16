@@ -68,7 +68,9 @@ The detailed progress inventory is retained on
 ### Public documents, governance, badges, links, and assets
 
 - The tracked-file and public-surface inventory is complete at `db3ccf0`.
-- All retained Markdown documents are linked from `docs/index.md`.
+- All retained Markdown documents under `docs/` are linked from
+  `docs/index.md`. Repository-root, policy/template, and promotional Markdown
+  are outside that index contract and were reviewed separately.
 - Repository-relative links in the shipped package resolve against the exact
   `npm pack` manifest and are rechecked after installation. #141 separately
   owns a future repository-wide local-link maintenance tool.
