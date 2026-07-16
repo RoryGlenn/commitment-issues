@@ -97,11 +97,11 @@ represented as shipped runtime surface.
   semantic values using JSON escaping and complete synchronous writes.
 - **CI and release:** pull-request code receives read-only repository access
   without persisted checkout credentials or secrets; the isolated CodeQL job
-  additionally receives only the security-events permission needed for SARIF
-  upload. `CI Success` requires DCO, static quality, coverage, the compatibility
-  matrix, packed lifecycles, migrations, and CodeQL. Publication separately
-  requires reviewed-main ancestry, an exact immutable candidate, OIDC,
-  provenance, and immutable-release continuity.
+  additionally receives `actions: read` for workflow metadata and
+  `security-events: write` for SARIF upload. `CI Success` requires DCO, static
+  quality, coverage, the compatibility matrix, packed lifecycles, migrations,
+  and CodeQL. Publication separately requires reviewed-main ancestry, an exact
+  immutable candidate, OIDC, provenance, and immutable-release continuity.
 
 ## Findings and dispositions
 
