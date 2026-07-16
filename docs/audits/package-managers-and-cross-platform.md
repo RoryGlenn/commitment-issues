@@ -9,18 +9,19 @@ which evidence still has to come from the pull request's hosted matrix.
 
 ## Status
 
-The implementation and local verification are complete. The workstream is not
-ready to close until the pull request runs the expanded required CI matrix and
-links its results to #134. In particular, this checkout cannot turn configured
-macOS/Windows lanes for pnpm, Yarn, and Bun into observed hosted evidence.
+The implementation and hosted verification completed in
+[PR #176](https://github.com/RoryGlenn/commitment-issues/pull/176), closing the
+original workstream. The later #100 follow-up adds independent Yarn Berry
+4.17.0 `node-modules` evidence without changing the historical Classic lanes.
 
 No Critical or High finding remains. Eight concrete Medium findings and three
 Low findings were fixed. A later release audit added pinned cross-version
 upgrade evidence; automatic in-place downgrade remains explicitly unsupported
-with a documented manual rollback. At this audit snapshot, Yarn Berry,
-additional shells, and GUI Git clients remained unclaimed. The later #83
-follow-up adds focused shell CI and a manual GUI release gate rather than
-treating either as supported by association.
+with a documented manual rollback. Yarn Berry 4.17.0 with
+`nodeLinker: node-modules` is now supported through its dedicated #100 fixture;
+Plug'n'Play remains explicitly unsupported. The later #83 follow-up adds
+focused shell CI and a manual GUI release gate rather than treating shell or
+client support as implied by package-manager coverage.
 
 ## Scope inventory
 
@@ -54,27 +55,27 @@ positive compatibility claims.
 
 ### Package managers and Node.js
 
-| Environment                               | Classification                        | Exact evidence boundary                                                                                                     |
-| ----------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| npm                                       | Supported; required CI plus local     | Packed lifecycle on Ubuntu, macOS, and Windows at Node 22.11.0 and 24; local macOS at Node 26.4.0/npm 11.17.0               |
-| pnpm 10                                   | Supported; required CI                | Packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0; additional local macOS lifecycle with pnpm 11.9.0 |
-| Yarn Classic 1.22.22                      | Supported; required CI                | Packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0                                                    |
-| Bun 1.3.14                                | Supported; required CI                | Packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0                                                    |
-| Yarn Berry, `nodeLinker: node-modules`    | Provisional and unverified            | Tracked by [#100](https://github.com/RoryGlenn/commitment-issues/issues/100); no support claim yet                          |
-| Yarn Plug'n'Play                          | Unsupported                           | The runtime contract requires a project-local `node_modules/.bin` entry                                                     |
-| Global installation                       | Unsupported                           | Generated hooks intentionally use only the project-local bin                                                                |
-| Registry-downloading one-shot execution   | Unsupported                           | All documented and tested runners prohibit or avoid registry fallback                                                       |
-| Node 22.11.0                              | Supported minimum; required CI        | Exact floor runs the full suite and packed lifecycle; baseline peers use ESLint 9/Prettier 3                                |
-| Node 24                                   | Supported; required CI                | Full npm suite and every supported package-manager lifecycle; ESLint 10/Prettier 3                                          |
-| Node 26.4.0                               | Locally verified, admitted by engines | Full suite and packed npm lifecycle on the audit host; not a separate required CI claim                                     |
-| Other Node versions at or above the floor | Admitted but not separately verified  | The declared `>=22.11.0` range applies; only named lanes carry distinct evidence                                            |
-| Node below 22.11.0                        | Unsupported                           | Product-owned CLI diagnostic exits before command dispatch                                                                  |
+| Environment                                   | Classification                        | Exact evidence boundary                                                                                                     |
+| --------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| npm                                           | Supported; required CI plus local     | Packed lifecycle on Ubuntu, macOS, and Windows at Node 22.11.0 and 24; local macOS at Node 26.4.0/npm 11.17.0               |
+| pnpm 10                                       | Supported; required CI                | Packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0; additional local macOS lifecycle with pnpm 11.9.0 |
+| Yarn Classic 1.22.22                          | Supported; required CI                | Packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0                                                    |
+| Bun 1.3.14                                    | Supported; required CI                | Packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0                                                    |
+| Yarn Berry 4.17.0, `nodeLinker: node-modules` | Supported; required CI                | Dedicated packed lifecycle on all three OSes at Node 24 and Ubuntu at Node 22.11.0; clone repair uses explicit `doctor`     |
+| Yarn Plug'n'Play                              | Unsupported                           | The runtime contract requires a project-local `node_modules/.bin` entry                                                     |
+| Global installation                           | Unsupported                           | Generated hooks intentionally use only the project-local bin                                                                |
+| Registry-downloading one-shot execution       | Unsupported                           | All documented and tested runners prohibit or avoid registry fallback                                                       |
+| Node 22.11.0                                  | Supported minimum; required CI        | Exact floor runs the full suite and packed lifecycle; baseline peers use ESLint 9/Prettier 3                                |
+| Node 24                                       | Supported; required CI                | Full npm suite and every supported package-manager lifecycle; ESLint 10/Prettier 3                                          |
+| Node 26.4.0                                   | Locally verified, admitted by engines | Full suite and packed npm lifecycle on the audit host; not a separate required CI claim                                     |
+| Other Node versions at or above the floor     | Admitted but not separately verified  | The declared `>=22.11.0` range applies; only named lanes carry distinct evidence                                            |
+| Node below 22.11.0                            | Unsupported                           | Product-owned CLI diagnostic exits before command dispatch                                                                  |
 
 ### Operating systems, shells, IDEs, and Git clients
 
 | Environment                             | Classification         | Exact evidence boundary                                                                                              |
 | --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Ubuntu                                  | Required CI            | npm at Node 22.11.0/24; pnpm 10, Yarn 1.22.22, and Bun 1.3.14 at Node 22.11.0/24                                     |
+| Ubuntu                                  | Required CI            | npm at Node 22.11.0/24; pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0, and Bun 1.3.14 at Node 22.11.0/24          |
 | macOS                                   | Required CI plus local | npm at Node 22.11.0/24; other supported managers at Node 24; local zsh/npm and zsh/pnpm evidence at Node 26.4.0      |
 | Windows                                 | Required CI            | npm at Node 22.11.0/24; other supported managers at Node 24; real Git executes hooks through its bundled POSIX shell |
 | POSIX `sh` / Git for Windows shell      | Required CI            | Generated `#!/bin/sh` hooks run during real commits and pushes                                                       |
@@ -144,8 +145,9 @@ These are closure dispositions, not hidden follow-up work:
   forward-upgrade evidence for the Husky boundary, previous minor, and latest
   published baseline. It deliberately did not turn automatic reverse migration
   into a support claim; rollback uses cleanup and a pinned reinstall.
-- [#100](https://github.com/RoryGlenn/commitment-issues/issues/100) owns Yarn
-  Berry `nodeLinker: node-modules`; Plug'n'Play remains unsupported.
+- [#100](https://github.com/RoryGlenn/commitment-issues/issues/100) adds the
+  dedicated Yarn Berry 4.17.0 `nodeLinker: node-modules` fixture; Plug'n'Play
+  remains unsupported.
 - [#175](https://github.com/RoryGlenn/commitment-issues/issues/175) owns turning
   the lifecycle harness into a more fully featured test architecture. The
   strengthened harness remains an intentionally separate packed integration
@@ -157,8 +159,8 @@ These are closure dispositions, not hidden follow-up work:
 ## CI, tests, and documentation changed
 
 - Added exact minimum-Node and unsupported-runtime regression coverage.
-- Expanded required pnpm/Yarn/Bun lanes across OSes and added exact-minimum
-  Ubuntu lanes with fixed manager versions.
+- Expanded required pnpm/Yarn Classic/Yarn Berry/Bun lanes across OSes and
+  added exact-minimum Ubuntu lanes with fixed manager versions.
 - Strengthened the shared packed lifecycle harness with local-only execution,
   manager identity isolation, paths containing spaces and Unicode,
   scripts-disabled repair, workspace-aware hints, actual dependency removal,
@@ -202,9 +204,6 @@ unverified above.
 
 ## Conclusion and closure gate
 
-The code, tests, support boundary, and local evidence are ready for review. The
-workstream should close only after the pull request's required npm, pnpm, Yarn,
-and Bun jobs pass, this report and those results are linked to #134, and the
-dependency note for the next workstream (#135) is confirmed. Until then, this
-is a completed local implementation with a pending hosted-evidence gate, not a
-claim that Audit 5/9 is closed.
+Audit 5/9 closed after PR #176's required npm, pnpm, Yarn Classic, and Bun jobs
+passed. The separately tracked #100 follow-up now extends the required matrix
+to Yarn Berry without rewriting that original closure evidence.

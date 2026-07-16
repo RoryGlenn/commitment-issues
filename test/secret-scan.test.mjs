@@ -435,9 +435,11 @@ test("secretsIssue builds the advisory issue with rotation guidance", () => {
   ]);
   assert.equal(issue.autoFixable, false);
   assert.equal(issue.message, "2 possible secrets staged");
-  assert.match(issue.detail, /\.env \(\.env file\)/);
-  assert.match(issue.detail, /src\/auth\.ts:12 \(AWS access key ID\)/);
-  assert.match(issue.detail, /rotate anything already exposed/);
+  assert.deepEqual(issue.detail, [
+    ".env (.env file)",
+    "src/auth.ts:12 (AWS access key ID)",
+    "Never commit real credentials — rotate anything already exposed.",
+  ]);
 
   assert.equal(
     secretsIssue([{ file: ".env", label: ".env file" }]).message,

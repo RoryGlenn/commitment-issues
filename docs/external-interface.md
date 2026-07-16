@@ -88,6 +88,16 @@ Hook ownership checks do not follow symbolic links. A hook-file symlink,
 dangling symlink, or symlink used as the hooks directory is preserved as
 uninspectable; `init` and `doctor` report it instead of repairing through it.
 
+Mutable project files follow the same repository boundary. Existing paths that
+a command can modify must be regular files: `init` checks `package.json`,
+`.gitignore`, and `.commitmentrc.json`, while `uninstall` checks `package.json`
+and `.commitmentrc.json`. Both commands refuse symbolic links, directories, and
+paths that cannot be inspected safely, including during `--dry-run`. Before a
+write, the open descriptor is matched to the originally inspected path and
+identity. Creating a missing file uses exclusive creation, and
+standalone-config removal rechecks the same identity immediately before
+deletion.
+
 ## Git hook interface
 
 `init` writes plain native hooks that call only the project-local binary:
@@ -147,6 +157,16 @@ Operational commands (`init`, `uninstall`, `doctor`, and explicit fix commands)
 are outside the hook-output policy. Mixed findings use the strongest final
 severity.
 
+Product-owned human output treats repository, Git, configuration, process, and
+argument values as untrusted terminal text. Embedded carriage returns,
+newlines, and tabs are shown as `\\r`, `\\n`, and `\\t`; other C0/C1 controls
+use `\\xNN`, and ANSI CSI/OSC sequences are removed. Intentional layout still
+comes from separate message-model lines, so normal Unicode, spaces, and
+punctuation remain unchanged. Product-owned bold, dim, and severity styling is
+applied only around already escaped values, so normal colored output remains
+unchanged. Raw output from explicitly run project tools is relayed as that tool
+produced it and stays outside the product-owned message model.
+
 The public
 [message-state gallery](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/message-states.md)
 shows concrete human output. It is repository evidence rather than installed
@@ -156,7 +176,8 @@ package documentation.
 single versioned payload. Field semantics, stderr behavior, and examples are in
 [JSON output](json-output.md) and its
 [versioned schema](json-output.schema.json). Other commands do not support
-`--json`.
+`--json`. JSON strings retain their exact semantic values and rely on standard
+JSON escaping rather than the visible human-output notation above.
 
 ## Exit behavior
 

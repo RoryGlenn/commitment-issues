@@ -10,15 +10,15 @@ the exact candidate. “Unverified” is not an affirmative compatibility claim.
 
 ## Package managers
 
-| Manager or mode                            | Support                        | Required evidence                                                                                  |
-| ------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------- |
-| npm                                        | Supported                      | Packed lifecycle on Ubuntu, macOS, and Windows with Node 22.11.0 and 24                            |
-| pnpm 10                                    | Supported                      | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0                    |
-| Yarn Classic 1.22.22                       | Supported                      | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0                    |
-| Bun 1.3.14                                 | Supported                      | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0                    |
-| Yarn Berry with `nodeLinker: node-modules` | Provisional, not yet supported | Dedicated evidence is tracked in [#100](https://github.com/RoryGlenn/commitment-issues/issues/100) |
-| Yarn Plug'n'Play                           | Unsupported                    | The hook and peer-tool design requires a root `node_modules/.bin` tree                             |
-| Other package managers                     | Unsupported                    | No install, lockfile, runner, hint, or lifecycle contract                                          |
+| Manager or mode                                   | Support     | Required evidence                                                               |
+| ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------- |
+| npm                                               | Supported   | Packed lifecycle on Ubuntu, macOS, and Windows with Node 22.11.0 and 24         |
+| pnpm 10                                           | Supported   | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0 |
+| Yarn Classic 1.22.22                              | Supported   | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0 |
+| Bun 1.3.14                                        | Supported   | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0 |
+| Yarn Berry 4.17.0 with `nodeLinker: node-modules` | Supported   | Packed lifecycle on all three OSes with Node 24 and on Ubuntu with Node 22.11.0 |
+| Yarn Plug'n'Play                                  | Unsupported | The hook and peer-tool design requires a root `node_modules/.bin` tree          |
+| Other package managers                            | Unsupported | No install, lockfile, runner, hint, or lifecycle contract                       |
 
 Install the package and its peer tools locally. The baseline peer versions work
 at the exact minimum Node release:
@@ -36,13 +36,18 @@ pnpm exec commitment-issues init
 yarn add -D commitment-issues eslint@^9 prettier@^3
 yarn run commitment-issues init
 
+# Yarn Berry 4.17.0 after setting nodeLinker: node-modules
+yarn add -D commitment-issues eslint@^9 prettier@^3
+yarn run commitment-issues init
+
 # Bun
 bun add --dev commitment-issues eslint@^9 prettier@^3
 bunx --no-install commitment-issues init
 ```
 
 At a workspace root, pnpm additionally needs `--workspace-root` and Yarn
-Classic needs `--ignore-workspace-root-check`. The
+Classic needs `--ignore-workspace-root-check`; Yarn Berry does not accept the
+Classic-only flag. The
 [monorepo guide](monorepo.md) shows those exact commands.
 
 Global installation and a registry-downloading one-shot runner are not
@@ -52,19 +57,19 @@ entry is gone; they never fall through to a global binary.
 
 ## Install and lifecycle modes
 
-| Mode                                      | Boundary and evidence                                                                                                                     |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Clean local install                       | Supported from the packed tarball with each manager above                                                                                 |
-| Manager-native CLI                        | Verified through `npx --no-install`, `pnpm exec`, `yarn run`, or `bunx --no-install`                                                      |
-| Normal fresh-clone reinstall              | Runs the consumer-owned `prepare` repair added by `init` and recreates missing hooks                                                      |
-| Install with lifecycle scripts disabled   | Installs the CLI but intentionally does not repair clone-local hooks; run the local `doctor` command or reinstall with scripts enabled    |
-| Re-initialization and same-version repair | Supported and idempotent                                                                                                                  |
-| Forward cross-version upgrade             | Supported from pinned immutable v2.5.1, v3.2.0, and v3.3.2 fixtures when the new version's `init` is run                                  |
-| In-place downgrade                        | Unsupported; older versions do not perform reverse migrations                                                                             |
-| Manual rollback                           | Documented cleanup-and-reinstall path using current `uninstall`, a pinned target manifest/lockfile and peers, then target `init`/`doctor` |
-| Uninstall                                 | The CLI removes exact owned setup, then the selected manager removes the package while preserving the lockfile                            |
-| Root-owned workspaces                     | Supported for the default npm, pnpm, Yarn Classic, and Bun layouts in the [monorepo guide](monorepo.md)                                   |
-| Global install                            | Unsupported; the product contract is project-local                                                                                        |
+| Mode                                      | Boundary and evidence                                                                                                                                                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Clean local install                       | Supported from the packed tarball with each manager above                                                                                                                                                                |
+| Manager-native CLI                        | Verified through `npx --no-install`, `pnpm exec`, `yarn run`, or `bunx --no-install`                                                                                                                                     |
+| Normal fresh-clone reinstall              | npm, pnpm, Yarn Classic, and Bun run the consumer-owned `prepare` repair added by `init`; Yarn Berry requires explicit local `doctor` repair because it does not support `prepare` and disables `postinstall` by default |
+| Install with lifecycle scripts disabled   | Installs the CLI but intentionally does not repair clone-local hooks; run the local `doctor` command or reinstall with scripts enabled                                                                                   |
+| Re-initialization and same-version repair | Supported and idempotent                                                                                                                                                                                                 |
+| Forward cross-version upgrade             | Supported from pinned immutable v2.5.1, v3.2.0, and v3.3.2 fixtures when the new version's `init` is run                                                                                                                 |
+| In-place downgrade                        | Unsupported; older versions do not perform reverse migrations                                                                                                                                                            |
+| Manual rollback                           | Documented cleanup-and-reinstall path using current `uninstall`, a pinned target manifest/lockfile and peers, then target `init`/`doctor`                                                                                |
+| Uninstall                                 | The CLI removes exact owned setup, then the selected manager removes the package while preserving the lockfile                                                                                                           |
+| Root-owned workspaces                     | Supported for the default npm, pnpm, Yarn Classic, Yarn Berry `node-modules`, and Bun layouts in the [monorepo guide](monorepo.md)                                                                                       |
+| Global install                            | Unsupported; the product contract is project-local                                                                                                                                                                       |
 
 The package itself declares no dependency install lifecycle script. `init`
 adds or composes `commitment-issues doctor --quiet` in the consuming project's
@@ -111,16 +116,16 @@ Node requirements below this package's declared floor.
 
 ## Operating systems, shells, and Git clients
 
-| Environment                           | Evidence level       | Boundary                                                                                                               |
-| ------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Ubuntu, macOS, Windows                | CI-verified          | npm at Node 22.11.0/24; pnpm, Yarn Classic, and Bun at Node 24                                                         |
-| POSIX `/bin/sh`                       | CI-verified          | The packed artifact runs the full commit/push/doctor/uninstall scenario on Linux and a portability smoke on macOS      |
-| Bash and Fish                         | CI-verified on Linux | Each launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`        |
-| Zsh                                   | CI-verified on macOS | Launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`             |
-| Windows PowerShell and Command Prompt | CI-verified          | Each launches the packed CLI and real Git lifecycle; Git for Windows executes generated hooks through its bundled `sh` |
-| VS Code Source Control                | Manual release check | Commit and push must pass from the UI with the GUI-inherited Node/local-bin environment                                |
-| IntelliJ IDEA or PyCharm              | Manual release check | One current JetBrains client provides the shared commit/push lane                                                      |
-| GitHub Desktop on macOS and Windows   | Manual release check | Both operating-system lanes must execute commit and push from the UI                                                   |
+| Environment                           | Evidence level       | Boundary                                                                                                                                           |
+| ------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ubuntu, macOS, Windows                | CI-verified          | npm at Node 22.11.0/24; pnpm, Yarn Classic, Yarn Berry `node-modules`, and Bun at Node 24; all non-npm managers also run on Ubuntu at Node 22.11.0 |
+| POSIX `/bin/sh`                       | CI-verified          | The packed artifact runs the full commit/push/doctor/uninstall scenario on Linux and a portability smoke on macOS                                  |
+| Bash and Fish                         | CI-verified on Linux | Each launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`                                    |
+| Zsh                                   | CI-verified on macOS | Launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`                                         |
+| Windows PowerShell and Command Prompt | CI-verified          | Each launches the packed CLI and real Git lifecycle; Git for Windows executes generated hooks through its bundled `sh`                             |
+| VS Code Source Control                | Manual release check | Commit and push must pass from the UI with the GUI-inherited Node/local-bin environment                                                            |
+| IntelliJ IDEA or PyCharm              | Manual release check | One current JetBrains client provides the shared commit/push lane                                                                                  |
+| GitHub Desktop on macOS and Windows   | Manual release check | Both operating-system lanes must execute commit and push from the UI                                                                               |
 
 Every automated shell lane installs the exact `npm pack` artifact without
 registry access, uses a path containing spaces, Unicode, `$`, and `&`, preserves

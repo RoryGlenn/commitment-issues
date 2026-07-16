@@ -195,8 +195,10 @@ test("largeFileIssue lists oversized files with sizes and an LFS nudge", () => {
 
   const issue = largeFileIssue(sizes, guardConfig);
   assert.equal(issue.message, "1 staged file over 5 MB");
-  assert.match(issue.detail, /42\.0 MB {2}demo\.mov/);
-  assert.match(issue.detail, /Git LFS/);
+  assert.deepEqual(issue.detail, [
+    "42.0 MB  demo.mov",
+    "Did you mean to use Git LFS?",
+  ]);
 
   assert.equal(
     largeFileIssue([{ file: "ok.txt", bytes: MB }], guardConfig),
@@ -216,8 +218,10 @@ test("generatedFilesIssue reports matches and stays quiet otherwise", () => {
     guardConfig,
   );
   assert.equal(issue.message, "2 generated files staged");
-  assert.match(issue.detail, /dist\/a\.js/);
-  assert.match(issue.detail, /usually ignored/);
+  assert.deepEqual(issue.detail, [
+    "dist/a.js, coverage/lcov.info",
+    "These are usually ignored, not committed.",
+  ]);
 
   assert.equal(generatedFilesIssue(["src/b.mjs"], guardConfig), null);
 });

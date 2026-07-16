@@ -39,6 +39,7 @@ const runtimeTestOwners = {
     "test/secret-scan.test.mjs",
     "test/secret-scan-integration.test.mjs",
   ],
+  "scripts/lib/terminal.mjs": ["test/terminal.test.mjs"],
   "scripts/lib/ui.mjs": ["test/ui.test.mjs"],
   "scripts/lib/vows.mjs": ["test/vows.test.mjs"],
   "scripts/lib/welcome.mjs": ["test/welcome.test.mjs"],

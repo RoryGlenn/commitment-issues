@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { enforceSupportedNodeVersion } from "./lib/runtime.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // Single entry point for the `commitment-issues` bin. It dispatches a
 // subcommand to the matching script that lives alongside it inside the
@@ -103,7 +104,9 @@ if (!file) {
   const suggestion = closestCommand(subcommand);
   const hint = suggestion ? ` Did you mean '${suggestion}'?` : "";
   console.error(
-    `commitment-issues: unknown command '${subcommand}'.${hint} Run 'commitment-issues --help'.`,
+    escapeTerminalText(
+      `commitment-issues: unknown command '${subcommand}'.${hint} Run 'commitment-issues --help'.`,
+    ),
   );
   process.exit(1);
 }
@@ -121,7 +124,9 @@ if (
 const noArgumentCommands = new Set(["commit-fix", "fix-staged", "vows"]);
 if (noArgumentCommands.has(subcommand) && rest.length > 0) {
   console.error(
-    `commitment-issues ${subcommand}: expected no arguments; received '${rest[0]}'`,
+    escapeTerminalText(
+      `commitment-issues ${subcommand}: expected no arguments; received '${rest[0]}'`,
+    ),
   );
   process.exit(1);
 }

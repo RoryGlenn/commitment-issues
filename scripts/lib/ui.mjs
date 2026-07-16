@@ -3,7 +3,7 @@
 
 import boxen from "boxen";
 import pc from "picocolors";
-import { stripVTControlCharacters } from "node:util";
+import { escapeStyledTerminalText, escapeTerminalText } from "./terminal.mjs";
 
 function colorsAreDisabled() {
   return (
@@ -13,15 +13,20 @@ function colorsAreDisabled() {
 
 /**
  * Print a rounded, padded box to stdout.
- * @param {string} message - Box body.
+ * @param {string|string[]} message - Box body or intentional model lines.
  * @param {(v: string) => string} [color] - Color transform for the body.
  * @param {object} [options] - Extra boxen options (merged over defaults).
  */
 export function printBox(message, color = String, options = {}) {
   const colorsDisabled = colorsAreDisabled();
-  const content = colorsDisabled
-    ? stripVTControlCharacters(String(message))
-    : color(message);
+  const lines = Array.isArray(message)
+    ? message
+    : String(message ?? "").split("\n");
+  const sanitizeLine = colorsDisabled
+    ? escapeTerminalText
+    : escapeStyledTerminalText;
+  const safeMessage = lines.map(sanitizeLine).join("\n");
+  const content = colorsDisabled ? safeMessage : color(safeMessage);
   const boxOptions = {
     padding: 1,
     borderStyle: "round",
@@ -61,7 +66,7 @@ function boxLines(linesOrResult) {
 }
 
 function severityBox(lines, color, title, borderColor) {
-  printBox(boxLines(lines).join("\n"), color, {
+  printBox(boxLines(lines), color, {
     title,
     titleAlignment: "center",
     borderColor,

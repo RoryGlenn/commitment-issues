@@ -50,6 +50,7 @@ import {
 } from "./lib/message.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 import { showWelcomeOnFirstCommit } from "./lib/welcome.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 import {
   allowedStatus,
   createJsonOutput,
@@ -76,7 +77,9 @@ if (outputArgs.error) {
   if (outputArgs.enabled) {
     emitJsonArgumentError("precommit", outputArgs.error);
   } else {
-    console.error(`commitment-issues precommit: ${outputArgs.error}`);
+    console.error(
+      escapeTerminalText(`commitment-issues precommit: ${outputArgs.error}`),
+    );
   }
   process.exit(1);
 }
@@ -167,7 +170,7 @@ if (jsonMode) {
   }
 } else {
   for (const message of configWarnings) {
-    console.warn(pc.yellow(`⚠ ${message}`));
+    console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
   }
 }
 
@@ -233,7 +236,9 @@ if (
   printHookMessage("error", [
     pc.bold("Commit blocked: protected branch."),
     "",
-    pc.dim(`Committing to "${branch}" is blocked by blockProtectedBranches.`),
+    pc.dim(
+      `Committing to "${escapeTerminalText(branch)}" is blocked by blockProtectedBranches.`,
+    ),
     "",
     pc.dim("Create a branch: git switch -c <name>"),
     pc.dim("To bypass once: git commit --no-verify"),
@@ -457,7 +462,9 @@ if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
   printHookMessage("error", [
     pc.bold("Commit blocked: possible secret staged."),
     "",
-    ...findingLines(secretFindings).map((line) => pc.dim(line)),
+    ...findingLines(secretFindings).map((line) =>
+      pc.dim(escapeTerminalText(line)),
+    ),
     "",
     pc.dim("Remove the secret and rotate anything already exposed."),
     pc.dim("To bypass once: git commit --no-verify"),
@@ -642,7 +649,7 @@ if (config.requireTests !== false && stagedJsFiles.length > 0) {
       autoFixable: false,
       type: "tests",
       message: `${missingTests.length} staged source file${missingTests.length === 1 ? "" : "s"} missing unit tests`,
-      detail: missingTests.join("\n"),
+      detail: missingTests,
     });
   }
 }
@@ -723,9 +730,9 @@ if (eslintResult) {
     }
 
     if (eslintManualCount > 0) {
-      const manualDetail = eslintManualIssues(eslintResult.stdout)
-        .map((issue) => formatEslintManualIssue(issue, process.cwd()))
-        .join("\n");
+      const manualDetail = eslintManualIssues(eslintResult.stdout).map(
+        (issue) => formatEslintManualIssue(issue, process.cwd()),
+      );
       issues.push({
         autoFixable: false,
         type: "lint",
@@ -802,7 +809,7 @@ if (processDidNotComplete(prettierOutcome)) {
       autoFixable: true,
       type: "format",
       message: `${files.length} file${files.length === 1 ? "" : "s"} need Prettier formatting`,
-      detail: files.join("\n"),
+      detail: files,
     });
   }
 }
@@ -837,7 +844,7 @@ if (testRun) {
       autoFixable: false,
       type: "tests",
       message: `${stagedTests.length} staged test file${stagedTests.length === 1 ? "" : "s"} failing`,
-      detail: stagedTests.join("\n"),
+      detail: stagedTests,
     });
   }
 }
