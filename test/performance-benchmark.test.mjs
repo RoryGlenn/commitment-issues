@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  assertCleanHookPayload,
   estimatedWindowsCommandUnits,
   itemsWithinWindowsBudget,
   parseOptions,
@@ -43,6 +44,16 @@ test("benchmark options reject unknown tiers before creating a fixture", () => {
     listTiers: false,
     help: false,
   });
+});
+
+test("full-hook benchmarks reject advisory results", () => {
+  assert.doesNotThrow(() =>
+    assertCleanHookPayload({ status: "clean" }, "precommit"),
+  );
+  assert.throws(
+    () => assertCleanHookPayload({ status: "advisory" }, "prepush"),
+    /prepush hook must report a clean status; received advisory/u,
+  );
 });
 
 test("Windows argv accounting is conservative and reports a bounded prefix", () => {

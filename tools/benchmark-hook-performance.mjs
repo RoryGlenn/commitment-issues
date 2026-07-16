@@ -129,6 +129,14 @@ export function parseOptions(args) {
   return options;
 }
 
+export function assertCleanHookPayload(payload, label) {
+  assert.equal(
+    payload.status,
+    "clean",
+    `${label} hook must report a clean status; received ${String(payload.status)}`,
+  );
+}
+
 function hostilePath(index, padding) {
   const id = String(index).padStart(4, "0");
   const longSegment = `long-${"x".repeat(padding)}`;
@@ -524,6 +532,7 @@ export async function runBenchmark(options) {
         { cwd: repoDir },
       );
       const precommitPayload = parseHookJson(precommitResult, "precommit");
+      assertCleanHookPayload(precommitPayload, "precommit");
       precommit = {
         elapsedMs: precommitResult.elapsedMs,
         peakRssMiB: precommitResult.peakRssMiB,
@@ -547,6 +556,7 @@ export async function runBenchmark(options) {
         { cwd: repoDir, input },
       );
       const prepushPayload = parseHookJson(prepushResult, "prepush");
+      assertCleanHookPayload(prepushPayload, "prepush");
       prepush = {
         elapsedMs: prepushResult.elapsedMs,
         peakRssMiB: prepushResult.peakRssMiB,
