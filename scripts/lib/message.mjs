@@ -3,6 +3,7 @@
 
 import pc from "picocolors";
 import { shortFileList } from "./files.mjs";
+import { escapeTerminalText } from "./terminal.mjs";
 
 function normalizeTone(tone) {
   return tone === "fun" ? "fun" : "standard";
@@ -185,7 +186,7 @@ function issueMessage(issue, tone = "standard") {
 /**
  * Builds the consolidated advisory message for the pre-commit box. Pure (no
  * I/O), so it can be unit-tested directly.
- * @param {Array<{type: string, message: string, autoFixable: boolean, detail?: string}>|object} issuesOrOptions - Detected issues, or an options object containing issues.
+ * @param {Array<{type: string, message: string, autoFixable: boolean, detail?: string|string[]}>|object} issuesOrOptions - Detected issues, or an options object containing issues.
  * @param {{canInspectUnstagedFiles?: boolean, unstagedTrackedFiles?: string[], tone?: string}} [context] - Worktree context for the commit:fix recommendation.
  * @returns {{severity: string, lines: string[]}} Box severity and lines.
  */
@@ -222,10 +223,15 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
   ];
 
   issues.forEach((issue) => {
-    lines.push(`${pc.yellow("→")} ${issueMessage(issue, tone)}`);
+    lines.push(
+      `${pc.yellow("→")} ${escapeTerminalText(issueMessage(issue, tone))}`,
+    );
     if (issue.detail) {
-      issue.detail.split("\n").forEach((line) => {
-        lines.push(`  ${pc.dim(line)}`);
+      const detailLines = Array.isArray(issue.detail)
+        ? issue.detail.map(String)
+        : String(issue.detail).split("\n");
+      detailLines.forEach((line) => {
+        lines.push(`  ${pc.dim(escapeTerminalText(line))}`);
       });
     }
   });
@@ -250,7 +256,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
             : "apply automatic fixes and amend it:",
       ),
     );
-    lines.push(`  ${pc.bold(commitCommand)}`);
+    lines.push(`  ${pc.bold(escapeTerminalText(commitCommand))}`);
 
     if (hasNonFixableIssue) {
       lines.push("");
@@ -293,7 +299,9 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
           "Other tracked changes will still be present after commit, so no automatic amend command is shown.",
         ),
       );
-      lines.push(`  ${pc.dim(shortFileList(unstagedTrackedFiles))}`);
+      lines.push(
+        `  ${pc.dim(escapeTerminalText(shortFileList(unstagedTrackedFiles)))}`,
+      );
     }
   } else {
     lines.push(
@@ -311,7 +319,7 @@ export function buildAdvisoryMessage(issuesOrOptions, context = {}) {
 /**
  * Build the failure/unavailable message for the optional commit-msg check.
  * Successful checks stay silent, matching commitlint's normal hook behavior.
- * @param {{outcome?: "reported"|"missing-tool"|"missing-config"|"unreadable"|"timeout"|"unavailable", blocking?: boolean, tone?: string, detail?: string, installCommand?: string}} options - Result and presentation context.
+ * @param {{outcome?: "reported"|"missing-tool"|"missing-config"|"unreadable"|"timeout"|"unavailable", blocking?: boolean, tone?: string, detail?: string|string[], installCommand?: string}} options - Result and presentation context.
  * @returns {{severity: "warning"|"error", lines: string[]}} Box model.
  */
 export function buildCommitMessageCheckMessage(options = {}) {
@@ -383,7 +391,11 @@ export function buildCommitMessageCheckMessage(options = {}) {
       pc.dim("No npx, network, or global-tool fallback was attempted."),
     );
     if (installCommand) {
-      lines.push(pc.dim(`Install it in this project: ${installCommand}`));
+      lines.push(
+        pc.dim(
+          `Install it in this project: ${escapeTerminalText(installCommand)}`,
+        ),
+      );
     }
   }
 
@@ -395,9 +407,14 @@ export function buildCommitMessageCheckMessage(options = {}) {
     );
   }
 
-  const trimmedDetail = String(detail).trim();
-  if (trimmedDetail) {
-    lines.push("", ...trimmedDetail.split(/\r?\n/).map((line) => pc.dim(line)));
+  const detailLines = Array.isArray(detail)
+    ? detail.map(String).filter(Boolean)
+    : String(detail).trim().split(/\r?\n/).filter(Boolean);
+  if (detailLines.length > 0) {
+    lines.push(
+      "",
+      ...detailLines.map((line) => pc.dim(escapeTerminalText(line))),
+    );
   }
 
   lines.push(
@@ -448,14 +465,19 @@ export function buildPushAllowedMessage(options = {}) {
   if (warnings.length > 0) {
     lines.push(
       "",
-      ...warnings.map((warning) => `${pc.yellow("→")} ${warning}`),
+      ...warnings.map(
+        (warning) => `${pc.yellow("→")} ${escapeTerminalText(warning)}`,
+      ),
     );
   }
   if (details.length > 0) {
-    lines.push("", ...details.map((detail) => pc.dim(detail)));
+    lines.push(
+      "",
+      ...details.map((detail) => pc.dim(escapeTerminalText(detail))),
+    );
   }
   if (notes.length > 0) {
-    lines.push("", ...notes.map((note) => pc.dim(note)));
+    lines.push("", ...notes.map((note) => pc.dim(escapeTerminalText(note))));
   }
 
   return { severity: "warning", lines };
@@ -614,7 +636,9 @@ export function appendPushWarnings(model, warnings = []) {
       pc.dim(
         filtered.length === 1 ? "Additional warning:" : "Additional warnings:",
       ),
-      ...filtered.map((warning) => `${pc.yellow("→")} ${warning}`),
+      ...filtered.map(
+        (warning) => `${pc.yellow("→")} ${escapeTerminalText(warning)}`,
+      ),
     ],
   };
 }

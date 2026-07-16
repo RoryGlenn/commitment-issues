@@ -9,6 +9,7 @@ import path from "node:path";
 import {
   compactTerminalBoxText,
   countTerminalBoxes,
+  stripAnsi,
 } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
@@ -653,6 +654,27 @@ test("doctor --quiet warns but exits 0 for an unwired foreign core.hooksPath", (
   assert.match(output, /core\.hooksPath is set to githooks/);
   assert.equal(hooksPath(tempDir), "githooks");
 });
+
+test(
+  "doctor --quiet escapes controls in a configured hooks path",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const configured = "hooks\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m";
+    fs.mkdirSync(path.join(tempDir, configured), { recursive: true });
+    run("git", ["config", "core.hooksPath", configured], tempDir);
+
+    const result = runDoctor(tempDir, ["--quiet"]);
+    const output = `${result.stdout}${result.stderr}`;
+    const visibleOutput = stripAnsi(output);
+
+    assert.equal(result.status, 0);
+    assert.match(visibleOutput, /hooks\\rFAKE SUCCESS\\n\\t\\x08RED/);
+    assert.doesNotMatch(visibleOutput, /\r|\t|\x08|\u001b/);
+    assert.doesNotMatch(output, /FAKE SUCCESS.*\u001b\[31mRED/s);
+  },
+);
 
 test("doctor reports an uninspectable hook in a foreign core.hooksPath", (t) => {
   const tempDir = createTempRepo();

@@ -1,6 +1,8 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
+import { escapeTerminalText } from "./terminal.mjs";
+
 /**
  * Extract the concrete minimum from this package's `>=x.y.z` Node engine.
  * @param {string} engine - The package.json Node engine range.
@@ -47,7 +49,7 @@ export function unsupportedNodeVersionMessage(current, engine) {
 export function enforceSupportedNodeVersion(current, engine) {
   const message = unsupportedNodeVersionMessage(current, engine);
   if (message) {
-    console.error(message);
+    console.error(escapeTerminalText(message));
     process.exit(1);
   }
 }

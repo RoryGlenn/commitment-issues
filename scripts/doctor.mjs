@@ -28,6 +28,7 @@ import {
   resolveCommitMessageConfig,
 } from "./lib/config.mjs";
 import { localToolInvocation } from "./lib/local-tool.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // Diagnose and self-heal the git hook wiring. Hooks are plain `.git/hooks`
 // files — git's default location, no hook manager — but `.git/hooks` is not
@@ -46,7 +47,7 @@ if (unknownOption) {
   printBoxModel({
     severity: "error",
     lines: [
-      pc.bold(`Unknown doctor option: ${unknownOption}`),
+      pc.bold(`Unknown doctor option: ${escapeTerminalText(unknownOption)}`),
       "",
       pc.dim("Supported option: --quiet."),
       pc.dim("No hooks were changed."),
@@ -56,6 +57,14 @@ if (unknownOption) {
 }
 const quiet = args.includes("--quiet");
 const advisorySections = [];
+
+function quietWarning(message) {
+  console.warn(pc.yellow(escapeTerminalText(message)));
+}
+
+function quietNotice(message) {
+  console.log(pc.dim(escapeTerminalText(message)));
+}
 
 function finishBox(severity, lines, exitCode) {
   const hasAdvisories = advisorySections.length > 0;
@@ -88,10 +97,8 @@ function notApplicable(lines) {
 // line and still succeed so the install isn't broken.
 function repairFailed(lines) {
   if (quiet) {
-    console.warn(
-      pc.yellow(
-        `commitment-issues: could not wire up git hooks — run \`${runScript("doctor")}\`.`,
-      ),
+    quietWarning(
+      `commitment-issues: could not wire up git hooks — run \`${runScript("doctor")}\`.`,
     );
     process.exit(0);
   }
@@ -140,13 +147,15 @@ const hookSummary =
 if (configWarnings.length > 0) {
   if (quiet) {
     for (const message of configWarnings) {
-      console.warn(pc.yellow(`commitment-issues: ${message}`));
+      quietWarning(`commitment-issues: ${message}`);
     }
   } else {
     advisorySections.push([
       pc.bold("Configuration needs attention."),
       "",
-      ...configWarnings.map((message) => pc.dim(`• ${message}`)),
+      ...configWarnings.map((message) =>
+        pc.dim(`• ${escapeTerminalText(message)}`),
+      ),
     ]);
   }
 }
@@ -162,24 +171,22 @@ const missingTools = REQUIRED_TOOLS.filter((name) => !isToolInstalled(name));
 if (missingTools.length > 0) {
   const installHint = devInstallCommand(missingTools);
   if (quiet) {
-    console.warn(
-      pc.yellow(
-        `commitment-issues: missing required tool(s): ${missingTools.join(
-          ", ",
-        )} — install with \`${installHint}\`.`,
-      ),
+    quietWarning(
+      `commitment-issues: missing required tool(s): ${missingTools.join(
+        ", ",
+      )} — install with \`${installHint}\`.`,
     );
   } else {
     advisorySections.push([
       pc.bold("Some required tools are not installed."),
       "",
-      ...missingTools.map((name) => pc.dim(`• ${name}`)),
+      ...missingTools.map((name) => pc.dim(`• ${escapeTerminalText(name)}`)),
       "",
       pc.dim(
         "commitment-issues only runs project-local copies of these tools.",
       ),
       pc.dim("Hooks never ask npx to download a missing peer dependency."),
-      pc.dim(`Install them: ${installHint}`),
+      pc.dim(`Install them: ${escapeTerminalText(installHint)}`),
     ]);
   }
 }
@@ -190,10 +197,8 @@ if (missingTools.length > 0) {
 if (commitMessage.enabled && !localToolInvocation("commitlint", [])) {
   const installHint = devInstallCommand(["@commitlint/cli"]);
   if (quiet) {
-    console.warn(
-      pc.yellow(
-        `commitment-issues: commit-message linting is enabled but project-local commitlint is missing — install with \`${installHint}\`.`,
-      ),
+    quietWarning(
+      `commitment-issues: commit-message linting is enabled but project-local commitlint is missing — install with \`${installHint}\`.`,
     );
   } else {
     advisorySections.push([
@@ -202,7 +207,7 @@ if (commitMessage.enabled && !localToolInvocation("commitlint", [])) {
       pc.dim("precommitChecks.commitMessage.enabled is true, but the"),
       pc.dim("project-local commitlint CLI is not installed."),
       "",
-      pc.dim(`Install it: ${installHint}`),
+      pc.dim(`Install it: ${escapeTerminalText(installHint)}`),
       pc.dim("Then add a commitlint config with your chosen rules."),
     ]);
   }
@@ -221,10 +226,8 @@ const huskyEraLive = huskyEraHooksPath && isPackageInstalled("husky");
 const legacyHuskyState = legacyHuskyDirectoryState();
 if (legacyHuskyState.status === "uninspectable") {
   if (quiet) {
-    console.warn(
-      pc.yellow(
-        "commitment-issues: the legacy .husky path could not be safely inspected and was left unchanged — review it manually.",
-      ),
+    quietWarning(
+      "commitment-issues: the legacy .husky path could not be safely inspected and was left unchanged — review it manually.",
     );
   } else {
     advisorySections.push([
@@ -303,7 +306,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
         [
           pc.bold("Git hooks are healthy."),
           "",
-          pc.dim(`core.hooksPath → ${configuredHooksPath}`),
+          pc.dim(`core.hooksPath → ${escapeTerminalText(configuredHooksPath)}`),
           pc.dim(hookSummary),
           ...(huskyEraLive
             ? [
@@ -321,12 +324,10 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
     process.exit(0);
   }
   if (quiet) {
-    console.warn(
-      pc.yellow(
-        `commitment-issues: core.hooksPath is set to ${configuredHooksPath} ` +
-          `and its hooks are missing, inactive, or do not invoke ` +
-          `commitment-issues — run \`${runScript("doctor")}\`.`,
-      ),
+    quietWarning(
+      `commitment-issues: core.hooksPath is set to ${configuredHooksPath} ` +
+        `and its hooks are missing, inactive, or do not invoke ` +
+        `commitment-issues — run \`${runScript("doctor")}\`.`,
     );
     process.exit(0);
   }
@@ -336,7 +337,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
       pc.bold("core.hooksPath points somewhere else."),
       "",
       pc.dim(
-        `git core.hooksPath is set to ${configuredHooksPath}, so git only`,
+        `git core.hooksPath is set to ${escapeTerminalText(configuredHooksPath)}, so git only`,
       ),
       pc.dim(
         huskyEraLive
@@ -348,9 +349,9 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
         ? inactive.map((report) => `  .husky/${report.name}`)
         : inactive.map((report) =>
             report.status === "uninspectable"
-              ? `  ${displayHookPath(checkDir, report.name)} ${pc.dim("(could not be inspected)")}`
+              ? `  ${escapeTerminalText(displayHookPath(checkDir, report.name))} ${pc.dim("(could not be inspected)")}`
               : report.status === "non-executable"
-                ? `  ${executableFixCommand(checkDir, report.name)}`
+                ? `  ${escapeTerminalText(executableFixCommand(checkDir, report.name))}`
                 : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
           )),
       "",
@@ -438,18 +439,18 @@ function reportStrandedHuskyHooks() {
     return;
   }
   if (quiet) {
-    console.warn(
-      pc.yellow(
-        `commitment-issues: ${strandedHuskyHooks.join(", ")} no longer run ` +
-          `(husky wiring was retired) — move them to .git/hooks or delete them.`,
-      ),
+    quietWarning(
+      `commitment-issues: ${strandedHuskyHooks.join(", ")} no longer run ` +
+        `(husky wiring was retired) — move them to .git/hooks or delete them.`,
     );
     return;
   }
   advisorySections.push([
     pc.bold("Leftover .husky hooks no longer run."),
     "",
-    ...strandedHuskyHooks.map((hook) => pc.dim(`• ${hook}`)),
+    ...strandedHuskyHooks.map((hook) =>
+      pc.dim(`• ${escapeTerminalText(hook)}`),
+    ),
     "",
     pc.dim("Git hooks now live in .git/hooks, so these files are inert."),
     pc.dim("Move the logic into .git/hooks, or delete the files."),
@@ -501,7 +502,9 @@ for (const name of [...missingHooks, ...staleHooks]) {
     repairFailed([
       pc.bold("Could not repair the git hook wiring."),
       "",
-      pc.dim(`Writing ${displayHookPath(hooksDir, name)} failed.`),
+      pc.dim(
+        `Writing ${escapeTerminalText(displayHookPath(hooksDir, name))} failed.`,
+      ),
       pc.dim("Check file permissions on .git/hooks, then retry."),
     ]);
   }
@@ -540,12 +543,10 @@ if (
       ...nonExecutableHooks,
       ...uninspectableHooks,
     ].map((name) => displayHookPath(hooksDir, name));
-    console.warn(
-      pc.yellow(
-        `commitment-issues: ${inactivePaths.join(", ")} are inactive or do not ` +
-          `invoke commitment-issues — run ` +
-          `\`${runScript("doctor")}\`.`,
-      ),
+    quietWarning(
+      `commitment-issues: ${inactivePaths.join(", ")} are inactive or do not ` +
+        `invoke commitment-issues — run ` +
+        `\`${runScript("doctor")}\`.`,
     );
     process.exit(0);
   }
@@ -562,16 +563,20 @@ if (
       "",
       ...unwiredHooks.map((name) =>
         pc.dim(
-          `${displayHookPath(hooksDir, name)} never runs \`${hookInvocation(name)}\`.`,
+          `${escapeTerminalText(displayHookPath(hooksDir, name))} never runs \`${escapeTerminalText(hookInvocation(name))}\`.`,
         ),
       ),
       ...nonExecutableHooks.flatMap((name) => [
-        pc.dim(`${displayHookPath(hooksDir, name)} is not executable.`),
-        pc.dim(`Run: ${executableFixCommand(hooksDir, name)}`),
+        pc.dim(
+          `${escapeTerminalText(displayHookPath(hooksDir, name))} is not executable.`,
+        ),
+        pc.dim(
+          `Run: ${escapeTerminalText(executableFixCommand(hooksDir, name))}`,
+        ),
       ]),
       ...uninspectableHooks.map((name) =>
         pc.dim(
-          `${displayHookPath(hooksDir, name)} could not be inspected; it was left unchanged.`,
+          `${escapeTerminalText(displayHookPath(hooksDir, name))} could not be inspected; it was left unchanged.`,
         ),
       ),
       "",
@@ -591,7 +596,12 @@ if (
         "Existing hooks are never overwritten or made executable for you.",
       ),
       ...(repaired.length > 0
-        ? ["", pc.dim(`Also repaired: ${repaired.join(", ")}.`)]
+        ? [
+            "",
+            pc.dim(
+              `Also repaired: ${escapeTerminalText(repaired.join(", "))}.`,
+            ),
+          ]
         : []),
     ],
     1,
@@ -601,8 +611,8 @@ if (
 reportStrandedHuskyHooks();
 
 if (quiet) {
-  console.log(
-    pc.dim(`commitment-issues: repaired git hooks (${repaired.join(", ")}).`),
+  quietNotice(
+    `commitment-issues: repaired git hooks (${repaired.join(", ")}).`,
   );
 } else {
   finishBox(
@@ -610,8 +620,8 @@ if (quiet) {
     [
       pc.bold("Repaired the git hook wiring."),
       "",
-      pc.dim(`Was broken: ${problems.join("; ")}.`),
-      pc.dim(`Fixed: ${repaired.join(", ")}.`),
+      pc.dim(`Was broken: ${escapeTerminalText(problems.join("; "))}.`),
+      pc.dim(`Fixed: ${escapeTerminalText(repaired.join(", "))}.`),
       "",
       pc.dim(hookSummary.replace("wired up and ", "")),
     ],

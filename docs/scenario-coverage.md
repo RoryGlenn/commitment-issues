@@ -361,7 +361,7 @@ production-readiness workstream #130 is consolidated in the
 - **LIB-002** — Prettier list parsing and Node test-summary parsing (TAP/spec, pass-only/fail-only, unrecognized → null). Unit: `test/checks.test.mjs`.
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
 - **LIB-004** — package-aware test discovery and strict NUL-delimited Git-path helpers: `findTestFile(s)`, `collectTestsForFiles`, `parseNulPaths`, `parseLsFilesStage`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
-- **LIB-005** — shared box rendering colors the whole border, honors `NO_COLOR`/disabled color in captured CI output, wraps long and Unicode content to the reported width, and recovers from malformed or impossibly narrow `COLUMNS` values. Unit/subprocess: `test/ui.test.mjs`.
+- **LIB-005** — shared box rendering colors the whole border, honors `NO_COLOR`/disabled color in captured CI output, preserves product-owned SGR styling while removing other terminal sequences, visibly escapes remaining C0/C1 controls, wraps long and Unicode content to the reported width, and recovers from malformed or impossibly narrow `COLUMNS` values. Unit/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`.
 - **LIB-006** — process outcomes distinguish missing tool, spawn failure, timeout, external signal, normal nonzero exit, and success. Unit: `test/process.test.mjs`.
 - **LIB-007** — Prettier classification is exit-status-first; `[error]` in a filename remains a formatting path. Unit: `test/checks.test.mjs`.
 - **LIB-008** — project-local optional-bin resolution walks ancestor `node_modules/.bin` directories while preserving argv and returning null instead of an implicit fallback. Unit: `test/local-tool.test.mjs`.
@@ -390,6 +390,15 @@ production-readiness workstream #130 is consolidated in the
   paths instead of following repository-controlled links outside the checkout.
   Unit/subprocess: `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
   `test/init.test.mjs`, `test/uninstall.test.mjs`.
+- **SEC-019** — product-owned human output visibly escapes
+  repository-controlled C0/C1 bytes, strips injected CSI/OSC sequences from
+  paths, refs, configuration, argv, and captured Git diagnostics, preserves
+  intentional model lines and Unicode, and leaves raw child passthrough
+  unchanged; JSON round-trips the exact semantic filename.
+  Unit/real-Git/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`,
+  `test/lib-files.test.mjs`, `test/cli.test.mjs`, `test/doctor.test.mjs`,
+  `test/fix-staged.test.mjs`, `test/commit-guards-integration.test.mjs`,
+  `test/prepush.test.mjs`, `test/json-output.test.mjs`.
 
 ### Performance
 

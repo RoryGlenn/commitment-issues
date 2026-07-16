@@ -43,6 +43,7 @@ import {
   parseJsonOutputArgs,
 } from "./lib/json-output.mjs";
 import { firstPushBase } from "./lib/push-base.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // Force literal, unquoted paths (as the pre-commit/fix flows already do) so
 // pushed files with spaces or non-ASCII names still match their associated
@@ -57,7 +58,9 @@ if (outputArgs.error) {
   if (outputArgs.enabled) {
     emitJsonArgumentError("prepush", outputArgs.error);
   } else {
-    console.error(`commitment-issues prepush: ${outputArgs.error}`);
+    console.error(
+      escapeTerminalText(`commitment-issues prepush: ${outputArgs.error}`),
+    );
   }
   process.exit(1);
 }
@@ -108,7 +111,7 @@ if (jsonMode) {
   }
 } else {
   for (const message of configWarnings) {
-    console.warn(pc.yellow(`⚠ ${message}`));
+    console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
   }
 }
 
@@ -150,7 +153,7 @@ if (blocking && config.advisePushTests === true) {
       message,
     });
   } else {
-    console.warn(pc.yellow(`⚠ ${message}`));
+    console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
   }
 }
 
@@ -195,7 +198,9 @@ if (protectedTargets.length > 0) {
     printHookMessage("error", [
       pc.bold("Push blocked: protected branch."),
       "",
-      pc.dim(`Pushing to ${named} is blocked by blockProtectedBranches.`),
+      pc.dim(
+        `Pushing to ${escapeTerminalText(named)} is blocked by blockProtectedBranches.`,
+      ),
       "",
       pc.dim("Push a feature branch and open a pull request instead."),
       pc.dim("To bypass once: git push --no-verify"),
@@ -428,14 +433,16 @@ const { files: pushedFiles, diffErrors } = getPushedFiles();
 // which tests to run. Advisory mode stays out of the way (warn, then allow);
 // blocking mode fails closed rather than waving through an un-inspectable push.
 if (diffErrors.length > 0) {
-  const detailLines = [...new Set(diffErrors)].map((detail) => pc.dim(detail));
+  const detailLines = [...new Set(diffErrors)].map((detail) =>
+    pc.dim(escapeTerminalText(detail)),
+  );
   const issue = {
     autoFixable: false,
     type: "git",
     message: blocking
       ? "Could not inspect pushed files"
       : "Could not inspect pushed files (advisory)",
-    detail: [...new Set(diffErrors)].join("\n"),
+    detail: [...new Set(diffErrors)],
   };
   jsonOutput.addCheck({
     id: "pushed-files",
@@ -545,7 +552,11 @@ const fullCommand = isNodeTest
 if (!jsonMode) {
   console.log("");
   console.log(
-    pc.dim(`Running tests for pushed files: ${fullCommand.join(" ")}`),
+    pc.dim(
+      escapeTerminalText(
+        `Running tests for pushed files: ${fullCommand.join(" ")}`,
+      ),
+    ),
   );
   console.log("");
 }

@@ -238,17 +238,15 @@ export function largeFileIssue(sizes, guardConfig) {
   if (oversized.length === 0) {
     return null;
   }
-  const detail = oversized
-    .map(
-      (entry) =>
-        `${(entry.bytes / MB).toFixed(1)} MB  ${normalizeRepoPath(entry.file)}`,
-    )
-    .join("\n");
+  const detail = oversized.map(
+    (entry) =>
+      `${(entry.bytes / MB).toFixed(1)} MB  ${normalizeRepoPath(entry.file)}`,
+  );
   return {
     autoFixable: false,
     type: "shape",
     message: `${oversized.length} staged ${plural(oversized.length, "file")} over ${guardConfig.maxFileSizeMb} MB`,
-    detail: `${detail}\nDid you mean to use Git LFS?`,
+    detail: [...detail, "Did you mean to use Git LFS?"],
   };
 }
 
@@ -267,7 +265,10 @@ export function generatedFilesIssue(stagedFiles, guardConfig) {
     autoFixable: false,
     type: "shape",
     message: `${matched.length} generated ${plural(matched.length, "file")} staged`,
-    detail: `${shortFileList(matched)}\nThese are usually ignored, not committed.`,
+    detail: [
+      shortFileList(matched),
+      "These are usually ignored, not committed.",
+    ],
   };
 }
 

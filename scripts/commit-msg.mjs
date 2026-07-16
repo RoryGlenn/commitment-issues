@@ -19,11 +19,12 @@ import {
   localToolInvocation,
 } from "./lib/local-tool.mjs";
 import { spawnAsync } from "./lib/process.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 const config = loadPrecommitConfig();
 const hookOutput = resolveHookOutput(config);
 for (const message of precommitConfigWarningMessages(config)) {
-  console.warn(pc.yellow(`⚠ ${message}`));
+  console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
 }
 
 const commitMessage = resolveCommitMessageConfig(config);
@@ -31,7 +32,7 @@ if (!commitMessage.enabled) {
   process.exit(0);
 }
 
-function finish(outcome, detail = "") {
+function finish(outcome, detail = []) {
   const model = buildCommitMessageCheckMessage({
     outcome,
     detail,
@@ -48,15 +49,14 @@ let absoluteMessageFile;
 try {
   absoluteMessageFile = path.resolve(messageFile);
   if (!fs.statSync(absoluteMessageFile).isFile()) {
-    finish("unreadable", `Not a file: ${messageFile}`);
+    finish("unreadable", [`Not a file: ${messageFile}`]);
   }
 } catch {
-  finish(
-    "unreadable",
+  finish("unreadable", [
     messageFile
       ? `Could not open: ${messageFile}`
       : "No message file was provided.",
-  );
+  ]);
 }
 
 const invocation = localToolInvocation("commitlint", [
@@ -76,15 +76,15 @@ const result = await spawnAsync(invocation.command, invocation.args, {
 
 const detail = [result.stdout, result.stderr]
   .map((value) => String(value || "").trim())
-  .filter(Boolean)
-  .join("\n");
+  .filter(Boolean);
+const detailText = detail.join("\n");
 
 const interruptedOutcome = interruptedToolOutcome(result);
 if (interruptedOutcome === "timeout") {
   finish(interruptedOutcome, detail);
 }
 if (interruptedOutcome === "unavailable") {
-  finish("unavailable", result.error?.message || detail);
+  finish("unavailable", [result.error?.message].filter(Boolean).concat(detail));
 }
 // Commitlint normally uses result code 9 when no rules configuration can be
 // found. In --strict mode, current releases remap that same empty-rules error
@@ -92,8 +92,8 @@ if (interruptedOutcome === "unavailable") {
 // standard formatter's empty-rules message as well as the documented exit code.
 const strictMissingConfig =
   result.status === 3 &&
-  /Please add rules to your [`'"]?commitlint\.config\.js/i.test(detail) &&
-  /\[empty-rules\]/.test(detail);
+  /Please add rules to your [`'"]?commitlint\.config\.js/i.test(detailText) &&
+  /\[empty-rules\]/.test(detailText);
 if (result.status === 9 || strictMissingConfig) {
   finish("missing-config", detail);
 }
@@ -101,4 +101,9 @@ if (result.status === 0) {
   process.exit(0);
 }
 
-finish("reported", detail || `Commitlint exited with status ${result.status}.`);
+finish(
+  "reported",
+  detail.length > 0
+    ? detail
+    : [`Commitlint exited with status ${result.status}.`],
+);

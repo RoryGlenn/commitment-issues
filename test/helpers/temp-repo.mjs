@@ -163,7 +163,13 @@ export function writeCrossPlatformShim(binDir, name, shimBody) {
 // fixtures can include NUL-delimited Git output. Used to exercise defensive Git
 // failure/malformed-output branches without corrupting a real repository.
 // Cross-platform: a Node shim behind `git`/`git.cmd` launchers.
-export function fakeGitEnv(tempDir, matchSubstring, exitCode = 1, stdout = "") {
+export function fakeGitEnv(
+  tempDir,
+  matchSubstring,
+  exitCode = 1,
+  stdout = "",
+  stderr = "",
+) {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
   writeCrossPlatformShim(
@@ -176,6 +182,10 @@ if (match && args.join(" ").includes(match)) {
   const stdout = process.env.FAKE_GIT_STDOUT_BASE64 || "";
   if (stdout) {
     process.stdout.write(Buffer.from(stdout, "base64"));
+  }
+  const stderr = process.env.FAKE_GIT_STDERR_BASE64 || "";
+  if (stderr) {
+    process.stderr.write(Buffer.from(stderr, "base64"));
   }
   process.exit(Number(process.env.FAKE_GIT_EXIT ?? "1"));
 }
@@ -191,6 +201,7 @@ process.exit(result.status == null ? 1 : result.status);
     FAKE_GIT_MATCH: matchSubstring,
     FAKE_GIT_EXIT: String(exitCode),
     FAKE_GIT_STDOUT_BASE64: Buffer.from(stdout).toString("base64"),
+    FAKE_GIT_STDERR_BASE64: Buffer.from(stderr).toString("base64"),
     FAKE_GIT_REAL: REAL_GIT,
   };
 }

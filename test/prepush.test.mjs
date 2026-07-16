@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import { countTerminalBoxes, stripAnsi } from "./helpers/output.mjs";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -692,6 +692,30 @@ test("blocks the push when the pushed-files diff cannot be computed", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Push blocked: could not inspect pushed files/);
+});
+
+test("escapes controls in captured Git diagnostics", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  const diagnostic = "git failed\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m";
+  const env = fakeGitEnv(tempDir, "--name-status -z", 1, "", diagnostic);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+  const visibleOutput = stripAnsi(output);
+
+  assert.equal(result.status, 1);
+  assert.match(visibleOutput, /git failed\\rFAKE SUCCESS\\n\\t\\x08RED/);
+  assert.doesNotMatch(visibleOutput, /\r|\t|\x08|\u001b/);
+  assert.doesNotMatch(output, /FAKE SUCCESS.*\u001b\[31mRED/s);
 });
 
 test("blocks the push when Git returns malformed name-status output", (t) => {

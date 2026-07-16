@@ -20,6 +20,12 @@ and summarized in the payload instead. Configuration warnings become entries
 in `diagnostics`. A pre-commit JSON run also leaves the once-per-clone welcome
 unconsumed; the next eligible human-readable run can still display it.
 
+Repository-controlled strings remain semantically exact. `JSON.stringify`
+applies standard JSON escaping to control characters, but parsing the payload
+restores the original filename, ref, configuration value, or diagnostic. The
+visible `\\r`, `\\n`, `\\t`, and `\\xNN` notation used by human terminal output
+is not written into these fields.
+
 The normative version 1 definition is
 [`json-output.schema.json`](json-output.schema.json). Every payload contains:
 
