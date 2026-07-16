@@ -26,20 +26,22 @@ package-manager and migration lifecycles, locally available shells, hosted
 matrix, adversarial suites, performance tiers, documentation, visual assets,
 live GitHub controls, and published v3.3.2 provenance all passed.
 
-This is not the final Audit 9 sign-off. Three release-boundary checks remain
-incomplete. The owner-authenticated npm control tracked in #195 was completed
-on 2026-07-16 and is recorded below.
+This is not the final Audit 9 sign-off. Two release-boundary checks remain
+incomplete. The owner-authenticated npm and OpenSSF controls tracked in #195 and
+#199 were completed on 2026-07-16 and are recorded below.
 
 | Gate                                                              | Classification                        | Exact remaining evidence                                                                                                                                                  |
 | ----------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) | External-fork validation              | A legitimate contributor revision must trigger the current Berry and packed-shell graph, with read-only/no-secret execution and a green fail-closed aggregate.            |
 | [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Owner-authenticated npm configuration | Completed 2026-07-16: publisher identity, absent Environment claim, 2FA/token policy, and zero-token inventory verified.                                                  |
-| [#199](https://github.com/RoryGlenn/commitment-issues/issues/199) | Owner-authenticated OpenSSF metadata  | Save the prepared native-hook description, then prove the public JSON dropped the stale Husky/lint-staged architecture while the badge remains Passing.                   |
+| [#199](https://github.com/RoryGlenn/commitment-issues/issues/199) | Owner-authenticated OpenSSF metadata  | Completed 2026-07-16: native-hook description is public; JSON reports `badge_level: passing` and tiered percentage 193.                                                   |
 | [GUI Git-client checklist](../git-client-release-checklist.md)    | Exact-candidate external validation   | After a new version is selected, run VS Code, one JetBrains client, GitHub Desktop macOS, and GitHub Desktop Windows commit/push lanes against that exact candidate hash. |
 
 The completed #195 evidence is recorded in the Audit 7 report and sensitive
 access-review record. Its 3.4.0 release preflight passed without creating or
-changing any version, tag, Release, registry entry, or publication.
+changing any version, tag, Release, registry entry, or publication. The
+completed #199 evidence is recorded in the Audit 8 report; the public profile
+updated on 2026-07-16 and retained its Passing badge.
 
 The current tree still declares package version 3.3.2, which already exists on
 npm and GitHub. Its packed source snapshot is useful verification evidence, but
@@ -98,8 +100,8 @@ documentation repairs.
   concurrency, DCO ownership, and the single SLSA semantic-tag exception match
   the audited allowlist.
 - Native-hook statements are current. Remaining Husky/lint-staged mentions are
-  comparisons, migration/history, preservation tests, topics, or the explicitly
-  stale external OpenSSF profile.
+  comparisons, migration/history, preservation tests, or repository topics.
+  The external OpenSSF description now matches the native-hook model.
 - Runtime helpers remain single-purpose across configuration, safe filesystem
   writes, hook ownership, process execution, terminal escaping, and JSON
   semantics. No merge-resolution loss or conflicting replacement abstraction
@@ -231,9 +233,9 @@ Audit 9 baseline job passed. It should age out as the recent-PR window advances.
 - The live 1280×640 GitHub social preview was downloaded through the repository
   API and visually inspected. It remains legible and consistent with the
   committed 1280×720 source art.
-- The OpenSSF project JSON and badge still report Passing, but the profile was
-  last updated 2026-07-09 and still claims the removed Husky/lint-staged runtime
-  architecture. That is the unresolved #199 gate, not a repository claim.
+- The OpenSSF project JSON reports the owner-authenticated native-hook
+  description, `updated_at: 2026-07-16T20:44:46.606Z`, `badge_level: passing`,
+  and tiered percentage 193. That completes the #199 external metadata gate.
 
 ## Live repository and release controls
 
@@ -294,12 +296,11 @@ owns triage until assignment.
 [#78](https://github.com/RoryGlenn/commitment-issues/issues/78),
 [#101](https://github.com/RoryGlenn/commitment-issues/issues/101),
 [#138](https://github.com/RoryGlenn/commitment-issues/issues/138),
-[#180](https://github.com/RoryGlenn/commitment-issues/issues/180) and
-[#199](https://github.com/RoryGlenn/commitment-issues/issues/199) remain open
+and [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) remain open
 until the exact external or final action recorded above. They are the complete
-remaining external-control scope; no new issue was imported into the frozen
-run. The control tracked by issue #195 was completed by the 2026-07-16
-owner-authenticated review.
+remaining launch-gate scope; no new issue was imported into the frozen run. The
+controls tracked by issues #195 and #199 were completed by the
+2026-07-16 owner-authenticated reviews.
 
 ### Accepted post-launch maintenance or bounded debt
 
@@ -398,7 +399,7 @@ slsa-verifier verify-artifact <v3.3.2.tgz> --provenance-path <bundle> --source-u
 
 ## Completion conditions
 
-Audit 9 remains open. After #180 and #199 are complete, select and
+Audit 9 remains open. After #180 is complete, select and
 validate a new versioned candidate, run the exact-candidate GUI rows, repeat
 the external read-backs against the then-current `main`, and rerun affected
 artifact and release checks. Then update this report from **blocked** to the
