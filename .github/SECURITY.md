@@ -56,7 +56,8 @@ follows stricter maintainer guidance for sensitive operations.
 ## Security review cadence
 
 The project maintains a documented security review at least once every 12
-months and after major architectural changes. The latest review is tracked in
+months and after major architectural changes. The latest review was refreshed
+on 2026-07-16 and is tracked in
 [docs/security-review-2026-07.md](../docs/security-review-2026-07.md).
 
 ## Scope

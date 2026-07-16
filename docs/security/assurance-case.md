@@ -178,6 +178,8 @@ The project combines local validation, tests, linting, formatting, CI on multipl
 
 - CodeQL, OpenSSF Scorecard, Dependabot, pinned GitHub Actions, DCO, and the
   aggregate `CI Success` gate keep security-sensitive changes visible.
+- The live `main` ruleset separately blocks CodeQL tool-severity Errors and
+  High/Critical security alerts after the required analysis completes.
 - Trusted publishing publishes the exact tarball packed and hashed by the
   release job.
 - The release workflow attaches that tarball and matching signed SLSA
