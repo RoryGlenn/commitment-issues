@@ -39,8 +39,8 @@ The Medium CodeQL settings finding was resolved on 2026-07-16 under
 proves that CodeQL analysis completed; the separate live ruleset now blocks
 CodeQL tool-severity Errors and High-or-Critical security alerts. Disposable
 [PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216) proved the
-negative path, and a clean follow-up pull request completes the positive path
-before #177 closes.
+negative path; clean [PR #217](https://github.com/RoryGlenn/commitment-issues/pull/217)
+passed both analysis and the ruleset alert check to prove the positive path.
 
 ## Audited inventory
 
@@ -206,7 +206,7 @@ fixes. Documentation-only corrections were checked by the final suite.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Medium   | `b882972:.github/workflows/ci.yml:16-159`                                                                                                                                 | Workflow syntax and expression semantics depended only on GitHub accepting the file after push.                                               | Fixed: checksum-verified actionlint is part of required `quality`; local actionlint and zizmor runs supplement it.                         |
 | Medium   | `b882972:.github/workflows/ci.yml:140-154`; `b882972:.github/workflows/codeql.yml:3-10`                                                                                   | CodeQL analysis ran separately, so successful completion was not a dependency of required `CI Success`.                                       | Fixed: reusable CodeQL analysis is now an exact-success dependency of the aggregate.                                                       |
-| Medium   | `4d1a2a8:.github/workflows/codeql.yml:38-47`; `4d1a2a8:.github/workflows/ci.yml:206-230`; live ruleset `18531369`; PR #216                                                | A successful CodeQL job could report a new alert without the alert itself blocking the merge.                                                 | Fixed on 2026-07-16: the ruleset blocks CodeQL Errors and High/Critical security alerts; PR #216 proved the negative path.                 |
+| Medium   | `4d1a2a8:.github/workflows/codeql.yml:38-47`; `4d1a2a8:.github/workflows/ci.yml:206-230`; live ruleset `18531369`; PRs #216 and #217                                      | A successful CodeQL job could report a new alert without the alert itself blocking the merge.                                                 | Fixed on 2026-07-16: the ruleset blocks CodeQL Errors and High/Critical security alerts; PRs #216/#217 proved both paths.                  |
 | Medium   | Fork PR #166 run `29350550947`; same-repository PR #178 run `29381571143`                                                                                                 | The exact post-refactor graph has not run end to end with an external fork's downgraded token.                                                | Tracked in #180: use a disposable or natural fork revision to validate reusable CodeQL, the expanded matrix, and the aggregate together.   |
 | Medium   | `b882972:.github/workflows/repo-health.yml:53-55`; `b882972:.github/workflows/ci.yml:16-159`                                                                              | High-severity dependency findings were weekly and `continue-on-error`, so vulnerable changes could merge and scheduled failures stayed green. | Fixed: the dependency audit gates required `quality` and now fails weekly health.                                                          |
 | Medium   | `b882972:.github/workflows/publish.yml:1-26`                                                                                                                              | Different release tags could publish concurrently and race npm's `latest` dist-tag.                                                           | Fixed: one package-wide `queue: max` group serializes tags and retains up to GitHub's 100 pending runs.                                    |
@@ -312,6 +312,8 @@ Hosted completion evidence:
 - [Disposable PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216):
   the CodeQL analysis job succeeded, then the alert rule failed its merge check
   on Error/Critical command injection and kept the PR blocked
+- [Clean PR #217](https://github.com/RoryGlenn/commitment-issues/pull/217):
+  both the CodeQL analysis job and the separate ruleset alert check passed
 
 Supporting baseline and scheduled evidence:
 

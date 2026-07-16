@@ -151,8 +151,9 @@ post-write read-back preserved every existing rule and bypass actor.
 Disposable [PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216)
 proved the negative path: the analysis workflow succeeded, then merge
 protection failed on an Error/Critical command-injection alert and kept the PR
-blocked. A clean follow-up pull request completes the positive control before
-#177 closes.
+blocked. Clean [PR #217](https://github.com/RoryGlenn/commitment-issues/pull/217)
+passed both CodeQL analysis and the separate ruleset alert check, proving the
+positive path.
 
 [GitHub documents](https://docs.github.com/en/code-security/concepts/code-scanning/merge-protection)
 two platform exceptions: code-scanning merge protection does not apply to

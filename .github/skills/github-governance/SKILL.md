@@ -81,7 +81,8 @@ the normal path cannot safely be used.
   Disposable [PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216)
   proved the negative path: analysis completed, then the ruleset's `CodeQL`
   check failed on an Error/Critical command-injection alert and kept the PR
-  blocked. Issue #177 records the clean positive control. GitHub excludes
+  blocked. Clean [PR #217](https://github.com/RoryGlenn/commitment-issues/pull/217)
+  passed both CodeQL analysis and the ruleset's alert check. GitHub excludes
   merge-queue groups and Dependabot PRs analyzed by default setup; this
   repository currently uses advanced setup and no merge queue. Roll back by
   restoring the captured full payload with only the `code_scanning` rule
