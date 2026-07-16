@@ -75,6 +75,13 @@ test("recognizes a well-formed DCO trailer", () => {
     false,
     "a matching body line is not a parsed Git trailer",
   );
+  assert.equal(
+    hasDcoSignoff(
+      "Subject\\n\\nSigned-off-by: Test Maintainer <test@example.com>",
+    ),
+    false,
+    "literal escape text is not a Git trailer separator",
+  );
 });
 
 test("recognizes a trailing DCO trailer after Dependabot metadata", () => {

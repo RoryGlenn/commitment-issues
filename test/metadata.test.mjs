@@ -23,6 +23,8 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DCO_POLICY_ADOPTION_BASELINE = "81a9e412bc347f01300df62505ee378284646d15";
+const DCO_PRIOR_OPERATIONAL_BASELINE =
+  "265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5";
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
@@ -525,7 +527,7 @@ test("all supported precommitChecks keys appear on canonical reference surfaces"
   );
 });
 
-test("CI Success includes DCO and both DCO baselines stay documented", () => {
+test("CI Success includes DCO and all DCO baselines stay documented", () => {
   const ci = readText(".github/workflows/ci.yml");
   const governance = readText("GOVERNANCE.md");
   const roles = readText("docs/project-roles.md");
@@ -557,10 +559,24 @@ test("CI Success includes DCO and both DCO baselines stay documented", () => {
     governance.includes(DCO_POLICY_ADOPTION_BASELINE),
     "governance should preserve the original policy-adoption baseline",
   );
+  for (const [file, text] of [
+    ["GOVERNANCE.md", governance],
+    ["docs/project-roles.md", roles],
+  ]) {
+    assert.ok(
+      text.includes(DCO_PRIOR_OPERATIONAL_BASELINE),
+      `${file} should preserve the prior operational baseline`,
+    );
+  }
   assert.match(
     governance,
     /issues\/160/,
-    "governance should link the operational-baseline exception",
+    "governance should link the first operational-baseline exception",
+  );
+  assert.match(
+    governance,
+    /issues\/221/,
+    "governance should link the current operational-baseline exception",
   );
   assert.ok(
     readText("docs/security-review-2026-07.md").includes(

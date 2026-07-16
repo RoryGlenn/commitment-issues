@@ -148,8 +148,12 @@ Prospective enforcement was adopted on **2026-07-10** at commit
 [`81a9e412bc347f01300df62505ee378284646d15`](https://github.com/RoryGlenn/commitment-issues/commit/81a9e412bc347f01300df62505ee378284646d15).
 After the documented one-time exception in
 [issue #160](https://github.com/RoryGlenn/commitment-issues/issues/160), the
-operational audit baseline is **2026-07-12**, commit
+first operational audit baseline was **2026-07-12**, commit
 [`265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5`](https://github.com/RoryGlenn/commitment-issues/commit/265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5).
+The separately recorded malformed-trailer exception in
+[issue #221](https://github.com/RoryGlenn/commitment-issues/issues/221) moves
+the current operational audit baseline to **2026-07-16**, commit
+[`495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19`](https://github.com/RoryGlenn/commitment-issues/commit/495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19).
 Normal changes use pull requests and the live ruleset's independent approval
 requirement. Until a second trusted reviewer or maintainer is added, Rory Glenn
 may use the admin bypass for an otherwise green pull request only under the

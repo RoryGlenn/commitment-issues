@@ -99,9 +99,21 @@ An audit found it was the sole unsigned commit among the 33 commits after the
 adoption baseline through that update. Rewriting published `main` history would
 be more disruptive than recording the narrow exception, so
 [issue #160](https://github.com/RoryGlenn/commitment-issues/issues/160) resets
-the operational audit baseline to that commit. Every commit after the
-operational baseline must carry a valid `Signed-off-by` trailer, including
-commits that reach `main` through an authorized bypass.
+the first operational audit baseline to that commit.
+
+Commit
+[`495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19`](https://github.com/RoryGlenn/commitment-issues/commit/495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19)
+was the GitHub-generated squash of the Audit 9 preflight on **2026-07-16**. The
+merge operation supplied an intended sign-off, but accidentally encoded its
+paragraph separators as the literal characters `\\n\\n`; the verified commit
+therefore contains visible sign-off text but no parseable Git trailer. An audit
+found it was the sole unsigned commit among the 41 commits after the prior
+operational baseline through that squash. Rewriting protected, published
+`main` history would be more disruptive than recording the narrow exception,
+so [issue #221](https://github.com/RoryGlenn/commitment-issues/issues/221)
+resets the current operational audit baseline to that commit. Every later
+commit must carry a valid `Signed-off-by` trailer, including commits that reach
+`main` through an authorized bypass.
 
 The DCO job inside `CI Success` checks pull-request commits and audits all
 commits on `main` after the operational baseline. It is the single workflow
