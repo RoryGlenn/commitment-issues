@@ -17,9 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   v3.3.0–v3.3.2 exceptions without weakening future releases.
 - Added a shipped compatibility matrix for package managers, Node versions,
   operating systems, shells, Git clients, install modes, and explicit
-  unsupported boundaries. Required lifecycle CI now covers pnpm 10, Yarn
-  Classic 1.22.22, and Bun 1.3.14 across Ubuntu, macOS, and Windows at Node 24,
-  plus exact-minimum-Node lanes on Ubuntu.
+  unsupported boundaries. Required lifecycle CI now covers Bun 1.3.14, pnpm 10,
+  Yarn Classic 1.22.22, and Yarn Berry 4.17.0 with
+  `nodeLinker: node-modules` across Ubuntu, macOS, and Windows at Node 24, plus
+  exact-minimum-Node lanes on Ubuntu. Berry uses an independent
+  integrity-locked CLI fixture, manager-native workspace commands, and explicit
+  `doctor` repair after clones because it does not run npm's `prepare`
+  lifecycle; Plug'n'Play remains unsupported.
 - Added deterministic cross-version lifecycle coverage using pinned immutable
   v2.5.1, v3.2.0, and v3.3.2 release fixtures. Required pull-request CI proves
   npm upgrades on Ubuntu/Node 24, a read-only release-candidate job exercises
@@ -51,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy Husky migration and uninstall cleanup now refuse to follow a linked or
   otherwise uninspectable `.husky` directory, preventing owned-artifact cleanup
   from deleting files outside the repository.
+- Setup and removal now refuse linked or non-regular `package.json`,
+  `.gitignore`, and `.commitmentrc.json` paths. Descriptor and file-identity
+  checks prevent a repository-controlled replacement from redirecting project
+  writes outside the checkout.
 - Packed Markdown links are now checked against the exact npm tarball manifest
   and again after installation. Links from shipped docs to repository-only
   policies, plans, and audit evidence now use canonical GitHub URLs instead of

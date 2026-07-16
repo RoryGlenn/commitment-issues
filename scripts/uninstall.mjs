@@ -18,7 +18,13 @@ import {
   legacyHuskyDirectoryState,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
-import { removeOwnedPath } from "./lib/files.mjs";
+import {
+  inspectMutableProjectFile,
+  preflightMutableProjectFile,
+  removeMutableProjectFile,
+  removeOwnedPath,
+  writeMutableProjectFile,
+} from "./lib/files.mjs";
 import {
   readStandalonePrecommitConfig,
   STANDALONE_CONFIG_FILE,
@@ -45,11 +51,32 @@ if (unknownOption) {
 }
 const dryRun = args.includes("--dry-run") || args.includes("-n");
 
-if (!fs.existsSync("package.json")) {
+const packageFileState = inspectMutableProjectFile("package.json");
+if (packageFileState.status === "missing") {
   errorBox([
     pc.bold("No package.json found."),
     "",
     pc.dim("Run this from your project root."),
+  ]);
+  process.exit(1);
+}
+
+const projectFileStates = new Map([
+  ["package.json", packageFileState],
+  [STANDALONE_CONFIG_FILE, inspectMutableProjectFile(STANDALONE_CONFIG_FILE)],
+]);
+const unsafeProjectFile = [...projectFileStates.values()].find(
+  (state) => state.status === "unsafe",
+);
+if (unsafeProjectFile) {
+  errorBox([
+    pc.bold(`Unsafe project file: ${unsafeProjectFile.filePath}.`),
+    "",
+    pc.dim(`The path ${unsafeProjectFile.reason}.`),
+    pc.dim(
+      "Replace it with a regular file inside this project, then run uninstall again.",
+    ),
+    pc.dim("No files or hooks were changed."),
   ]);
   process.exit(1);
 }
@@ -204,20 +231,38 @@ const planned = [
 const removed = [];
 
 if (!dryRun) {
-  if (plannedPackageChanges.length > 0) {
-    try {
-      fs.accessSync("package.json", fs.constants.W_OK);
-    } catch {
+  const projectFilesToMutate = [
+    ...(plannedPackageChanges.length > 0
+      ? [["package.json", projectFileStates.get("package.json"), false]]
+      : []),
+    ...(standalone.exists
+      ? [
+          [
+            STANDALONE_CONFIG_FILE,
+            projectFileStates.get(STANDALONE_CONFIG_FILE),
+            true,
+          ],
+        ]
+      : []),
+  ];
+  for (const [filePath, state, remove] of projectFilesToMutate) {
+    if (!preflightMutableProjectFile(state, { remove })) {
       errorBox([
-        pc.bold("Could not update package.json."),
+        pc.bold(`Could not update ${filePath}.`),
         "",
-        pc.dim("Make package.json writable, then run uninstall again."),
+        pc.dim("Make the project path writable, then run uninstall again."),
         pc.dim("No files or hooks were changed."),
       ]);
       process.exit(1);
     }
+  }
+
+  if (plannedPackageChanges.length > 0) {
     try {
-      fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+      writeMutableProjectFile(
+        projectFileStates.get("package.json"),
+        `${JSON.stringify(pkg, null, 2)}\n`,
+      );
       /* node:coverage ignore next 13 */
     } catch {
       // Permission failures are exercised by the access preflight above. This
@@ -236,6 +281,8 @@ if (!dryRun) {
     const cleanup = removeOwnedPath(
       STANDALONE_CONFIG_FILE,
       STANDALONE_CONFIG_FILE,
+      () =>
+        removeMutableProjectFile(projectFileStates.get(STANDALONE_CONFIG_FILE)),
     );
     removed.push(...cleanup.removed);
     manualCleanup.push(...cleanup.manualCleanup);

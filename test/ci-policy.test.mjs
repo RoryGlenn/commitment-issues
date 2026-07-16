@@ -303,7 +303,7 @@ test("package-manager matrix values never expand directly into shell code", () =
     workflowJobBlocks(workflow).find(({ name }) => name === "pm-lifecycle")
       ?.source ?? "";
 
-  for (const manager of ["pnpm", "yarn", "bun"]) {
+  for (const manager of ["pnpm", "yarn", "yarn-berry", "bun"]) {
     assert.match(
       lifecycle,
       new RegExp(

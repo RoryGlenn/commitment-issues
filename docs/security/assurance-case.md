@@ -32,7 +32,7 @@ Relevant attackers or failure modes include:
 - file paths containing spaces, tabs, newlines, quotes, shell metacharacters,
   leading hyphens, or unusual Unicode;
 - generated, quoted, truncated, or malformed Git output;
-- symbolic links or non-file entries at native hook paths;
+- symbolic links or non-file entries at mutable project or native hook paths;
 - collisions or link attacks in a shared temporary directory;
 - Git hook repository variables redirecting nested fixture operations into the
   caller's repository;
@@ -114,9 +114,13 @@ precedence, and allowlisted by key and value before hooks or process helpers use
 it. Project JavaScript is never imported to discover configuration. Before
 `init` mutates a consumer repository, it also requires the
 `package.json` root, `scripts`, and `precommitChecks` containers to be JSON
-objects. Hook activation uses the same shared classifier in `init` and `doctor`:
-only executable command lines count, and POSIX hooks must have an executable
-mode bit.
+objects. Existing mutable project paths must be regular files rather than
+symbolic links or directories. Their device and inode identities are checked
+again against an open descriptor immediately before truncation or writing;
+missing paths use exclusive creation, and removal rechecks the inspected
+identity. Hook activation uses the same shared classifier in `init` and
+`doctor`: only executable command lines count, and POSIX hooks must have an
+executable mode bit.
 
 ### Fail-safe defaults
 

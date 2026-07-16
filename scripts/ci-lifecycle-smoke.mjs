@@ -10,7 +10,10 @@ import crossSpawn from "cross-spawn";
 import {
   hasExactOutputLine,
   shouldEnforcePosixPackageModes,
+  SUPPORTED_LIFECYCLE_MANAGERS,
   SUPPLIED_TARBALL_DIGEST_PREFIX,
+  YARN_BERRY_VERSION,
+  YARN_CLASSIC_VERSION,
 } from "./lib/lifecycle-managers.mjs";
 import {
   findBrokenMarkdownLinksInDirectory,
@@ -19,19 +22,48 @@ import {
 
 const root = process.cwd();
 
-// Which package manager to exercise end to end. Defaults to npm; pass "pnpm" as
-// the first arg (the pm-lifecycle CI job does) to prove the tool installs, wires
-// its hooks, and runs under pnpm's linked node_modules layout.
-const SUPPORTED_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);
+// Which package manager to exercise end to end. Defaults to npm. Yarn Classic
+// and Yarn Berry are separate identities so their versions, commands, layouts,
+// and CI evidence cannot accidentally satisfy one another's support claims.
 const args = process.argv.slice(2);
 const packageManager =
   args[0] && !args[0].startsWith("-") ? args.shift() : "npm";
-if (!SUPPORTED_MANAGERS.has(packageManager)) {
+if (!SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager)) {
   throw new Error(
     `Unsupported package manager "${packageManager}" (expected: ${[
-      ...SUPPORTED_MANAGERS,
+      ...SUPPORTED_LIFECYCLE_MANAGERS,
     ].join(", ")}).`,
   );
+}
+
+const yarnClassicCli = path.join(
+  root,
+  "node_modules",
+  "yarn",
+  "bin",
+  "yarn.js",
+);
+const yarnBerryFixtureDir = path.join(root, "test", "fixtures", "yarn-berry");
+const yarnBerryCli = path.join(
+  yarnBerryFixtureDir,
+  "node_modules",
+  "@yarnpkg",
+  "cli-dist",
+  "bin",
+  "yarn.js",
+);
+const isYarnBerryLifecycle = packageManager === "yarn-berry";
+const packageManagerHint =
+  packageManager === "yarn-berry" ? "yarn" : packageManager;
+
+function managerInvocation(args) {
+  if (packageManager === "yarn") {
+    return [process.execPath, [yarnClassicCli, ...args]];
+  }
+  if (isYarnBerryLifecycle) {
+    return [process.execPath, [yarnBerryCli, ...args]];
+  }
+  return [packageManager, args];
 }
 
 let suppliedTarballInput;
@@ -125,6 +157,21 @@ const HOOK_SUBCOMMANDS = {
   "commit-msg": 'commit-msg "$1"',
 };
 
+// Yarn Berry's file protocol expects a package identity and has ambiguous
+// absolute-drive handling on Windows. Stage the unchanged bytes at a fixed
+// sibling path so every OS can resolve the same relative locator.
+function yarnBerryTarballSpec(tarball) {
+  const artifactDir = path.join(tempRoot, "yarn-berry-artifact");
+  const artifact = path.join(artifactDir, "commitment-issues.tgz");
+  fs.mkdirSync(artifactDir, { recursive: true });
+  fs.copyFileSync(tarball, artifact);
+  assertSmoke(
+    sha256(artifact) === sha256(tarball),
+    "the staged Yarn Berry tarball must match the packed artifact",
+  );
+  return "commitment-issues@file:../yarn-berry-artifact/commitment-issues.tgz";
+}
+
 // Install the packed tarball plus the peer tools using the selected manager.
 function installDevDeps(tarball) {
   switch (packageManager) {
@@ -134,10 +181,20 @@ function installDevDeps(tarball) {
         ["add", "--save-dev", "--workspace-root", tarball, ...DEV_DEPS],
       ];
     case "yarn":
-      return [
-        "yarn",
-        ["add", "--dev", "--ignore-workspace-root-check", tarball, ...DEV_DEPS],
-      ];
+      return managerInvocation([
+        "add",
+        "--dev",
+        "--ignore-workspace-root-check",
+        tarball,
+        ...DEV_DEPS,
+      ]);
+    case "yarn-berry":
+      return managerInvocation([
+        "add",
+        "--dev",
+        yarnBerryTarballSpec(tarball),
+        ...DEV_DEPS,
+      ]);
     case "bun":
       return ["bun", ["add", "--dev", tarball, ...DEV_DEPS]];
     default:
@@ -153,7 +210,12 @@ function installProject({ ignoreScripts = false } = {}) {
     case "pnpm":
       return ["pnpm", ["install", ...scriptArgs]];
     case "yarn":
-      return ["yarn", ["install", ...scriptArgs]];
+      return managerInvocation(["install", ...scriptArgs]);
+    case "yarn-berry":
+      return managerInvocation([
+        "install",
+        ...(ignoreScripts ? ["--mode=skip-build"] : []),
+      ]);
     case "bun":
       return ["bun", ["install", ...scriptArgs]];
     default:
@@ -168,14 +230,32 @@ function removeInstalledPackage() {
     case "pnpm":
       return ["pnpm", ["remove", "--workspace-root", "commitment-issues"]];
     case "yarn":
-      return [
-        "yarn",
-        ["remove", "--ignore-workspace-root-check", "commitment-issues"],
-      ];
+      return managerInvocation([
+        "remove",
+        "--ignore-workspace-root-check",
+        "commitment-issues",
+      ]);
+    case "yarn-berry":
+      return managerInvocation(["remove", "commitment-issues"]);
     case "bun":
       return ["bun", ["remove", "commitment-issues"]];
     default:
       return ["npm", ["remove", "commitment-issues"]];
+  }
+}
+
+function expectedRemoveGuidance() {
+  switch (packageManager) {
+    case "pnpm":
+      return "pnpm remove --workspace-root commitment-issues";
+    case "yarn":
+      return "yarn remove --ignore-workspace-root-check commitment-issues";
+    case "yarn-berry":
+      return "yarn remove commitment-issues";
+    case "bun":
+      return "bun remove commitment-issues";
+    default:
+      return "npm remove commitment-issues";
   }
 }
 
@@ -186,7 +266,15 @@ function workspaceTestCommand() {
     case "pnpm":
       return ["pnpm", ["--recursive", "run", "test"]];
     case "yarn":
-      return ["yarn", ["workspaces", "run", "test"]];
+      return managerInvocation(["workspaces", "run", "test"]);
+    case "yarn-berry":
+      return managerInvocation([
+        "workspaces",
+        "foreach",
+        "--all",
+        "run",
+        "test",
+      ]);
     case "bun":
       return ["bun", ["run", "--workspaces", "--if-present", "test"]];
     default:
@@ -215,7 +303,8 @@ function execBin(args) {
     case "pnpm":
       return ["pnpm", ["exec", "commitment-issues", ...args]];
     case "yarn":
-      return ["yarn", ["run", "commitment-issues", ...args]];
+    case "yarn-berry":
+      return managerInvocation(["run", "commitment-issues", ...args]);
     case "bun":
       return ["bunx", ["--no-install", "commitment-issues", ...args]];
     default:
@@ -537,6 +626,25 @@ function assertWorkspaceConfigured(repoDir) {
       '  - "packages/nested/*"',
     );
   }
+
+  if (isYarnBerryLifecycle) {
+    assertSmoke(
+      rootPackage.packageManager === `yarn@${YARN_BERRY_VERSION}`,
+      `Yarn Berry projects should pin yarn@${YARN_BERRY_VERSION}`,
+    );
+    assertFileContains(
+      path.join(repoDir, ".yarnrc.yml"),
+      "nodeLinker: node-modules",
+    );
+    assertSmoke(
+      fs.existsSync(path.join(repoDir, "node_modules")),
+      "Yarn Berry node-modules mode should create node_modules",
+    );
+    assertSmoke(
+      !fs.existsSync(path.join(repoDir, ".pnp.cjs")),
+      "the supported Yarn Berry fixture must not generate Plug'n'Play state",
+    );
+  }
 }
 
 function assertGitignoreConfigured(repoDir) {
@@ -607,6 +715,7 @@ function assertManagerLockfile(repoDir) {
     npm: ["package-lock.json"],
     pnpm: ["pnpm-lock.yaml"],
     yarn: ["yarn.lock"],
+    "yarn-berry": ["yarn.lock"],
     bun: ["bun.lock", "bun.lockb"],
   };
   const candidates = expectedLockfiles[packageManager];
@@ -709,9 +818,32 @@ fs.mkdirSync(smokeDir, { recursive: true });
 
 try {
   console.log(`\n[lifecycle smoke] package manager: ${packageManager}\n`);
-  console.log(
-    `[lifecycle smoke] ${packageManager} version: ${runForOutput(packageManager, ["--version"], root)}\n`,
+  if (isYarnBerryLifecycle) {
+    assertSmoke(
+      fs.existsSync(yarnBerryCli),
+      `install the pinned Yarn Berry fixture with npm ci --ignore-scripts --prefix ${path.relative(root, yarnBerryFixtureDir)}`,
+    );
+  }
+  const [managerVersionCommand, managerVersionArgs] = managerInvocation([
+    "--version",
+  ]);
+  const managerVersion = runForOutput(
+    managerVersionCommand,
+    managerVersionArgs,
+    root,
   );
+  console.log(
+    `[lifecycle smoke] ${packageManager} version: ${managerVersion}\n`,
+  );
+  if (packageManager === "yarn" || isYarnBerryLifecycle) {
+    const expectedVersion = isYarnBerryLifecycle
+      ? YARN_BERRY_VERSION
+      : YARN_CLASSIC_VERSION;
+    assertSmoke(
+      hasExactOutputLine(managerVersion, expectedVersion),
+      `${packageManager} should resolve exact version ${expectedVersion}`,
+    );
+  }
   let tarball = suppliedTarball;
   if (tarball) {
     console.log(`[lifecycle smoke] supplied tarball: ${tarball}\n`);
@@ -755,6 +887,9 @@ try {
         version: "1.0.0",
         type: "module",
         private: true,
+        ...(isYarnBerryLifecycle
+          ? { packageManager: `yarn@${YARN_BERRY_VERSION}` }
+          : {}),
         workspaces: WORKSPACE_GLOBS,
         scripts: { prepare: EXISTING_PREPARE },
         precommitChecks: ROOT_PACKAGE_CONFIG,
@@ -771,6 +906,9 @@ try {
     path.join(smokeDir, ".commitmentrc.json"),
     `${JSON.stringify(STANDALONE_CONFIG, null, 2)}\n`,
   );
+  if (isYarnBerryLifecycle) {
+    writeFile(path.join(smokeDir, ".yarnrc.yml"), "nodeLinker: node-modules\n");
+  }
   writeWorkspaceFixture(smokeDir);
 
   const [installCommand, installArgs] = installDevDeps(tarball);
@@ -791,6 +929,20 @@ try {
   );
   assertManagerLockfile(smokeDir);
   assertWorkspaceConfigured(smokeDir);
+  if (isYarnBerryLifecycle) {
+    const [configCommand, configArgs] = managerInvocation([
+      "config",
+      "get",
+      "nodeLinker",
+    ]);
+    assertSmoke(
+      hasExactOutputLine(
+        runForOutput(configCommand, configArgs, smokeDir),
+        "node-modules",
+      ),
+      "Yarn Berry should resolve nodeLinker to node-modules",
+    );
+  }
   runWorkspaceTests(smokeDir);
 
   const [helpCommand, helpArgs] = execBin(["--help"]);
@@ -838,8 +990,8 @@ try {
   const [firstCheckCommand, firstCheckArgs] = execBin(["precommit"]);
   const firstCheck = runForOutput(firstCheckCommand, firstCheckArgs, smokeDir);
   assertSmoke(
-    firstCheck.includes(`${packageManager} run commit:fix`),
-    `pre-commit guidance should use ${packageManager}'s run command`,
+    firstCheck.includes(`${packageManagerHint} run commit:fix`),
+    `pre-commit guidance should use ${packageManagerHint}'s run command`,
   );
   assertSmoke(
     !fs.existsSync(welcomeMarkerPath(smokeDir)),
@@ -905,8 +1057,11 @@ try {
 
   // .git/hooks is intentionally clone-local and is not present in a fresh
   // checkout. A scripts-disabled install must leave hooks absent while keeping
-  // the local CLI available; explicit doctor repair and a later normal install
-  // both recreate the hooks without another init call.
+  // the local CLI available. Explicit doctor repair works for every manager.
+  // npm, pnpm, Yarn Classic, and Bun also run the consumer-owned prepare repair
+  // during a later normal install. Yarn Berry deliberately doesn't support
+  // prepare and disables postinstall by default, so it requires explicit doctor
+  // repair instead of pretending that a no-change install repaired the clone.
   run("git", ["clone", "--branch", "main", remoteDir, cloneDir], tempRoot);
   for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
     assertSmoke(
@@ -935,6 +1090,15 @@ try {
 
   const [projectInstallCommand, projectInstallArgs] = installProject();
   run(projectInstallCommand, projectInstallArgs, cloneDir);
+  if (isYarnBerryLifecycle) {
+    for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+      assertSmoke(
+        !fs.existsSync(hookPath(cloneDir, name)),
+        `a normal Yarn Berry install should leave ${name} absent until explicit repair`,
+      );
+    }
+    run(cloneDoctorCommand, cloneDoctorArgs, cloneDir);
+  }
   assertPackageJsonConfigured(cloneDir);
   assertWorkspaceConfigured(cloneDir);
   assertHookWired(cloneDir, "pre-commit");
@@ -1003,8 +1167,9 @@ try {
     smokeDir,
   );
   const [removeCommand, removeArgs] = removeInstalledPackage();
+  const removeGuidance = expectedRemoveGuidance();
   assertSmoke(
-    uninstallOutput.includes(`${removeCommand} ${removeArgs.join(" ")}`),
+    uninstallOutput.includes(removeGuidance),
     `uninstall guidance should use ${packageManager}'s workspace-aware remove command`,
   );
   assertGeneratedSetupRemoved(smokeDir);

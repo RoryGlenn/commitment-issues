@@ -221,6 +221,11 @@ production-readiness workstream #130 is consolidated in the
 - **INIT-030** — rerunning setup repairs a deliberately interrupted/partial hook installation idempotently. Fixture: `test/init.test.mjs`.
 - **INIT-031** — uninspectable `.gitignore` and unwritable project files fail before hook installation with bounded diagnostics. Fixture: `test/init-gitignore.test.mjs`, `test/init.test.mjs`.
 - **INIT-032** — shallow clones and submodules install hooks in their own Git common directories without requiring full history. Fixture: `test/repository-shapes.test.mjs`.
+- **INIT-033** — setup and dry-run refuse linked or non-regular mutable project
+  files before package, configuration, gitignore, or hook changes; stable
+  descriptor and identity checks protect the final write boundary. Unit/fixture:
+  `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
+  `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -241,6 +246,10 @@ production-readiness workstream #130 is consolidated in the
 - **UNINST-015** — a failed `core.hooksPath` probe leaves all hook files untouched while package cleanup remains available. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-016** — tilde-based active hook directories are resolved through Git and exact owned hooks are removed from the effective path. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-017** — unknown options and an unwritable package fail before generated hooks or configuration are removed. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-018** — removal and dry-run refuse linked or non-regular package and
+  standalone-configuration paths before project or hook cleanup; configuration
+  deletion rechecks the inspected file identity. Unit/fixture:
+  `test/lib-files.test.mjs`, `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -376,7 +385,20 @@ production-readiness workstream #130 is consolidated in the
 - **SEC-015** — hook repair does not follow hook-file, dangling, or hook-directory symbolic links. Unit/subprocess: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **SEC-016** — pre-push Node reporter output uses a randomized private temporary directory and does not reuse or delete a predictable colliding path. Subprocess: `test/prepush.test.mjs`.
 - **SEC-017** — hook-launched test commands and temporary-repository helpers remove Git's repository-local environment routing; representative `GIT_DIR`, work-tree, index, and counted-config variables cannot redirect fixture initialization into the caller. Unit/subprocess: `test/process.test.mjs`, `test/repository-shapes.test.mjs`, pre-push hook reproduction.
-- **SEC-018** — product-owned human output visibly escapes repository-controlled C0/C1 bytes, strips injected CSI/OSC sequences from paths, refs, configuration, argv, and captured Git diagnostics, preserves intentional model lines and Unicode, and leaves raw child passthrough unchanged; JSON round-trips the exact semantic filename. Unit/real-Git/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`, `test/lib-files.test.mjs`, `test/cli.test.mjs`, `test/doctor.test.mjs`, `test/fix-staged.test.mjs`, `test/commit-guards-integration.test.mjs`, `test/prepush.test.mjs`, `test/json-output.test.mjs`.
+- **SEC-018** — mutable project-file writes reject symbolic links, non-regular
+  paths, identity replacement, descriptor mismatch, and occupied missing-file
+  paths instead of following repository-controlled links outside the checkout.
+  Unit/subprocess: `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
+  `test/init.test.mjs`, `test/uninstall.test.mjs`.
+- **SEC-019** — product-owned human output visibly escapes
+  repository-controlled C0/C1 bytes, strips injected CSI/OSC sequences from
+  paths, refs, configuration, argv, and captured Git diagnostics, preserves
+  intentional model lines and Unicode, and leaves raw child passthrough
+  unchanged; JSON round-trips the exact semantic filename.
+  Unit/real-Git/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`,
+  `test/lib-files.test.mjs`, `test/cli.test.mjs`, `test/doctor.test.mjs`,
+  `test/fix-staged.test.mjs`, `test/commit-guards-integration.test.mjs`,
+  `test/prepush.test.mjs`, `test/json-output.test.mjs`.
 
 ### Performance
 
@@ -389,7 +411,7 @@ production-readiness workstream #130 is consolidated in the
 - **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
-- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
+- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal npm, pnpm, Yarn Classic, or Bun install runs the composed repair and recreates the local hooks. Yarn Berry 4.17.0 does not support `prepare` and disables `postinstall` by default, so its verified clone repair is the explicit local `doctor` command. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
 - **LIFE-007** — pinned immutable v2.5.1, v3.2.0, and v3.3.2 release fixtures upgrade to the candidate tarball, refresh or remove only exact generated state, preserve project-owned `prepare` logic and custom hooks, and execute the migrated hooks during a real commit and push. Required PR evidence: npm on Ubuntu/Node 24; release evidence: the exact publish tarball; scheduled evidence: pnpm, Yarn Classic, and Bun. Fixture: `test/integration/lifecycle-migration.test.mjs`.
 - **LIFE-008** — installing an older release over newer configured state is explicitly unsupported. The documented rollback runs the current version's `uninstall`, restores a lockfile and manifest with the pinned target and peers, installs, and runs the target version's `init` and `doctor`; custom state remains subject to manual review. Contract: [Downgrades and manual rollback](migration.md#downgrades-and-manual-rollback); ownership fixture: `test/uninstall.test.mjs`.
 
@@ -400,12 +422,13 @@ production-readiness workstream #130 is consolidated in the
 - **PM-003** — pnpm 10 end-to-end lifecycle integration (pack → install → init → commit → push → repair → uninstall → dependency removal) on Ubuntu, macOS, and Windows at Node 24, plus the exact Node 22.11.0 floor on Ubuntu. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
 - **PM-004** — Yarn Classic 1.22.22 runs the same manager-native lifecycle and platform matrix without an npm-runner fallback. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
 - **PM-005** — Bun 1.3.14 runs the same lifecycle and platform matrix through `bunx --no-install`. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
-- **PM-007** — installs with lifecycle scripts disabled leave clone-local hooks absent but keep the local CLI available; explicit `doctor` repair and a later scripts-enabled reinstall both restore exact generated hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/ci-lifecycle-smoke.mjs`.
+- **PM-006** — Yarn Berry 4.17.0 is pinned in an integrity-locked CLI fixture and runs the packed package with `nodeLinker: node-modules` on Ubuntu, macOS, and Windows at Node 24 plus Ubuntu at the exact Node 22.11.0 floor. The fixture verifies manager-native CLI/bin resolution, root and nested workspaces, all three real Git hooks, clone/doctor repair, linked worktrees, and uninstall. It asserts a real `node_modules` tree and no `.pnp.cjs`; Plug'n'Play remains unsupported. CI: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture pin: `test/fixtures/yarn-berry/package-lock.json`.
+- **PM-007** — installs with lifecycle scripts disabled leave clone-local hooks absent but keep the local CLI available; explicit `doctor` repair restores exact generated hooks for every manager. A later scripts-enabled reinstall also repairs npm, pnpm, Yarn Classic, and Bun; Berry's documented lifecycle boundary requires explicit `doctor`. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/ci-lifecycle-smoke.mjs`.
 - **PM-008** — package-manager guidance is workspace-aware, the lifecycle strips the outer npm user agent, and pre-commit/uninstall output must name the selected manager. Unit: `test/package-manager.test.mjs`; CI lifecycle matrix: `.github/workflows/ci.yml`.
 
 ### Monorepos and workspaces
 
-- **MONO-001** — workspace-root behavior across npm, pnpm, Yarn, and Bun. The real packed package is installed at the root, each manager's workspace selector runs both package test scripts, root config owns staged checks, and root-native hooks run for commits and pushes. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
+- **MONO-001** — workspace-root behavior across npm, pnpm, Yarn Classic, Yarn Berry `node-modules`, and Bun. The real packed package is installed at the root, each manager's workspace selector runs both package test scripts, root config owns staged checks, and root-native hooks run for commits and pushes. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
 - **MONO-002** — shallow and nested workspace packages are checked together, including when `git commit` starts in the nested package. Package-local `precommitChecks` values remain untouched and do not override the root. CI lifecycle matrix: `.github/workflows/ci.yml`; guide: [Monorepo & workspaces](monorepo.md).
 - **MONO-003** — linked Git worktrees share hooks through Git's common directory, repair safely during a worktree-local install, and run the root checks from a nested package. CI lifecycle matrix: `.github/workflows/ci.yml`.
 
@@ -436,7 +459,6 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 
 ## Deferred
 
-- **PM-006** — Yarn Berry support. The `node-modules` mode is provisional pending dedicated issue #100 evidence; Plug'n'Play is unsupported because the runtime requires `node_modules/.bin`. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents both boundaries.
 - **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Manual and production validation

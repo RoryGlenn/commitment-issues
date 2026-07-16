@@ -55,13 +55,38 @@ the normal path cannot safely be used.
   ancestor. The required CI job is the single DCO workflow owner; do not add a
   duplicate report. Never advance the baseline to silence a failure.
 - The single-lane `quality` job runs actionlint 1.7.12 from a checksum-verified release archive, rejects high-severity dependency advisories, and runs lint plus formatting on Ubuntu/Node 24.
-- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running the test suite once per lane and npm lifecycle integration. Ubuntu's two coverage gates own the test-suite execution there rather than rerunning it first without coverage. Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
+- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running the test suite once per lane and npm lifecycle integration. Ubuntu's two coverage gates own the test-suite execution there rather than rerunning it first without coverage. Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
 - The `codeql` job calls the scheduled/manual CodeQL workflow as a reusable
   workflow. `CI Success` therefore blocks merges on analysis failures without
   adding a second required status context to the live ruleset. The live ruleset
   does not enable code-scanning alert merge protection, so a completed scan can
   still succeed while reporting a new alert; reviewers must inspect that
   supplemental signal.
+- Issue #177 selects `CodeQL` tool-severity `errors` and security severity
+  `high_or_higher` as the launch alert thresholds. Activation is still an
+  owner-confirmed shared-infrastructure change until the issue records the live
+  read-back and positive/negative pull-request evidence. Append this exact rule
+  to the otherwise unchanged full ruleset payload:
+  ```json
+  {
+    "type": "code_scanning",
+    "parameters": {
+      "code_scanning_tools": [
+        {
+          "tool": "CodeQL",
+          "alerts_threshold": "errors",
+          "security_alerts_threshold": "high_or_higher"
+        }
+      ]
+    }
+  }
+  ```
+  After the PUT, read the ruleset back and verify every pre-existing rule and
+  bypass actor before testing one clean PR and one disposable PR with an
+  in-scope alert. GitHub excludes merge-queue groups and Dependabot PRs analyzed
+  by default setup; this repository currently uses advanced setup and no merge
+  queue. Roll back by restoring the captured full payload with only the
+  `code_scanning` rule removed; never remove required CodeQL from `CI Success`.
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 

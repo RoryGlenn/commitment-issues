@@ -29,6 +29,11 @@ import {
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
+import {
+  inspectMutableProjectFile,
+  preflightMutableProjectFile,
+  writeMutableProjectFile,
+} from "./lib/files.mjs";
 
 // One-command setup for a consuming repo: wires up the git hooks, npm scripts,
 // and gitignored caches without clobbering existing values. Hooks are plain
@@ -36,7 +41,8 @@ import { escapeTerminalText } from "./lib/terminal.mjs";
 // manager, nothing vendored. Also migrates husky-era wiring from pre-3.0
 // setups. Safe to re-run.
 
-if (!fs.existsSync("package.json")) {
+const packageFileState = inspectMutableProjectFile("package.json");
+if (packageFileState.status === "missing") {
   errorBox([
     pc.bold("No package.json found."),
     "",
@@ -59,6 +65,27 @@ if (unknownOption) {
   process.exit(1);
 }
 const dryRun = args.includes("--dry-run") || args.includes("-n");
+
+const projectFileStates = new Map([
+  ["package.json", packageFileState],
+  [STANDALONE_CONFIG_FILE, inspectMutableProjectFile(STANDALONE_CONFIG_FILE)],
+  [".gitignore", inspectMutableProjectFile(".gitignore")],
+]);
+const unsafeProjectFile = [...projectFileStates.values()].find(
+  (state) => state.status === "unsafe",
+);
+if (unsafeProjectFile) {
+  errorBox([
+    pc.bold(`Unsafe project file: ${unsafeProjectFile.filePath}.`),
+    "",
+    pc.dim(`The path ${unsafeProjectFile.reason}.`),
+    pc.dim(
+      "Replace it with a regular file inside this project, then run init again.",
+    ),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
 
 let pkg;
 try {
@@ -206,9 +233,10 @@ const configWarnings = precommitConfigWarningMessages(effectiveConfig);
 
 let gitignore;
 try {
-  gitignore = fs.existsSync(".gitignore")
-    ? fs.readFileSync(".gitignore", "utf8")
-    : "";
+  gitignore =
+    projectFileStates.get(".gitignore").status === "regular"
+      ? fs.readFileSync(".gitignore", "utf8")
+      : "";
 } catch {
   errorBox([
     pc.bold("Could not inspect .gitignore."),
@@ -226,19 +254,17 @@ const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
 );
 
 const projectFilesToWrite = [
-  "package.json",
-  ...(standaloneChanged ? [STANDALONE_CONFIG_FILE] : []),
-  ...(ignores.length > 0 ? [".gitignore"] : []),
+  ["package.json", projectFileStates.get("package.json")],
+  ...(standaloneChanged
+    ? [[STANDALONE_CONFIG_FILE, projectFileStates.get(STANDALONE_CONFIG_FILE)]]
+    : []),
+  ...(ignores.length > 0
+    ? [[".gitignore", projectFileStates.get(".gitignore")]]
+    : []),
 ];
 if (!dryRun) {
-  for (const filePath of projectFilesToWrite) {
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.accessSync(filePath, fs.constants.W_OK);
-      } else {
-        fs.accessSync(".", fs.constants.W_OK);
-      }
-    } catch {
+  for (const [filePath, state] of projectFilesToWrite) {
+    if (!preflightMutableProjectFile(state)) {
       errorBox([
         pc.bold(`Could not update ${escapeTerminalText(filePath)}.`),
         "",
@@ -252,16 +278,19 @@ if (!dryRun) {
 
 if (!dryRun) {
   try {
-    fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+    writeMutableProjectFile(
+      projectFileStates.get("package.json"),
+      `${JSON.stringify(pkg, null, 2)}\n`,
+    );
     if (standaloneChanged) {
-      fs.writeFileSync(
-        STANDALONE_CONFIG_FILE,
+      writeMutableProjectFile(
+        projectFileStates.get(STANDALONE_CONFIG_FILE),
         `${JSON.stringify(standalone.config, null, 2)}\n`,
       );
     }
     if (ignores.length > 0) {
-      fs.writeFileSync(
-        ".gitignore",
+      writeMutableProjectFile(
+        projectFileStates.get(".gitignore"),
         `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
       );
     }

@@ -46,6 +46,20 @@ export function isWorkspaceRoot(cwd = process.cwd()) {
 }
 
 /**
+ * Whether the active Yarn project uses Yarn Berry rather than Yarn Classic.
+ * Supported Berry projects carry `.yarnrc.yml` for `nodeLinker: node-modules`;
+ * the user-agent check also keeps manager-invoked guidance accurate before a
+ * project configuration file is inspected.
+ * @param {string} [cwd] - Project root to inspect.
+ * @returns {boolean} Whether the project is using Yarn 2 or newer.
+ */
+export function isYarnBerry(cwd = process.cwd()) {
+  const agent = process.env.npm_config_user_agent || "";
+  const major = Number(/^yarn\/(\d+)/u.exec(agent)?.[1] ?? 0);
+  return major >= 2 || fs.existsSync(path.join(cwd, ".yarnrc.yml"));
+}
+
+/**
  * Detect the package manager driving a project.
  *
  * Prefers `npm_config_user_agent` (set by the manager that invoked the current
@@ -110,7 +124,7 @@ export function devInstallCommand(packages, cwd) {
     case "pnpm":
       return `pnpm add -D${workspaceRoot ? " --workspace-root" : ""} ${list}`;
     case "yarn":
-      return `yarn add -D${workspaceRoot ? " --ignore-workspace-root-check" : ""} ${list}`;
+      return `yarn add -D${workspaceRoot && !isYarnBerry(cwd) ? " --ignore-workspace-root-check" : ""} ${list}`;
     case "bun":
       return `bun add --dev ${list}`;
     default:
@@ -127,10 +141,11 @@ export function devInstallCommand(packages, cwd) {
  */
 export function removeCommand(packages, cwd) {
   const manager = detectPackageManager(cwd);
+  const workspaceRoot = isWorkspaceRoot(cwd);
   const rootFlag =
-    isWorkspaceRoot(cwd) && manager === "pnpm"
+    workspaceRoot && manager === "pnpm"
       ? " --workspace-root"
-      : isWorkspaceRoot(cwd) && manager === "yarn"
+      : workspaceRoot && manager === "yarn" && !isYarnBerry(cwd)
         ? " --ignore-workspace-root-check"
         : "";
   return `${manager} remove${rootFlag} ${packages.join(" ")}`;
