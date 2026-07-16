@@ -1,9 +1,10 @@
 # Audit 7: Release, Packaging, and Upgrades
 
-> Status: **complete with a publication gate** as of 2026-07-15. The
-> repository-controlled candidate satisfies Audit 7, but npm publication remains
-> blocked by the owner-only settings verification in
-> [#195](https://github.com/RoryGlenn/commitment-issues/issues/195).
+> Status: **complete** as of 2026-07-16. The repository-controlled candidate
+> satisfies Audit 7, and the owner-authenticated npm control in
+> [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) is verified.
+> Publication remains blocked by the unfinished final-verification gates in
+> [#138](https://github.com/RoryGlenn/commitment-issues/issues/138).
 
 ## Baseline
 
@@ -120,7 +121,7 @@ satisfies the prospective link invariant.
 | [#185](https://github.com/RoryGlenn/commitment-issues/issues/185) | Closed by #192: explicit runtime allowlist, package-import closure, and hosted package-manager evidence exclude maintainer-only scripts.                                                                        |
 | [#186](https://github.com/RoryGlenn/commitment-issues/issues/186) | Closed by #193: exact-manifest and clean-install link validation plus canonical GitHub URLs for repository-only targets.                                                                                        |
 | [#187](https://github.com/RoryGlenn/commitment-issues/issues/187) | Closed by #194: time-bounded contributor grants, an effective authority matrix, and a recurring dated access review.                                                                                            |
-| [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Open publication gate owned by Rory: verify the npm trusted publisher, environment binding, publishing access, and token policy in the owner-authenticated package UI before the next npm publish.              |
+| [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Control completed 2026-07-16: owner authentication verified this repository, `publish.yml`, no Environment claim, publish permission, `mfa=publish`, `auth-and-writes` 2FA, and zero tokens.                    |
 
 ## Release-readiness verdict
 
@@ -131,19 +132,23 @@ metadata, provenance, retry/fix-forward behavior, upgrades, rollback guidance,
 and clean installation are covered by tests or recorded evidence. This
 completion unblocks the documentation and governance review in #137.
 
-The project is **not yet authorized to publish**. Issue #195 is a Medium,
-owner-only external-control gate because the local npm CLI is unauthenticated
-and no signed-in browser session was available. Rory must confirm the trusted
-publisher's repository, `publish.yml` workflow, environment binding, publishing
-access, and token policy before the next npm publication. Any mismatch requires
-a reviewed fix and a new preflight; no secret or personal account detail belongs
-in the public evidence.
+The Audit 7 npm publication control is complete. On 2026-07-16, the
+owner-authenticated review confirmed the trusted publisher's repository,
+`publish.yml` workflow, absent Environment claim, and publication permission.
+Package publishing was set to `mfa=publish`, the account uses
+`auth-and-writes` 2FA, and the privacy-bounded token inventory returned zero
+account tokens. The matching 3.4.0 release preflight passed without changing a
+version, tag, Release, registry entry, or package publication.
+
+This Audit 7 result does not authorize an immediate publish. Final release
+readiness remains blocked by the external-fork, OpenSSF, exact-candidate, and
+GUI-client evidence owned by #138.
 
 Issue #175 remains scheduled maintenance rather than a release blocker because
 the current lifecycle already exercises the real artifact and Git/package-manager
 behavior; the refactor changes test structure and diagnostics, not product or
-release correctness. Final launch readiness still requires #137, independent
-verification in #138, and closure of #195.
+release correctness. Final launch readiness still requires independent
+verification in #138.
 
 ## Verification log
 

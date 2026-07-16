@@ -63,7 +63,7 @@ Sensitive project resources include:
 | `v*` release tags                            | [`release-tag-authority`](https://github.com/RoryGlenn/commitment-issues/rules/18965736) permits creation only through the admin bypass. [`immutable-release-tags`](https://github.com/RoryGlenn/commitment-issues/rules/18965738) blocks updates and deletion with no bypass. | Rory alone may create a new version tag after reviewed release preparation. No human or app may routinely move or delete a consumed version tag.                                                                                                                                                  |
 | GitHub Actions, secrets, and environments    | Rory administers Actions settings, repository/environment secrets, and the current non-release `copilot` environment. Workflow tokens receive only each job's declared permissions.                                                                                            | Contributors may propose workflow changes through reviewed pull requests and run only GitHub-permitted workflows. The default workflow token is read-only and cannot approve pull requests. Release jobs receive narrowly scoped OIDC or `contents` permission only after an authorized `v*` tag. |
 | GitHub Releases                              | Personal-repository write collaborators can manage mutable Releases. Current published Releases are immutable; the release workflow creates the reviewed version release using a job token.                                                                                    | Rory and the release workflow only. Contributors must not create or edit Releases. The admin-only version-tag rule prevents a contributor from initiating the npm publication workflow, and immutability prevents later changes to published release assets.                                      |
-| npm package                                  | The public registry lists `roryglenn` as the sole package owner. `.github/workflows/publish.yml` uses GitHub OIDC rather than a stored npm token; the latest published baseline has provenance.                                                                                | Rory controls package ownership and registry settings. The trusted publisher must name this repository and `publish.yml`; verify its exact npm settings and token restriction in the package UI before every release because those settings are not exposed by the unauthenticated CLI.           |
+| npm package                                  | The public registry lists `roryglenn` as the sole package owner. `.github/workflows/publish.yml` uses GitHub OIDC rather than a stored npm token; the latest published baseline has provenance.                                                                                | Rory controls package ownership and registry settings. The 2026-07-16 review verified the trusted publisher, token restriction, and zero-token inventory; recheck before every release.                                                                                                           |
 | Private vulnerability reports                | Private vulnerability reporting is enabled. Repository ownership, not collaborator write, controls security-advisory and private-report administration on this personal repository.                                                                                            | Rory is the sole security contact and coordinates reports under [Security](../.github/SECURITY.md). Contributors receive no private report details unless explicitly added to one advisory for a documented need.                                                                                 |
 | Deploy keys, webhooks, and security settings | Rory is the sole owner/admin. The 2026-07-15 review found no deploy keys and one active integration webhook; no credential or endpoint detail is recorded here.                                                                                                                | Rory only. Review the continued need and least privilege of integrations without copying sensitive configuration into the repository.                                                                                                                                                             |
 
@@ -99,6 +99,33 @@ For each review:
    credentials, emails, private-report identities, or integration endpoints.
 
 ## Review record
+
+### 2026-07-16 — npm release-control follow-up
+
+- **Review owner:** Rory Glenn.
+- **Evidence sources:** owner-authenticated npm CLI web authorization,
+  privacy-bounded trusted-publisher and package-access read-backs, a sanitized
+  account-token count, the checked-in release workflow, and the 3.4.0 release
+  preflight. No credential, token identifier, email address, or account detail
+  is recorded here.
+- **Trusted publisher:** GitHub Actions names
+  `RoryGlenn/commitment-issues` and `publish.yml`, has no Environment claim,
+  and permits package publication. The checked-in workflow matches that
+  identity, uses `id-token: write`, and contains no npm token or release
+  Environment binding.
+- **Publishing access:** package publishing was set to `mfa=publish`, requiring
+  2FA and preventing traditional automation tokens from overriding it. The npm
+  account uses `auth-and-writes` 2FA.
+- **Credentials:** the privacy-bounded account-token inventory returned zero
+  tokens, so there was no obsolete publishing credential to revoke or
+  separately disposition.
+- **Outcome:** the owner-only control in
+  [issue #195](https://github.com/RoryGlenn/commitment-issues/issues/195) is
+  satisfied. `npm run release:preflight -- 3.4.0` passed after the review. No
+  package version, tag, GitHub Release, registry version, or publication was
+  created or changed.
+- **Next scheduled review:** before the 3.4.0 release, or **2026-08-15** if no
+  release occurs first.
 
 ### 2026-07-15
 
