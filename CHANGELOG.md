@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy Husky migration and uninstall cleanup now refuse to follow a linked or
   otherwise uninspectable `.husky` directory, preventing owned-artifact cleanup
   from deleting files outside the repository.
+- Setup and removal now refuse linked or non-regular `package.json`,
+  `.gitignore`, and `.commitmentrc.json` paths. Descriptor and file-identity
+  checks prevent a repository-controlled replacement from redirecting project
+  writes outside the checkout.
 - Packed Markdown links are now checked against the exact npm tarball manifest
   and again after installation. Links from shipped docs to repository-only
   policies, plans, and audit evidence now use canonical GitHub URLs instead of

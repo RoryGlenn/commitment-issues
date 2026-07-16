@@ -221,6 +221,11 @@ production-readiness workstream #130 is consolidated in the
 - **INIT-030** — rerunning setup repairs a deliberately interrupted/partial hook installation idempotently. Fixture: `test/init.test.mjs`.
 - **INIT-031** — uninspectable `.gitignore` and unwritable project files fail before hook installation with bounded diagnostics. Fixture: `test/init-gitignore.test.mjs`, `test/init.test.mjs`.
 - **INIT-032** — shallow clones and submodules install hooks in their own Git common directories without requiring full history. Fixture: `test/repository-shapes.test.mjs`.
+- **INIT-033** — setup and dry-run refuse linked or non-regular mutable project
+  files before package, configuration, gitignore, or hook changes; stable
+  descriptor and identity checks protect the final write boundary. Unit/fixture:
+  `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
+  `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -241,6 +246,10 @@ production-readiness workstream #130 is consolidated in the
 - **UNINST-015** — a failed `core.hooksPath` probe leaves all hook files untouched while package cleanup remains available. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-016** — tilde-based active hook directories are resolved through Git and exact owned hooks are removed from the effective path. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-017** — unknown options and an unwritable package fail before generated hooks or configuration are removed. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-018** — removal and dry-run refuse linked or non-regular package and
+  standalone-configuration paths before project or hook cleanup; configuration
+  deletion rechecks the inspected file identity. Unit/fixture:
+  `test/lib-files.test.mjs`, `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -376,6 +385,11 @@ production-readiness workstream #130 is consolidated in the
 - **SEC-015** — hook repair does not follow hook-file, dangling, or hook-directory symbolic links. Unit/subprocess: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **SEC-016** — pre-push Node reporter output uses a randomized private temporary directory and does not reuse or delete a predictable colliding path. Subprocess: `test/prepush.test.mjs`.
 - **SEC-017** — hook-launched test commands and temporary-repository helpers remove Git's repository-local environment routing; representative `GIT_DIR`, work-tree, index, and counted-config variables cannot redirect fixture initialization into the caller. Unit/subprocess: `test/process.test.mjs`, `test/repository-shapes.test.mjs`, pre-push hook reproduction.
+- **SEC-018** — mutable project-file writes reject symbolic links, non-regular
+  paths, identity replacement, descriptor mismatch, and occupied missing-file
+  paths instead of following repository-controlled links outside the checkout.
+  Unit/subprocess: `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
+  `test/init.test.mjs`, `test/uninstall.test.mjs`.
 
 ### Performance
 
