@@ -615,8 +615,13 @@ test("sensitive access record names effective authority and recurring review", (
   assert.match(roles, /Owner:\*\* Rory Glenn/);
   assert.match(roles, /Cadence:\*\* monthly, before every release/);
   assert.match(roles, /### 2026-07-15/);
+  assert.match(roles, /### 2026-07-16 — npm release-control follow-up/);
   assert.match(roles, /Next scheduled review:\*\* \*\*2026-08-15\*\*/);
   assert.match(roles, /no browser session was available/);
+  assert.match(roles, /RoryGlenn\/commitment-issues/);
+  assert.match(roles, /`publish\.yml`/);
+  assert.match(roles, /`mfa=publish`/);
+  assert.match(roles, /zero\s+tokens/);
   assert.doesNotMatch(
     roles,
     /[a-z\d._%+-]+@[a-z\d.-]+\.[a-z]{2,}/i,
@@ -630,13 +635,16 @@ test("sensitive access record names effective authority and recurring review", (
   );
 });
 
-test("Audit 7 closes with an explicit npm publication gate", () => {
+test("Audit 7 records the completed npm publication control", () => {
   const audit = readText("docs/audits/release-packaging-and-upgrades.md");
   const roles = readText("docs/project-roles.md");
 
-  assert.match(audit, /Status: \*\*complete with a publication gate\*\*/);
+  assert.match(audit, /Status: \*\*complete\*\* as of 2026-07-16/);
   assert.match(audit, /issues\/195/);
-  assert.match(audit, /not yet authorized to publish/);
+  assert.match(audit, /owner-authenticated npm control/);
+  assert.match(audit, /`mfa=publish`/);
+  assert.match(audit, /zero\s+account tokens/);
+  assert.doesNotMatch(audit, /not yet authorized to publish/);
   assert.match(audit, /Accepted and deferred as non-blocking maintenance/);
   assert.match(
     audit,
