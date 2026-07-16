@@ -11,6 +11,7 @@ import {
   devInstallCommand,
   installCommand,
   isWorkspaceRoot,
+  isYarnBerry,
   removeCommand,
   runScript,
 } from "../scripts/lib/package-manager.mjs";
@@ -114,6 +115,19 @@ test("workspace-root detection covers package and pnpm declarations", (t) => {
   assert.equal(isWorkspaceRoot(invalidRoot), false);
 });
 
+test("Yarn Berry detection covers the manager version and project config", (t) => {
+  const dir = tempDir(t);
+  setUserAgent(t, "yarn/4.17.0 npm/? node/v24.0.0");
+  assert.equal(isYarnBerry(dir), true);
+
+  process.env.npm_config_user_agent = "yarn/1.22.22 npm/? node/v24.0.0";
+  assert.equal(isYarnBerry(dir), false);
+  delete process.env.npm_config_user_agent;
+  assert.equal(isYarnBerry(dir), false);
+  fs.writeFileSync(path.join(dir, ".yarnrc.yml"), "nodeLinker: node-modules\n");
+  assert.equal(isYarnBerry(dir), true);
+});
+
 test("runScript and installCommand format for the detected manager", (t) => {
   setUserAgent(t, "pnpm/8 node/v22.11.0");
   assert.equal(runScript("commit:fix"), "pnpm run commit:fix");
@@ -182,5 +196,15 @@ test("workspace-root install and removal hints use required manager flags", (t) 
   assert.equal(
     removeCommand(["commitment-issues"], dir),
     "yarn remove --ignore-workspace-root-check commitment-issues",
+  );
+
+  process.env.npm_config_user_agent = "yarn/4.17.0 node/v24.0.0";
+  assert.equal(
+    devInstallCommand(["eslint@^9", "prettier@^3"], dir),
+    "yarn add -D eslint@^9 prettier@^3",
+  );
+  assert.equal(
+    removeCommand(["commitment-issues"], dir),
+    "yarn remove commitment-issues",
   );
 });
