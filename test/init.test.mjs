@@ -166,6 +166,81 @@ test("init refuses unwritable project files before installing hooks", (t) => {
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
 });
 
+for (const fileName of ["package.json", ".gitignore", ".commitmentrc.json"]) {
+  test(`init refuses a linked ${fileName} before changing project or hook state`, (t) => {
+    const tempDir = createTempRepo();
+    const outsideDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "commitment-outside-project-"),
+    );
+    t.after(() => {
+      cleanupTempRepo(tempDir);
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    });
+
+    const packageBefore = readFile(tempDir, "package.json");
+    const gitignoreBefore = readFile(tempDir, ".gitignore");
+    const outsidePath = path.join(outsideDir, fileName.replace(/^\./, ""));
+    const outsideContent =
+      fileName === "package.json"
+        ? packageBefore
+        : fileName === ".gitignore"
+          ? "outside-only/\n"
+          : "{}\n";
+    writeFile(outsidePath, outsideContent);
+
+    const projectPath = path.join(tempDir, fileName);
+    fs.rmSync(projectPath, { force: true });
+    fs.symlinkSync(outsidePath, projectPath);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.ok(output.includes(`Unsafe project file: ${fileName}.`));
+    assert.match(output, /symbolic link/);
+    assert.match(output, /No files or hooks were changed/);
+    assert.equal(fs.readFileSync(outsidePath, "utf8"), outsideContent);
+    assert.equal(fs.lstatSync(projectPath).isSymbolicLink(), true);
+    if (fileName !== "package.json") {
+      assert.equal(readFile(tempDir, "package.json"), packageBefore);
+    }
+    if (fileName !== ".gitignore") {
+      assert.equal(readFile(tempDir, ".gitignore"), gitignoreBefore);
+    }
+    assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+    assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+  });
+}
+
+test("init dry-run reports a linked project file without mutating it", (t) => {
+  const tempDir = createTempRepo();
+  const outsideDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-outside-project-"),
+  );
+  t.after(() => {
+    cleanupTempRepo(tempDir);
+    fs.rmSync(outsideDir, { recursive: true, force: true });
+  });
+
+  const packagePath = path.join(tempDir, "package.json");
+  const outsidePath = path.join(outsideDir, "package.json");
+  const outsideContent = readFile(tempDir, "package.json");
+  writeFile(outsidePath, outsideContent);
+  fs.rmSync(packagePath);
+  fs.symlinkSync(outsidePath, packagePath);
+
+  const result = runInit(tempDir, ["--dry-run"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Unsafe project file: package\.json/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.equal(fs.readFileSync(outsidePath, "utf8"), outsideContent);
+  assert.equal(fs.lstatSync(packagePath).isSymbolicLink(), true);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
 test("init repairs a partially installed setup on rerun", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

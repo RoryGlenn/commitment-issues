@@ -10,6 +10,7 @@ import {
   createTempRepo,
   fakeGitEnv,
   readFile,
+  repoRoot,
   run,
   setPrecommitConfig,
   writeFile,
@@ -21,6 +22,7 @@ import {
   issueToJsonFinding,
   normalizeProcessOutcome,
   parseJsonOutputArgs,
+  writeAllSync,
 } from "../scripts/lib/json-output.mjs";
 
 const jsonOutputSchema = JSON.parse(
@@ -262,6 +264,65 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
   assert.equal(result.diagnostics[0].severity, "error");
 });
 
+test("complete synchronous writes survive partial pipe progress", () => {
+  const chunks = [];
+  let temporarilyBlocked = true;
+  const writer = (_fd, buffer, offset, length) => {
+    if (temporarilyBlocked) {
+      temporarilyBlocked = false;
+      throw Object.assign(new Error("pipe busy"), { code: "EAGAIN" });
+    }
+    const written = Math.min(length, 7);
+    chunks.push(buffer.subarray(offset, offset + written));
+    return written;
+  };
+
+  writeAllSync(1, "large output: snow 雪\n", writer);
+  writeAllSync(1, Buffer.from("buffer input\n"), writer);
+  assert.equal(
+    Buffer.concat(chunks).toString("utf8"),
+    "large output: snow 雪\nbuffer input\n",
+  );
+  assert.throws(() => writeAllSync(1, "stalled", () => 0), /made no progress/);
+  assert.throws(
+    () => writeAllSync(1, "invalid", () => 0.5),
+    /made no progress/,
+  );
+  assert.throws(
+    () =>
+      writeAllSync(1, "broken", () => {
+        throw Object.assign(new Error("broken pipe"), { code: "EPIPE" });
+      }),
+    /broken pipe/,
+  );
+});
+
+test("large JSON output is complete before an immediate exit", () => {
+  const script = `
+import { createJsonOutput } from "./scripts/lib/json-output.mjs";
+const output = createJsonOutput({ command: "precommit", mode: "advisory" });
+output.addCheck({
+  id: "large-result",
+  status: "passed",
+  summary: "large result",
+  details: { padding: "x".repeat(128 * 1024) },
+});
+output.emit({ status: "clean", exitCode: 0, summary: "complete" });
+process.exit(0);
+`;
+  const result = run(
+    process.execPath,
+    ["--input-type=module", "--eval", script],
+    repoRoot,
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.checks[0].details.padding.length, 128 * 1024);
+  assert.ok(result.stdout.endsWith("\n"));
+});
+
 test("precommit --json reports skipped and clean states", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -362,6 +423,36 @@ test("precommit --json reports advisory findings and a safe command", (t) => {
   assert.match(payload.suggestions[0].command, /commit:fix/);
   assert.doesNotMatch(result.stdout, /Pre-commit suggestions found|╭|╰/);
 });
+
+test(
+  "precommit JSON preserves an exact control-character filename",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const file = "src/json\rline\n\t\b\u001b[31mRED\u001b[39m.mjs";
+    writeFile(path.join(tempDir, file), "export const value = 1;\n");
+    run("git", ["add", "--", file], tempDir);
+
+    const result = cli(tempDir, ["precommit", "--json"]);
+    const payload = jsonPayload(result);
+    const missingTests = payload.findings.find(
+      (finding) => finding.check === "tests",
+    );
+
+    assert.equal(result.stderr, "");
+    assert.deepEqual(missingTests.details, [file]);
+    assert.deepEqual(
+      payload.checks.find((check) => check.id === "missing-tests").details
+        .sourceFiles,
+      [file],
+    );
+    assert.match(
+      result.stdout,
+      /json\\rline\\n\\t\\b\\u001b\[31mRED\\u001b\[39m\.mjs/,
+    );
+  },
+);
 
 test("JSON configuration diagnostics stay structured", (t) => {
   const tempDir = createTempRepo();

@@ -17,7 +17,7 @@ Commitment Issues catches them while they are still cheap.
 
 Catch test failures, staged secrets, and Git mistakes while they are still local.
 
-No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 · Node.js >=22.11.0
+No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0, and Bun 1.3.14 · Node.js >=22.11.0
 
 [Quickstart](#quickstart) · [Why it is different](#why-it-is-different) ·
 [Configuration](docs/configuration.md) · [Migration](docs/migration.md) ·
@@ -151,17 +151,17 @@ preserved and reported for manual composition.
 
 ## Does it fit your project?
 
-| Requirement or boundary | Support                                                                                                                     |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Primary ecosystem       | JavaScript and TypeScript                                                                                                   |
-| Runtime                 | Node.js >=22.11.0                                                                                                           |
-| Linting and formatting  | ESLint 9 or 10 flat config and Prettier 3                                                                                   |
-| Package managers        | Local npm, pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14                                                                    |
-| Yarn Berry              | `node-modules` provisional under [#100](https://github.com/RoryGlenn/commitment-issues/issues/100); Plug'n'Play unsupported |
-| Monorepos               | Root-owned workspaces and linked Git worktrees                                                                              |
-| Existing hooks          | Preserved; compose the command manually                                                                                     |
-| Commit messages         | Optional project-local commitlint and rules                                                                                 |
-| CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0`                                                      |
+| Requirement or boundary | Support                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Primary ecosystem       | JavaScript and TypeScript                                                                                   |
+| Runtime                 | Node.js >=22.11.0                                                                                           |
+| Linting and formatting  | ESLint 9 or 10 flat config and Prettier 3                                                                   |
+| Package managers        | Local npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 |
+| Yarn Plug'n'Play        | Unsupported because the hooks require the project-local `node_modules/.bin` tree                            |
+| Monorepos               | Root-owned workspaces and linked Git worktrees                                                              |
+| Existing hooks          | Preserved; compose the command manually                                                                     |
+| Commit messages         | Optional project-local commitlint and rules                                                                 |
+| CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0`                                      |
 
 Setup details: [compatibility](docs/compatibility.md) ·
 [frameworks](docs/framework-recipes.md) ·

@@ -44,7 +44,7 @@ the normal path cannot safely be used.
 
 ## The single required check: `CI Success`
 
-- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): `needs: [dco, quality, check, pm-lifecycle, codeql]`, `if: always()`, and it exits non-zero unless every needed job reports `success`. This fail-closed check also rejects skipped or otherwise incomplete required jobs.
+- The one required status context is the aggregate job **`CI Success`** in [`.github/workflows/ci.yml`](../../workflows/ci.yml): it needs DCO, quality, OS/Node, shell compatibility, package-manager lifecycle, migration lifecycle, and CodeQL, uses `if: always()`, and exits non-zero unless every needed job reports `success`. This fail-closed check also rejects skipped or otherwise incomplete required jobs.
 - Requiring this **one** context keeps the required-checks list stable even as the test matrix changes. So: add/remove matrix legs freely, but do **not** rename the `CI Success` job (or add a new required job) without updating ruleset `18531369` to match.
 - `dco` checks every pull-request commit and every commit on `main` after the
   operational baseline `265d2e6c9c12349a1c06fa8a9a6c6d3ac957e6d5`.
@@ -55,7 +55,7 @@ the normal path cannot safely be used.
   ancestor. The required CI job is the single DCO workflow owner; do not add a
   duplicate report. Never advance the baseline to silence a failure.
 - The single-lane `quality` job runs actionlint 1.7.12 from a checksum-verified release archive, rejects high-severity dependency advisories, and runs lint plus formatting on Ubuntu/Node 24.
-- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running the test suite once per lane and npm lifecycle integration. Ubuntu's two coverage gates own the test-suite execution there rather than rerunning it first without coverage. Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
+- The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running the test suite once per lane and npm lifecycle integration. Ubuntu's two coverage gates own the test-suite execution there rather than rerunning it first without coverage. Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
 - The `codeql` job calls the scheduled/manual CodeQL workflow as a reusable
   workflow. `CI Success` therefore blocks merges on analysis failures without
   adding a second required status context to the live ruleset. The live ruleset

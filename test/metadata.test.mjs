@@ -120,6 +120,9 @@ test("package-lock root metadata stays in sync with package.json", () => {
 test("package-manager lifecycle CI covers supported OSes and the Node floor", () => {
   const pkg = readJson("package.json");
   const lock = readJson("package-lock.json");
+  const berryFixture = readJson("test/fixtures/yarn-berry/package.json");
+  const berryLock = readJson("test/fixtures/yarn-berry/package-lock.json");
+  const lifecycle = readText("scripts/ci-lifecycle-smoke.mjs");
   const workflow = readText(".github/workflows/ci.yml");
   const job = workflow
     .split(/^ {2}pm-lifecycle:$/m)[1]
@@ -128,7 +131,7 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
 
   assert.match(job, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
   assert.match(job, /node-version: \["24"\]/);
-  for (const manager of ["pnpm", "yarn", "bun"]) {
+  for (const manager of ["pnpm", "yarn", "yarn-berry", "bun"]) {
     assert.match(
       job,
       new RegExp(
@@ -138,13 +141,50 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   }
   assert.equal(pkg.devDependencies.yarn, "1.22.22");
   assert.equal(
+    pkg.scripts["test:lifecycle:yarn-berry"],
+    "node scripts/run-lifecycle-test.mjs yarn-berry",
+  );
+  assert.equal(
     pkg.scripts["test:migration:yarn"],
     "node tools/run-migration-lifecycle-test.mjs yarn",
   );
   assert.equal(lock.packages["node_modules/yarn"].version, "1.22.22");
   assert.match(lock.packages["node_modules/yarn"].integrity, /^sha512-/);
+  assert.equal(berryFixture.dependencies["@yarnpkg/cli-dist"], "4.17.0");
+  assert.equal(
+    berryLock.packages[""].dependencies["@yarnpkg/cli-dist"],
+    "4.17.0",
+  );
+  assert.equal(
+    berryLock.packages["node_modules/@yarnpkg/cli-dist"].version,
+    "4.17.0",
+  );
+  assert.match(
+    berryLock.packages["node_modules/@yarnpkg/cli-dist"].integrity,
+    /^sha512-/,
+  );
   assert.doesNotMatch(job, /npm install --global yarn/u);
+  assert.match(
+    job,
+    /npm ci --ignore-scripts --prefix test\/fixtures\/yarn-berry/u,
+  );
+  assert.match(
+    job,
+    /npm audit --audit-level=high --prefix test\/fixtures\/yarn-berry/u,
+  );
+  assert.match(job, /Yarn Classic 1\.22\.22 lifecycle integration/u);
+  assert.match(job, /Yarn Berry 4\.17\.0 node-modules lifecycle integration/u);
   assert.match(job, /bun-version: "1\.3\.14"/);
+  assert.match(
+    lifecycle,
+    /function yarnBerryTarballSpec\(tarball\)[\s\S]*?sha256\(artifact\) === sha256\(tarball\)[\s\S]*?return "commitment-issues@file:\.\.\/yarn-berry-artifact\/commitment-issues\.tgz"/u,
+    "Yarn Berry should receive an identified, digest-checked relative tarball locator",
+  );
+  assert.match(
+    lifecycle,
+    /case "yarn-berry":[\s\S]*?yarnBerryTarballSpec\(tarball\)[\s\S]*?case "bun":/u,
+    "the Yarn Berry install should use the portable staged locator",
+  );
 });
 
 test("public Bun support stays pinned to the exact CI-tested version", () => {
@@ -163,6 +203,22 @@ test("public Bun support stays pinned to the exact CI-tested version", () => {
       /Bun 1\.3(?!\.14)/,
       `${file} should not broaden Bun support beyond CI evidence`,
     );
+  }
+});
+
+test("public Yarn support keeps Classic and Berry evidence distinct", () => {
+  for (const file of [
+    "README.md",
+    "docs/compatibility.md",
+    "docs/faq.md",
+    "docs/scenario-coverage.md",
+    "docs/yarn-berry.md",
+  ]) {
+    const contents = readText(file);
+    assert.match(contents, /Yarn Classic 1\.22\.22/u);
+    assert.match(contents, /Yarn Berry 4\.17\.0/u);
+    assert.match(contents, /nodeLinker: node-modules/u);
+    assert.match(contents, /Plug'n'Play[^.\n]*(?:unsupported|not supported)/iu);
   }
 });
 
@@ -476,7 +532,7 @@ test("CI Success includes DCO and both DCO baselines stay documented", () => {
 
   assert.match(
     ci,
-    /needs: \[dco, quality, check, pm-lifecycle, migration-lifecycle, codeql\]/,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
   assert.match(ci, /fetch-depth: 0/);

@@ -16,6 +16,32 @@ const PROCESS_OUTCOMES = new Set([
   "missing-tool",
 ]);
 
+const RETRYABLE_WRITE_ERRORS = new Set(["EAGAIN", "EINTR"]);
+
+/**
+ * Write a complete value even when a pipe accepts only part of the buffer.
+ * @param {number} fd - Destination file descriptor.
+ * @param {string|Buffer} value - Bytes to write.
+ * @param {typeof fs.writeSync} [writer=fs.writeSync] - Injectable writer.
+ */
+export function writeAllSync(fd, value, writer = fs.writeSync) {
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  let offset = 0;
+  while (offset < buffer.length) {
+    let written;
+    try {
+      written = writer(fd, buffer, offset, buffer.length - offset);
+    } catch (error) {
+      if (RETRYABLE_WRITE_ERRORS.has(error.code)) continue;
+      throw error;
+    }
+    if (!Number.isInteger(written) || written <= 0) {
+      throw new Error("Synchronous output write made no progress");
+    }
+    offset += written;
+  }
+}
+
 /**
  * Allowed hook outcomes become advisory whenever another check has already
  * produced a finding; otherwise the caller's clean/disabled state is retained.
@@ -186,9 +212,9 @@ export function createJsonOutput(options) {
     emit(resultOptions) {
       const payload = this.result(resultOptions);
       // Entry scripts intentionally use immediate process.exit calls to retain
-      // their hook exit semantics. A synchronous write prevents a large JSON
-      // result from being truncated when stdout is a pipe.
-      fs.writeSync(process.stdout.fd, `${JSON.stringify(payload)}\n`);
+      // their hook exit semantics. Pipes may accept only part of a synchronous
+      // write, so drain the complete result before exiting.
+      writeAllSync(process.stdout.fd, `${JSON.stringify(payload)}\n`);
       return payload;
     },
   };

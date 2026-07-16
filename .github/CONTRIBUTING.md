@@ -151,11 +151,17 @@ Use `npm run lint:fix` and `npm run format` to apply safe mechanical fixes.
 
 Also run the checks that match your change:
 
-| Change                                                             | Additional validation                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Published runtime code in `scripts/`                               | `npm run test:coverage`                                      |
-| Install, init, doctor, hook wiring, uninstall, or package behavior | `npm run test:lifecycle:npm`                                 |
-| Package contents, shipped Markdown links, or release tooling       | `npm run test:lifecycle:npm` and the relevant release checks |
+| Change                                                             | Additional validation                                             |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Published runtime code in `scripts/`                               | `npm run test:coverage`                                           |
+| Install, init, doctor, hook wiring, uninstall, or package behavior | `npm run test:lifecycle:npm`                                      |
+| Shell launch, hook portability, or GUI-environment behavior        | `SHELL_COMPAT_TARGET=sh npm run test:shell-compat` plus hosted CI |
+| Package contents, shipped Markdown links, or release tooling       | `npm run test:lifecycle:npm` and the relevant release checks      |
+| Hook traversal, discovery, process argv, or output volume          | `npm run benchmark:hooks -- --tier large --enforce-budgets`       |
+
+Run the performance command on a controlled host and include its machine and
+report summary in the pull request. Timing budgets are intentionally excluded
+from ordinary CI; see [Hook performance and scaling](../docs/performance.md).
 
 The runtime coverage gate requires 100% line, branch, and function coverage.
 See the [Runtime Coverage Policy](../docs/branch-coverage.md) for the exact source
@@ -168,8 +174,9 @@ node --test test/<name>.test.mjs
 ```
 
 CI tests Ubuntu, macOS, and Windows on Node.js 22.11.0 and 24. It also exercises
-npm, pnpm, Yarn, and Bun package lifecycles. Keep changes cross-platform even if
-you develop on only one operating system.
+npm, pnpm, Yarn, and Bun package lifecycles plus packed launch scenarios for
+POSIX `sh`, Bash, Fish, Zsh, Windows PowerShell, and Command Prompt. Keep
+changes cross-platform even if you develop on only one operating system.
 
 ## Coding style
 

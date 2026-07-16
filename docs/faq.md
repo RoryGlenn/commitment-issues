@@ -137,12 +137,11 @@ defines the complete trust boundary.
 
 The supported v3 product targets JavaScript and TypeScript projects running
 Node.js >=22.11.0. Local installs through npm, pnpm 10, Yarn Classic 1.22.22,
-and Bun 1.3.14 are supported. TypeScript file discovery is built in, while parsing
-and lint rules remain owned by the project's ESLint setup.
+Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 are supported.
+TypeScript file discovery is built in, while parsing and lint rules remain
+owned by the project's ESLint setup.
 
-Yarn Berry with `nodeLinker: node-modules` is provisional until
-[#100](https://github.com/RoryGlenn/commitment-issues/issues/100) adds dedicated
-evidence; Plug'n'Play is unsupported. Global installs are unsupported because
+Yarn Plug'n'Play is unsupported. Global installs are unsupported because
 hooks intentionally invoke the project-local bin. Install once at a monorepo
 root and use root-owned configuration/tools. See the
 [compatibility](compatibility.md), [Yarn Berry](yarn-berry.md),
@@ -155,10 +154,16 @@ The main matrix runs on Ubuntu, macOS, and Windows. Generated hooks are POSIX
 `sh`; Git for Windows uses its bundled shell. Node.js and the local binary must
 still be reachable in the environment inherited by Git.
 
-Dedicated coverage for every shell and GUI client is not complete. Until
-[#83](https://github.com/RoryGlenn/commitment-issues/issues/83) closes, the
-project does not claim blanket Bash, Zsh, Fish, PowerShell, Command Prompt, VS
-Code, JetBrains, or GitHub Desktop compatibility.
+Required CI launches the packed artifact through Linux `/bin/sh`, Bash, and
+Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command Prompt. Each
+lane performs a real commit and push with a stripped `PATH`; the hooks
+themselves continue to run under POSIX `sh` (Git's bundled `sh` on Windows).
+
+VS Code Source Control, one current IntelliJ IDEA or PyCharm version, and GitHub
+Desktop on macOS and Windows use a separate manual pre-release checklist. An
+integrated terminal proves its selected shell, not the GUI client's inherited
+environment. See the [compatibility matrix](compatibility.md) and the
+[GUI checklist](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/git-client-release-checklist.md).
 
 ## Should I use this in CI?
 

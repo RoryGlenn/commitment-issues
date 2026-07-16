@@ -18,6 +18,8 @@ not installed with the npm package unless users need it offline.
 
 - [Compatibility and installation support](compatibility.md) — canonical
   package-manager, Node, OS, shell, client, and lifecycle boundary
+- [GUI Git-client release checklist](git-client-release-checklist.md) — manual
+  VS Code, JetBrains, and GitHub Desktop candidate evidence
 - [Monorepos and workspaces](monorepo.md)
 - [Yarn Berry](yarn-berry.md)
 - [Framework recipes](framework-recipes.md)
@@ -50,6 +52,7 @@ They are evidence, not living descriptions of later code.
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
   health, package contents, and release housekeeping
 - [Runtime coverage policy](branch-coverage.md)
+- [Hook performance and scaling](performance.md)
 - [Scenario coverage](scenario-coverage.md)
 - [Core CLI and Git behavior audit](audits/core-cli-git.md)
 - [Security, secrets, paths, and subprocesses audit](audits/security-secrets-paths-subprocesses.md)

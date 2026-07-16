@@ -29,10 +29,11 @@ focused regression coverage:
    blocks the push.
 
 No dead production code, persistent fixture state, broad coverage suppression,
-silent test skip, snapshot masking, or repeatable flake was found. Large-repo
-performance remains separately owned by
-[#95](https://github.com/RoryGlenn/commitment-issues/issues/95); this audit does
-not duplicate or close it.
+silent test skip, snapshot masking, or repeatable flake was found. At this
+audit's snapshot, large-repo performance remained separately owned by
+[#95](https://github.com/RoryGlenn/commitment-issues/issues/95); the later
+[hook performance baseline](../performance.md) completes that follow-up without
+changing this audit's historical findings.
 
 ## Scope inventory
 
@@ -65,14 +66,14 @@ maintenance exclusions, and meaningful-coverage rules are in
 
 ## Findings and dispositions
 
-| Severity | Evidence                                                                                      | Impact                                                                                          | Disposition                                                                                                                                 |
-| -------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Medium   | `.github/workflows/ci.yml:123-142`; regression at `test/test-quality.test.mjs:124-135`        | A skipped or otherwise incomplete required dependency could leave `CI Success` green.           | Fixed fail-closed: DCO, `check`, and `pm-lifecycle` must each report exactly `success`.                                                     |
-| Low      | `scripts/lib/logo.mjs:8-37`; direct evidence at `test/logo.test.mjs:10-23`                    | Coverage execution did not prove the visible wordmark, tagline, layout, or fresh return value.  | Added an exact ANSI-normalized output assertion and caller-mutation regression.                                                             |
-| Low      | `tools/gen-message-state-svgs.mjs:150-196`; regression at `test/visual-assets.test.mjs:48-81` | Generator and committed gallery assets could drift while existing static SVG checks still pass. | Added isolated regeneration, exact 64-file comparison, gallery references, and automatic cleanup.                                           |
-| Low      | selection evidence at `test/prepush.test.mjs:159-240`                                         | The combined rename path was implemented but not explicitly protected against a future bypass.  | Added a real-Git source+test rename whose failing renamed test must be selected and block.                                                  |
-| Accepted | `scripts/init.mjs:264`; `scripts/uninstall.mjs:211`                                           | A filesystem can change after successful preflight and before the guarded write.                | Keep the two defensive race handlers suppressed; preflight/error behavior is fully exercised and the exact suppressions are locked by test. |
-| Deferred | issue #95                                                                                     | Very large repositories may expose test-selection latency or process-volume limits.             | Keep the existing dedicated performance/benchmark issue open; no duplicate finding created.                                                 |
+| Severity  | Evidence                                                                                      | Impact                                                                                          | Disposition                                                                                                                                 |
+| --------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Medium    | `.github/workflows/ci.yml:123-142`; regression at `test/test-quality.test.mjs:124-135`        | A skipped or otherwise incomplete required dependency could leave `CI Success` green.           | Fixed fail-closed: DCO, `check`, and `pm-lifecycle` must each report exactly `success`.                                                     |
+| Low       | `scripts/lib/logo.mjs:8-37`; direct evidence at `test/logo.test.mjs:10-23`                    | Coverage execution did not prove the visible wordmark, tagline, layout, or fresh return value.  | Added an exact ANSI-normalized output assertion and caller-mutation regression.                                                             |
+| Low       | `tools/gen-message-state-svgs.mjs:150-196`; regression at `test/visual-assets.test.mjs:48-81` | Generator and committed gallery assets could drift while existing static SVG checks still pass. | Added isolated regeneration, exact 64-file comparison, gallery references, and automatic cleanup.                                           |
+| Low       | selection evidence at `test/prepush.test.mjs:159-240`                                         | The combined rename path was implemented but not explicitly protected against a future bypass.  | Added a real-Git source+test rename whose failing renamed test must be selected and block.                                                  |
+| Accepted  | `scripts/init.mjs:264`; `scripts/uninstall.mjs:211`                                           | A filesystem can change after successful preflight and before the guarded write.                | Keep the two defensive race handlers suppressed; preflight/error behavior is fully exercised and the exact suppressions are locked by test. |
+| Follow-up | issue #95                                                                                     | Very large repositories may expose test-selection latency or process-volume limits.             | Kept as a dedicated benchmark issue; the later bounded baseline and Windows argv analysis are recorded in `docs/performance.md`.            |
 
 The CI regression was demonstrated red before the workflow fix: the new focused
 test failed because the old wildcard expression did not require explicit
@@ -171,7 +172,8 @@ checks.
 The workstream is complete when the verification table above is final and the
 reviewed pull request is linked to #132. Every production module and repository
 tool is test-owned, the coverage denominator and suppressions are fail-closed,
-deleted/renamed paths cannot evade local or CI evidence, all concrete findings
-are fixed, and the sole remaining performance gap stays explicitly owned by
-#95. Merge of this workstream unblocks #133 and #134 as recorded in the audit
+deleted/renamed paths cannot evade local or CI evidence, and all concrete
+findings are fixed. The performance gap was explicitly owned by #95 rather
+than being duplicated here and is now covered by the later bounded benchmark.
+Merge of this workstream unblocks #133 and #134 as recorded in the audit
 sequence.

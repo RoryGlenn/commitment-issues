@@ -60,7 +60,8 @@ test("init fails before mutation when .gitignore cannot be inspected", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 1);
-  assert.match(output, /Could not inspect \.gitignore/);
+  assert.match(output, /Unsafe project file: \.gitignore/);
+  assert.match(output, /not a regular file/);
   assert.match(output, /No files or hooks were changed/);
   assert.doesNotMatch(output, /node:fs|EISDIR|\s+at .*init\.mjs/);
   assert.equal(readFile(tempDir, "package.json"), packageBefore);
@@ -73,3 +74,35 @@ test("init fails before mutation when .gitignore cannot be inspected", (t) => {
     false,
   );
 });
+
+test(
+  "init reports a regular .gitignore that cannot be read",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const gitignorePath = path.join(tempDir, ".gitignore");
+    t.after(() => {
+      fs.chmodSync(gitignorePath, 0o600);
+      cleanupTempRepo(tempDir);
+    });
+    const packageBefore = readFile(tempDir, "package.json");
+    fs.chmodSync(gitignorePath, 0o000);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.match(output, /Could not inspect \.gitignore/);
+    assert.match(output, /No files or hooks were changed/);
+    assert.doesNotMatch(output, /node:fs|EACCES|\s+at .*init\.mjs/);
+    assert.equal(readFile(tempDir, "package.json"), packageBefore);
+    assert.equal(
+      fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-commit")),
+      false,
+    );
+    assert.equal(
+      fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-push")),
+      false,
+    );
+  },
+);

@@ -141,6 +141,59 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run coverage:check
 
+  shell-compat:
+    name: ${{ matrix.name }} packed shell lifecycle
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux /bin/sh
+            os: ubuntu-latest
+            target: sh
+          - name: Linux Bash
+            os: ubuntu-latest
+            target: bash
+          - name: Linux Fish
+            os: ubuntu-latest
+            target: fish
+          - name: macOS /bin/sh
+            os: macos-latest
+            target: sh
+          - name: macOS Zsh
+            os: macos-latest
+            target: zsh
+          - name: Windows PowerShell
+            os: windows-latest
+            target: powershell
+          - name: Windows Command Prompt
+            os: windows-latest
+            target: cmd
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install Fish interpreter
+        if: matrix.target == 'fish'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install --yes fish
+
+      - run: npm ci
+
+      - name: Run packed lifecycle from target shell
+        env:
+          SHELL_COMPAT_TARGET: ${{ matrix.target }}
+        run: npm run test:shell-compat
+
   pm-lifecycle:
     name: ${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.pm }} lifecycle
     runs-on: ${{ matrix.os }}
@@ -149,7 +202,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pm: [pnpm, yarn, bun]
+        pm: [pnpm, yarn, yarn-berry, bun]
         os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: ["24"]
         include:
@@ -157,6 +210,9 @@ jobs:
             os: ubuntu-latest
             node-version: "22.11.0"
           - pm: yarn
+            os: ubuntu-latest
+            node-version: "22.11.0"
+          - pm: yarn-berry
             os: ubuntu-latest
             node-version: "22.11.0"
           - pm: bun
@@ -188,13 +244,25 @@ jobs:
 
       - run: npm ci
 
+      - name: Install pinned Yarn Berry 4.17.0 CLI fixture
+        if: matrix.pm == 'yarn-berry'
+        run: npm ci --ignore-scripts --prefix test/fixtures/yarn-berry
+
+      - name: Audit pinned Yarn Berry CLI fixture
+        if: matrix.pm == 'yarn-berry'
+        run: npm audit --audit-level=high --prefix test/fixtures/yarn-berry
+
       - name: pnpm lifecycle integration (separate from runtime coverage)
         if: matrix.pm == 'pnpm'
         run: npm run test:lifecycle:pnpm
 
-      - name: Yarn lifecycle integration (separate from runtime coverage)
+      - name: Yarn Classic 1.22.22 lifecycle integration (separate from runtime coverage)
         if: matrix.pm == 'yarn'
         run: npm run test:lifecycle:yarn
+
+      - name: Yarn Berry 4.17.0 node-modules lifecycle integration (separate from runtime coverage)
+        if: matrix.pm == 'yarn-berry'
+        run: npm run test:lifecycle:yarn-berry
 
       - name: Bun lifecycle integration (separate from runtime coverage)
         if: matrix.pm == 'bun'
@@ -233,7 +301,16 @@ jobs:
   ci-success:
     name: CI Success
     if: always()
-    needs: [dco, quality, check, pm-lifecycle, migration-lifecycle, codeql]
+    needs:
+      [
+        dco,
+        quality,
+        check,
+        shell-compat,
+        pm-lifecycle,
+        migration-lifecycle,
+        codeql,
+      ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -243,6 +320,7 @@ jobs:
             needs.dco.result != 'success' ||
             needs.quality.result != 'success' ||
             needs.check.result != 'success' ||
+            needs['shell-compat'].result != 'success' ||
             needs['pm-lifecycle'].result != 'success' ||
             needs['migration-lifecycle'].result != 'success' ||
             needs.codeql.result != 'success'

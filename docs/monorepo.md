@@ -57,12 +57,13 @@ packages/
       scripts/ (workspace test command)
 ```
 
-| Manager | Workspace metadata exercised                 | Install layout covered                      |
-| ------- | -------------------------------------------- | ------------------------------------------- |
-| npm     | root `package.json#workspaces`               | npm's default root `node_modules` layout    |
-| pnpm    | root `workspaces` plus `pnpm-workspace.yaml` | pnpm's default linked `node_modules` layout |
-| Yarn    | root `package.json#workspaces`               | Yarn Classic's default hoisted layout       |
-| Bun     | root `package.json#workspaces`               | Bun's default workspace layout              |
+| Manager      | Workspace metadata exercised                   | Install layout covered                        |
+| ------------ | ---------------------------------------------- | --------------------------------------------- |
+| npm          | root `package.json#workspaces`                 | npm's default root `node_modules` layout      |
+| pnpm         | root `workspaces` plus `pnpm-workspace.yaml`   | pnpm's default linked `node_modules` layout   |
+| Yarn Classic | root `package.json#workspaces`                 | Yarn Classic's default hoisted layout         |
+| Yarn Berry   | root `package.json#workspaces` + `.yarnrc.yml` | Yarn 4.17.0 `nodeLinker: node-modules` layout |
+| Bun          | root `package.json#workspaces`                 | Bun's default workspace layout                |
 
 For each manager, the suite installs the packed package at the root, runs
 both packages' test scripts through the manager's own workspace selector, runs
@@ -101,6 +102,17 @@ For Yarn Classic, acknowledge the root install explicitly:
 ```bash
 yarn add --dev --ignore-workspace-root-check commitment-issues eslint@^9 prettier@^3
 ```
+
+For Yarn Berry 4.17.0 with `nodeLinker: node-modules`, run the root command
+without Classic's unsupported workspace-root flag:
+
+```bash
+yarn add --dev commitment-issues eslint@^9 prettier@^3
+yarn run commitment-issues init
+```
+
+After a fresh Berry clone, run `yarn run commitment-issues doctor` explicitly;
+Berry does not run npm's `prepare` lifecycle during install.
 
 ## Scoping checks per package
 
