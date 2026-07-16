@@ -34,13 +34,13 @@ release and supply-chain audit (#136): a matching `v*` tag is still not proven
 to originate from reviewed `main`. That is an explicit downstream disposition,
 not a claim that the release boundary is safe already.
 
-The remaining Medium settings change is tracked in
+The Medium CodeQL settings finding was resolved on 2026-07-16 under
 [#177](https://github.com/RoryGlenn/commitment-issues/issues/177). Required CI
-proves that CodeQL analysis completed. Governance now selects CodeQL
-tool-severity Errors and High-or-Critical security alerts as the launch
-threshold, but the alert rule remains supplemental until the owner authorizes
-the live ruleset mutation and positive and negative pull-request evidence is
-recorded.
+proves that CodeQL analysis completed; the separate live ruleset now blocks
+CodeQL tool-severity Errors and High-or-Critical security alerts. Disposable
+[PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216) proved the
+negative path, and a clean follow-up pull request completes the positive path
+before #177 closes.
 
 ## Audited inventory
 
@@ -83,12 +83,13 @@ PM lifecycles ─────┤
 CodeQL ────────────┘
 ```
 
-This folds CodeQL execution into the existing gate without adding a second live
-ruleset context. A skipped, cancelled, timed-out, or failed analysis fails
-closed. The live ruleset does not enable code-scanning alert merge protection,
-so a completed CodeQL scan may still succeed while reporting a new alert.
-Render-demo, publish-workflow validation, Scorecard, Snyk, alert findings, and
-GitHub-managed scanners remain supplemental for the reasons recorded below.
+This folds CodeQL execution into the existing gate without adding another
+required status context. A skipped, cancelled, timed-out, or failed analysis
+fails closed. The separate live code-scanning rule evaluates the completed
+scan's alerts and blocks Errors plus High/Critical security findings.
+Render-demo, publish-workflow validation, Scorecard, Snyk, lower-severity alert
+findings, and GitHub-managed scanners remain supplemental for the reasons
+recorded below.
 
 ## Workflow and evidence matrix
 
@@ -205,7 +206,7 @@ fixes. Documentation-only corrections were checked by the final suite.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Medium   | `b882972:.github/workflows/ci.yml:16-159`                                                                                                                                 | Workflow syntax and expression semantics depended only on GitHub accepting the file after push.                                               | Fixed: checksum-verified actionlint is part of required `quality`; local actionlint and zizmor runs supplement it.                         |
 | Medium   | `b882972:.github/workflows/ci.yml:140-154`; `b882972:.github/workflows/codeql.yml:3-10`                                                                                   | CodeQL analysis ran separately, so successful completion was not a dependency of required `CI Success`.                                       | Fixed: reusable CodeQL analysis is now an exact-success dependency of the aggregate.                                                       |
-| Medium   | `4d1a2a8:.github/workflows/codeql.yml:38-47`; `4d1a2a8:.github/workflows/ci.yml:206-230`; live ruleset `18531369`                                                         | A successful CodeQL job can report a new alert without the alert itself blocking the merge.                                                   | Prepared in #177: block CodeQL Errors and High/Critical security alerts; live activation and positive/negative evidence remain.            |
+| Medium   | `4d1a2a8:.github/workflows/codeql.yml:38-47`; `4d1a2a8:.github/workflows/ci.yml:206-230`; live ruleset `18531369`; PR #216                                                | A successful CodeQL job could report a new alert without the alert itself blocking the merge.                                                 | Fixed on 2026-07-16: the ruleset blocks CodeQL Errors and High/Critical security alerts; PR #216 proved the negative path.                 |
 | Medium   | Fork PR #166 run `29350550947`; same-repository PR #178 run `29381571143`                                                                                                 | The exact post-refactor graph has not run end to end with an external fork's downgraded token.                                                | Tracked in #180: use a disposable or natural fork revision to validate reusable CodeQL, the expanded matrix, and the aggregate together.   |
 | Medium   | `b882972:.github/workflows/repo-health.yml:53-55`; `b882972:.github/workflows/ci.yml:16-159`                                                                              | High-severity dependency findings were weekly and `continue-on-error`, so vulnerable changes could merge and scheduled failures stayed green. | Fixed: the dependency audit gates required `quality` and now fails weekly health.                                                          |
 | Medium   | `b882972:.github/workflows/publish.yml:1-26`                                                                                                                              | Different release tags could publish concurrently and race npm's `latest` dist-tag.                                                           | Fixed: one package-wide `queue: max` group serializes tags and retains up to GitHub's 100 pending runs.                                    |
@@ -226,7 +227,6 @@ fixes. Documentation-only corrections were checked by the final suite.
 | The lifecycle test packs its own artifact before the final release tarball is packed | Release artifact sequencing belongs to #136; structured pack-once plumbing and diagnostics overlap #175                                                                                                                                   |
 | Broken relative Markdown links are not checked                                       | #141 owns a deterministic, network-free repository checker                                                                                                                                                                                |
 | Render-demo and publish validation are not universal required contexts               | Accepted: path-specific contexts cannot be required safely for unrelated PRs; reviewers see their results, while required tests/actionlint cover the always-applicable policy                                                             |
-| CodeQL alerts do not themselves block merging                                        | #177 selects Errors and High/Critical security alerts for [merge protection](https://docs.github.com/en/code-security/concepts/code-scanning/merge-protection); live activation and evidence remain                                       |
 | Snyk, Scorecard, Copilot, and platform scanners are not `CI Success` dependencies    | Accepted as supplemental/settings-owned evidence; required audit plus CodeQL execution cover deterministic repository-controlled gates                                                                                                    |
 | SLSA reusable workflow uses a semantic tag and owns its internal timeout             | Required upstream contract; exact allowlisted exception, documented and Dependabot-monitored                                                                                                                                              |
 | Yarn Classic and Berry need separate executable identities                           | Both are exact and integrity-locked: Classic 1.22.22 remains in the root npm lockfile, while the isolated Berry fixture pins `@yarnpkg/cli-dist` 4.17.0 without replacing Classic's local bin                                             |
@@ -305,9 +305,13 @@ Hosted completion evidence:
 - [fork PR #166](https://github.com/RoryGlenn/commitment-issues/pull/166):
   fork-safe execution and CodeQL passed while unsigned DCO and the aggregate
   failed closed
-- Live ruleset `18531369` remained active and strict with only `CI Success`
-  required; repository workflow permissions remained read-only by default and
-  first-time fork contributors still require approval
+- Live ruleset `18531369` remains active and strict with `CI Success` as its
+  only required status context plus the CodeQL alert rule; repository workflow
+  permissions remain read-only by default and first-time fork contributors
+  still require approval
+- [Disposable PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216):
+  the CodeQL analysis job succeeded, then the alert rule failed its merge check
+  on Error/Critical command injection and kept the PR blocked
 
 Supporting baseline and scheduled evidence:
 
@@ -324,7 +328,8 @@ timeout/concurrency policies, semantic workflow validation, required CodeQL
 execution and dependency scanning, non-redundant static work, a support-aligned
 platform matrix, and documented supplemental/settings-owned boundaries. After a
 hosted pull request and the resulting `main` push validated the new reusable and
-aggregate paths, Audit 6/9 is complete. Release authority remains explicitly
-open for Audit 7/9, and CodeQL alert merge protection remains separately tracked
-in #177. Current-architecture external-fork validation remains separately
-tracked in #180 rather than being hidden by this completion claim.
+aggregate paths, Audit 6/9 is complete. CodeQL alert merge protection is now
+active and independently evidenced under #177. Release authority remains
+explicitly open for Audit 7/9. Current-architecture external-fork validation
+remains separately tracked in #180 rather than being hidden by this completion
+claim.

@@ -23,7 +23,7 @@ If you add a new root-level community file, verify it isn't shipped with `npm pa
 
 - Protection for `main` is **ruleset id `18531369`** (name `"main"`, targets `~DEFAULT_BRANCH`). It is **not** legacy branch protection — edit the ruleset, not the old settings page.
 - Rules: `deletion`, `non_fast_forward`, `required_linear_history`,
-  `pull_request`, and `required_status_checks`.
+  `pull_request`, `required_status_checks`, and `code_scanning`.
 - Pull requests require **1 approval**, dismiss stale approvals after a push,
   require approval of the most recent push by someone other than the pusher,
   require all review threads to be resolved, and allow squash + rebase only.
@@ -58,15 +58,12 @@ the normal path cannot safely be used.
 - The matrix `check` job runs on `{ubuntu, macos, windows} × Node {22.11.0, 24}` with `COMMITMENT_ISSUES: 0`, running the test suite once per lane and npm lifecycle integration. Ubuntu's two coverage gates own the test-suite execution there rather than rerunning it first without coverage. Node 24 also verifies badge freshness. `pm-lifecycle` runs pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 on all three OSes at Node 24 plus exact-minimum-Node lanes on Ubuntu. (`COMMITMENT_ISSUES=0` skips generated hooks — tests must strip it and legacy `HUSKY` from subprocess env; see the `testing-and-coverage` skill.)
 - The `codeql` job calls the scheduled/manual CodeQL workflow as a reusable
   workflow. `CI Success` therefore blocks merges on analysis failures without
-  adding a second required status context to the live ruleset. The live ruleset
-  does not enable code-scanning alert merge protection, so a completed scan can
-  still succeed while reporting a new alert; reviewers must inspect that
-  supplemental signal.
-- Issue #177 selects `CodeQL` tool-severity `errors` and security severity
-  `high_or_higher` as the launch alert thresholds. Activation is still an
-  owner-confirmed shared-infrastructure change until the issue records the live
-  read-back and positive/negative pull-request evidence. Append this exact rule
-  to the otherwise unchanged full ruleset payload:
+  adding another required status context. The separate live `code_scanning`
+  rule evaluates the alerts produced by a successful analysis.
+- Ruleset `18531369` has enforced `CodeQL` tool-severity `errors` and security
+  severity `high_or_higher` since 2026-07-16. Its full read-back preserved every
+  deletion, history, review, required-check, and admin-bypass control. The rule
+  is:
   ```json
   {
     "type": "code_scanning",
@@ -81,12 +78,14 @@ the normal path cannot safely be used.
     }
   }
   ```
-  After the PUT, read the ruleset back and verify every pre-existing rule and
-  bypass actor before testing one clean PR and one disposable PR with an
-  in-scope alert. GitHub excludes merge-queue groups and Dependabot PRs analyzed
-  by default setup; this repository currently uses advanced setup and no merge
-  queue. Roll back by restoring the captured full payload with only the
-  `code_scanning` rule removed; never remove required CodeQL from `CI Success`.
+  Disposable [PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216)
+  proved the negative path: analysis completed, then the ruleset's `CodeQL`
+  check failed on an Error/Critical command-injection alert and kept the PR
+  blocked. Issue #177 records the clean positive control. GitHub excludes
+  merge-queue groups and Dependabot PRs analyzed by default setup; this
+  repository currently uses advanced setup and no merge queue. Roll back by
+  restoring the captured full payload with only the `code_scanning` rule
+  removed; never remove required CodeQL from `CI Success`.
 
 ## Dependabot ([`.github/dependabot.yml`](../../dependabot.yml))
 
