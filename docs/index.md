@@ -61,6 +61,7 @@ They are evidence, not living descriptions of later code.
 - [Package managers and cross-platform behavior audit](audits/package-managers-and-cross-platform.md)
 - [CI/CD and GitHub Actions audit](audits/ci-cd-and-github-actions.md)
 - [Release, packaging, and upgrades audit](audits/release-packaging-and-upgrades.md)
+- [Documentation, governance, and promotional assets audit](audits/documentation-governance-and-promotional-assets.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)
