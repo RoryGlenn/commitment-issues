@@ -8,8 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  assertCleanHookPayload,
+  enforceBenchmarkReport,
   estimatedWindowsCommandUnits,
+  hookRunsAreClean,
   itemsWithinWindowsBudget,
   parseOptions,
   PERFORMANCE_TIERS,
@@ -46,13 +47,40 @@ test("benchmark options reject unknown tiers before creating a fixture", () => {
   });
 });
 
-test("full-hook benchmarks reject advisory results", () => {
-  assert.doesNotThrow(() =>
-    assertCleanHookPayload({ status: "clean" }, "precommit"),
+test("full-hook benchmarks reject advisory results with their report", () => {
+  assert.equal(hookRunsAreClean(null, null), true);
+  assert.equal(
+    hookRunsAreClean({ status: "clean" }, { status: "clean" }),
+    true,
   );
+  assert.equal(
+    hookRunsAreClean({ status: "advisory" }, { status: "clean" }),
+    false,
+  );
+
+  const advisoryReport = {
+    conclusions: { hookRunsPass: false, hostBudgetsPass: true },
+  };
   assert.throws(
-    () => assertCleanHookPayload({ status: "advisory" }, "prepush"),
-    /prepush hook must report a clean status; received advisory/u,
+    () => enforceBenchmarkReport(advisoryReport, false),
+    (error) => {
+      assert.match(error.message, /non-clean status/u);
+      assert.equal(error.report, advisoryReport);
+      return true;
+    },
+  );
+
+  const budgetReport = {
+    conclusions: { hookRunsPass: true, hostBudgetsPass: false },
+  };
+  assert.doesNotThrow(() => enforceBenchmarkReport(budgetReport, false));
+  assert.throws(
+    () => enforceBenchmarkReport(budgetReport, true),
+    (error) => {
+      assert.match(error.message, /host budgets regressed/u);
+      assert.equal(error.report, budgetReport);
+      return true;
+    },
   );
 });
 
@@ -98,6 +126,7 @@ test("smoke benchmark proves hook correctness without asserting wall time", () =
   );
   assert.equal(report.metrics.precommit.status, "clean");
   assert.equal(report.metrics.prepush.status, "clean");
+  assert.equal(report.conclusions.hookRunsPass, true);
   assert.equal(report.fixture.pathStats.containsSpaces, true);
   assert.equal(report.fixture.pathStats.containsNonAscii, true);
   assert.equal(report.fixture.pathStats.containsShellMetacharacters, true);

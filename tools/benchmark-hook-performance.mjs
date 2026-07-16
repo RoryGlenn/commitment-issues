@@ -129,12 +129,26 @@ export function parseOptions(args) {
   return options;
 }
 
-export function assertCleanHookPayload(payload, label) {
-  assert.equal(
-    payload.status,
-    "clean",
-    `${label} hook must report a clean status; received ${String(payload.status)}`,
-  );
+export function hookRunsAreClean(...runs) {
+  return runs.filter(Boolean).every((run) => run.status === "clean");
+}
+
+function reportFailure(message, report) {
+  const error = new Error(message);
+  error.report = report;
+  return error;
+}
+
+export function enforceBenchmarkReport(report, enforceBudgets) {
+  if (!report.conclusions.hookRunsPass) {
+    throw reportFailure(
+      "One or more hook runs returned a non-clean status",
+      report,
+    );
+  }
+  if (enforceBudgets && !report.conclusions.hostBudgetsPass) {
+    throw reportFailure("One or more measured host budgets regressed", report);
+  }
 }
 
 function hostilePath(index, padding) {
@@ -486,7 +500,7 @@ function parseHookJson(result, label) {
 export async function runBenchmark(options) {
   const tier = PERFORMANCE_TIERS[options.tier];
   const repoDir = createTempRepo();
-  let keepFixture = options.keep;
+  const keepFixture = options.keep;
   try {
     setPrecommitConfig(repoDir, {
       showWelcomeOnFirstCommit: false,
@@ -532,7 +546,6 @@ export async function runBenchmark(options) {
         { cwd: repoDir },
       );
       const precommitPayload = parseHookJson(precommitResult, "precommit");
-      assertCleanHookPayload(precommitPayload, "precommit");
       precommit = {
         elapsedMs: precommitResult.elapsedMs,
         peakRssMiB: precommitResult.peakRssMiB,
@@ -556,7 +569,6 @@ export async function runBenchmark(options) {
         { cwd: repoDir, input },
       );
       const prepushPayload = parseHookJson(prepushResult, "prepush");
-      assertCleanHookPayload(prepushPayload, "prepush");
       prepush = {
         elapsedMs: prepushResult.elapsedMs,
         peakRssMiB: prepushResult.peakRssMiB,
@@ -615,6 +627,7 @@ export async function runBenchmark(options) {
       },
       argumentPressure,
       conclusions: {
+        hookRunsPass: hookRunsAreClean(precommit, prepush),
         hostBudgetsPass: true,
         windowsBatchingRequired: argumentPressure
           .filter((boundary) => boundary.name !== "git ls-files --stage")
@@ -627,12 +640,7 @@ export async function runBenchmark(options) {
     report.conclusions.hostBudgetsPass = Object.values(report.budgets).every(
       (entry) => entry.withinBudget !== false,
     );
-    if (options.enforceBudgets && !report.conclusions.hostBudgetsPass) {
-      keepFixture = options.keep;
-      const error = new Error("One or more measured host budgets regressed");
-      error.report = report;
-      throw error;
-    }
+    enforceBenchmarkReport(report, options.enforceBudgets);
     return report;
   } finally {
     if (!keepFixture) cleanupTempRepo(repoDir);
