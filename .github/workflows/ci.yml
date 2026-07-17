@@ -130,6 +130,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run states
 
+      - name: Generated message-state SVGs are current
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
+        run: npm run states:assets:check
+
       - name: Prebuilt package lifecycle integration (separate from runtime coverage)
         run: node tools/run-prebuilt-lifecycle-test.mjs
 

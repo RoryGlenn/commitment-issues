@@ -96,7 +96,14 @@ function textWidth(spec) {
   return w;
 }
 
-function boxSvg({ file, severity, title, desc, lines, minInnerWidth = 0 }) {
+function buildBoxSvg({
+  file,
+  severity,
+  title,
+  desc,
+  lines,
+  minInnerWidth = 0,
+}) {
   const sev = severity ? SEV[severity] : null;
   const sevColor = sev ? sev.color : "#2ee993";
 
@@ -157,12 +164,11 @@ ${tab}${body}
   </g>
 </svg>
 `;
-  fs.writeFileSync(path.join(OUT, file), svg);
-  console.log(`${file}: ${W}x${H}`);
+  return { file, content: svg, dims: `${W}x${H}` };
 }
 
 // Boxless output (bare console lines, e.g. quiet-mode one-liners).
-function bareSvg({ file, title, desc, lines }) {
+function buildBareSvg({ file, title, desc, lines }) {
   let y = 40;
   const placed = [];
   let first = true;
@@ -192,8 +198,22 @@ function bareSvg({ file, title, desc, lines }) {
 ${body}
 </svg>
 `;
-  fs.writeFileSync(path.join(OUT, file), svg);
-  console.log(`${file}: ${W}x${H}`);
+  return { file, content: svg, dims: `${W}x${H}` };
+}
+
+// Every generator-owned asset, collected in definition order. The builder
+// functions stay pure; these thin collectors record each rendered result so
+// the mode handlers below can either write or verify the full set.
+const assets = [];
+function boxSvg(spec) {
+  const result = buildBoxSvg(spec);
+  assets.push(result);
+  return result;
+}
+function bareSvg(spec) {
+  const result = buildBareSvg(spec);
+  assets.push(result);
+  return result;
 }
 
 // ---- Heart logo rows for the init boxes ----
@@ -1331,4 +1351,64 @@ boxSvg({
   ],
 });
 
-console.log("done");
+// ---------------- Modes ----------------
+
+// Normal mode: write every generator-owned asset and preserve the historical
+// stdout (one "file: WxH" line per asset, then "done").
+function writeAll() {
+  for (const { file, content, dims } of assets) {
+    fs.writeFileSync(path.join(OUT, file), content);
+    console.log(`${file}: ${dims}`);
+  }
+  console.log("done");
+}
+
+// --check mode: render every asset in memory and compare it byte-for-byte with
+// the committed file. Never creates, rewrites, or deletes anything. Reports all
+// missing or stale generator-owned assets by repository-relative path and exits
+// nonzero. Hand-authored SVGs are never inspected because only the generated
+// set is iterated.
+function checkAll() {
+  const problems = [];
+  for (const { file, content } of assets) {
+    const target = path.join(OUT, file);
+    const relative = `assets/${file}`;
+    let current;
+    try {
+      current = fs.readFileSync(target);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        problems.push(`missing: ${relative}`);
+        continue;
+      }
+      throw error;
+    }
+    if (!current.equals(Buffer.from(content))) {
+      problems.push(`stale:   ${relative}`);
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error("Generated message-state SVGs are out of date:");
+    for (const problem of problems) {
+      console.error(`  ${problem}`);
+    }
+    console.error(
+      "Run `node tools/gen-message-state-svgs.mjs` and commit the result.",
+    );
+    process.exit(1);
+  }
+
+  console.log(`All ${assets.length} generated message-state SVGs are current.`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 0) {
+  writeAll();
+} else if (args.length === 1 && args[0] === "--check") {
+  checkAll();
+} else {
+  console.error(`Unknown option(s): ${args.join(" ")}`);
+  console.error("Usage: node tools/gen-message-state-svgs.mjs [--check]");
+  process.exit(2);
+}
