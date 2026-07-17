@@ -178,11 +178,11 @@ entrypoint-specific integration suites.
 - Repository administration, npm ownership, release publication, and private
   vulnerability coordination remain concentrated in one maintainer under the
   documented temporary governance exception.
-- [Issue #180](https://github.com/RoryGlenn/commitment-issues/issues/180) owns
-  the final naturally triggered current-graph external-fork proof. Existing
-  evidence confirms read-only permissions, no secrets, successful CodeQL and
-  compatibility work, and fail-closed DCO/aggregate behavior; the newly added
-  Yarn Berry and packed-shell lanes await a legitimate external update.
+- [Issue #180](https://github.com/RoryGlenn/commitment-issues/issues/180)
+  records the completed current-graph external-fork proof. Maintainer-controlled
+  external PR #227 confirmed read-only permissions, no secrets, successful
+  CodeQL, all Yarn Berry and packed-shell lanes, unsigned fail-closed behavior,
+  and a signed green aggregate.
 - [Issue #195](https://github.com/RoryGlenn/commitment-issues/issues/195)
   records the completed 2026-07-16 npm trusted-publisher, access, 2FA, and
   zero-token evidence.
@@ -190,8 +190,8 @@ entrypoint-specific integration suites.
   records the completed 2026-07-16 OpenSSF native-hook description correction;
   the public badge remains Passing.
 - [Issue #138](https://github.com/RoryGlenn/commitment-issues/issues/138) owns
-  independent integrated launch verification after the remaining external-fork
-  control and exact-candidate checks are complete.
+  independent integrated launch verification after the exact-candidate and
+  GUI-client checks are complete.
 - Non-milestone [issue #212](https://github.com/RoryGlenn/commitment-issues/issues/212)
   owns Windows-specific very-large argv batching; current bounded workloads are
   measured and the limitation is documented.

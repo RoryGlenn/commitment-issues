@@ -17,14 +17,19 @@ GitHub accepts the `concurrency.queue` property and the reusable SLSA permission
 contract. The resulting `main` push repeated the complete 22-job CI graph
 successfully.
 
-Fork evidence is intentionally composite rather than overstated: external PR
-#166 proves the fork-safe `pull_request` event, merge-ref checkout, downgraded
-token boundary, CodeQL upload, and fail-closed DCO/aggregate behavior. PR #178
-then proves the changed reusable-CodeQL permission contract and expanded
-aggregate under the same event type. No post-refactor external contributor has
-yet pushed a new revision, so that exact end-to-end combination remains useful
-live surveillance rather than an undisclosed completion claim. The exact
-fork-token run is tracked as Medium evidence gap
+Fork evidence is now complete rather than composite. External PR #166 proves
+the first-time-contributor approval policy and the original fork-safe
+`pull_request` boundary. Maintainer-controlled external fork
+[PR #227](https://github.com/RoryGlenn/commitment-issues/pull/227) then exercised
+the current graph without mutating either contributor branch. Its unsigned
+[run 29546132668](https://github.com/RoryGlenn/commitment-issues/actions/runs/29546132668)
+passed 32 jobs while DCO and `CI Success` failed closed. Signed
+[run 29546490643 attempt 2](https://github.com/RoryGlenn/commitment-issues/actions/runs/29546490643/attempts/2)
+passed all 34 required jobs: six OS/Node, sixteen package-manager, seven packed
+shell, migration, static policy, DCO, reusable CodeQL, and the aggregate. Logs
+reported read-only contents and metadata with `Secret source: None`; CodeQL
+uploaded successfully under the downgraded token. This completes the Medium
+evidence gap tracked by
 [#180](https://github.com/RoryGlenn/commitment-issues/issues/180).
 
 No Critical or High finding owned by this workstream remains. The known High
@@ -155,14 +160,13 @@ semantic tag; Dependabot monitors it. The public CI recipe now models full-SHA
 pins, read-only permissions, a timeout, and non-persisted checkout credentials.
 
 Live cross-repository PRs #129 and #166 prove that CI and CodeQL start under the
-fork-safe event. PR #166 passed every then-current OS/Node and package-manager
-lane while DCO and `CI Success` correctly failed its unsigned commit. Neither
-fork received release authority. PR #178 subsequently proved the changed
-reusable CodeQL call, expanded matrix, exact-success aggregate, and release
-workflow parsing; its merged `main` run repeated the full required graph. This
-composite evidence covers the changed architecture without mutating an unrelated
-contributor branch merely to manufacture a new event. The live fork approval
-policy still requires approval for first-time contributors.
+fork-safe event, and #166 proves the configured first-time-contributor approval
+state. PR #227 completed the current-graph proof from a maintainer-controlled
+fork. The unsigned head failed only DCO and the aggregate; the signed head
+passed all required jobs after one coverage-only retry, with no source change.
+Both stages reported read-only contents and metadata, no secret source,
+non-persisted checkout credentials, and successful CodeQL upload. No fork
+received release authority, and no unrelated contributor branch was mutated.
 
 ## Caches, artifacts, retention, and failure visibility
 
@@ -207,7 +211,7 @@ fixes. Documentation-only corrections were checked by the final suite.
 | Medium   | `b882972:.github/workflows/ci.yml:16-159`                                                                                                                                 | Workflow syntax and expression semantics depended only on GitHub accepting the file after push.                                               | Fixed: checksum-verified actionlint is part of required `quality`; local actionlint and zizmor runs supplement it.                         |
 | Medium   | `b882972:.github/workflows/ci.yml:140-154`; `b882972:.github/workflows/codeql.yml:3-10`                                                                                   | CodeQL analysis ran separately, so successful completion was not a dependency of required `CI Success`.                                       | Fixed: reusable CodeQL analysis is now an exact-success dependency of the aggregate.                                                       |
 | Medium   | `4d1a2a8:.github/workflows/codeql.yml:38-47`; `4d1a2a8:.github/workflows/ci.yml:206-230`; live ruleset `18531369`; PRs #216 and #217                                      | A successful CodeQL job could report a new alert without the alert itself blocking the merge.                                                 | Fixed on 2026-07-16: the ruleset blocks CodeQL Errors and High/Critical security alerts; PRs #216/#217 proved both paths.                  |
-| Medium   | Fork PR #166 run `29350550947`; same-repository PR #178 run `29381571143`                                                                                                 | The exact post-refactor graph has not run end to end with an external fork's downgraded token.                                                | Tracked in #180: use a disposable or natural fork revision to validate reusable CodeQL, the expanded matrix, and the aggregate together.   |
+| Medium   | Fork PR #166 run `29425706633`; fork PR #227 runs `29546132668` and `29546490643`                                                                                         | The exact current graph had not run end to end with an external fork's downgraded token.                                                      | Fixed: #166 proves first-time approval; #227 proves unsigned fail-closed and signed-green current-graph execution with no secrets.         |
 | Medium   | `b882972:.github/workflows/repo-health.yml:53-55`; `b882972:.github/workflows/ci.yml:16-159`                                                                              | High-severity dependency findings were weekly and `continue-on-error`, so vulnerable changes could merge and scheduled failures stayed green. | Fixed: the dependency audit gates required `quality` and now fails weekly health.                                                          |
 | Medium   | `b882972:.github/workflows/publish.yml:1-26`                                                                                                                              | Different release tags could publish concurrently and race npm's `latest` dist-tag.                                                           | Fixed: one package-wide `queue: max` group serializes tags and retains up to GitHub's 100 pending runs.                                    |
 | Medium   | `b882972:.github/workflows/ci.yml:17-20,142-147`; `b882972:.github/workflows/publish.yml:14-27,119-124`; `b882972:.github/workflows/scorecard.yml:14-18`                  | Several jobs had no timeout, and DCO/Scorecard/publication lacked explicit overlap policy.                                                    | Fixed: every runnable job is bounded; safe stale work cancels, release work queues.                                                        |
@@ -233,7 +237,7 @@ fixes. Documentation-only corrections were checked by the final suite.
 | Release upload uses `softprops/action-gh-release` instead of the GitHub CLI          | Accepted: the action supplies staged artifact upload and immutable finalization; it is full-SHA pinned and least-privileged                                                                                                               |
 | GitHub's release concurrency queue is bounded at 100 pending runs                    | Accepted [platform limit](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency); PR validation uses separate groups, and maintainers publish tags deliberately one at a time |
 | actionlint 1.7.12 does not yet recognize GitHub's `concurrency.queue` property       | Exact schema-lag diagnostic is suppressed; the property is regression-tested, and PR #178's hosted release-workflow validation confirms GitHub acceptance                                                                                 |
-| No post-refactor external fork revision has run the complete new graph               | Medium #180: current evidence is composite—PR #166 proves fork token/event behavior, while PR #178 proves reusable CodeQL and the expanded aggregate; record the next external revision without mutating an unrelated contributor branch  |
+| Current external-fork graph and downgraded token boundary                            | Completed #180: PR #166 proves first-time approval; PR #227 proves the current graph, CodeQL upload, unsigned fail-closed path, signed green path, read-only token, and no secret source                                                  |
 | Docs/community-only changes still instantiate the complete compatibility matrix      | Accepted to preserve a simple always-present fail-closed gate; a future skip classifier must prove it cannot weaken required coverage                                                                                                     |
 | Admin can bypass the ruleset                                                         | Existing public governance exception; unchanged by this audit                                                                                                                                                                             |
 
@@ -305,6 +309,12 @@ Hosted completion evidence:
 - [fork PR #166](https://github.com/RoryGlenn/commitment-issues/pull/166):
   fork-safe execution and CodeQL passed while unsigned DCO and the aggregate
   failed closed
+- [external fork PR #227](https://github.com/RoryGlenn/commitment-issues/pull/227):
+  unsigned [run 29546132668](https://github.com/RoryGlenn/commitment-issues/actions/runs/29546132668)
+  failed only DCO and the aggregate after every other required job passed;
+  signed [run 29546490643 attempt 2](https://github.com/RoryGlenn/commitment-issues/actions/runs/29546490643/attempts/2)
+  passed all 34 required jobs with read-only permissions, no secret source, and
+  successful CodeQL upload
 - Live ruleset `18531369` remains active and strict with `CI Success` as its
   only required status context plus the CodeQL alert rule; repository workflow
   permissions remain read-only by default and first-time fork contributors
@@ -332,6 +342,6 @@ platform matrix, and documented supplemental/settings-owned boundaries. After a
 hosted pull request and the resulting `main` push validated the new reusable and
 aggregate paths, Audit 6/9 is complete. CodeQL alert merge protection is now
 active and independently evidenced under #177. Release authority remains
-explicitly open for Audit 7/9. Current-architecture external-fork validation
-remains separately tracked in #180 rather than being hidden by this completion
-claim.
+explicitly open for Audit 7/9. Current-architecture external-fork validation is
+independently complete under #180 and PR #227; exact-candidate release and GUI
+validation remain owned by Audit 9.

@@ -25,9 +25,10 @@ finding is fixed and merged.
 
 Owner-only third-party controls were not prerequisites to the evidence commit.
 Follow-up owner-authenticated reviews on 2026-07-16 completed the npm control in
-#195 and the OpenSSF description correction in #199. The current full
-external-fork trigger remains gated by #180; Audit 9 and launch readiness must
-continue to treat that as unresolved external evidence.
+#195 and the OpenSSF description correction in #199. Maintainer-controlled
+external PR #227 also completed the current external-fork graph tracked by
+#180. Audit 9 and launch readiness now proceed to the exact-candidate and
+GUI-client evidence.
 
 ## Inventory and method
 
@@ -109,19 +110,19 @@ metadata control in
 
 ### Unsupported claims and governance/security gaps
 
-| Finding                                            | Severity                     | Final disposition                                                                                                              |
-| -------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Polynomial Husky-path normalization (#197)         | High                         | Fixed by PR #198, merged as `0704b1e`; CodeQL finding fixed.                                                                   |
-| Global Yarn bootstrap outside the lockfile (#201)  | Medium                       | Fixed by PR #202, merged as `87ceda1`; bootstrap is integrity-locked.                                                          |
-| Linked legacy `.husky` cleanup (#203)              | High                         | Fixed by PR #205, merged as `cec595e`; links and replacements are preserved.                                                   |
-| Linked mutable project files (#206)                | High                         | Fixed by PR #208, merged as `7e433b0`; descriptor and identity regressions pass.                                               |
-| Repository-controlled terminal controls (#207)     | Medium                       | Fixed by PR #209, merged as `ac605f5`; human output escapes controls while JSON preserves values.                              |
-| Stale repository documentation claims              | Low/Medium                   | Fixed by PR #200 (`859c045`) and the focused child PRs above.                                                                  |
-| Historical security-review baseline (#99)          | Medium assurance gap         | Refreshed by PR #218, merged as `db3ccf0`, against integrated commit `e7d096d`.                                                |
-| CodeQL alert merge protection (#177)               | Configuration gate           | Active in ruleset `18531369`; PRs #216/#217 prove blocked and clean paths.                                                     |
-| Stale OpenSSF Husky/lint-staged description (#199) | Low external metadata        | Completed 2026-07-16: native-hook wording is public and the badge remains Passing at tiered percentage 193.                    |
-| npm publication settings (#195)                    | Medium external release gate | Completed 2026-07-16: publisher identity, 2FA/token policy, and zero-token inventory are recorded in Audit 7.                  |
-| Current external-fork graph (#180)                 | Medium external validation   | Read-only/no-secret/fail-closed evidence is recorded; a legitimate new revision must exercise the added Berry and shell lanes. |
+| Finding                                            | Severity                     | Final disposition                                                                                                             |
+| -------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Polynomial Husky-path normalization (#197)         | High                         | Fixed by PR #198, merged as `0704b1e`; CodeQL finding fixed.                                                                  |
+| Global Yarn bootstrap outside the lockfile (#201)  | Medium                       | Fixed by PR #202, merged as `87ceda1`; bootstrap is integrity-locked.                                                         |
+| Linked legacy `.husky` cleanup (#203)              | High                         | Fixed by PR #205, merged as `cec595e`; links and replacements are preserved.                                                  |
+| Linked mutable project files (#206)                | High                         | Fixed by PR #208, merged as `7e433b0`; descriptor and identity regressions pass.                                              |
+| Repository-controlled terminal controls (#207)     | Medium                       | Fixed by PR #209, merged as `ac605f5`; human output escapes controls while JSON preserves values.                             |
+| Stale repository documentation claims              | Low/Medium                   | Fixed by PR #200 (`859c045`) and the focused child PRs above.                                                                 |
+| Historical security-review baseline (#99)          | Medium assurance gap         | Refreshed by PR #218, merged as `db3ccf0`, against integrated commit `e7d096d`.                                               |
+| CodeQL alert merge protection (#177)               | Configuration gate           | Active in ruleset `18531369`; PRs #216/#217 prove blocked and clean paths.                                                    |
+| Stale OpenSSF Husky/lint-staged description (#199) | Low external metadata        | Completed 2026-07-16: native-hook wording is public and the badge remains Passing at tiered percentage 193.                   |
+| npm publication settings (#195)                    | Medium external release gate | Completed 2026-07-16: publisher identity, 2FA/token policy, and zero-token inventory are recorded in Audit 7.                 |
+| Current external-fork graph (#180)                 | Medium external validation   | Completed 2026-07-16: PR #227 proves read-only/no-secret, unsigned fail-closed, signed-green, Berry, shell, and CodeQL paths. |
 
 Non-milestone enhancements remain separate from launch claims: #141 owns future
 repository-link automation, #175 owns lifecycle test-structure refactoring,
@@ -173,11 +174,10 @@ sole-maintainer exception if no second eligible reviewer is available.
 
 ## Remaining manual or organizational requirements
 
-| Requirement                           | Owner                                | Exact remaining action                                                                                                                                                                        |
-| ------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| External-fork graph (#180)            | External contributor plus Rory Glenn | Let a legitimate fork revision trigger current CI, approve it under the first-time-contributor policy, and record the complete green/fail-closed result without mutating an unrelated branch. |
-| Independent final verification (#138) | Independent verification pass        | Run from a clean clone after prerequisites and verify the integrated repository and live external controls.                                                                                   |
-| Release and Show HN (#78)             | Rory Glenn                           | Publish and post only after the release gate and independent verification are complete.                                                                                                       |
+| Requirement                           | Owner                         | Exact remaining action                                                                                                       |
+| ------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Independent final verification (#138) | Independent verification pass | Authorize one exact 3.4.0 candidate, run the four GUI-client rows, repeat affected read-backs, and record the final verdict. |
+| Release and Show HN (#78)             | Rory Glenn                    | Publish and post only after the release gate and independent verification are complete.                                      |
 
 ## Closure checklist
 
