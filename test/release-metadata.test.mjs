@@ -88,17 +88,14 @@ function runCli(root, args = []) {
   });
 }
 
-test("the repository release metadata is consistent and returns its exact history entry", () => {
+test("the repository release metadata is consistent without a historical exception", () => {
   const result = validateReleaseMetadata({ root: repositoryRoot });
-  const expectedHistorical = actualLedger.releases.find(
-    ({ version }) => version === "3.3.2",
-  );
 
-  assert.equal(result.version, "3.3.2");
-  assert.equal(result.tag, "v3.3.2");
+  assert.equal(result.version, "3.4.0");
+  assert.equal(result.tag, "v3.4.0");
   assert.equal(result.title, result.tag);
-  assert.match(result.notes, /SLSA caller now retains/u);
-  assert.deepEqual(result.historical, expectedHistorical);
+  assert.match(result.notes, /bounded hook-performance benchmarks/u);
+  assert.equal(result.historical, null);
 });
 
 test("a prospective release validates without a historical exception", (t) => {
