@@ -497,10 +497,13 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - **LIFE-005** — the complete clean-registry launch path (`init`, advisory
   commit warning, `commit:fix`, and related push-time tests) remains a launch
   gate in issue #78.
-- **CLIENT-001** — the exact release candidate must complete the manual VS Code,
-  JetBrains, and GitHub Desktop lanes before publication. Evidence is attached
-  to the release issue rather than committed with machine-specific paths or
-  logs. Checklist: [GUI Git-client release checklist](git-client-release-checklist.md).
+- **CLIENT-001** — VS Code, JetBrains, and GitHub Desktop require manual UI
+  validation against an exact artifact before the release claims those clients
+  as verified. An unavailable lane must instead be classified as
+  unsupported/unverified, excluded from support claims, and assigned to a
+  follow-up issue; v3.4.0 uses #231. Evidence belongs on the tracking issue
+  rather than in committed machine-specific paths or logs. Checklist:
+  [GUI Git-client release checklist](git-client-release-checklist.md).
 - **REL-001** — the production v3.3.2 tag workflow published the exact npm
   tarball and both immutable GitHub Release assets. The npm/GitHub tarballs and
   SLSA subject share one SHA-256; independent npm signature and

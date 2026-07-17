@@ -87,11 +87,13 @@ issues before closing the workstream.
 
 ### Validate platform compatibility
 
-The cross-shell and Git-client matrix is tracked in
-[#83](https://github.com/RoryGlenn/commitment-issues/issues/83). It separates
-shell launch behavior from GUI-client behavior and covers hook quoting, paths,
-permissions, line endings, and restricted `PATH` environments. Until that work
-lands, the project should not claim blanket support for every shell or Git GUI.
+The required cross-shell matrix landed through
+[#83](https://github.com/RoryGlenn/commitment-issues/issues/83). It covers hook
+quoting, paths, permissions, line endings, and restricted `PATH` environments.
+Post-launch GUI-client validation remains separately tracked in
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231); until those
+UI lanes run, the project does not claim verified support for VS Code Source
+Control, JetBrains commit/push UI, or GitHub Desktop.
 
 ### Evaluate the v4 standalone core
 

@@ -19,8 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added required packed-artifact shell compatibility CI for Linux `/bin/sh`,
   Bash, and Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command
   Prompt. Every lane runs an offline commit/push/doctor/uninstall scenario from
-  a hostile path with stripped executable discovery, while a separate manual
-  release checklist covers VS Code, JetBrains, and GitHub Desktop UI behavior.
+  a hostile path with stripped executable discovery. A separate manual
+  checklist defines VS Code, JetBrains, and GitHub Desktop UI validation;
+  v3.4.0's unavailable GUI lanes are explicitly unverified and deferred to
+  #231 rather than inferred from shell success.
 - Added a release metadata gate that requires `package.json`, both root
   lockfile version records, the exact tag, one dated changelog section, and its
   reviewed notes to agree before publication. GitHub Releases now use the

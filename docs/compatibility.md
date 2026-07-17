@@ -123,9 +123,9 @@ Node requirements below this package's declared floor.
 | Bash and Fish                         | CI-verified on Linux | Each launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`                                    |
 | Zsh                                   | CI-verified on macOS | Launches the same offline packed-artifact scenario; the generated Git hooks still execute under POSIX `sh`                                         |
 | Windows PowerShell and Command Prompt | CI-verified          | Each launches the packed CLI and real Git lifecycle; Git for Windows executes generated hooks through its bundled `sh`                             |
-| VS Code Source Control                | Manual release check | Commit and push must pass from the UI with the GUI-inherited Node/local-bin environment                                                            |
-| IntelliJ IDEA or PyCharm              | Manual release check | One current JetBrains client provides the shared commit/push lane                                                                                  |
-| GitHub Desktop on macOS and Windows   | Manual release check | Both operating-system lanes must execute commit and push from the UI                                                                               |
+| VS Code Source Control                | Unverified (manual)  | No v3.4.0 UI evidence; commit and push must pass with the GUI-inherited Node/local-bin environment before support is claimed                       |
+| IntelliJ IDEA or PyCharm              | Unverified (manual)  | No v3.4.0 UI evidence; one current JetBrains client must pass the shared commit/push lane before support is claimed                                |
+| GitHub Desktop on macOS and Windows   | Unverified (manual)  | No v3.4.0 UI evidence; both operating-system lanes must execute commit and push from the UI before support is claimed                              |
 
 Every automated shell lane installs the exact `npm pack` artifact without
 registry access, uses a path containing spaces, Unicode, `$`, and `&`, preserves
@@ -135,10 +135,13 @@ launch the CLI and Git scenario; it does not change the generated hook
 interpreter.
 
 GUI clients are not shells and do not run in required pull-request CI. Their
-candidate-specific evidence is recorded with the release using the
+candidate-specific evidence is recorded using the
 [GUI Git-client checklist](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/git-client-release-checklist.md).
-Node.js and the project-local bin must be reachable in the environment the
-client gives Git; success from an integrated terminal is not a substitute.
+The v3.4.0 UI lanes are unverified and tracked for post-launch validation in
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231); required
+shell CI does not imply that they passed. Node.js and the project-local bin
+must be reachable in the environment the client gives Git, and success from an
+integrated terminal is not a substitute.
 
 The current CLI does not ship shell-completion scripts. Bash, Zsh, Fish, and
 PowerShell parser checks become required if completion files enter the package;

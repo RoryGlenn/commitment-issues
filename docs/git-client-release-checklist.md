@@ -7,9 +7,15 @@ Windows PowerShell, and Command Prompt, while a GUI client supplies its own
 process environment and presentation of hook output.
 
 Complete this checklist against the exact release-candidate tarball after the
-required shell matrix passes and before publishing. Do not substitute a source
-checkout, `npm link`, a registry version, or an integrated-terminal run for the
-client's Source Control UI.
+required shell matrix passes and before publishing any claim of verified
+GUI-client support. Do not substitute a source checkout, `npm link`, a registry
+version, or an integrated-terminal run for the client's Source Control UI.
+
+If a required client or host is unavailable, do not manufacture a pass. Mark
+the lane unsupported/unverified in the release evidence and compatibility
+documentation, link a follow-up issue, and keep the support claim narrowed
+until the lane runs. The v3.4.0 lanes were explicitly deferred to
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231).
 
 ## Evidence header
 
@@ -48,9 +54,11 @@ shell startup files are not part of the GUI contract.
 
 ## Lanes
 
-Complete every row for a release that claims the corresponding operating
-system. One current IntelliJ IDEA or PyCharm run satisfies the shared JetBrains
-lane; dedicated IDE integrations would require their own harness later.
+Complete every row for a release that claims verified support for the
+corresponding GUI client. One current IntelliJ IDEA or PyCharm run satisfies
+the shared JetBrains lane; dedicated IDE integrations would require their own
+harness later. An unexecuted row may be deferred only under the explicit
+classification and tracking rule above.
 
 | Done | Client lane               | Client version | OS version | Commit evidence | Push evidence | Result / evidence link |
 | ---- | ------------------------- | -------------- | ---------- | --------------- | ------------- | ---------------------- |
