@@ -159,10 +159,12 @@ Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command Prompt. Each
 lane performs a real commit and push with a stripped `PATH`; the hooks
 themselves continue to run under POSIX `sh` (Git's bundled `sh` on Windows).
 
-VS Code Source Control, one current IntelliJ IDEA or PyCharm version, and GitHub
-Desktop on macOS and Windows use a separate manual pre-release checklist. An
-integrated terminal proves its selected shell, not the GUI client's inherited
-environment. See the [compatibility matrix](compatibility.md) and the
+VS Code Source Control, one current IntelliJ IDEA or PyCharm version, and
+GitHub Desktop on macOS and Windows require separate UI validation. Those
+v3.4.0 lanes are currently unverified and tracked in
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231). An integrated
+terminal proves its selected shell, not the GUI client's inherited environment.
+See the [compatibility matrix](compatibility.md) and the
 [GUI checklist](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/git-client-release-checklist.md).
 
 ## Should I use this in CI?

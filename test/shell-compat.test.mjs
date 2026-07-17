@@ -175,9 +175,11 @@ test("documentation separates automated shells from manual Git clients", () => {
   ]) {
     assert.match(compatibility, new RegExp(escapeRegExp(target), "u"));
   }
-  assert.match(compatibility, /Manual release check/u);
+  assert.match(compatibility, /Unverified \(manual\)/u);
   assert.match(compatibility, /GUI Git-client checklist/u);
-  assert.match(faq, /integrated terminal proves its selected shell/iu);
+  assert.match(compatibility, /#231/u);
+  assert.match(faq, /integrated\s+terminal proves its selected shell/iu);
+  assert.match(faq, /#231/u);
   assert.doesNotMatch(faq, /Until\s+\[#83\]/u);
 
   for (const client of [
@@ -189,6 +191,8 @@ test("documentation separates automated shells from manual Git clients", () => {
     assert.match(checklist, new RegExp(escapeRegExp(client), "u"));
   }
   assert.match(checklist, /exact release-candidate tarball/u);
+  assert.match(checklist, /do not manufacture a pass/iu);
+  assert.match(checklist, /#231/u);
   assert.match(index, /git-client-release-checklist\.md/u);
   assert.match(definition, /GUI Git-client checklist/u);
 });
