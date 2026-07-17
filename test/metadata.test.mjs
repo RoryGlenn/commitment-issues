@@ -675,10 +675,13 @@ test("Audit reports record the completed external launch controls", () => {
   assert.match(audit6, /run 29546132668/);
   assert.match(audit6, /run 29546490643 attempt 2/);
   assert.match(audit6, /Secret source: None/);
-  assert.match(audit9, /Candidate-specific release-boundary/);
-  assert.match(audit9, /With #180 complete/);
+  assert.match(audit9, /Final Audit 9: pass with explicit GUI-client deferral/);
+  assert.match(audit9, /post-launch issue #231 owns their execution/);
+  assert.match(audit9, /run\s+\[29552910864\]/);
+  assert.match(audit9, /No Critical\/High blocker/);
   assert.match(evidence, /2026-07-16 owner-authenticated correction/);
   assert.doesNotMatch(audit9, /After #180 is complete/);
+  assert.doesNotMatch(audit9, /release readiness:\s*blocked/i);
   assert.doesNotMatch(audit9, /unresolved #199 gate/);
   assert.doesNotMatch(release, /external-fork, OpenSSF/);
 });

@@ -1,12 +1,16 @@
-# Independent Final Verification — Audit 9 Preflight
+# Independent Final Verification — Audit 9
 
-This report records the independently repeated, repository-controlled portion
-of [Audit 9 issue #138](https://github.com/RoryGlenn/commitment-issues/issues/138).
+This report records the independently repeated preflight and final candidate
+disposition for
+[Audit 9 issue #138](https://github.com/RoryGlenn/commitment-issues/issues/138).
 
 Review date: 2026-07-16
 
-Integrated baseline:
+Initial integrated baseline:
 [`2c65e26d3d01536aa5f76c8566bd68f0c77d08a0`](https://github.com/RoryGlenn/commitment-issues/commit/2c65e26d3d01536aa5f76c8566bd68f0c77d08a0)
+
+Final packed-content baseline:
+[`279c78ff7ae0bab64ed7b295e65c430ef7ccc84d`](https://github.com/RoryGlenn/commitment-issues/commit/279c78ff7ae0bab64ed7b295e65c430ef7ccc84d)
 
 Coordination baseline:
 [`ad8f54dda8b7247ab14970c3132c58351f3234af`](https://github.com/RoryGlenn/commitment-issues/commit/ad8f54dda8b7247ab14970c3132c58351f3234af)
@@ -17,25 +21,29 @@ Rory Glenn remains the repository owner and release authority.
 
 ## Verdict
 
-**Repository-controlled preflight: pass. Final Audit 9 and release readiness:
-blocked.**
+**Final Audit 9: pass with explicit GUI-client deferral. The v3.4.0 candidate
+is ready for release authorization.**
 
 No new product defect or undispositioned Critical/High finding was found. The
 clean integrated source, runtime coverage, exact source-snapshot artifact,
 package-manager and migration lifecycles, locally available shells, hosted
 matrix, adversarial suites, performance tiers, documentation, visual assets,
-live GitHub controls, and published v3.3.2 provenance all passed.
+live GitHub controls, published v3.3.2 provenance, and the final v3.4.0
+candidate all passed.
 
-This is not the final Audit 9 sign-off. Candidate-specific release-boundary
-checks remain incomplete. The external-fork, npm, and OpenSSF controls tracked
-in #180, #195, and #199 were completed on 2026-07-16 and are recorded below.
+The external-fork, npm, and OpenSSF controls tracked in #180, #195, and #199
+were completed on 2026-07-16. The maintainer explicitly accepted the bounded
+risk of releasing without four unavailable desktop UI checks. Those rows are
+classified as unsupported/unverified environments, not as passes, and
+post-launch issue #231 owns their execution. The compatibility documentation
+does not claim verified support for those clients.
 
-| Gate                                                              | Classification                        | Current evidence or remaining action                                                                                                                                      |
-| ----------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) | External-fork validation              | Completed 2026-07-16: PR #227 proved the current graph, read-only/no-secret execution, unsigned fail-closed behavior, signed green aggregate, and CodeQL upload.          |
-| [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Owner-authenticated npm configuration | Completed 2026-07-16: publisher identity, absent Environment claim, 2FA/token policy, and zero-token inventory verified.                                                  |
-| [#199](https://github.com/RoryGlenn/commitment-issues/issues/199) | Owner-authenticated OpenSSF metadata  | Completed 2026-07-16: native-hook description is public; JSON reports `badge_level: passing` and tiered percentage 193.                                                   |
-| [GUI Git-client checklist](../git-client-release-checklist.md)    | Exact-candidate external validation   | After a new version is selected, run VS Code, one JetBrains client, GitHub Desktop macOS, and GitHub Desktop Windows commit/push lanes against that exact candidate hash. |
+| Gate                                                              | Classification                        | Current evidence or remaining action                                                                                                                             |
+| ----------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) | External-fork validation              | Completed 2026-07-16: PR #227 proved the current graph, read-only/no-secret execution, unsigned fail-closed behavior, signed green aggregate, and CodeQL upload. |
+| [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Owner-authenticated npm configuration | Completed 2026-07-16: publisher identity, absent Environment claim, 2FA/token policy, and zero-token inventory verified.                                         |
+| [#199](https://github.com/RoryGlenn/commitment-issues/issues/199) | Owner-authenticated OpenSSF metadata  | Completed 2026-07-16: native-hook description is public; JSON reports `badge_level: passing` and tiered percentage 193.                                          |
+| [GUI Git-client checklist](../git-client-release-checklist.md)    | Explicitly deferred UI validation     | Unverified for v3.4.0: VS Code, one JetBrains client, GitHub Desktop macOS, and GitHub Desktop Windows are tracked after launch in #231.                         |
 
 The completed #195 evidence is recorded in the Audit 7 report and sensitive
 access-review record. Its 3.4.0 release preflight passed without creating or
@@ -44,13 +52,47 @@ completed #199 evidence is recorded in the Audit 8 report; the public profile
 updated on 2026-07-16 and retained its Passing badge. The completed #180
 evidence is recorded in the Audit 6 report and external PR #227.
 
-The current tree still declares package version 3.3.2, which already exists on
-npm and GitHub. Its packed source snapshot is useful verification evidence, but
-it is not a publishable release candidate. The collision preflight correctly
-fails. No new version, tag, publication, Release, or launch action was invented
-during this audit.
+The final packed-content baseline declares version 3.4.0. PR #232 narrowed the
+GUI support claims before release and merged at verified, DCO-compliant commit
+`279c78f`. One clean detached checkout packed the final candidate once outside
+the checkout:
 
-## Independent checkout and inventory
+| Property                 | Value                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| Filename                 | `commitment-issues-3.4.0.tgz`                                                                     |
+| Packed-content source    | `279c78ff7ae0bab64ed7b295e65c430ef7ccc84d`                                                        |
+| SHA-256                  | `6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56`                                |
+| SHA-1                    | `8c3e4dbcd631ea504f2287a29c9289a2e2338644`                                                        |
+| SHA-512 integrity        | `sha512-s4K7a+vetXgyxCsMZb75/sIo6NJeLDxzr+e0zX0HxiP5q6LiDR7Xx65kOtnwbRqraZt1Mx77W1EUV6/MDXUK8A==` |
+| Compressed/unpacked size | 147,251 / 532,577 bytes                                                                           |
+| Manifest                 | 54 reviewed files; no bundled dependencies                                                        |
+
+Those exact bytes passed npm 11.17.0, pnpm 11.9.0, Yarn Classic 1.22.22,
+Yarn Berry 4.17.0 with `nodeLinker: node-modules`, macOS `/bin/sh`, and Zsh
+packed lifecycles. The first local Berry attempt stopped before product
+execution because its integrity-pinned CLI fixture had not been installed in
+the fresh checkout; installing that reviewed fixture with `npm ci
+--ignore-scripts`, auditing it, and rerunning the same tarball passed. The
+detached checkout remained clean.
+
+PR #232 CI run
+[29552695508](https://github.com/RoryGlenn/commitment-issues/actions/runs/29552695508)
+passed the full required graph. Post-merge main CI run
+[29552910864](https://github.com/RoryGlenn/commitment-issues/actions/runs/29552910864)
+and OpenSSF Scorecard run
+[29552910827](https://github.com/RoryGlenn/commitment-issues/actions/runs/29552910827)
+passed at `279c78f`. The final inventory contains 276 tracked paths with
+SHA-256 `acf72eb2f8c7190ad6ce2d423f1e3c3ded979bbcee9f55fa7acf6dcd03579ca5`.
+
+No `v3.4.0` tag, npm package, GitHub Release, or publication existed at the
+final evidence read-back. `npm run release:preflight -- 3.4.0` confirmed the
+version and tag were available everywhere, and release metadata validation
+passed. Published-asset identity, registry attestations, SLSA provenance, and
+the clean registry install are necessarily post-publication release checks;
+they remain owned by the publish workflow and release-verification guide, not
+silently represented as pre-release evidence.
+
+## Initial independent checkout and inventory
 
 The verification used a new clone from the canonical HTTPS remote, outside all
 implementation worktrees. No cache, dependency directory, configuration, or
@@ -136,7 +178,7 @@ The exact Linux actionlint archive checksum and execution also passed in
 The local Docker CLI had no running daemon, so the native verified actionlint
 asset was used locally rather than claiming a Linux container run.
 
-## Exact source-snapshot artifact
+## Initial source-snapshot artifact
 
 The source tree was packed once outside the checkout and those exact bytes were
 reused for every locally run lifecycle, migration, and shell command.
@@ -267,7 +309,7 @@ source; CodeQL uploaded successfully. No contributor branch was mutated.
 
 ## Published v3.3.2 baseline
 
-The published baseline is distinct from the current source snapshot.
+The published baseline is distinct from the final v3.4.0 candidate.
 
 | Evidence                   | Result                                                                                                 |
 | -------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -283,9 +325,10 @@ The published baseline is distinct from the current source snapshot.
 | tag ancestry               | `57ac737` is an ancestor of current canonical `main`                                                   |
 | clean registry install     | `commitment-issues@3.3.2` installed; CLI help/version passed                                           |
 
-The npm owner is the expected maintainer account. Authenticated trusted-
-publisher and token-policy fields could not be read: `npm whoami`, `npm trust
-list`, and token listing all returned E401. No credential identifiers or
+The initial verifier had no npm owner session, so the first trusted-publisher
+and token-policy reads returned E401. The later owner-authenticated #195 review
+verified the expected publisher identity, no GitHub Environment claim, required
+2FA/token policy, and zero active access tokens. No credential identifiers or
 account details are copied into this report.
 
 ## Remaining issue and pull-request classification
@@ -296,13 +339,11 @@ owns triage until assignment.
 
 ### Launch and verification gates
 
-[#78](https://github.com/RoryGlenn/commitment-issues/issues/78),
-[#101](https://github.com/RoryGlenn/commitment-issues/issues/101),
-and [#138](https://github.com/RoryGlenn/commitment-issues/issues/138) remain open
-until the exact candidate and final actions recorded above. They are the
-complete remaining launch-gate scope; no new issue was imported into the frozen
-run. The controls tracked by issues #180, #195, and #199 were completed on
-2026-07-16.
+The controls tracked by #180, #195, and #199 are complete. This report and its
+post-merge read-back complete #138, after which parent audit tracker #101 may
+close. [#78](https://github.com/RoryGlenn/commitment-issues/issues/78) remains
+open for the distinct publication and launch actions. No post-launch issue was
+promoted into the frozen launch gate.
 
 ### Accepted post-launch maintenance or bounded debt
 
@@ -314,11 +355,13 @@ run. The controls tracked by issues #180, #195, and #199 were completed on
 [#168](https://github.com/RoryGlenn/commitment-issues/issues/168),
 [#175](https://github.com/RoryGlenn/commitment-issues/issues/175),
 [#179](https://github.com/RoryGlenn/commitment-issues/issues/179),
-[#204](https://github.com/RoryGlenn/commitment-issues/issues/204), and
-[#212](https://github.com/RoryGlenn/commitment-issues/issues/212) are scheduled
-maintenance, test-structure, documentation, CI-efficiency, recurring-review,
-dependency, or platform-pressure work. Each has a bounded issue and none
-invalidates the current documented support boundary.
+[#204](https://github.com/RoryGlenn/commitment-issues/issues/204),
+[#212](https://github.com/RoryGlenn/commitment-issues/issues/212), and
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231) are
+scheduled maintenance, test-structure, documentation, CI-efficiency,
+recurring-review, dependency, platform-pressure, or explicitly deferred GUI
+validation work. Each has a bounded issue and none invalidates the narrowed
+documented support boundary.
 
 ### Intentionally deferred features and contributor tasks
 
@@ -399,14 +442,33 @@ npm audit signatures --include-attestations
 slsa-verifier verify-artifact <v3.3.2.tgz> --provenance-path <bundle> --source-uri github.com/RoryGlenn/commitment-issues --source-tag v3.3.2
 ```
 
+The final v3.4.0 affected read-back added these commands against the same exact
+tarball path:
+
+```text
+git diff --check ad8f54dda8b7247ab14970c3132c58351f3234af..279c78ff7ae0bab64ed7b295e65c430ef7ccc84d
+node tools/check-dco-range.mjs 5d82371bc399472587ce73a582e4deaf24636483 279c78ff7ae0bab64ed7b295e65c430ef7ccc84d
+npm ci
+npm pack --json --pack-destination <outside-checkout>
+shasum -a 256 <exact-3.4.0.tgz>
+npm run test:lifecycle:{npm,pnpm,yarn,yarn-berry} -- --tarball <exact-3.4.0.tgz>
+npm run test:shell-compat -- {sh,zsh} --tarball <exact-3.4.0.tgz>
+npm run release:validate -- --tag v3.4.0
+npm run release:preflight -- 3.4.0
+```
+
 ## Completion conditions
 
-Audit 9 remains open. With #180 complete, select and validate a new versioned
-candidate, run the exact-candidate GUI rows, repeat the external read-backs
-against the then-current `main`, and rerun affected artifact and release checks.
-Then update this report from **blocked** to the actual final verdict and land a
-focused `Closes #138` PR only if no
-Critical/High blocker or undispositioned audit finding remains.
+Audit 9's repository, external-control, exact-candidate, classification, and
+reporting criteria are satisfied. No Critical/High blocker or undispositioned
+audit finding remains. The unexecuted GUI-client rows are explicitly unverified
+and owned by #231; they are not release claims or launch gates.
 
-Until then, #101, #138, and #78 must not be described as complete, and no tag,
-npm publication, GitHub Release, or public launch should occur.
+After this repository-only report change merges, repeat the packed digest and
+green-main read-back. Because `docs/audits/` is excluded from the npm package,
+the report merge must reproduce SHA-256
+`6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56`.
+Close #138 and #101 only after that read-back. Creating `v3.4.0` remains a
+separate, explicit release authorization; the tag, npm publication, provenance,
+GitHub Release, and post-publication verification must still follow the release
+workflow and immutable-tag rules.
