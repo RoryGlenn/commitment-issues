@@ -654,7 +654,8 @@ test("Audit 7 records the completed npm publication control", () => {
   assert.match(roles, /issues\/195/);
 });
 
-test("Audit 8 records the completed OpenSSF metadata control", () => {
+test("Audit reports record the completed external launch controls", () => {
+  const audit6 = readText("docs/audits/ci-cd-and-github-actions.md");
   const audit8 = readText(
     "docs/audits/documentation-governance-and-promotional-assets.md",
   );
@@ -670,9 +671,14 @@ test("Audit 8 records the completed OpenSSF metadata control", () => {
     audit8,
     /Local Git hooks for JavaScript and TypeScript projects/,
   );
-  assert.match(audit9, /Two release-boundary checks remain/);
-  assert.match(audit9, /After #180 is complete/);
+  assert.match(audit6, /PR #227/);
+  assert.match(audit6, /run 29546132668/);
+  assert.match(audit6, /run 29546490643 attempt 2/);
+  assert.match(audit6, /Secret source: None/);
+  assert.match(audit9, /Candidate-specific release-boundary/);
+  assert.match(audit9, /With #180 complete/);
   assert.match(evidence, /2026-07-16 owner-authenticated correction/);
+  assert.doesNotMatch(audit9, /After #180 is complete/);
   assert.doesNotMatch(audit9, /unresolved #199 gate/);
   assert.doesNotMatch(release, /external-fork, OpenSSF/);
 });

@@ -246,5 +246,3 @@ and the
 - **Status:** actively maintained.
 - **Questions and bugs:** [GitHub Issues](https://github.com/RoryGlenn/commitment-issues/issues)
 - **License:** MIT — see [LICENSE](LICENSE).
-
-<!-- External-fork CI probe for issue #180. Test PR only; do not merge. -->

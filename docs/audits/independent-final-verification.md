@@ -26,13 +26,13 @@ package-manager and migration lifecycles, locally available shells, hosted
 matrix, adversarial suites, performance tiers, documentation, visual assets,
 live GitHub controls, and published v3.3.2 provenance all passed.
 
-This is not the final Audit 9 sign-off. Two release-boundary checks remain
-incomplete. The owner-authenticated npm and OpenSSF controls tracked in #195 and
-#199 were completed on 2026-07-16 and are recorded below.
+This is not the final Audit 9 sign-off. Candidate-specific release-boundary
+checks remain incomplete. The external-fork, npm, and OpenSSF controls tracked
+in #180, #195, and #199 were completed on 2026-07-16 and are recorded below.
 
-| Gate                                                              | Classification                        | Exact remaining evidence                                                                                                                                                  |
+| Gate                                                              | Classification                        | Current evidence or remaining action                                                                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) | External-fork validation              | A legitimate contributor revision must trigger the current Berry and packed-shell graph, with read-only/no-secret execution and a green fail-closed aggregate.            |
+| [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) | External-fork validation              | Completed 2026-07-16: PR #227 proved the current graph, read-only/no-secret execution, unsigned fail-closed behavior, signed green aggregate, and CodeQL upload.          |
 | [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Owner-authenticated npm configuration | Completed 2026-07-16: publisher identity, absent Environment claim, 2FA/token policy, and zero-token inventory verified.                                                  |
 | [#199](https://github.com/RoryGlenn/commitment-issues/issues/199) | Owner-authenticated OpenSSF metadata  | Completed 2026-07-16: native-hook description is public; JSON reports `badge_level: passing` and tiered percentage 193.                                                   |
 | [GUI Git-client checklist](../git-client-release-checklist.md)    | Exact-candidate external validation   | After a new version is selected, run VS Code, one JetBrains client, GitHub Desktop macOS, and GitHub Desktop Windows commit/push lanes against that exact candidate hash. |
@@ -41,7 +41,8 @@ The completed #195 evidence is recorded in the Audit 7 report and sensitive
 access-review record. Its 3.4.0 release preflight passed without creating or
 changing any version, tag, Release, registry entry, or publication. The
 completed #199 evidence is recorded in the Audit 8 report; the public profile
-updated on 2026-07-16 and retained its Passing badge.
+updated on 2026-07-16 and retained its Passing badge. The completed #180
+evidence is recorded in the Audit 6 report and external PR #227.
 
 The current tree still declares package version 3.3.2, which already exists on
 npm and GitHub. Its packed source snapshot is useful verification evidence, but
@@ -257,10 +258,12 @@ At the evidence timestamp:
 The natural external PR [#166](https://github.com/RoryGlenn/commitment-issues/pull/166)
 remains behind at `e5942d4`. Its last run used a read-only token with no secrets
 and passed the then-current OS/Node, manager, migration, and CodeQL lanes, then
-failed closed on its unsigned commit and unformatted contributor guide. The
-current Yarn Berry and packed-shell graph has not run on a later legitimate
-fork revision. The exact remediation is recorded on #180 and the PR; no
-maintainer mutation was made to the contributor branch.
+failed closed on its unsigned commit and unformatted contributor guide.
+Maintainer-controlled external [PR #227](https://github.com/RoryGlenn/commitment-issues/pull/227)
+then completed the current graph: unsigned run `29546132668` failed only DCO and
+the aggregate, while signed run `29546490643` attempt 2 passed all 34 required
+jobs. Both stages reported read-only contents and metadata with no secret
+source; CodeQL uploaded successfully. No contributor branch was mutated.
 
 ## Published v3.3.2 baseline
 
@@ -295,12 +298,11 @@ owns triage until assignment.
 
 [#78](https://github.com/RoryGlenn/commitment-issues/issues/78),
 [#101](https://github.com/RoryGlenn/commitment-issues/issues/101),
-[#138](https://github.com/RoryGlenn/commitment-issues/issues/138),
-and [#180](https://github.com/RoryGlenn/commitment-issues/issues/180) remain open
-until the exact external or final action recorded above. They are the complete
-remaining launch-gate scope; no new issue was imported into the frozen run. The
-controls tracked by issues #195 and #199 were completed by the
-2026-07-16 owner-authenticated reviews.
+and [#138](https://github.com/RoryGlenn/commitment-issues/issues/138) remain open
+until the exact candidate and final actions recorded above. They are the
+complete remaining launch-gate scope; no new issue was imported into the frozen
+run. The controls tracked by issues #180, #195, and #199 were completed on
+2026-07-16.
 
 ### Accepted post-launch maintenance or bounded debt
 
@@ -399,11 +401,11 @@ slsa-verifier verify-artifact <v3.3.2.tgz> --provenance-path <bundle> --source-u
 
 ## Completion conditions
 
-Audit 9 remains open. After #180 is complete, select and
-validate a new versioned candidate, run the exact-candidate GUI rows, repeat
-the external read-backs against the then-current `main`, and rerun affected
-artifact and release checks. Then update this report from **blocked** to the
-actual final verdict and land a focused `Closes #138` PR only if no
+Audit 9 remains open. With #180 complete, select and validate a new versioned
+candidate, run the exact-candidate GUI rows, repeat the external read-backs
+against the then-current `main`, and rerun affected artifact and release checks.
+Then update this report from **blocked** to the actual final verdict and land a
+focused `Closes #138` PR only if no
 Critical/High blocker or undispositioned audit finding remains.
 
 Until then, #101, #138, and #78 must not be described as complete, and no tag,
