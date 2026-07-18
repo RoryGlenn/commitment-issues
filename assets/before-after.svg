@@ -49,9 +49,9 @@
       </feMerge>
     </filter>
     <style>
-      .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .sans { font-family: "DejaVu Sans", sans-serif; }
       .brand { font-size: 14px; font-weight: 800; letter-spacing: 2.4px; }
-      .headline { font-size: 44px; font-weight: 850; letter-spacing: -1px; }
+      .headline { font-size: 39px; font-weight: 850; letter-spacing: -1px; }
       .subhead { font-size: 24px; font-weight: 600; }
       .badge { font-size: 17px; font-weight: 850; letter-spacing: 2.2px; }
       .step { font-size: 20px; font-weight: 850; letter-spacing: 0.4px; }

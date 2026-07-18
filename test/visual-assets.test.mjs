@@ -212,6 +212,11 @@ test("hero story pairs a reusable comparison with a 20–30 second real workflow
 
   assert.match(svg, /width="1200"/);
   assert.match(svg, /height="675"/);
+  assert.match(
+    svg,
+    /\.sans \{ font-family: "DejaVu Sans", sans-serif; \}/,
+    "comparison should name the font installed by its render workflow",
+  );
   assert.ok(
     svg.includes(`<title id="title">${slogan}</title>`),
     "comparison should retain the canonical promise as its accessible title",
@@ -347,6 +352,11 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.doesNotMatch(tape, /ln -s "\$REPO\/node_modules" node_modules/);
   assert.match(workflow, /npm ci --ignore-scripts/);
   assert.match(workflow, /node-version: "24\.14\.0"/);
+  assert.match(
+    workflow,
+    /apt-get install --yes ffmpeg fonts-dejavu-core zsh/,
+    "render workflow should install the comparison's exact font",
+  );
   for (const input of [
     ".github/workflows/render-demo.yml",
     "assets/before-after.png",
