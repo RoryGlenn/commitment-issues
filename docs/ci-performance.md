@@ -120,6 +120,26 @@ This is a reference point, not a percentile cohort. It confirms that the
 current workflow instantiates the full compatibility graph for a pure
 documentation change and does not yet meet the documentation-only target.
 
+## Phase-one scheduling observations
+
+[PR #245](https://github.com/RoryGlenn/commitment-issues/pull/245) separated
+the Windows test suite from the packed npm lifecycle on both Node lines. The
+two jobs run in parallel, but all commands, assertions, environments, and
+required-status behavior remain represented.
+
+The pull-request run and resulting `main` push both passed the 36-job graph:
+
+| Event         | CI run                                                                          | Head commit                                | UTC interval                 | Jobs | Wall clock | Summed runner time |
+| ------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------- | ---: | ---------- | ------------------ |
+| PR #245       | [#750](https://github.com/RoryGlenn/commitment-issues/actions/runs/29650401160) | `9b26643d6978585bb603e042038e06ff953aab67` | 2026-07-18 15:39:00–15:43:10 |   36 | 4m 10s     | 35m 31s            |
+| merged `main` | [#751](https://github.com/RoryGlenn/commitment-issues/actions/runs/29650871447) | `74240e4f667b484607ab1221a2ce87e52e4898b2` | 2026-07-18 15:53:22–15:57:56 |   36 | 4m 34s     | 36m 21s            |
+
+These observations prove that the parallel scheduling works on GitHub-hosted
+runners. They are not the three-run after cohort: there are only two samples,
+and their graph does not include the phase-two Windows shards below. They do
+not establish p50 or p95 after results, reduced runner usage, the ordinary-code
+or documentation-only targets, or completion of #204.
+
 ## Targets and non-negotiable evidence
 
 Issue #204 defines these outcome targets:
@@ -145,16 +165,135 @@ three primary after runs must use the same change class and intended job graph
 as one another, and the comparison must explain any difference from the before
 cohort.
 
-| After sample | Change class               | CI run | Head commit | Jobs | Wall clock | Summed runner time | Notes |
-| -----------: | -------------------------- | ------ | ----------- | ---: | ---------- | ------------------ | ----- |
-|            1 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
-|            2 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
-|            3 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
+### Adopted all-Node shard topology
 
-| Metric             | Before p50 | Before p95 | After p50 | After p95 | Target    | Result |
-| ------------------ | ---------- | ---------- | --------- | --------- | --------- | ------ |
-| Wall clock         | 5m 30s     | 5m 43s     | TBD       | TBD       | 3–3.5 min | TBD    |
-| Summed runner time | 35m 19s    | 36m 38s    | TBD       | TBD       | 15–18 min | TBD    |
+The first phase-two benchmark partitioned the same Windows top-level test-file
+set with Node's native `--test-shard=1/2` and `--test-shard=2/2` on both
+supported Node lines. Each exact pair assigned every file once, the packed npm
+lifecycle remained separate, and the two authoritative Ubuntu coverage runs
+remained complete and unsharded.
+
+A local correctness and balance probe used Node 22.11.0 on Ubuntu 24.04.4,
+Linux 7.0.0-28-generic x86_64, and an Intel i9-10900K (10 cores/20 logical
+CPUs). Three sequential repetitions of each exact command produced:
+
+| Mode      | Files | Tests        | Wall-clock observations | Median |
+| --------- | ----: | ------------ | ----------------------- | -----: |
+| Shard 1/2 |    27 | 392/392 pass | 17.72s, 17.86s, 22.34s  | 17.86s |
+| Shard 2/2 |    26 | 480/480 pass | 7.46s, 8.70s, 7.37s     |  7.46s |
+| Unsharded |    53 | 872/872 pass | 19.92s, 19.97s, 20.06s  | 19.97s |
+
+The shard-file union was 53/53 with zero overlap, omissions, or extra files.
+The local projected critical path improved 10.6%, while the median summed shard
+time increased 33.0%. These Linux timings validate the invocation and expose
+the runtime imbalance; they are not substitutes for the hosted Windows
+measurements below.
+
+Three successful first-attempt observations passed the same 38-job graph. Run
+#752 introduced the candidate workflow; #754 and #755 were evidence-document
+updates that still ran the identical full graph because no change classifier
+exists yet. They are valid architecture timings, but they are neither a
+same-change-class primary after cohort nor proof of documentation-only routing.
+
+| Benchmark sample | Commit role/full graph        | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time | Notes                                                   |
+| ---------------: | ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ | ------------------------------------------------------- |
+|                1 | Workflow candidate/full graph | [#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636) | `138c15e170fb7047e0c5d6a419f663e63778534e` |   38 | 3m 37s     | 41m 23s            | First hosted shard candidate; all required jobs passed  |
+|                2 | Evidence docs/full graph      | [#754](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651811092) | `8fd30e41b64645dfd75dde184aad0902589f4831` |   38 | 3m 30s     | 39m 50s            | Second hosted shard candidate; all required jobs passed |
+|                3 | Evidence docs/full graph      | [#755](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651954831) | `9199efa4330f16dc686cfc9313e0fe7800b3089b` |   38 | 3m 13s     | 37m 59s            | Third hosted shard candidate; all required jobs passed  |
+
+### Excluded runs and reruns
+
+[Run #753 attempt 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651498979/attempts/1)
+is excluded from the benchmark cohort. All four Windows shard jobs passed on the
+first attempt, but the unchanged Ubuntu/Node 24 coverage job exited nonzero
+after its buffered log ended mid-test without a failed assertion, stale-badge
+message, or coverage-threshold diagnostic. The fail-closed `CI Success` job
+correctly failed. A
+[failed-jobs-only retry](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651498979/attempts/2)
+then passed the coverage job and aggregate. Because that retry did not execute
+the complete graph, neither attempt is a comparable successful first-attempt
+sample.
+
+| Metric             | Before p50 | Before p95 | All-Node p50 | All-Node p95 | Target    | Architecture result                             |
+| ------------------ | ---------- | ---------- | ------------ | ------------ | --------- | ----------------------------------------------- |
+| Wall clock         | 5m 30s     | 5m 43s     | 3m 30s       | 3m 37s       | 3–3.5 min | p50 improved 36.4%; median target met           |
+| Summed runner time | 35m 19s    | 36m 38s    | 39m 50s      | 41m 23s      | 15–18 min | p50 regressed 12.8%; runner target remains open |
+
+Wall-clock p50 fell by 2m and p95 by 2m 06s, reductions of 36.4% and 36.7%.
+Summed runner p50 rose by 4m 31s and p95 by 4m 45s, increases of 12.8% and
+13.0%. The topology reached the upper edge of the wall-clock target at p50 but
+increased total runner use substantially. The selective benchmark below tested
+whether removing Node 24 sharding could retain the feedback gain while reducing
+that cost.
+
+Record the shard balance and duplicated setup cost for every candidate sample.
+The maximum shard duration measures the Windows critical path; the sum helps
+explain the candidate's contribution to combined runner time.
+
+| Benchmark sample | Node    | Shard 1 duration | Shard 2 duration | Maximum | Sum    |
+| ---------------: | ------- | ---------------- | ---------------- | ------- | ------ |
+|                1 | 22.11.0 | 2m 40s           | 3m 08s           | 3m 08s  | 5m 48s |
+|                1 | 24      | 2m 36s           | 2m 11s           | 2m 36s  | 4m 47s |
+|                2 | 22.11.0 | 3m 08s           | 1m 59s           | 3m 08s  | 5m 07s |
+|                2 | 24      | 3m 04s           | 2m 09s           | 3m 04s  | 5m 13s |
+|                3 | 22.11.0 | 2m 28s           | 1m 53s           | 2m 28s  | 4m 21s |
+|                3 | 24      | 2m 26s           | 2m 17s           | 2m 26s  | 4m 43s |
+
+### Selective shard benchmark cohort (rejected)
+
+A directional comparison initially suggested sharding only the slower Windows
+Node 22.11.0 lane. Its two phase-one unsharded jobs averaged 3m 59.5s, while the
+all-Node cohort's maximum Node 22.11.0 shard job averaged 2m 54.7s. Node 24's
+two phase-one unsharded jobs averaged 2m 54.5s, while its maximum shard job
+averaged 2m 42s. That estimated only a 12.5s Node 24 critical-path gain for
+approximately 2m of added runner time, so the selective topology received its
+own hosted cohort.
+
+Three successful first-attempt observations passed the same 37-job selective
+graph. Run #756 introduced the selective workflow; #757 and #758 were
+evidence-document updates that still ran the identical full graph because no
+change classifier exists yet. They are valid architecture timings, but they
+are neither a same-change-class primary after cohort nor proof of
+documentation-only routing.
+
+| Selective sample | Commit role/full graph        | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time | Notes                                                       |
+| ---------------: | ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ | ----------------------------------------------------------- |
+|                1 | Workflow candidate/full graph | [#756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078) | `911836fe8425b58c4c04d17ef49b03f396225a66` |   37 | 3m 54s     | 37m 09s            | All required jobs passed; complete Node 24 lane took 3m 43s |
+|                2 | Evidence docs/full graph      | [#757](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652509893) | `2fa9ae240b8df086b43b85296de6515cb51eac0e` |   37 | 3m 58s     | 39m 03s            | All required jobs passed; complete Node 24 lane took 3m 50s |
+|                3 | Evidence docs/full graph      | [#758](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652681381) | `f9783d71a6bd3b1cf88af6f27c337a90c6c9a76d` |   37 | 3m 50s     | 38m 33s            | All required jobs passed; complete Node 24 lane took 3m 41s |
+
+The complete Node 24 job controlled the Windows critical path in all three
+selective samples:
+
+| Selective sample | Node 22 shard 1 | Node 22 shard 2 | Node 22 maximum | Node 22 sum | Node 24 complete |
+| ---------------: | --------------- | --------------- | --------------- | ----------- | ---------------- |
+|                1 | 2m 56s          | 2m 00s          | 2m 56s          | 4m 56s      | 3m 43s           |
+|                2 | 2m 28s          | 2m 16s          | 2m 28s          | 4m 44s      | 3m 50s           |
+|                3 | 2m 39s          | 2m 46s          | 2m 46s          | 5m 25s      | 3m 41s           |
+
+| Metric             | Before p50 | Before p95 | Selective p50 | Selective p95 | Target    | Benchmark result                               |
+| ------------------ | ---------- | ---------- | ------------- | ------------- | --------- | ---------------------------------------------- |
+| Wall clock         | 5m 30s     | 5m 43s     | 3m 54s        | 3m 58s        | 3–3.5 min | p50 improved 29.1%; median target was missed   |
+| Summed runner time | 35m 19s    | 36m 38s    | 38m 33s       | 39m 03s       | 15–18 min | p50 regressed 9.2%; runner target remains open |
+
+Selective wall-clock p50 fell 29.1% from the baseline and p95 fell 30.6%, while
+runner p50 increased 9.2% and p95 increased 6.6%. Compared directly with the
+all-Node cohort, all-Node sharding saved another 24s at p50 and 21s at p95 in
+exchange for 1m 17s and 2m 20s more runner time. The selective topology reduced
+runner use relative to all-Node sharding but still remained far above the
+15–18-minute target, and it missed the median wall-clock target.
+
+All-Node sharding is therefore the adopted phase-two topology and the only
+measured option that meets the median wall-clock target. Windows uses the exact
+`1/2` and `2/2` pair on both supported Node lines; the packed npm lifecycle
+remains separate, and authoritative Ubuntu coverage remains complete and
+unsharded. The mixed commit roles make both cohorts useful architecture timing
+evidence, not same-change-class or documentation-routing proof.
+
+[PR #246](https://github.com/RoryGlenn/commitment-issues/pull/246) remains
+draft, and #204 remains open. The 15–18-minute runner target, change-classifier
+routing, lifecycle setup reuse, and the required routing cases still need
+separate evidence.
 
 Record documentation-only routing separately because run #739 is only one
 before reference and is not part of the three-run full-graph cohort:

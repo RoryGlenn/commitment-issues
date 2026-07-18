@@ -548,7 +548,7 @@ test("CI Success includes DCO and all DCO baselines stay documented", () => {
 
   assert.match(
     ci,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
   assert.match(ci, /fetch-depth: 0/);

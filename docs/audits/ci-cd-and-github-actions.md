@@ -369,9 +369,77 @@ The change preserves the existing evidence boundary:
 - `CI Success` depends on both Windows jobs and fails closed unless each reports
   explicit success, just as it does for every other required dependency.
 
-This phase does not introduce a change classifier, move compatibility evidence
-to scheduled-only CI, or adopt test sharding. It changes scheduling only. The
-hosted after-run wall-clock and combined runner-time measurements are still
-pending, so this addendum makes no claim yet that the #204 timing targets have
-been met. Comparable hosted run links and the measured result must be appended
-after the workflow executes successfully.
+This phase did not introduce a change classifier, move compatibility evidence
+to scheduled-only CI, or adopt test sharding. It changed scheduling only. Two
+successful hosted observations used the measurement method in the
+[CI performance baseline](../ci-performance.md):
+
+| Event         | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time |
+| ------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ |
+| PR #245       | [#750](https://github.com/RoryGlenn/commitment-issues/actions/runs/29650401160) | `9b26643d6978585bb603e042038e06ff953aab67` |   36 | 4m 10s     | 35m 31s            |
+| merged `main` | [#751](https://github.com/RoryGlenn/commitment-issues/actions/runs/29650871447) | `74240e4f667b484607ab1221a2ce87e52e4898b2` |   36 | 4m 34s     | 36m 21s            |
+
+These runs prove that the separated Windows test and lifecycle graph executes
+and gates successfully on GitHub-hosted runners. Two observations are not the
+required three-run after cohort, and neither the runner-time target nor the
+broader #204 acceptance criteria are satisfied by this scheduling phase alone.
+
+## 2026-07-18 phase-two Windows sharding decision addendum (#204)
+
+Phase two compared two native test-file-sharding topologies on the remaining
+Windows critical path. The all-Node topology replaces each unsharded Windows
+test lane with the exact complementary pair `--test-shard=1/2` and
+`--test-shard=2/2`, whose union assigns every top-level test file exactly once.
+
+The all-Node architecture cohort used three successful first-attempt runs:
+[#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636)
+introduced the workflow, while
+[#754](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651811092)
+and
+[#755](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651954831)
+were evidence-document updates that still ran the identical 38-job full graph.
+They produced 3m 30s/3m 37s wall-clock p50/p95 and 39m 50s/41m 23s summed
+runner p50/p95. The mixed commit roles make them valid architecture timings,
+not a same-change-class cohort or proof of documentation-only routing.
+
+The selective topology kept the two Node 22.11.0 shards but restored one
+complete Windows Node 24 lane. Its three successful first-attempt runs followed
+the same role pattern:
+[#756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078)
+introduced the selective workflow, while
+[#757](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652509893)
+and
+[#758](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652681381)
+were evidence-document updates that ran the identical 37-job full graph. The
+cohort produced 3m 54s/3m 58s wall-clock p50/p95 and 38m 33s/39m 03s runner
+p50/p95. Its complete Node 24 test lane controlled the Windows critical path in
+all three samples.
+
+Compared with the selective cohort, all-Node sharding saved 24s at wall-clock
+p50 and 21s at p95, while adding 1m 17s and 2m 20s of runner time. Selective
+sharding reduced runner use but still regressed 9.2% at p50 from the baseline,
+remained far above the 15–18-minute target, and missed the median wall-clock
+target. All-Node sharding is therefore the adopted phase-two topology and the
+only measured option that meets the median wall-clock target. Complete tables,
+per-lane timings, calculations, and the excluded rerun are recorded in
+[CI performance evidence](../ci-performance.md#after-optimization-evidence).
+
+The adopted topology preserves the evidence boundary:
+
+- both Ubuntu coverage lanes remain complete and unsharded, continue enforcing
+  100% line, branch, and function coverage, and retain the Node 24 badge check;
+- macOS continues running the complete unsharded suite on both Node lines;
+- Windows runs the exact `1/2` and `2/2` pair on both Node lines, so every test
+  file executes exactly once per supported Node version;
+- Windows retains the same separate prebuilt-tarball npm lifecycle integration
+  on both Node lines;
+- no meaningful test, assertion, lifecycle scenario, platform, or Node lane is
+  removed; and
+- `CI Success` continues failing closed when any shard, lifecycle job, or other
+  required dependency is unsuccessful or incomplete.
+
+This phase does not add the change classifier, reuse lifecycle setup, move
+compatibility evidence to scheduled-only CI, or satisfy the documentation-only
+or 15–18-minute runner targets. [PR #246](https://github.com/RoryGlenn/commitment-issues/pull/246)
+remains draft and #204 remains open pending those phases and the required
+routing evidence.
