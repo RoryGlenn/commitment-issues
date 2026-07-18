@@ -363,11 +363,11 @@ groups are expected skips. Static quality retains actionlint, dependency
 audit, lint, formatting, and the 164 focused documentation, metadata, schema,
 link, asset, release, badge-freshness, and workflow-policy assertions.
 
-| Sample | CI run / attempt | Head commit | Trusted base | UTC interval | Successful / skipped jobs | Wall clock | Summed runner time |
-| -----: | ---------------- | ----------- | ------------ | ------------ | ------------------------: | ---------- | ------------------ |
-|      1 | TBD              | TBD         | TBD          | TBD          |                 TBD / TBD | TBD        | TBD                |
-|      2 | TBD              | TBD         | TBD          | TBD          |                 TBD / TBD | TBD        | TBD                |
-|      3 | TBD              | TBD         | TBD          | TBD          |                 TBD / TBD | TBD        | TBD                |
+| Sample | CI run / attempt                                                                               | Head commit                                | Trusted base                               | UTC interval                 | Successful / skipped jobs | Quality | Wall clock | Summed runner time |
+| -----: | ---------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ---------------------------- | ------------------------: | ------- | ---------- | ------------------ |
+|      1 | [#764 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655750863/attempts/1) | `0a3dcbd79bb75875c56fe8457165d5708fb5582e` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:23:01–18:23:32 |                     4 / 7 | 24s     | 31s        | 40s                |
+|      2 | TBD                                                                                            | TBD                                        | TBD                                        | TBD                          |                 TBD / TBD | TBD     | TBD        | TBD                |
+|      3 | TBD                                                                                            | TBD                                        | TBD                                        | TBD                          |                 TBD / TBD | TBD     | TBD        | TBD                |
 
 The final issue evidence should also link the routing runs for runtime,
 package-manager, workflow, rename/deletion, unknown-classification, and fork
