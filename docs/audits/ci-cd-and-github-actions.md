@@ -345,3 +345,33 @@ active and independently evidenced under #177. Release authority remains
 explicitly open for Audit 7/9. Current-architecture external-fork validation is
 independently complete under #180 and PR #227; exact-candidate release and GUI
 validation remain owned by Audit 9.
+
+## 2026-07-18 phase-one CI feedback addendum (#204)
+
+This addendum records the first scheduling change for
+[#204](https://github.com/RoryGlenn/commitment-issues/issues/204) without
+rewriting the historical Audit 6 snapshot above. Phase one separates the
+Windows test suite from the packed npm lifecycle integration on both supported
+Node lines. They now run as parallel required jobs instead of sequential steps
+in the same Windows job.
+
+The change preserves the existing evidence boundary:
+
+- Windows still runs the complete unchanged test suite on Node 22.11.0 and
+  Node 24;
+- Windows still runs the same prebuilt-tarball npm lifecycle integration on
+  both Node lines;
+- no meaningful test, assertion, lifecycle scenario, supported platform, or
+  supported Node lane is removed or skipped;
+- the two Ubuntu coverage lanes remain unsharded and continue enforcing 100%
+  line, branch, and function coverage, with Node 24 also checking badge
+  freshness; and
+- `CI Success` depends on both Windows jobs and fails closed unless each reports
+  explicit success, just as it does for every other required dependency.
+
+This phase does not introduce a change classifier, move compatibility evidence
+to scheduled-only CI, or adopt test sharding. It changes scheduling only. The
+hosted after-run wall-clock and combined runner-time measurements are still
+pending, so this addendum makes no claim yet that the #204 timing targets have
+been met. Comparable hosted run links and the measured result must be appended
+after the workflow executes successfully.

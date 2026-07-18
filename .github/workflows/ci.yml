@@ -135,6 +135,7 @@ jobs:
         run: npm run states:assets:check
 
       - name: Prebuilt package lifecycle integration (separate from runtime coverage)
+        if: matrix.os != 'windows-latest'
         run: node tools/run-prebuilt-lifecycle-test.mjs
 
       - name: 100% runtime coverage (Node 22.11.0)
@@ -144,6 +145,34 @@ jobs:
       - name: 100% runtime coverage and badge freshness (Node 24)
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24'
         run: npm run coverage:check
+
+  windows-npm-lifecycle:
+    name: Windows / Node ${{ matrix.node-version }} / npm lifecycle
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    env:
+      COMMITMENT_ISSUES: 0
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22.11.0", "24"]
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prebuilt package lifecycle integration (separate from runtime coverage)
+        run: node tools/run-prebuilt-lifecycle-test.mjs
 
   shell-compat:
     name: ${{ matrix.name }} packed shell lifecycle
@@ -310,6 +339,7 @@ jobs:
         dco,
         quality,
         check,
+        windows-npm-lifecycle,
         shell-compat,
         pm-lifecycle,
         migration-lifecycle,
@@ -324,6 +354,7 @@ jobs:
             needs.dco.result != 'success' ||
             needs.quality.result != 'success' ||
             needs.check.result != 'success' ||
+            needs['windows-npm-lifecycle'].result != 'success' ||
             needs['shell-compat'].result != 'success' ||
             needs['pm-lifecycle'].result != 'success' ||
             needs['migration-lifecycle'].result != 'success' ||

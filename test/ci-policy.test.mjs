@@ -256,7 +256,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.doesNotMatch(check, /npm run (?:lint|format:check)/u);
   assert.match(
     aggregate,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
   );
   assert.match(migration, /runs-on: ubuntu-latest/u);
   assert.match(migration, /node-version: "24"/u);
@@ -266,12 +266,75 @@ test("static quality work is single-lane and gates CI Success", () => {
   );
   assert.doesNotMatch(migration, /strategy:\s+fail-fast:/u);
   assert.match(aggregate, /needs\.quality\.result != 'success'/u);
+  assert.match(
+    aggregate,
+    /needs\['windows-npm-lifecycle'\]\.result != 'success'/u,
+  );
   assert.match(aggregate, /needs\['shell-compat'\]\.result != 'success'/u);
   assert.match(
     aggregate,
     /needs\['migration-lifecycle'\]\.result != 'success'/u,
   );
   assert.match(aggregate, /needs\.codeql\.result != 'success'/u);
+});
+
+test("Windows npm tests and lifecycle run once in parallel required jobs", () => {
+  const workflow = read(".github/workflows/ci.yml");
+  const jobs = new Map(
+    workflowJobBlocks(workflow).map(({ name, source }) => [name, source]),
+  );
+  const check = jobs.get("check") ?? "";
+  const windowsLifecycle = jobs.get("windows-npm-lifecycle") ?? "";
+  const aggregate = jobs.get("ci-success") ?? "";
+
+  assert.match(check, /os: \[ubuntu-latest, macos-latest, windows-latest\]/u);
+  assert.match(
+    check,
+    /node-version:\s+- "22\.11\.0"\s+- "24"/u,
+    "the original OS and Node matrix must continue routing Windows through the test step",
+  );
+  assert.match(
+    check,
+    /name: Unit and integration tests\s+if: matrix\.os != 'ubuntu-latest'\s+run: npm test/u,
+    "the existing check matrix should keep the one test-suite invocation used by Windows",
+  );
+  assert.equal(
+    workflow.match(/^\s+run: npm test\s*$/gmu)?.length ?? 0,
+    1,
+    "required CI should declare the unsharded npm test command exactly once",
+  );
+  assert.match(
+    check,
+    /name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+if: matrix\.os != 'windows-latest'\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
+    "the combined check job should retain npm lifecycle evidence only on non-Windows lanes",
+  );
+
+  assert.match(windowsLifecycle, /runs-on: windows-latest/u);
+  assert.match(windowsLifecycle, /node-version: \["22\.11\.0", "24"\]/u);
+  assert.match(windowsLifecycle, /COMMITMENT_ISSUES: 0/u);
+  assert.match(windowsLifecycle, /run: npm ci/u);
+  assert.match(
+    windowsLifecycle,
+    /name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
+  );
+  assert.doesNotMatch(windowsLifecycle, /run: npm test/u);
+  assert.doesNotMatch(
+    windowsLifecycle,
+    /^ {4}needs:/mu,
+    "Windows lifecycle lanes should start in parallel with the check matrix",
+  );
+  assert.equal(
+    workflow.match(
+      /^\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs\s*$/gmu,
+    )?.length ?? 0,
+    2,
+    "one conditionally non-Windows step and one Windows matrix step should own npm lifecycle evidence",
+  );
+  assert.match(
+    aggregate,
+    /windows-npm-lifecycle[\s\S]*needs\['windows-npm-lifecycle'\]\.result != 'success'/u,
+    "the parallel Windows lifecycle matrix must remain behind CI Success",
+  );
 });
 
 test("CodeQL is reusable and included in the required aggregate", () => {
