@@ -136,8 +136,9 @@ The test strategy also enforces behavior that a percentage cannot:
 - the aggregate `CI Success` job accepts only explicit success from DCO, the
   full OS/Node test and npm lifecycle graph, and the non-npm package-manager
   lifecycle matrix across Ubuntu, macOS, and Windows (plus exact-minimum-Node
-  manager lanes); every complementary Windows test shard and the parallel npm
-  lifecycle lanes must succeed;
+  manager lanes); both complementary Windows Node 22.11.0 test shards, the
+  complete Windows Node 24 lane, and the parallel npm lifecycle lanes must
+  succeed;
 - property tests exercise path normalization and ownership invariants, while
   real disposable Git repositories cover CLI and hook behavior;
 - no snapshot update can mask behavior: assertions target exact structured
@@ -150,12 +151,12 @@ Ubuntu CI enforces 100% lines, branches, and functions on Node 22.11.0 and Node 
 same gated command and fails if the committed README badge differs from the
 generated value.
 
-Windows runs the same top-level test-file set through complementary native Node
-shards `1/2` and `2/2` on both Node lines. Their union assigns every test file
-exactly once, while the packed npm lifecycle remains a separate parallel
-required job. The two Ubuntu coverage lanes stay complete and unsharded, so
-the Windows scheduling change does not alter either coverage denominator or
-the badge-freshness gate.
+Windows runs the Node 22.11.0 top-level test-file set through complementary
+native shards `1/2` and `2/2`; their union assigns every test file exactly once.
+Node 24 retains one complete unsharded test lane. The packed npm lifecycle
+remains in separate parallel required jobs on both Node lines. The two Ubuntu
+coverage lanes stay complete and unsharded, so the selective Windows scheduling
+does not alter either coverage denominator or the badge-freshness gate.
 
 The badge rounds to one decimal place, while all three CI thresholds evaluate
 Node's unrounded coverage result. Rounding therefore never relaxes the 100%

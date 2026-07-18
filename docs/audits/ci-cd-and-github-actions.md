@@ -386,32 +386,49 @@ broader #204 acceptance criteria are satisfied by this scheduling phase alone.
 
 ## 2026-07-18 phase-two Windows shard candidate addendum (#204)
 
-Phase two benchmarks Node's native test-file sharding on the remaining Windows
-critical path. On each supported Node line, the candidate replaces one
-unsharded Windows test lane with the exact complementary pair
-`--test-shard=1/2` and `--test-shard=2/2`. Their union must assign every
-top-level test file exactly once.
+Phase two first benchmarked Node's native test-file sharding on both Windows
+Node lines. The all-Node candidate replaced each unsharded test lane with the
+exact complementary pair `--test-shard=1/2` and `--test-shard=2/2`, whose union
+assigned every top-level test file exactly once.
 
-The candidate preserves the evidence boundary:
+Three comparable successful first-attempt runs—
+[#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636),
+[#754](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651811092),
+and
+[#755](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651954831)—
+produced a 3m 30s wall-clock p50 and 3m 37s p95, compared with the 5m 30s and
+5m 43s before values. Summed runner time moved in the wrong direction: p50 rose
+from 35m 19s to 39m 50s and p95 from 36m 38s to 41m 23s. The wall-clock p50
+improved 36.4%, but runner p50 regressed 12.8%. The full cohort, per-shard
+timings, and excluded failed-attempt rerun are recorded in the
+[CI performance baseline](../ci-performance.md#all-node-shard-benchmark-cohort-rejected).
+
+Node 24 did not justify its duplicated setup. Its two phase-one unsharded jobs
+averaged 2m 54.5s. Across the three all-Node runs, the maximum Node 24 shard job
+averaged 2m 42s—only a 12.5s critical-path gain—while the paired jobs averaged
+4m 54.3s, approximately 2m more runner time. Phase two therefore rejects Node
+24 sharding and selects the narrower topology: only Windows Node 22.11.0 uses
+the `1/2` and `2/2` pair, while Windows Node 24 runs one complete unsharded
+test lane.
+
+The selective candidate preserves the evidence boundary:
 
 - both Ubuntu coverage lanes remain complete and unsharded, continue enforcing
   100% line, branch, and function coverage, and retain the Node 24 badge check;
 - macOS continues running the complete unsharded suite on both Node lines;
-- Windows retains the complete test-file set on both Node lines and the same
-  separate prebuilt-tarball npm lifecycle integration;
+- Windows runs every test file exactly once on both Node lines: through the
+  complementary pair at Node 22.11.0 and one complete lane at Node 24;
+- Windows retains the same separate prebuilt-tarball npm lifecycle integration
+  on both Node lines;
 - no meaningful test, assertion, lifecycle scenario, platform, or Node lane is
   removed; and
-- `CI Success` continues failing closed when any test shard, lifecycle job, or
-  other required dependency is unsuccessful or incomplete.
+- `CI Success` continues failing closed when any selected test lane, lifecycle
+  job, or other required dependency is unsuccessful or incomplete.
 
 This candidate does not add the change classifier, reuse lifecycle setup, move
 compatibility evidence to scheduled-only CI, or satisfy the documentation-only
-target. The first hosted observation,
-[CI run #752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636),
-passed all 38 required jobs in 3m 37s wall clock and 41m 23s summed runner time.
-That single run validates hosted execution but does not establish p50, p95,
-flake behavior, or whether the wall-clock gain justifies the added runner cost.
-The remaining after-sample rows, percentiles, and result in the
-[CI performance baseline](../ci-performance.md#after-optimization-evidence)
-remain `TBD` until comparable successful runs exist, so this addendum makes no
-claim yet that sharding is non-flaky, adopted, or sufficient to complete #204.
+target. No hosted selective-topology observation is recorded yet. Its sample
+rows, percentiles, and result in the
+[CI performance baseline](../ci-performance.md#selective-topology-evidence-pending)
+remain `TBD`, so this addendum makes no claim yet that the final candidate is
+non-flaky, meets the targets, or is sufficient to complete #204.

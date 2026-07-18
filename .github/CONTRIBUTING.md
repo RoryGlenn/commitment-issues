@@ -178,13 +178,14 @@ npm, pnpm, Yarn, and Bun package lifecycles plus packed launch scenarios for
 POSIX `sh`, Bash, Fish, Zsh, Windows PowerShell, and Command Prompt. Keep
 changes cross-platform even if you develop on only one operating system.
 
-On Windows, CI partitions the same top-level test-file set into Node's native
-`--test-shard=1/2` and `--test-shard=2/2` shards on both supported Node lines.
-Together, the two shards assign every test file exactly once; the local
-`npm test` command remains the complete unsharded suite. The packed npm
-lifecycle stays in a separate parallel required job, while the Ubuntu coverage
-lanes remain complete and unsharded. The aggregate `CI Success` check requires
-every Windows shard and lifecycle result to report explicit success.
+On Windows, CI partitions the Node 22.11.0 test-file set into the complementary
+native shards `--test-shard=1/2` and `--test-shard=2/2`; their union assigns
+every test file exactly once. Node 24 keeps one complete unsharded test lane,
+and the local `npm test` command remains the complete unsharded suite. The
+packed npm lifecycle stays in separate parallel required jobs, while the
+Ubuntu coverage lanes remain complete and unsharded. The aggregate `CI Success`
+check requires every selected Windows test and lifecycle result to report
+explicit success.
 
 ## Coding style
 
