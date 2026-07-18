@@ -38,15 +38,14 @@ with the canonical promise above. For a shorter X post, use:
 
 | Asset                          | Best use                               | Notes                                                                 |
 | ------------------------------ | -------------------------------------- | --------------------------------------------------------------------- |
-| `assets/before-after.svg`      | GitHub/npm and linked HN documentation | Crisp, accessible source with the complete before/after story         |
-| `assets/before-after.png`      | Product Hunt, LinkedIn, Reddit, and X  | 1200×675 upload-ready export; keep the full frame and readable labels |
+| `assets/before-after.svg`      | GitHub/npm and linked HN documentation | Crisp, accessible source with a jargon-free before/after story        |
+| `assets/before-after.png`      | Product Hunt, LinkedIn, Reddit, and X  | 1200×675 upload-ready export; understandable without software context |
 | `assets/demo.gif`              | README/npm and posts that accept GIFs  | 26-second real workflow: advisory warning, exact fix, successful push |
 | `assets/commitment-issues.png` | Brand-led posts and social preview     | Existing 16:9 wordmark and Commit Owl artwork                         |
 
-Recommended alt text for the comparison asset: “Without Commitment Issues, a
-developer pushes a mistake, waits for failed CI, fixes it, commits again,
-pushes, and waits again. With Commitment Issues, an immediate local suggestion
-gives the exact `npm run commit:fix` command before the first successful push.”
+Recommended alt text for the comparison asset: “Without Commitment Issues: send
+work, wait, find a mistake, and do it again. With Commitment Issues: spot and
+fix the mistake first, then send once.”
 
 ---
 

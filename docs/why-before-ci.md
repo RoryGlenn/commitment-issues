@@ -13,7 +13,7 @@ and intent in mind.
 The result is not fewer standards. It is a shorter and less disruptive path to
 meeting the same standards.
 
-![Before and after workflow comparing a failed CI feedback loop with an immediate local suggestion and exact fix command](https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg)
+![Without Commitment Issues: send work, wait, find a mistake, and do it again. With Commitment Issues: spot and fix the mistake first, then send once.](https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg)
 
 ## One mistake, two timelines
 

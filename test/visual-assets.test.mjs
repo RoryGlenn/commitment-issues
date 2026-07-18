@@ -212,18 +212,46 @@ test("hero story pairs a reusable comparison with a 20–30 second real workflow
 
   assert.match(svg, /width="1200"/);
   assert.match(svg, /height="675"/);
-  for (const message of [
-    slogan,
-    "Write → commit → push",
-    "Wait for CI",
-    "CI fails",
-    "Helpful suggestion appears immediately",
-    "$ npm run commit:fix",
-    "Commit amended safely → push",
-    "CI STAYS AUTHORITATIVE",
-  ]) {
-    assert.ok(svg.includes(message), `comparison should include ${message}`);
-  }
+  assert.ok(
+    svg.includes(`<title id="title">${slogan}</title>`),
+    "comparison should retain the canonical promise as its accessible title",
+  );
+
+  const visibleNodes = [
+    ...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g),
+  ].map(([, content]) =>
+    content
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+  assert.deepEqual(visibleNodes, [
+    "COMMITMENT",
+    "ISSUES",
+    "Commitment Issues spots mistakes before you send.",
+    "Fix it now. Send once. Done.",
+    "WITHOUT",
+    "SEND",
+    "WAIT",
+    "MISTAKE FOUND",
+    "REDO",
+    "WAIT. FAIL. REPEAT.",
+    "WITH",
+    "SPOT IT",
+    "FIX IT",
+    "SEND ONCE",
+    "FIX. SEND. DONE.",
+  ]);
+  const visibleCopy = visibleNodes.join(" ");
+  assert.ok(
+    visibleCopy.split(/\s+/).length <= 35,
+    "comparison should stay readable at a glance with no more than 35 visible words",
+  );
+  assert.doesNotMatch(
+    visibleCopy,
+    /\b(?:CI|commit|push|npm|context|advisory|telemetry|authoritative)\b/i,
+    "visible comparison should avoid software jargon",
+  );
 
   for (const [name, surface] of [
     ["README", readme],
@@ -241,8 +269,11 @@ test("hero story pairs a reusable comparison with a 20–30 second real workflow
   assert.match(pkg.description, /advisory-first Git hooks/i);
   assert.match(readme, /fix → commit again →\s*push → wait again/);
   assert.match(rationale, /fixes the problem, commits again, pushes again/);
-  assert.match(launch, /fixes it, commits again,\s*pushes, and waits again/);
-  assert.match(svg, /fixes the issue, commits\s+again, pushes/);
+  assert.match(
+    launch,
+    /Without Commitment Issues: send\s*work, wait, find a mistake, and do it again/,
+  );
+  assert.match(svg, /mistake is spotted and fixed first/);
   assert.match(launch, /next-release npm metadata/);
   assert.match(launch, /\[ \] Confirm the live npm page/);
 

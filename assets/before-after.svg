@@ -8,12 +8,10 @@
 >
   <title id="title">Catch mistakes while they're still cheap to fix</title>
   <desc id="desc">
-    A before-and-after comparison. Without Commitment Issues, a developer
-    commits, pushes, waits for CI, reads failure logs, fixes the issue, commits
-    again, pushes, and waits again. With Commitment Issues, an immediate local
-    suggestion includes the exact npm run commit:fix command, so the developer
-    fixes the commit before the first push and the first CI run receives the
-    fix.
+    A simple before-and-after comparison. Before, work is sent, the person
+    waits, a mistake is found, and the work must be done again. After adopting
+    Commitment Issues, the mistake is spotted and fixed first, so the work is
+    sent only once.
   </desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
@@ -21,23 +19,30 @@
       <stop offset="0.55" stop-color="#10132b" />
       <stop offset="1" stop-color="#17102b" />
     </linearGradient>
-    <linearGradient id="without-card" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#191a30" />
-      <stop offset="1" stop-color="#211526" />
+    <linearGradient id="before-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#201725" />
+      <stop offset="1" stop-color="#26151f" />
     </linearGradient>
-    <linearGradient id="with-card" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#131b30" />
-      <stop offset="1" stop-color="#10262b" />
+    <linearGradient id="after-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111d2a" />
+      <stop offset="1" stop-color="#0d2927" />
     </linearGradient>
     <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#ff5555" />
       <stop offset="1" stop-color="#ff7a67" />
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity="0.35" />
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#000" flood-opacity="0.38" />
     </filter>
-    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="7" result="blur" />
+    <filter id="red-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="green-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="9" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
@@ -45,106 +50,106 @@
     </filter>
     <style>
       .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .mono { font-family: "DejaVu Sans Mono", "SFMono-Regular", Consolas, monospace; }
-      .eyebrow { font-size: 14px; font-weight: 800; letter-spacing: 2.4px; }
-      .headline { font-size: 37px; font-weight: 800; letter-spacing: -0.7px; }
-      .subhead { font-size: 17px; font-weight: 500; }
-      .card-title { font-size: 25px; font-weight: 750; letter-spacing: -0.2px; }
-      .step { font-size: 17px; font-weight: 700; }
-      .detail { font-size: 14px; font-weight: 500; }
-      .footer { font-size: 14px; font-weight: 650; }
+      .brand { font-size: 14px; font-weight: 800; letter-spacing: 2.4px; }
+      .headline { font-size: 44px; font-weight: 850; letter-spacing: -1px; }
+      .subhead { font-size: 24px; font-weight: 600; }
+      .badge { font-size: 17px; font-weight: 850; letter-spacing: 2.2px; }
+      .step { font-size: 20px; font-weight: 850; letter-spacing: 0.4px; }
+      .result { font-size: 27px; font-weight: 900; letter-spacing: 0.8px; }
+      .icon { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     </style>
   </defs>
 
   <rect width="1200" height="675" fill="url(#background)" />
-  <circle cx="1110" cy="65" r="190" fill="#3f247c" opacity="0.13" />
-  <circle cx="90" cy="660" r="220" fill="#0d9488" opacity="0.08" />
+  <circle cx="1105" cy="40" r="210" fill="#44257c" opacity="0.14" />
+  <circle cx="70" cy="680" r="230" fill="#0d9488" opacity="0.08" />
 
   <g class="sans">
-    <text x="55" y="44" class="eyebrow" fill="#b8bed6">COMMITMENT</text>
-    <text x="184" y="44" class="eyebrow" fill="url(#brand)">ISSUES</text>
-    <text x="1145" y="44" class="eyebrow" fill="#757e9f" text-anchor="end">BEFORE CI</text>
+    <text x="55" y="45" class="brand" fill="#b8bed6">COMMITMENT</text>
+    <text x="184" y="45" class="brand" fill="url(#brand)">ISSUES</text>
 
-    <text x="55" y="94" class="headline" fill="#f8fafc">Catch mistakes while they’re still <tspan fill="#45e0cf">cheap to fix.</tspan></text>
-    <text x="55" y="123" class="subhead" fill="#aeb6cf">Same standards. One less failed CI loop.</text>
+    <text x="55" y="108" class="headline" fill="#f8fafc">
+      Commitment Issues spots mistakes <tspan fill="#45e0cf">before you send.</tspan>
+    </text>
+    <text x="55" y="148" class="subhead" fill="#afb7ce">Fix it now. Send once. Done.</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="55" y="151" width="527" height="442" rx="22" fill="url(#without-card)" stroke="#503044" />
-    <rect x="618" y="151" width="527" height="442" rx="22" fill="url(#with-card)" stroke="#245b60" />
+    <rect x="55" y="181" width="527" height="419" rx="26" fill="url(#before-card)" stroke="#713544" stroke-width="1.5" />
+    <rect x="618" y="181" width="527" height="419" rx="26" fill="url(#after-card)" stroke="#247068" stroke-width="1.5" />
   </g>
 
   <g class="sans">
-    <rect x="79" y="177" width="106" height="27" rx="13.5" fill="#3a1f2d" stroke="#7d3443" />
-    <circle cx="96" cy="190.5" r="4" fill="#ff6363" />
-    <text x="108" y="195" class="eyebrow" fill="#ff8b85" style="font-size:12px;letter-spacing:1.5px">WITHOUT</text>
-    <text x="79" y="239" class="card-title" fill="#f8fafc">CI finds it later</text>
-    <text x="79" y="263" class="detail" fill="#9ea7c2">Two remote waits for one small mistake</text>
-
-    <rect x="642" y="177" width="86" height="27" rx="13.5" fill="#12383a" stroke="#26706f" />
-    <circle cx="659" cy="190.5" r="4" fill="#45e0cf" />
-    <text x="671" y="195" class="eyebrow" fill="#69eadc" style="font-size:12px;letter-spacing:1.5px">WITH</text>
-    <text x="642" y="239" class="card-title" fill="#f8fafc">Fix it while context is fresh</text>
-    <text x="642" y="263" class="detail" fill="#9ea7c2">Immediate feedback before the first push</text>
+    <rect x="79" y="207" width="146" height="38" rx="19" fill="#421f2a" stroke="#923d4b" />
+    <circle cx="101" cy="226" r="6" fill="#ff6363" />
+    <text x="117" y="232" class="badge" fill="#ff9793">WITHOUT</text>
   </g>
 
-  <!-- CI-only timeline -->
+  <!-- Before: send, wait, discover the mistake, and repeat. -->
   <g class="sans">
-    <path d="M98 307 V515" fill="none" stroke="#4b3a50" stroke-width="3" />
-    <circle cx="98" cy="310" r="11" fill="#26243b" stroke="#7d7899" stroke-width="2" />
-    <path d="M93 310 l4 4 7 -8" fill="none" stroke="#c8cce0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-    <text x="126" y="307" class="step" fill="#e9ebf5">Write → commit → push</text>
-    <text x="126" y="327" class="detail" fill="#949db9">The mistake leaves the laptop</text>
+    <path d="M176 359 H198" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M191 351 L200 359 191 367" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M297 359 H319" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M312 351 L321 359 312 367" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M418 359 H440" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M433 351 L442 359 433 367" class="icon" stroke="#985565" stroke-width="5" />
 
-    <circle cx="98" cy="373" r="11" fill="#2d2537" stroke="#a66a49" stroke-width="2" />
-    <path d="M98 366 v7 l5 3" fill="none" stroke="#ffb86c" stroke-width="2.2" stroke-linecap="round" />
-    <text x="126" y="371" class="step" fill="#f7d7b2">Wait for CI</text>
-    <text x="126" y="391" class="detail" fill="#949db9">Queue + workflow run</text>
+    <circle cx="128" cy="359" r="48" fill="#2a2131" stroke="#845061" stroke-width="2" />
+    <path d="M103 365 L153 343 140 394 124 375 103 365Z" class="icon" stroke="#f1dfe5" stroke-width="4" />
+    <path d="M124 375 L141 358" class="icon" stroke="#f1dfe5" stroke-width="4" />
+    <text x="128" y="439" class="step" fill="#f2e7eb" text-anchor="middle">SEND</text>
 
-    <circle cx="98" cy="435" r="11" fill="#3b202d" stroke="#c94f5d" stroke-width="2" filter="url(#glow)" />
-    <path d="M94 431 l8 8 M102 431 l-8 8" stroke="#ff6363" stroke-width="2.4" stroke-linecap="round" />
-    <text x="126" y="433" class="step" fill="#ff8b85">CI fails</text>
-    <text x="126" y="453" class="detail" fill="#b5a0af">Read logs → restore context → fix</text>
+    <circle cx="249" cy="359" r="48" fill="#30252e" stroke="#a47148" stroke-width="2" />
+    <circle cx="249" cy="359" r="23" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M249 344 V359 L261 366" class="icon" stroke="#ffc178" stroke-width="4" />
+    <text x="249" y="439" class="step" fill="#ffcf94" text-anchor="middle">WAIT</text>
 
-    <circle cx="98" cy="497" r="11" fill="#2d2537" stroke="#a66a49" stroke-width="2" />
-    <path d="M98 490 v7 l5 3" fill="none" stroke="#ffb86c" stroke-width="2.2" stroke-linecap="round" />
-    <text x="126" y="495" class="step" fill="#f7d7b2">Commit → push → wait again</text>
-    <text x="126" y="515" class="detail" fill="#949db9">A second CI run for the same change</text>
+    <circle cx="370" cy="359" r="48" fill="#3a2028" stroke="#c74d5a" stroke-width="2" filter="url(#red-glow)" />
+    <path d="M351 340 L389 378 M389 340 L351 378" class="icon" stroke="#ff6767" stroke-width="7" />
+    <text x="370" y="432" class="step" fill="#ff9290" text-anchor="middle">
+      <tspan x="370">MISTAKE</tspan>
+      <tspan x="370" dy="23">FOUND</tspan>
+    </text>
 
-    <rect x="79" y="541" width="479" height="30" rx="9" fill="#321c2a" stroke="#5c2d3f" />
-    <text x="98" y="561" class="footer" fill="#ff9b96">Cost: two waits + one context switch</text>
+    <circle cx="491" cy="359" r="48" fill="#30252e" stroke="#a47148" stroke-width="2" />
+    <path d="M469 351 A25 25 0 0 1 510 344" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M510 344 L499 343 M510 344 L507 333" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M513 367 A25 25 0 0 1 472 374" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M472 374 L483 375 M472 374 L475 385" class="icon" stroke="#ffc178" stroke-width="4" />
+    <text x="491" y="439" class="step" fill="#ffcf94" text-anchor="middle">REDO</text>
+
+    <rect x="79" y="495" width="479" height="76" rx="16" fill="#3a1d27" stroke="#793444" />
+    <text x="318.5" y="544" class="result" fill="#ff8c89" text-anchor="middle">WAIT. FAIL. REPEAT.</text>
   </g>
 
-  <!-- Commitment Issues timeline -->
+  <!-- After: spot the mistake first, fix it, and send once. -->
   <g class="sans">
-    <path d="M661 307 V515" fill="none" stroke="#28525b" stroke-width="3" />
-    <circle cx="661" cy="310" r="11" fill="#1e2b3c" stroke="#557b91" stroke-width="2" />
-    <path d="M656 310 l4 4 7 -8" fill="none" stroke="#c8d6df" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-    <text x="689" y="307" class="step" fill="#e9ebf5">Write → commit</text>
-    <text x="689" y="327" class="detail" fill="#949db9">Keep the normal workflow</text>
+    <rect x="642" y="207" width="99" height="38" rx="19" fill="#123b38" stroke="#287c72" />
+    <circle cx="664" cy="226" r="6" fill="#45e0cf" />
+    <text x="680" y="232" class="badge" fill="#79eee2">WITH</text>
 
-    <circle cx="661" cy="373" r="11" fill="#17353b" stroke="#28a99f" stroke-width="2" filter="url(#glow)" />
-    <path d="M661 366 v7 l5 3" fill="none" stroke="#45e0cf" stroke-width="2.2" stroke-linecap="round" />
-    <text x="689" y="371" class="step" fill="#69eadc">Helpful suggestion appears immediately</text>
-    <text x="689" y="391" class="detail" fill="#a8bdc7">Advisory by default—your commit continues</text>
+    <path d="M771 359 H822" class="icon" stroke="#2fae9f" stroke-width="5" />
+    <path d="M814 351 L824 359 814 367" class="icon" stroke="#2fae9f" stroke-width="5" />
+    <path d="M934 359 H985" class="icon" stroke="#2fae9f" stroke-width="5" />
+    <path d="M977 351 L987 359 977 367" class="icon" stroke="#2fae9f" stroke-width="5" />
 
-    <rect x="689" y="412" width="407" height="55" rx="11" fill="#090d1b" stroke="#34435f" />
-    <circle cx="711" cy="432" r="4" fill="#ff6363" />
-    <circle cx="725" cy="432" r="4" fill="#ffb86c" />
-    <circle cx="739" cy="432" r="4" fill="#45e0cf" />
-    <text x="711" y="454" class="mono" fill="#f3f5fb" style="font-size:16px;font-weight:700">$ npm run commit:fix</text>
+    <circle cx="714" cy="359" r="55" fill="#142c31" stroke="#2aa699" stroke-width="2" filter="url(#green-glow)" />
+    <path d="M684 359 Q714 331 744 359 Q714 387 684 359Z" class="icon" stroke="#70eddf" stroke-width="4" />
+    <circle cx="714" cy="359" r="10" fill="#70eddf" />
+    <text x="714" y="439" class="step" fill="#a3f8ee" text-anchor="middle">SPOT IT</text>
 
-    <circle cx="661" cy="497" r="11" fill="#17353b" stroke="#28a99f" stroke-width="2" />
-    <path d="M656 497 l4 4 7 -8" fill="none" stroke="#45e0cf" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-    <text x="689" y="495" class="step" fill="#d8fffa">Commit amended safely → push</text>
-    <text x="689" y="515" class="detail" fill="#949db9">The first CI run receives the fix</text>
+    <circle cx="881" cy="359" r="55" fill="#142c31" stroke="#2aa699" stroke-width="2" />
+    <path d="M855 361 L874 380 909 340" class="icon" stroke="#70eddf" stroke-width="7" />
+    <text x="881" y="439" class="step" fill="#a3f8ee" text-anchor="middle">FIX IT</text>
 
-    <rect x="642" y="541" width="479" height="30" rx="9" fill="#123238" stroke="#276760" />
-    <text x="661" y="561" class="footer" fill="#7af2e4">Result: exact command + one successful push</text>
-  </g>
+    <circle cx="1048" cy="359" r="55" fill="#142c31" stroke="#2aa699" stroke-width="2" />
+    <path d="M1021 365 L1069 344 1057 392 1042 375 1021 365Z" class="icon" stroke="#e2fffb" stroke-width="4" />
+    <path d="M1042 375 L1058 359" class="icon" stroke="#e2fffb" stroke-width="4" />
+    <circle cx="1070" cy="382" r="13" fill="#163a36" stroke="#70eddf" stroke-width="3" />
+    <path d="M1064 382 L1069 387 1077 377" class="icon" stroke="#70eddf" stroke-width="3" />
+    <text x="1048" y="439" class="step" fill="#a3f8ee" text-anchor="middle">SEND ONCE</text>
 
-  <g class="sans">
-    <text x="55" y="630" class="footer" fill="#8e97b5">LOCAL · TELEMETRY-FREE · CI STAYS AUTHORITATIVE</text>
-    <text x="1145" y="630" class="footer" fill="#c2c8da" text-anchor="end">commitment-issues</text>
+    <rect x="642" y="495" width="479" height="76" rx="16" fill="#123a36" stroke="#287b71" />
+    <text x="881.5" y="544" class="result" fill="#75eee1" text-anchor="middle">FIX. SEND. DONE.</text>
   </g>
 </svg>

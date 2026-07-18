@@ -18,10 +18,10 @@ Commit normally. When a fixable problem appears, Commitment Issues gives you an
 immediate suggestion and the exact safe command to fix it before the first
 push. CI stays authoritative.
 
-## One small mistake. Two feedback loops.
+## One small mistake. Two very different outcomes.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg" alt="Before and after workflow: without Commitment Issues, a developer pushes a mistake, waits for failed CI, fixes it, commits again, pushes, and waits again; with Commitment Issues, an immediate local suggestion gives the exact npm run commit:fix command before the first successful push" width="900" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg" alt="Without Commitment Issues: send work, wait, find a mistake, and do it again. With Commitment Issues: spot and fix the mistake first, then send once." width="900" />
 </p>
 
 **Without:** commit → push → wait → CI fails → read logs → fix → commit again →

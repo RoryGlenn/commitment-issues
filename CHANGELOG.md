@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Simplified the before/after graphic into a picture-first, jargon-free story:
+  send, wait, find a mistake, and redo versus spot it, fix it, and send once.
 - Redesigned CLI help around described setup, check, and fix actions, with the
   installed version, examples, safe command-specific help, and a separate
   integration section for `commit-msg`, normally invoked automatically by Git.

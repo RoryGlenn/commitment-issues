@@ -102,13 +102,17 @@ ffmpeg -nostdin -hide_banner -loglevel error \
   -frames:v 1 -y assets/before-after.png
 ```
 
-The PNG must remain 1200×675. Review both files at full size and at a reduced
-social-feed size: the without/with paths, exact `npm run commit:fix` command,
-and “Catch mistakes while they're still cheap to fix” promise must remain
-legible. The `Render demo` workflow regenerates the PNG, uploads the rendered
-artifact for inspection, and requires it to byte-match the committed export.
-`test/visual-assets.test.mjs` checks that workflow contract plus the dimensions,
-story, cross-surface references, and demo's absolute 20–30 second duration.
+The PNG must remain 1200×675. Review both files at full size, 600 pixels wide,
+and a mobile-width preview. Within two seconds, a viewer without software
+experience should be able to read the picture as “send, wait, find a mistake,
+and redo” versus “spot it, fix it, and send once.” Keep visible copy to at most
+35 words and out of software jargon; the accessible title retains the
+canonical “Catch mistakes while they're still cheap to fix” promise. The
+`Render demo` workflow regenerates the PNG, uploads the rendered artifact for
+inspection, and requires it to byte-match the committed export.
+`test/visual-assets.test.mjs` checks that workflow contract plus the
+dimensions, plain-language story, cross-surface references, and demo's
+absolute 20–30 second duration.
 
 ## npm package contents
 
