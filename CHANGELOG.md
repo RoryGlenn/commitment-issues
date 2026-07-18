@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Redesigned CLI help around described setup, check, and fix actions, with the
-  installed version, examples, and safe command-specific help. Git- and
-  package-invoked compatibility commands remain callable but no longer compete
-  with developer-facing actions in primary help.
+  installed version, examples, safe command-specific help, and a separate
+  integration section for `commit-msg`, normally invoked automatically by Git.
+  The low-level `fix-staged-js` package compatibility command remains callable
+  but no longer competes with the safer developer-facing fix action in primary
+  help.
 
 ## [3.4.0] - 2026-07-16
 
