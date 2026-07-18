@@ -191,11 +191,11 @@ The first hosted candidate observation passed all required jobs. One run does
 not establish an after p50, p95, or flake result, so aggregate fields remain
 `TBD`.
 
-| After sample | Change class               | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time | Notes                                                  |
-| -----------: | -------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ | ------------------------------------------------------ |
-|            1 | Comparable code/full graph | [#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636) | `138c15e170fb7047e0c5d6a419f663e63778534e` |   38 | 3m 37s     | 41m 23s            | First hosted shard candidate; all required jobs passed |
-|            2 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                    |
-|            3 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                    |
+| After sample | Change class               | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time | Notes                                                   |
+| -----------: | -------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ | ------------------------------------------------------- |
+|            1 | Comparable code/full graph | [#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636) | `138c15e170fb7047e0c5d6a419f663e63778534e` |   38 | 3m 37s     | 41m 23s            | First hosted shard candidate; all required jobs passed  |
+|            2 | Comparable code/full graph | [#754](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651811092) | `8fd30e41b64645dfd75dde184aad0902589f4831` |   38 | 3m 30s     | 39m 50s            | Second hosted shard candidate; all required jobs passed |
+|            3 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                     |
 
 ### Excluded runs and reruns
 
@@ -223,8 +223,8 @@ explain the candidate's contribution to combined runner time.
 | -----------: | ------- | ---------------- | ---------------- | ------- | ------ |
 |            1 | 22.11.0 | 2m 40s           | 3m 08s           | 3m 08s  | 5m 48s |
 |            1 | 24      | 2m 36s           | 2m 11s           | 2m 36s  | 4m 47s |
-|            2 | 22.11.0 | TBD              | TBD              | TBD     | TBD    |
-|            2 | 24      | TBD              | TBD              | TBD     | TBD    |
+|            2 | 22.11.0 | 3m 08s           | 1m 59s           | 3m 08s  | 5m 07s |
+|            2 | 24      | 3m 04s           | 2m 09s           | 3m 04s  | 5m 13s |
 |            3 | 22.11.0 | TBD              | TBD              | TBD     | TBD    |
 |            3 | 24      | TBD              | TBD              | TBD     | TBD    |
 
