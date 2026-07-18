@@ -256,14 +256,19 @@ decision evidence, not additional percentile cohorts.
 The selected candidate therefore keeps the exact `1/2` and `2/2` pair only on
 Windows Node 22.11.0 and restores one complete unsharded Windows Node 24 test
 lane. The packed npm lifecycle remains separate on both Node lines, and Ubuntu
-coverage remains complete and unsharded. No hosted run of this selective graph
-is recorded yet, so its primary after cohort and aggregate result remain `TBD`.
+coverage remains complete and unsharded.
 
-| Selective sample | Change class               | CI run | Head commit | Jobs | Wall clock | Summed runner time | Notes |
-| ---------------: | -------------------------- | ------ | ----------- | ---: | ---------- | ------------------ | ----- |
-|                1 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
-|                2 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
-|                3 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
+The first hosted selective observation passed all 37 jobs in 3m 54s wall clock
+and 37m 09s summed runner time. The Node 22.11.0 shard jobs took 2m 56s and 2m,
+while the complete Node 24 test job controlled this sample's critical path at
+3m 43s. One observation does not establish a p50, p95, or flake result, so the
+aggregate fields remain `TBD`.
+
+| Selective sample | Commit role/full graph        | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time | Notes                                                       |
+| ---------------: | ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ | ----------------------------------------------------------- |
+|                1 | Workflow candidate/full graph | [#756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078) | `911836fe8425b58c4c04d17ef49b03f396225a66` |   37 | 3m 54s     | 37m 09s            | All required jobs passed; complete Node 24 lane took 3m 43s |
+|                2 | Evidence docs/full graph      | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                         |
+|                3 | Evidence docs/full graph      | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                         |
 
 | Metric             | Before p50 | Before p95 | Selective p50 | Selective p95 | Target    | Result |
 | ------------------ | ---------- | ---------- | ------------- | ------------- | --------- | ------ |
