@@ -380,9 +380,9 @@ successful hosted observations used the measurement method in the
 | merged `main` | [#751](https://github.com/RoryGlenn/commitment-issues/actions/runs/29650871447) | `74240e4f667b484607ab1221a2ce87e52e4898b2` |   36 | 4m 34s     | 36m 21s            |
 
 These runs prove that the separated Windows test and lifecycle graph executes
-and gates successfully on GitHub-hosted runners. Two observations are not the required
-three-run after cohort, and neither the runner-time target nor the broader
-#204 acceptance criteria are satisfied by this scheduling phase alone.
+and gates successfully on GitHub-hosted runners. Two observations are not the
+required three-run after cohort, and neither the runner-time target nor the
+broader #204 acceptance criteria are satisfied by this scheduling phase alone.
 
 ## 2026-07-18 phase-two Windows shard candidate addendum (#204)
 
@@ -406,9 +406,12 @@ The candidate preserves the evidence boundary:
 
 This candidate does not add the change classifier, reuse lifecycle setup, move
 compatibility evidence to scheduled-only CI, or satisfy the documentation-only
-target. No hosted phase-two observation is recorded yet. The after-sample rows,
-percentiles, and result in the
+target. The first hosted observation,
+[CI run #752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636),
+passed all 38 required jobs in 3m 37s wall clock and 41m 23s summed runner time.
+That single run validates hosted execution but does not establish p50, p95,
+flake behavior, or whether the wall-clock gain justifies the added runner cost.
+The remaining after-sample rows, percentiles, and result in the
 [CI performance baseline](../ci-performance.md#after-optimization-evidence)
 remain `TBD` until comparable successful runs exist, so this addendum makes no
-claim yet that sharding is useful, non-flaky, adopted, or sufficient to
-complete #204.
+claim yet that sharding is non-flaky, adopted, or sufficient to complete #204.

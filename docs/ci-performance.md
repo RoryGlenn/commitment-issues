@@ -169,14 +169,33 @@ The phase-two candidate partitions the same Windows top-level test-file set
 with Node's native `--test-shard=1/2` and `--test-shard=2/2` on both supported
 Node lines. The exact pair must assign every file once, the packed npm lifecycle
 remains separate, and the two authoritative Ubuntu coverage runs remain
-complete and unsharded. There is no hosted phase-two observation yet, so every
-after-sample field and aggregate result remains `TBD`.
+complete and unsharded.
 
-| After sample | Change class               | CI run | Head commit | Jobs | Wall clock | Summed runner time | Notes |
-| -----------: | -------------------------- | ------ | ----------- | ---: | ---------- | ------------------ | ----- |
-|            1 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
-|            2 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
-|            3 | Comparable code/full graph | TBD    | TBD         |  TBD | TBD        | TBD                | TBD   |
+A local correctness and balance probe used Node 22.11.0 on Ubuntu 24.04.4,
+Linux 7.0.0-28-generic x86_64, and an Intel i9-10900K (10 cores/20 logical
+CPUs). Three sequential repetitions of each exact command produced:
+
+| Mode      | Files | Tests        | Wall-clock observations | Median |
+| --------- | ----: | ------------ | ----------------------- | -----: |
+| Shard 1/2 |    27 | 392/392 pass | 17.72s, 17.86s, 22.34s  | 17.86s |
+| Shard 2/2 |    26 | 480/480 pass | 7.46s, 8.70s, 7.37s     |  7.46s |
+| Unsharded |    53 | 872/872 pass | 19.92s, 19.97s, 20.06s  | 19.97s |
+
+The shard-file union was 53/53 with zero overlap, omissions, or extra files.
+The local projected critical path improved 10.6%, while the median summed shard
+time increased 33.0%. These Linux timings validate the invocation and expose
+the runtime imbalance; they are not substitutes for the hosted Windows
+measurements below.
+
+The first hosted candidate observation passed all required jobs. One run does
+not establish an after p50, p95, or flake result, so aggregate fields remain
+`TBD`.
+
+| After sample | Change class               | CI run                                                                          | Head commit                                | Jobs | Wall clock | Summed runner time | Notes                                                  |
+| -----------: | -------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------ | ---: | ---------- | ------------------ | ------------------------------------------------------ |
+|            1 | Comparable code/full graph | [#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636) | `138c15e170fb7047e0c5d6a419f663e63778534e` |   38 | 3m 37s     | 41m 23s            | First hosted shard candidate; all required jobs passed |
+|            2 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                    |
+|            3 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                    |
 
 | Metric             | Before p50 | Before p95 | After p50 | After p95 | Target    | Result |
 | ------------------ | ---------- | ---------- | --------- | --------- | --------- | ------ |
@@ -187,14 +206,14 @@ Record the shard balance and duplicated setup cost for every candidate sample.
 The maximum shard duration measures the Windows critical path; the sum helps
 explain the candidate's contribution to combined runner time.
 
-| After sample | Node    | Shard 1 duration | Shard 2 duration | Maximum | Sum |
-| -----------: | ------- | ---------------- | ---------------- | ------- | --- |
-|            1 | 22.11.0 | TBD              | TBD              | TBD     | TBD |
-|            1 | 24      | TBD              | TBD              | TBD     | TBD |
-|            2 | 22.11.0 | TBD              | TBD              | TBD     | TBD |
-|            2 | 24      | TBD              | TBD              | TBD     | TBD |
-|            3 | 22.11.0 | TBD              | TBD              | TBD     | TBD |
-|            3 | 24      | TBD              | TBD              | TBD     | TBD |
+| After sample | Node    | Shard 1 duration | Shard 2 duration | Maximum | Sum    |
+| -----------: | ------- | ---------------- | ---------------- | ------- | ------ |
+|            1 | 22.11.0 | 2m 40s           | 3m 08s           | 3m 08s  | 5m 48s |
+|            1 | 24      | 2m 36s           | 2m 11s           | 2m 36s  | 4m 47s |
+|            2 | 22.11.0 | TBD              | TBD              | TBD     | TBD    |
+|            2 | 24      | TBD              | TBD              | TBD     | TBD    |
+|            3 | 22.11.0 | TBD              | TBD              | TBD     | TBD    |
+|            3 | 24      | TBD              | TBD              | TBD     | TBD    |
 
 Record documentation-only routing separately because run #739 is only one
 before reference and is not part of the three-run full-graph cohort:
