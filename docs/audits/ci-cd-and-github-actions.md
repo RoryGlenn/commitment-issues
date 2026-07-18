@@ -438,8 +438,87 @@ The adopted topology preserves the evidence boundary:
 - `CI Success` continues failing closed when any shard, lifecycle job, or other
   required dependency is unsuccessful or incomplete.
 
-This phase does not add the change classifier, reuse lifecycle setup, move
+This phase did not add the change classifier, reuse lifecycle setup, move
 compatibility evidence to scheduled-only CI, or satisfy the documentation-only
 or 15–18-minute runner targets. [PR #246](https://github.com/RoryGlenn/commitment-issues/pull/246)
-remains draft and #204 remains open pending those phases and the required
-routing evidence.
+subsequently merged as `140f219136496d2c9cfd43ebc9e41e64a1e26f0e`.
+Issue #204 was then closed as completed even though its classifier, lifecycle-
+reuse decision, documentation-route timing, and routing-evidence items were
+still absent; the follow-up below records that gap instead of treating the
+closed state as technical evidence.
+
+## 2026-07-18 fail-closed classifier candidate and lifecycle decision (#204)
+
+The follow-up classifier reads the complete local Git diff from the true merge
+base with `--name-status -z --find-renames`. It emits the requested runtime,
+package-manager, test/fixture, workflow/release, documentation/metadata,
+demo/asset, and unknown categories, but optimizes only a non-empty change set
+containing `A`/`M` records whose every path is on the explicit
+documentation/metadata allowlist. Demo/assets retain the full graph until a
+smaller visual route is independently proven. Pushes and manual runs always
+use the full graph.
+
+For pull requests, the workflow extracts and executes the classifier from the
+immutable base SHA rather than trusting the proposed head tree. This prevents a
+fork from changing the decision code that classifies its own diff. The initial
+rollout or another missing trusted copy produces a fixed full-route tuple;
+extraction or execution failure produces no trusted tuple, which launches the
+full graph and also fails the aggregate.
+
+The defensive boundary is executable rather than aspirational:
+
+- full 40- or 64-character object IDs, complete history, both commit objects,
+  and a true merge base are required before a small route is possible;
+- NUL records preserve spaces, tabs, newlines, Unicode, and leading hyphens;
+  rename/copy records retain both paths. Every deletion, rename, or copy takes
+  the full graph even when all paths are documentation, while non-canonical
+  backslash and traversal-shaped names remain unknown;
+- executable editor configuration, mixed categories, unknown paths,
+  type/unmerged/unknown statuses, empty or malformed output, shallow history,
+  missing objects, no common ancestor, and Git failure select the full graph;
+  and
+- every compatibility job skips only for the exact tuple `route=docs`,
+  `full_graph=false`, `docs_only=true`,
+  `categories=documentation-metadata`, and `reason=docs-only`. Missing,
+  contradictory, or failed classifier output launches the full graph, while
+  `CI Success` also fails the run so a classifier crash cannot be mistaken for
+  success.
+
+DCO and `quality` remain unconditional. The latter retains actionlint,
+high-severity dependency audit, lint, formatting, and a focused command that
+currently exercises 164 documentation, metadata, schema, link, asset, release,
+and policy assertions in about 4.6 seconds locally. That subset derives the
+canonical 100% badge from the enforced threshold, so README-only edits retain
+badge freshness without rerunning runtime coverage. Full-route coverage and
+compatibility commands are unchanged.
+
+The first hosted bootstrap measurement is complete.
+[PR #247 run #761](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655146160)
+passed all 39 jobs at
+`3f897f8c2bac2d9533d57c0789e779db4a5a07aa`. Its 4-second classifier job
+emitted the expected fail-closed tuple `route=full`, `full_graph=true`,
+`docs_only=false`, `categories=unknown`, and
+`reason=trusted-classifier-unavailable`, because the PR base did not yet
+contain the trusted script. The first full-graph job started two seconds after
+classification completed. `CI Success` passed after 3m 27s wall clock; summed
+runner time was 37m 13s. This validates the rollout fallback and shows that the
+classifier barrier did not move the full route outside the 3–3.5-minute
+wall-clock target. It does not substitute for the post-merge trusted-base
+documentation, category, structural-change, unknown, and external-fork routing
+evidence. Cancellation uses `!cancelled()` so a superseded PR does not keep
+that matrix alive.
+
+The proposed cross-job "pack once, download everywhere" lifecycle reuse was
+measured and rejected rather than assumed to be faster. Ten local
+`npm pack --ignore-scripts` samples averaged 0.308s (0.30–0.32s) for a 146 KiB
+tarball. The 30 lifecycle jobs in hosted run
+[#760](https://github.com/RoryGlenn/commitment-issues/actions/runs/29654045168)
+used 1,669 runner-seconds, including 549 seconds in lifecycle steps and 195
+seconds in `npm ci`. Removing 29 packs would save only about nine aggregate
+seconds before adding one producer, 30 artifact downloads, and a scheduling
+barrier. Sharing `node_modules` would cross OS/tool-shim and locked-install
+boundaries and remains prohibited. The exact-tarball argv, environment, digest,
+and immutability plumbing stays available in every lifecycle harness. A
+separate three-OS shell-group benchmark may test removal of four duplicated
+setup boundaries; package-manager lifecycle aggregation remains coordinated
+with #175 so one early failure cannot hide later evidence.

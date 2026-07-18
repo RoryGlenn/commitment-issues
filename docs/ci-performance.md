@@ -290,10 +290,61 @@ remains separate, and authoritative Ubuntu coverage remains complete and
 unsharded. The mixed commit roles make both cohorts useful architecture timing
 evidence, not same-change-class or documentation-routing proof.
 
-[PR #246](https://github.com/RoryGlenn/commitment-issues/pull/246) remains
-draft, and #204 remains open. The 15–18-minute runner target, change-classifier
-routing, lifecycle setup reuse, and the required routing cases still need
-separate evidence.
+[PR #246](https://github.com/RoryGlenn/commitment-issues/pull/246) merged as
+`140f219136496d2c9cfd43ebc9e41e64a1e26f0e`. Issue #204 was then closed as
+completed, but its change-classifier, lifecycle-reuse decision,
+documentation-only timing, and required routing cases still lacked evidence.
+The classifier follow-up therefore treats the issue state as bookkeeping, not
+proof that those acceptance criteria were met.
+
+### Fail-closed classifier candidate
+
+The candidate uses the complete local merge-base diff rather than GitHub's
+bounded files API. It reports all required categories but selects the small
+route only for non-empty `A`/`M` records on an explicit
+documentation/metadata allowlist. DCO and `quality` still run. Quality retains
+actionlint, dependency audit, lint,
+formatting, and 164 focused documentation, metadata, schema, link, asset,
+release, badge-freshness, and workflow-policy assertions; that focused test
+command took 4.6s locally. All deletions, renames, copies, executable editor
+configuration, other categories, and every uncertain state use the unchanged
+full graph. `CI Success` accepts skipped compatibility jobs only for the exact
+documentation tuple and requires success everywhere else.
+Pull requests execute the classifier from their immutable base commit; a
+missing trusted copy uses a fixed full route, so fork code cannot choose its
+own smaller graph.
+
+The full matrix now waits for the classifier's full-history checkout and Node
+setup. Because the adopted cohort was already at the upper edge of the
+3–3.5-minute wall-clock target, the first hosted full-route run was treated as
+a go/no-go measurement rather than assuming that dependency barrier was free.
+
+[PR #247 run #761](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655146160)
+passed all 39 jobs at
+`3f897f8c2bac2d9533d57c0789e779db4a5a07aa`. Because the base commit did not
+yet contain a trusted classifier, the 4-second classifier job emitted the
+expected bootstrap tuple: `route=full`, `full_graph=true`, `docs_only=false`,
+`categories=unknown`, and `reason=trusted-classifier-unavailable`. The first
+full-graph job started two seconds after classification completed, and
+`CI Success` passed. End-to-end wall clock was 3m 27s and summed runner time
+was 37m 13s. The immediately preceding successful full run,
+[#760](https://github.com/RoryGlenn/commitment-issues/actions/runs/29654045168),
+took 3m 44s and 38m 59s across 38 jobs. One adjacent comparison does not prove
+a causal speedup, but it does show that the new gate did not move this hosted
+full route outside the 3–3.5-minute wall-clock target. Trusted-base category
+and documentation-route evidence remains separate below.
+
+The lifecycle fan-out proposal was also measured before adoption. Ten local
+packs averaged 0.308s for a 146 KiB tarball, so avoiding 29 of the current 30
+per-job packs saves about nine aggregate seconds. Hosted run
+[#760](https://github.com/RoryGlenn/commitment-issues/actions/runs/29654045168)
+spent 1,669 runner-seconds across the lifecycle jobs, including 549 seconds in
+lifecycle steps and 195 seconds in clean installs. A producer job, artifact
+upload, 30 downloads, and a dependency barrier would likely cost more than the
+pack work. Global artifact fan-out is rejected; exact-tarball support and hash
+checks remain in place. Grouping the seven shell jobs into three OS jobs is the
+smaller setup-reuse candidate for a separate benchmark, while manager lifecycle
+aggregation remains coordinated with #175.
 
 Record documentation-only routing separately because run #739 is only one
 before reference and is not part of the three-run full-graph cohort:
