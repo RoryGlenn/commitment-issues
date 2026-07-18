@@ -27,10 +27,15 @@ test("reports a clear diagnostic below the supported Node boundary", () => {
     unsupportedNodeVersionMessage("21.99.99", ">=22.11.0"),
     "commitment-issues: Node.js 22.11.0 or newer is required; found 21.99.99.",
   );
+  assert.equal(
+    unsupportedNodeVersionMessage("22.11.0", ">=22.11.1"),
+    "commitment-issues: Node.js 22.11.1 or newer is required; found 22.11.0.",
+  );
 });
 
 test("accepts the exact minimum and newer Node versions", () => {
   assert.equal(unsupportedNodeVersionMessage("22.11.0", ">=22.11.0"), null);
+  assert.equal(unsupportedNodeVersionMessage("22.11.1", ">=22.11.0"), null);
   assert.equal(unsupportedNodeVersionMessage("22.12.0", ">=22.11.0"), null);
   assert.equal(unsupportedNodeVersionMessage("24.0.0", ">=22.11.0"), null);
 });

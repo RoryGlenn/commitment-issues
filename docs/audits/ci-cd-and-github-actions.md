@@ -540,6 +540,29 @@ seven full-graph groups as expected skips. Static quality passed all 164
 focused assertions, including coverage-badge freshness. Wall-clock observations
 were 31s, 35s, and 47s (p50 35s; nearest-rank p95 47s); summed runner times were
 40s, 46s, and 41s (p50 41s; p95 46s). This satisfies the under-one-minute
-documentation target without removing applicable checks. Runtime,
-package-manager, structural rename/deletion, unknown-classification, and
+documentation target without removing applicable checks. Package-manager,
+workflow, structural rename/deletion, unknown-classification, and
 post-classifier external-fork routing remain separate #204 evidence items.
+
+Trusted-base runtime routing is now proven by the three first-attempt revisions
+of [PR #249](https://github.com/RoryGlenn/commitment-issues/pull/249):
+[runs #769](https://github.com/RoryGlenn/commitment-issues/actions/runs/29656461155),
+[#770](https://github.com/RoryGlenn/commitment-issues/actions/runs/29656657381),
+and
+[#771](https://github.com/RoryGlenn/commitment-issues/actions/runs/29656807709).
+Every revision retained the same runtime-only merge-base diff against trusted
+base `3d78891dfade9778bad8a9c802f9140ebed6419a`, emitted the exact full-route
+runtime tuple, and passed all 39 jobs with no graph-level skips or retries.
+Both 100% coverage gates, badge freshness, every OS, Node, shell, package-
+manager and lifecycle lane, CodeQL, and `CI Success` remained authoritative.
+
+Wall-clock observations were 5m 04s, 3m 45s, and 3m 44s (p50 3m 45s; p95
+5m 04s); runner observations were 42m 29s, 40m 58s, and 38m 28s (p50 40m 58s;
+p95 42m 29s). Compared directionally with the pre-optimization cohort, wall
+p50/p95 improved 31.8%/11.4% while runner p50/p95 increased about 16.0%.
+The same-change-class median misses the upper wall target by 15 seconds, and
+the runner target remains open; both performance targets remain unmet. Runtime
+routing and the primary-after cohort are complete; package-manager, workflow,
+structural rename/deletion,
+unknown-classification, and post-classifier external-fork routing remain
+separate #204 evidence items.

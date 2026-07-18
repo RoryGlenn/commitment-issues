@@ -379,7 +379,49 @@ documentation reference in run #739, the new median is about 91% shorter in
 wall time and 98% lower in summed runner time; run #739 remains a reference,
 not a three-run before cohort.
 
-The final issue evidence should also link the routing runs for runtime,
-package-manager, workflow, rename/deletion, unknown-classification, and fork
-pull requests. A faster happy path is insufficient if any of those paths can
-silently omit applicable evidence.
+### Trusted-base runtime routing and primary after cohort
+
+[PR #249](https://github.com/RoryGlenn/commitment-issues/pull/249) supplies the
+missing same-change-class primary after cohort. Its first revision makes a
+behavior-preserving refactor in the published Node-version comparison. Two
+signed sampling commits then change only the head identity, leaving the exact
+runtime-only merge-base diff unchanged. All three first attempts use trusted
+base `3d78891dfade9778bad8a9c802f9140ebed6419a` and report `route=full`,
+`full_graph=true`, `docs_only=false`, `categories=runtime-cli-hooks`, and
+`reason=full-category`.
+
+| Sample | CI run / attempt                                                                               | Head commit                                | UTC interval                 | Successful / skipped jobs | Wall clock | Summed runner time |
+| -----: | ---------------------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------- | ------------------------: | ---------- | ------------------ |
+|      1 | [#769 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29656461155/attempts/1) | `3b76b24e3f0cc272f533a80139f823046b4d0ee8` | 2026-07-18 18:44:44–18:49:48 |                    39 / 0 | 5m 04s     | 42m 29s            |
+|      2 | [#770 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29656657381/attempts/1) | `f3dfb5724ce4a2f3c722f6e324907946c0b4b45b` | 2026-07-18 18:50:49–18:54:34 |                    39 / 0 | 3m 45s     | 40m 58s            |
+|      3 | [#771 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29656807709/attempts/1) | `d3bd43adc9cab6fa25fa8e7fd60e398ebba4ed83` | 2026-07-18 18:55:38–18:59:22 |                    39 / 0 | 3m 44s     | 38m 28s            |
+
+Every expanded job succeeded with zero graph-level skips: classifier, DCO,
+static quality, both complete 100% runtime-coverage lanes, coverage-badge
+freshness, both unsharded macOS suites, all four Windows test shards, six npm
+lifecycle jobs, seven shell lanes, sixteen non-npm package-manager lanes,
+migration, CodeQL, and the final `CI Success` gate. There was no retry,
+cancellation, or failed sample.
+
+Ordered wall-clock observations were 3m 44s, 3m 45s, and 5m 04s, producing a
+3m 45s p50 and 5m 04s nearest-rank p95. Ordered runner observations were
+38m 28s, 40m 58s, and 42m 29s, producing a 40m 58s p50 and 42m 29s p95. The
+p95 sample is retained rather than discarded: its Windows Node 22.11.0 npm
+lifecycle job took 4m 26s, including 1m 03s in Node setup, and still passed.
+
+Compared with the pre-optimization cohort, wall-clock p50 is 31.8% shorter and
+p95 is 11.4% shorter, while runner p50 and p95 are each about 16.0% higher. The
+before cohort changed documentation, tests, and visual assets, whereas this
+cohort is runtime-only and includes the trusted classifier job, expanding the
+full graph from 38 to 39 jobs, so the comparison is directional rather than a
+claim that file contents caused the timing difference. The runtime route is
+correct and complete, but both performance targets remain unmet: the
+same-change-class median misses the upper 3.5-minute wall target by 15 seconds,
+and the 15–18-minute runner target remains open. This records the result
+honestly while completing the required runtime routing and primary-after
+evidence.
+
+The final issue evidence should also link the routing runs for package-manager,
+workflow, rename/deletion, unknown-classification, and fork pull requests. A
+faster happy path is insufficient if any of those paths can silently omit
+applicable evidence.
