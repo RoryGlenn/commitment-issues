@@ -279,7 +279,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.match(aggregate, /needs\.codeql\.result != 'success'/u);
 });
 
-test("Windows Node 22 shards execute every test file once beside complete Node 24 and lifecycle lanes", () => {
+test("Windows shards execute every test file once beside required npm lifecycle", () => {
   const workflow = read(".github/workflows/ci.yml");
   const packageJson = JSON.parse(read("package.json"));
   const jobs = new Map(
@@ -308,8 +308,8 @@ test("Windows Node 22 shards execute every test file once beside complete Node 2
   );
   assert.equal(
     workflow.match(/^\s+run: npm test\s*$/gmu)?.length ?? 0,
-    2,
-    "required CI should declare complete unsharded npm test commands for macOS and Windows Node 24",
+    1,
+    "required CI should declare the complete unsharded npm test command once for macOS",
   );
   assert.match(
     check,
@@ -326,36 +326,12 @@ test("Windows Node 22 shards execute every test file once beside complete Node 2
 
   assert.match(windowsTests, /runs-on: windows-latest/u);
   assert.match(windowsTests, /fail-fast: false/u);
-  assert.match(windowsTests, /name: \$\{\{ matrix\.name \}\}/u);
-  assert.match(
-    windowsTests,
-    /include:\s+- name: Windows \/ Node 22\.11\.0 \/ test shard 1\/2\s+node-version: "22\.11\.0"\s+shard: 1\s+- name: Windows \/ Node 22\.11\.0 \/ test shard 2\/2\s+node-version: "22\.11\.0"\s+shard: 2\s+- name: Windows \/ Node 24 \/ tests \(unsharded\)\s+node-version: "24"\s+shard: 0/u,
-    "the explicit Windows test matrix should shard only Node 22 and run Node 24 once",
-  );
-  assert.equal(
-    windowsTests.match(/node-version: "22\.11\.0"/gu)?.length ?? 0,
-    2,
-    "Node 22 should own exactly two complementary shard entries",
-  );
-  assert.equal(
-    windowsTests.match(/node-version: "24"/gu)?.length ?? 0,
-    1,
-    "Node 24 should own exactly one complete unsharded entry",
-  );
+  assert.match(windowsTests, /node-version: \["22\.11\.0", "24"\]/u);
+  assert.match(windowsTests, /shard: \[1, 2\]/u);
   assert.match(windowsTests, /COMMITMENT_ISSUES: 0/u);
   assert.match(windowsTests, /run: npm ci/u);
   assert.doesNotMatch(windowsTests, /^ {4}needs:/mu);
   assert.doesNotMatch(windowsTests, /NODE_OPTIONS|npm test\s+--/u);
-  assert.match(
-    windowsTests,
-    /name: Unit and integration tests \(complete suite\)\s+if: matrix\.shard == 0\s+run: npm test/u,
-    "Windows Node 24 should retain the complete unsharded test suite",
-  );
-  assert.equal(
-    windowsTests.match(/^\s+run: npm test\s*$/gmu)?.length ?? 0,
-    1,
-    "the Windows matrix should declare one complete unsharded test command",
-  );
   for (const [offset, command] of shardCommands.entries()) {
     const shard = offset + 1;
     assert.match(

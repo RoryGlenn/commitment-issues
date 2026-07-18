@@ -384,57 +384,62 @@ and gates successfully on GitHub-hosted runners. Two observations are not the
 required three-run after cohort, and neither the runner-time target nor the
 broader #204 acceptance criteria are satisfied by this scheduling phase alone.
 
-## 2026-07-18 phase-two Windows shard candidate addendum (#204)
+## 2026-07-18 phase-two Windows sharding decision addendum (#204)
 
-Phase two first benchmarked Node's native test-file sharding on both Windows
-Node lines. The all-Node candidate replaced each unsharded test lane with the
-exact complementary pair `--test-shard=1/2` and `--test-shard=2/2`, whose union
-assigned every top-level test file exactly once.
+Phase two compared two native test-file-sharding topologies on the remaining
+Windows critical path. The all-Node topology replaces each unsharded Windows
+test lane with the exact complementary pair `--test-shard=1/2` and
+`--test-shard=2/2`, whose union assigns every top-level test file exactly once.
 
-Three comparable successful first-attempt runs—
-[#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636),
-[#754](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651811092),
+The all-Node architecture cohort used three successful first-attempt runs:
+[#752](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651328636)
+introduced the workflow, while
+[#754](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651811092)
 and
-[#755](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651954831)—
-produced a 3m 30s wall-clock p50 and 3m 37s p95, compared with the 5m 30s and
-5m 43s before values. Summed runner time moved in the wrong direction: p50 rose
-from 35m 19s to 39m 50s and p95 from 36m 38s to 41m 23s. The wall-clock p50
-improved 36.4%, but runner p50 regressed 12.8%. The full cohort, per-shard
-timings, and excluded failed-attempt rerun are recorded in the
-[CI performance baseline](../ci-performance.md#all-node-shard-benchmark-cohort-rejected).
+[#755](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651954831)
+were evidence-document updates that still ran the identical 38-job full graph.
+They produced 3m 30s/3m 37s wall-clock p50/p95 and 39m 50s/41m 23s summed
+runner p50/p95. The mixed commit roles make them valid architecture timings,
+not a same-change-class cohort or proof of documentation-only routing.
 
-Node 24 did not justify its duplicated setup. Its two phase-one unsharded jobs
-averaged 2m 54.5s. Across the three all-Node runs, the maximum Node 24 shard job
-averaged 2m 42s—only a 12.5s critical-path gain—while the paired jobs averaged
-4m 54.3s, approximately 2m more runner time. Phase two therefore rejects Node
-24 sharding and selects the narrower topology: only Windows Node 22.11.0 uses
-the `1/2` and `2/2` pair, while Windows Node 24 runs one complete unsharded
-test lane.
+The selective topology kept the two Node 22.11.0 shards but restored one
+complete Windows Node 24 lane. Its three successful first-attempt runs followed
+the same role pattern:
+[#756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078)
+introduced the selective workflow, while
+[#757](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652509893)
+and
+[#758](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652681381)
+were evidence-document updates that ran the identical 37-job full graph. The
+cohort produced 3m 54s/3m 58s wall-clock p50/p95 and 38m 33s/39m 03s runner
+p50/p95. Its complete Node 24 test lane controlled the Windows critical path in
+all three samples.
 
-The selective candidate preserves the evidence boundary:
+Compared with the selective cohort, all-Node sharding saved 24s at wall-clock
+p50 and 21s at p95, while adding 1m 17s and 2m 20s of runner time. Selective
+sharding reduced runner use but still regressed 9.2% at p50 from the baseline,
+remained far above the 15–18-minute target, and missed the median wall-clock
+target. All-Node sharding is therefore the adopted phase-two topology and the
+only measured option that meets the median wall-clock target. Complete tables,
+per-lane timings, calculations, and the excluded rerun are recorded in
+[CI performance evidence](../ci-performance.md#after-optimization-evidence).
+
+The adopted topology preserves the evidence boundary:
 
 - both Ubuntu coverage lanes remain complete and unsharded, continue enforcing
   100% line, branch, and function coverage, and retain the Node 24 badge check;
 - macOS continues running the complete unsharded suite on both Node lines;
-- Windows runs every test file exactly once on both Node lines: through the
-  complementary pair at Node 22.11.0 and one complete lane at Node 24;
+- Windows runs the exact `1/2` and `2/2` pair on both Node lines, so every test
+  file executes exactly once per supported Node version;
 - Windows retains the same separate prebuilt-tarball npm lifecycle integration
   on both Node lines;
 - no meaningful test, assertion, lifecycle scenario, platform, or Node lane is
   removed; and
-- `CI Success` continues failing closed when any selected test lane, lifecycle
-  job, or other required dependency is unsuccessful or incomplete.
+- `CI Success` continues failing closed when any shard, lifecycle job, or other
+  required dependency is unsuccessful or incomplete.
 
-This candidate does not add the change classifier, reuse lifecycle setup, move
+This phase does not add the change classifier, reuse lifecycle setup, move
 compatibility evidence to scheduled-only CI, or satisfy the documentation-only
-target. The first two hosted selective-topology observations,
-[CI run #756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078)
-and
-[#757](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652509893),
-passed all 37 jobs in 3m 54s/37m 09s and 3m 58s/39m 03s wall/runner time. Their
-complete Node 24 test lanes controlled the critical path at 3m 43s and 3m 50s.
-Two samples do not establish the required three-run percentiles or flake
-behavior; the remaining row and result in the
-[CI performance baseline](../ci-performance.md#selective-topology-evidence-pending)
-remain `TBD`, so this addendum makes no claim yet that the final candidate is
-non-flaky, meets the targets, or is sufficient to complete #204.
+or 15–18-minute runner targets. [PR #246](https://github.com/RoryGlenn/commitment-issues/pull/246)
+remains draft and #204 remains open pending those phases and the required
+routing evidence.
