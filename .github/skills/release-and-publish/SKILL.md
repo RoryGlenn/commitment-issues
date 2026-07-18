@@ -25,7 +25,7 @@ Publishing and tagging are **hard to reverse**. Before running any release-mutat
 
 Automated publishing uses **npm Trusted Publishing** (OIDC), so CI publishes
 without an npm token. The publisher is registered and was validated end to end
-by v3.3.2. Its expected npm configuration is:
+by v3.4.0. Its expected npm configuration is:
 
 - On npmjs.com → package `commitment-issues` → **Settings → Trusted Publishing** → add a GitHub Actions publisher: user `RoryGlenn`, repository `commitment-issues`, workflow `publish.yml` (leave environment blank unless one is added).
 
