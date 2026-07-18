@@ -427,12 +427,14 @@ The selective candidate preserves the evidence boundary:
 
 This candidate does not add the change classifier, reuse lifecycle setup, move
 compatibility evidence to scheduled-only CI, or satisfy the documentation-only
-target. The first hosted selective-topology observation,
-[CI run #756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078),
-passed all 37 jobs in 3m 54s wall clock and 37m 09s summed runner time. Its
-complete Node 24 test lane controlled the critical path at 3m 43s. One sample
-does not establish percentiles or flake behavior; the remaining rows and result
-in the
+target. The first two hosted selective-topology observations,
+[CI run #756](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652354078)
+and
+[#757](https://github.com/RoryGlenn/commitment-issues/actions/runs/29652509893),
+passed all 37 jobs in 3m 54s/37m 09s and 3m 58s/39m 03s wall/runner time. Their
+complete Node 24 test lanes controlled the critical path at 3m 43s and 3m 50s.
+Two samples do not establish the required three-run percentiles or flake
+behavior; the remaining row and result in the
 [CI performance baseline](../ci-performance.md#selective-topology-evidence-pending)
 remain `TBD`, so this addendum makes no claim yet that the final candidate is
 non-flaky, meets the targets, or is sufficient to complete #204.
