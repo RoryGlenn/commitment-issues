@@ -19,6 +19,28 @@ const expectedWorkflows = [
 ];
 const slsaGenerator =
   "slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0";
+const classifiedFullJobs = [
+  "check",
+  "windows-tests",
+  "windows-npm-lifecycle",
+  "shell-compat",
+  "pm-lifecycle",
+  "migration-lifecycle",
+  "codeql",
+];
+const documentationPolicyTests = [
+  "test/ci-change-classifier.test.mjs",
+  "test/ci-policy.test.mjs",
+  "test/json-output.test.mjs",
+  "test/message-state-assets-check.test.mjs",
+  "test/metadata.test.mjs",
+  "test/packed-markdown-links.test.mjs",
+  "test/release-integrity.test.mjs",
+  "test/release-metadata.test.mjs",
+  "test/shell-compat.test.mjs",
+  "test/test-quality.test.mjs",
+  "test/visual-assets.test.mjs",
+];
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -256,7 +278,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.doesNotMatch(check, /npm run (?:lint|format:check)/u);
   assert.match(
     aggregate,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
+    /needs:\s+\[\s+classify,\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
   );
   assert.match(migration, /runs-on: ubuntu-latest/u);
   assert.match(migration, /node-version: "24"/u);
@@ -277,6 +299,140 @@ test("static quality work is single-lane and gates CI Success", () => {
     /needs\['migration-lifecycle'\]\.result != 'success'/u,
   );
   assert.match(aggregate, /needs\.codeql\.result != 'success'/u);
+});
+
+test("change routing skips full CI only for one exact documentation tuple", () => {
+  const workflow = read(".github/workflows/ci.yml");
+  const jobs = new Map(
+    workflowJobBlocks(workflow).map(({ name, source }) => [name, source]),
+  );
+  const classifier = jobs.get("classify") ?? "";
+  const quality = jobs.get("quality") ?? "";
+  const aggregate = jobs.get("ci-success") ?? "";
+
+  assert.match(classifier, /name: Classify required CI/u);
+  assert.match(classifier, /fetch-depth: 0/u);
+  assert.match(classifier, /node-version: "24"/u);
+  assert.match(
+    classifier,
+    /CI_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.sha \}\}/u,
+  );
+  assert.match(
+    classifier,
+    /CI_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/u,
+  );
+  assert.match(
+    classifier,
+    /TRUSTED_CLASSIFIER: \$\{\{ runner\.temp \}\}\/classify-ci-changes\.mjs/u,
+  );
+  assert.match(
+    classifier,
+    /if \[ "\$GITHUB_EVENT_NAME" != "pull_request" \]; then\s+node tools\/classify-ci-changes\.mjs/u,
+  );
+  assert.match(
+    classifier,
+    /"\$CI_BASE_SHA" =~ \^\[0-9a-fA-F\]\{40\}\(\[0-9a-fA-F\]\{24\}\)\?\$/u,
+  );
+  assert.match(
+    classifier,
+    /git cat-file -e "\$CI_BASE_SHA\^\{commit\}"[\s\S]*git cat-file -e "\$CI_BASE_SHA:tools\/classify-ci-changes\.mjs"/u,
+  );
+  assert.match(
+    classifier,
+    /git cat-file blob "\$CI_BASE_SHA:tools\/classify-ci-changes\.mjs" > "\$TRUSTED_CLASSIFIER"\s+node "\$TRUSTED_CLASSIFIER"/u,
+  );
+  for (const output of [
+    "route=full",
+    "full_graph=true",
+    "docs_only=false",
+    "categories=unknown",
+    "reason=trusted-classifier-unavailable",
+  ]) {
+    assert.match(classifier, new RegExp(`echo "${output}"`, "u"));
+  }
+  assert.doesNotMatch(classifier, /npm (?:ci|install)|run:[^\n]*\$\{\{/u);
+
+  for (const alwaysJob of ["dco", "quality"]) {
+    assert.doesNotMatch(
+      jobs.get(alwaysJob) ?? "",
+      /^ {4}(?:needs|if):/mu,
+      `${alwaysJob} must run for every route`,
+    );
+  }
+
+  for (const jobName of classifiedFullJobs) {
+    const job = jobs.get(jobName) ?? "";
+    assert.match(job, /^ {4}needs: classify$/mu, jobName);
+    assert.match(job, /^ {4}if: >-$/mu, jobName);
+    assert.match(job, /!cancelled\(\) &&/u, jobName);
+    assert.doesNotMatch(
+      job,
+      /always\(\)/u,
+      `${jobName} must remain cancellable when a PR revision is superseded`,
+    );
+    assert.match(job, /needs\.classify\.result != 'success'/u, jobName);
+    assert.match(job, /needs\.classify\.outputs\.route != 'docs'/u, jobName);
+    assert.match(
+      job,
+      /needs\.classify\.outputs\.full_graph != 'false'/u,
+      jobName,
+    );
+    assert.match(
+      job,
+      /needs\.classify\.outputs\.docs_only != 'true'/u,
+      jobName,
+    );
+    assert.match(
+      job,
+      /needs\.classify\.outputs\.categories != 'documentation-metadata'/u,
+      jobName,
+    );
+    assert.match(
+      job,
+      /needs\.classify\.outputs\.reason != 'docs-only'/u,
+      jobName,
+    );
+    assert.doesNotMatch(job, /continue-on-error:\s*true/u, jobName);
+  }
+
+  assert.match(
+    quality,
+    /name: Documentation, metadata, link, asset, and policy tests\s+run: >-\s+node --test/u,
+  );
+  for (const file of documentationPolicyTests) {
+    assert.match(quality, new RegExp(`\\s${escapeRegExp(file)}(?:\\s|$)`, "u"));
+  }
+
+  assert.match(aggregate, /name: CI Success/u);
+  assert.match(aggregate, /needs\.classify\.result != 'success'/u);
+  assert.match(
+    aggregate,
+    /needs\.classify\.outputs\.route == 'docs'[\s\S]*needs\.classify\.outputs\.full_graph != 'false'[\s\S]*needs\.classify\.outputs\.docs_only != 'true'[\s\S]*needs\.classify\.outputs\.categories != 'documentation-metadata'[\s\S]*needs\.classify\.outputs\.reason != 'docs-only'/u,
+  );
+  assert.match(
+    aggregate,
+    /needs\.classify\.outputs\.route == 'full'[\s\S]*needs\.classify\.outputs\.full_graph != 'true'[\s\S]*needs\.classify\.outputs\.docs_only != 'false'/u,
+  );
+  for (const jobName of classifiedFullJobs) {
+    const access = jobName.includes("-")
+      ? `needs['${jobName}']`
+      : `needs.${jobName}`;
+    assert.match(
+      aggregate,
+      new RegExp(`${escapeRegExp(access)}\\.result != 'skipped'`, "u"),
+      `${jobName} must be an expected skip on the documentation route`,
+    );
+    assert.match(
+      aggregate,
+      new RegExp(`${escapeRegExp(access)}\\.result != 'success'`, "u"),
+      `${jobName} must succeed on the full route`,
+    );
+  }
+  assert.match(
+    aggregate,
+    /outputs\.route != 'docs' &&\s+needs\.classify\.outputs\.route != 'full'/u,
+    "missing or unexpected route outputs must fail CI Success",
+  );
 });
 
 test("Windows shards execute every test file once beside required npm lifecycle", () => {
@@ -330,7 +486,8 @@ test("Windows shards execute every test file once beside required npm lifecycle"
   assert.match(windowsTests, /shard: \[1, 2\]/u);
   assert.match(windowsTests, /COMMITMENT_ISSUES: 0/u);
   assert.match(windowsTests, /run: npm ci/u);
-  assert.doesNotMatch(windowsTests, /^ {4}needs:/mu);
+  assert.match(windowsTests, /^ {4}needs: classify$/mu);
+  assert.match(windowsTests, /needs\.classify\.result != 'success'/u);
   assert.doesNotMatch(windowsTests, /NODE_OPTIONS|npm test\s+--/u);
   for (const [offset, command] of shardCommands.entries()) {
     const shard = offset + 1;
@@ -365,11 +522,8 @@ test("Windows shards execute every test file once beside required npm lifecycle"
     /name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
   );
   assert.doesNotMatch(windowsLifecycle, /run: npm test/u);
-  assert.doesNotMatch(
-    windowsLifecycle,
-    /^ {4}needs:/mu,
-    "Windows lifecycle lanes should start in parallel with the check matrix",
-  );
+  assert.match(windowsLifecycle, /^ {4}needs: classify$/mu);
+  assert.match(windowsLifecycle, /needs\.classify\.result != 'success'/u);
   assert.equal(
     workflow.match(
       /^\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs\s*$/gmu,

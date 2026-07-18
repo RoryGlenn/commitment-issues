@@ -133,11 +133,21 @@ The test strategy also enforces behavior that a percentage cannot:
   together and the renamed test fails;
 - generated message-state SVGs are regenerated in a private temporary
   directory and compared byte-for-byte with all 64 committed assets;
-- the aggregate `CI Success` job accepts only explicit success from DCO, the
-  full OS/Node test and npm lifecycle graph, and the non-npm package-manager
-  lifecycle matrix across Ubuntu, macOS, and Windows (plus exact-minimum-Node
-  manager lanes); every complementary Windows test shard and the parallel npm
-  lifecycle lanes must succeed;
+- `test/ci-change-classifier.test.mjs` exercises every path category, both
+  fields of rename/copy records, unusual NUL-delimited filenames, a 20,000-file
+  diff, divergent fork-shaped history, shallow/missing history, malformed
+  output, and failed Git commands. Only pure explicit documentation/metadata
+  additions and modifications select the small route; every deletion, rename,
+  copy, executable editor config, and other result selects the full graph. The
+  focused metadata invariant also derives the exact 100% badge from the
+  coverage threshold so README-only edits retain badge freshness. PRs run the
+  immutable base-commit classifier, while a missing trusted copy takes the
+  fixed full route;
+- the aggregate `CI Success` job requires explicit classifier, DCO, and quality
+  success. It accepts compatibility-job skips only for the exact
+  documentation-only tuple and otherwise requires explicit success from the
+  full OS/Node, npm lifecycle, shell, non-npm package-manager, migration, and
+  CodeQL graph;
 - property tests exercise path normalization and ownership invariants, while
   real disposable Git repositories cover CLI and hook behavior;
 - no snapshot update can mask behavior: assertions target exact structured

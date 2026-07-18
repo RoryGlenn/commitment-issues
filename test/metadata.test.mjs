@@ -15,6 +15,8 @@ import { run } from "../scripts/lib/process.mjs";
 import {
   BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
   BRANCH_COVERAGE_SOURCE_FILES,
+  RUNTIME_COVERAGE_THRESHOLD,
+  updateReadmeCoverageBadge,
 } from "../scripts/lib/coverage-badge.mjs";
 import {
   findBrokenPackedMarkdownLinks,
@@ -446,6 +448,11 @@ test("CI enforces 100% runtime coverage on both Node lines and badge freshness",
   );
   assert.match(readme, /\[!\[Branch coverage: [0-9.]+%\]/);
   assert.match(readme, /docs\/branch-coverage\.md/);
+  assert.equal(
+    updateReadmeCoverageBadge(readme, RUNTIME_COVERAGE_THRESHOLD),
+    readme,
+    "the small documentation route must reject a stale or falsified coverage badge",
+  );
 });
 
 test("package description does not contradict configurable blocking", () => {
@@ -548,7 +555,7 @@ test("CI Success includes DCO and all DCO baselines stay documented", () => {
 
   assert.match(
     ci,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
+    /needs:\s+\[\s+classify,\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
   assert.match(ci, /fetch-depth: 0/);

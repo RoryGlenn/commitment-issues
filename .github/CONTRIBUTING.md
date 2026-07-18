@@ -184,7 +184,25 @@ Together, the two shards assign every test file exactly once; the local
 `npm test` command remains the complete unsharded suite. The packed npm
 lifecycle stays in separate parallel required jobs, while the Ubuntu coverage
 lanes remain complete and unsharded. The aggregate `CI Success` check requires
-every Windows shard and lifecycle result to report explicit success.
+every Windows shard and lifecycle result to report explicit success on the
+full route.
+
+Every pull request first classifies its complete merge-base diff. A pure,
+explicitly allowlisted documentation/metadata change keeps DCO and the static
+quality lane, whose focused test command covers documentation, metadata,
+schemas, links, assets, release integrity, formatting, and workflow policy.
+Pull requests execute the classifier stored at the immutable base commit, so a
+fork cannot edit the decision code used to classify itself; a missing trusted
+copy bootstraps to the full graph.
+Runtime, package, test, workflow/release, demo/asset, mixed, and unknown changes
+run the full compatibility graph. So do all deletions, renames, and copies,
+even when both paths are documentation. Shallow history, missing commits,
+malformed or failed diffs, unsupported Git statuses, executable editor
+configuration, and missing classifier outputs also fall back to the full graph.
+The focused metadata test derives the canonical 100% badge, preventing a
+README-only change from bypassing badge freshness. `CI Success` accepts skipped
+compatibility jobs only for the exact documentation-only classifier tuple; on
+every other route, all of them must report success.
 
 ## Coding style
 

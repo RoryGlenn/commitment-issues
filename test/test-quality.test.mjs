@@ -131,9 +131,9 @@ test("CI Success accepts only explicit success from every required job", () => {
   assert.match(ci, /if: always\(\)/);
   assert.match(
     ci,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
+    /needs:\s+\[\s+classify,\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
-  for (const job of ["dco", "quality", "check", "codeql"]) {
+  for (const job of ["classify", "dco", "quality", "check", "codeql"]) {
     assert.match(ci, new RegExp(`needs\\.${job}\\.result != 'success'`));
   }
   assert.match(ci, /needs\['shell-compat'\]\.result != 'success'/);
@@ -141,5 +141,26 @@ test("CI Success accepts only explicit success from every required job", () => {
   assert.match(ci, /needs\['windows-npm-lifecycle'\]\.result != 'success'/);
   assert.match(ci, /needs\['pm-lifecycle'\]\.result != 'success'/);
   assert.match(ci, /needs\['migration-lifecycle'\]\.result != 'success'/);
+  for (const job of [
+    "check",
+    "codeql",
+    "shell-compat",
+    "windows-tests",
+    "windows-npm-lifecycle",
+    "pm-lifecycle",
+    "migration-lifecycle",
+  ]) {
+    const access = job.includes("-") ? `needs['${job}']` : `needs.${job}`;
+    assert.match(
+      ci,
+      new RegExp(
+        `${access.replaceAll("[", "\\[").replaceAll("]", "\\]")}\\.result != 'skipped'`,
+      ),
+    );
+  }
+  assert.match(ci, /outputs\.route != 'docs'/);
+  assert.match(ci, /outputs\.route != 'full'/);
+  assert.match(ci, /outputs\.categories != 'documentation-metadata'/);
+  assert.match(ci, /outputs\.reason != 'docs-only'/);
   assert.doesNotMatch(ci, /contains\(needs\.\*\.result/);
 });

@@ -14,6 +14,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: Classify required CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      route: ${{ steps.changes.outputs.route }}
+      full_graph: ${{ steps.changes.outputs.full_graph }}
+      docs_only: ${{ steps.changes.outputs.docs_only }}
+      categories: ${{ steps.changes.outputs.categories }}
+      reason: ${{ steps.changes.outputs.reason }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+
+      - name: Classify the complete diff with trusted code
+        id: changes
+        shell: bash
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TRUSTED_CLASSIFIER: ${{ runner.temp }}/classify-ci-changes.mjs
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            node tools/classify-ci-changes.mjs
+            exit 0
+          fi
+
+          # Execute the base branch's classifier, not pull-request code. The
+          # fixed fallback bootstraps this rollout and keeps missing source on
+          # the full route; any later extraction/execution failure leaves no
+          # trusted outputs, which also launches the full graph and fails the
+          # aggregate.
+          if ! [[ "$CI_BASE_SHA" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]] ||
+            ! git cat-file -e "$CI_BASE_SHA^{commit}" 2>/dev/null ||
+            ! git cat-file -e "$CI_BASE_SHA:tools/classify-ci-changes.mjs" 2>/dev/null; then
+            {
+              echo "route=full"
+              echo "full_graph=true"
+              echo "docs_only=false"
+              echo "categories=unknown"
+              echo "reason=trusted-classifier-unavailable"
+            } >> "$GITHUB_OUTPUT"
+            echo "CI route: full (trusted-classifier-unavailable; unknown)."
+            exit 0
+          fi
+
+          git cat-file blob "$CI_BASE_SHA:tools/classify-ci-changes.mjs" > "$TRUSTED_CLASSIFIER"
+          node "$TRUSTED_CLASSIFIER"
+
   dco:
     name: DCO
     runs-on: ubuntu-latest
@@ -92,8 +149,36 @@ jobs:
 
       - run: npm run format:check
 
+      - name: Documentation, metadata, link, asset, and policy tests
+        run: >-
+          node --test
+          test/ci-change-classifier.test.mjs
+          test/ci-policy.test.mjs
+          test/json-output.test.mjs
+          test/message-state-assets-check.test.mjs
+          test/metadata.test.mjs
+          test/packed-markdown-links.test.mjs
+          test/release-integrity.test.mjs
+          test/release-metadata.test.mjs
+          test/shell-compat.test.mjs
+          test/test-quality.test.mjs
+          test/visual-assets.test.mjs
+
   check:
     name: ${{ matrix.os }} / Node ${{ matrix.node-version }}
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
@@ -148,6 +233,19 @@ jobs:
 
   windows-tests:
     name: Windows / Node ${{ matrix.node-version }} / test shard ${{ matrix.shard }}/2
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     runs-on: windows-latest
     timeout-minutes: 10
 
@@ -184,6 +282,19 @@ jobs:
 
   windows-npm-lifecycle:
     name: Windows / Node ${{ matrix.node-version }} / npm lifecycle
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     runs-on: windows-latest
     timeout-minutes: 10
 
@@ -212,6 +323,19 @@ jobs:
 
   shell-compat:
     name: ${{ matrix.name }} packed shell lifecycle
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
@@ -265,6 +389,19 @@ jobs:
 
   pm-lifecycle:
     name: ${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.pm }} lifecycle
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
@@ -339,6 +476,19 @@ jobs:
 
   migration-lifecycle:
     name: Ubuntu / Node 24 / npm migration lifecycle
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -359,6 +509,19 @@ jobs:
 
   codeql:
     name: CodeQL
+    needs: classify
+    if: >-
+      ${{
+        !cancelled() &&
+        (
+          needs.classify.result != 'success' ||
+          needs.classify.outputs.route != 'docs' ||
+          needs.classify.outputs.full_graph != 'false' ||
+          needs.classify.outputs.docs_only != 'true' ||
+          needs.classify.outputs.categories != 'documentation-metadata' ||
+          needs.classify.outputs.reason != 'docs-only'
+        )
+      }}
     permissions:
       actions: read # let CodeQL inspect workflow metadata
       contents: read # scan the checked-out source
@@ -372,6 +535,7 @@ jobs:
     if: always()
     needs:
       [
+        classify,
         dco,
         quality,
         check,
@@ -388,18 +552,46 @@ jobs:
       - name: Verify all required jobs succeeded
         if: >-
           ${{
+            needs.classify.result != 'success' ||
             needs.dco.result != 'success' ||
             needs.quality.result != 'success' ||
-            needs.check.result != 'success' ||
-            needs['windows-tests'].result != 'success' ||
-            needs['windows-npm-lifecycle'].result != 'success' ||
-            needs['shell-compat'].result != 'success' ||
-            needs['pm-lifecycle'].result != 'success' ||
-            needs['migration-lifecycle'].result != 'success' ||
-            needs.codeql.result != 'success'
+            (
+              needs.classify.outputs.route == 'docs' &&
+              (
+                needs.classify.outputs.full_graph != 'false' ||
+                needs.classify.outputs.docs_only != 'true' ||
+                needs.classify.outputs.categories != 'documentation-metadata' ||
+                needs.classify.outputs.reason != 'docs-only' ||
+                needs.check.result != 'skipped' ||
+                needs['windows-tests'].result != 'skipped' ||
+                needs['windows-npm-lifecycle'].result != 'skipped' ||
+                needs['shell-compat'].result != 'skipped' ||
+                needs['pm-lifecycle'].result != 'skipped' ||
+                needs['migration-lifecycle'].result != 'skipped' ||
+                needs.codeql.result != 'skipped'
+              )
+            ) ||
+            (
+              needs.classify.outputs.route == 'full' &&
+              (
+                needs.classify.outputs.full_graph != 'true' ||
+                needs.classify.outputs.docs_only != 'false' ||
+                needs.check.result != 'success' ||
+                needs['windows-tests'].result != 'success' ||
+                needs['windows-npm-lifecycle'].result != 'success' ||
+                needs['shell-compat'].result != 'success' ||
+                needs['pm-lifecycle'].result != 'success' ||
+                needs['migration-lifecycle'].result != 'success' ||
+                needs.codeql.result != 'success'
+              )
+            ) ||
+            (
+              needs.classify.outputs.route != 'docs' &&
+              needs.classify.outputs.route != 'full'
+            )
           }}
         run: |
-          echo "One or more required jobs did not succeed."
+          echo "The classifier route or one or more required jobs was incomplete."
           exit 1
       - name: All required jobs passed
-        run: echo "All required jobs succeeded."
+        run: echo "All jobs required for the classified change succeeded."

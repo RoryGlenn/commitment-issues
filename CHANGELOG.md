@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a tested, fail-closed pull-request change classifier. Pure
+  documentation and metadata changes retain DCO, static quality, formatting,
+  dependency audit, and focused documentation, schema, link, asset, release,
+  and workflow-policy tests while skipping the irrelevant compatibility
+  matrix; every deletion, rename, copy, other category, mixed change, unknown
+  path, ambiguous Git status, shallow history, diff failure, or classifier
+  failure runs the full required graph. The focused path also derives the
+  canonical 100% badge directly, so a README edit cannot falsify or stale it.
+  Pull requests execute the classifier from the immutable base commit rather
+  than trusting fork code. `CI Success` accepts skips only for the classifier's
+  exact, internally consistent documentation-only result.
 - Added a reusable before/after workflow graphic and social-ready 16:9 export,
   pairing the existing 26-second terminal demo with consistent README, package
   metadata, rationale, and launch messaging: catch mistakes while they are

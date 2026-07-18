@@ -53,6 +53,21 @@ production-readiness workstream #130 is consolidated in the
   complete and unsharded. No test or lifecycle assertion is removed by the
   split. Workflow/invariant: `test/ci-policy.test.mjs`,
   `test/release-integrity.test.mjs`; CI: `.github/workflows/ci.yml`.
+- **TEST-008** — the required-CI classifier reads the complete local
+  merge-base diff with NUL-delimited path records and classifies runtime/CLI,
+  package-manager, test/fixture, workflow/release, documentation/metadata,
+  demo/asset, and unknown changes. Only pure allowlisted documentation adds and
+  modifications take the small route. Deletes, renames, and copies retain all
+  paths but take the full graph; unusual names and large diffs are not
+  truncated; executable editor config, mixed/unknown changes, unsupported
+  statuses, shallow or missing history, malformed output, and Git failures
+  also take the full graph. The small route derives the canonical 100% badge.
+  Fork PRs execute classifier code from the immutable base commit, with a fixed
+  full-route bootstrap when it is unavailable. `CI Success` distinguishes the
+  small route's expected skips from missing or failed work. Unit/real-Git
+  fixture:
+  `test/ci-change-classifier.test.mjs`; workflow invariant:
+  `test/ci-policy.test.mjs`; CI: `.github/workflows/ci.yml`.
 
 ### Package publishing
 
