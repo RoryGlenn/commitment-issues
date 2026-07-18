@@ -823,8 +823,18 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
     "docs/yarn-berry.md",
   ]);
 
-  assert.equal(files.has("assets/commitment-issues.png"), false);
-  assert.equal(files.has("assets/demo.gif"), false);
+  for (const promotionalAsset of [
+    "assets/commitment-issues.png",
+    "assets/before-after.svg",
+    "assets/before-after.png",
+    "assets/demo.gif",
+  ]) {
+    assert.equal(
+      files.has(promotionalAsset),
+      false,
+      `${promotionalAsset} should remain repository-only`,
+    );
+  }
   assert.ok(
     [...files].every((file) =>
       file.startsWith("assets/") ? file.endsWith(".svg") : true,
@@ -871,6 +881,10 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
   assert.match(
     readme,
     /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/commitment-issues\.png/,
+  );
+  assert.match(
+    readme,
+    /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/before-after\.svg/,
   );
   assert.match(
     readme,

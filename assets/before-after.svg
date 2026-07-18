@@ -1,0 +1,155 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1200"
+  height="675"
+  viewBox="0 0 1200 675"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Catch mistakes while they're still cheap to fix</title>
+  <desc id="desc">
+    A simple before-and-after comparison. Before, work is sent, the person
+    waits, a mistake is found, and the work must be done again. After adopting
+    Commitment Issues, the mistake is spotted and fixed first, so the work is
+    sent only once.
+  </desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#060a18" />
+      <stop offset="0.55" stop-color="#10132b" />
+      <stop offset="1" stop-color="#17102b" />
+    </linearGradient>
+    <linearGradient id="before-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#201725" />
+      <stop offset="1" stop-color="#26151f" />
+    </linearGradient>
+    <linearGradient id="after-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111d2a" />
+      <stop offset="1" stop-color="#0d2927" />
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5555" />
+      <stop offset="1" stop-color="#ff7a67" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#000" flood-opacity="0.38" />
+    </filter>
+    <filter id="red-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="green-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="9" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <style>
+      .sans { font-family: "DejaVu Sans", sans-serif; }
+      .brand { font-size: 14px; font-weight: 800; letter-spacing: 2.4px; }
+      .headline { font-size: 39px; font-weight: 850; letter-spacing: -1px; }
+      .subhead { font-size: 24px; font-weight: 600; }
+      .badge { font-size: 17px; font-weight: 850; letter-spacing: 2.2px; }
+      .step { font-size: 20px; font-weight: 850; letter-spacing: 0.4px; }
+      .result { font-size: 27px; font-weight: 900; letter-spacing: 0.8px; }
+      .icon { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="675" fill="url(#background)" />
+  <circle cx="1105" cy="40" r="210" fill="#44257c" opacity="0.14" />
+  <circle cx="70" cy="680" r="230" fill="#0d9488" opacity="0.08" />
+
+  <g class="sans">
+    <text x="55" y="45" class="brand" fill="#b8bed6">COMMITMENT</text>
+    <text x="184" y="45" class="brand" fill="url(#brand)">ISSUES</text>
+
+    <text x="55" y="108" class="headline" fill="#f8fafc">
+      Commitment Issues spots mistakes <tspan fill="#45e0cf">before you send.</tspan>
+    </text>
+    <text x="55" y="148" class="subhead" fill="#afb7ce">Fix it now. Send once. Done.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="55" y="181" width="527" height="419" rx="26" fill="url(#before-card)" stroke="#713544" stroke-width="1.5" />
+    <rect x="618" y="181" width="527" height="419" rx="26" fill="url(#after-card)" stroke="#247068" stroke-width="1.5" />
+  </g>
+
+  <g class="sans">
+    <rect x="79" y="207" width="146" height="38" rx="19" fill="#421f2a" stroke="#923d4b" />
+    <circle cx="101" cy="226" r="6" fill="#ff6363" />
+    <text x="117" y="232" class="badge" fill="#ff9793">WITHOUT</text>
+  </g>
+
+  <!-- Before: send, wait, discover the mistake, and repeat. -->
+  <g class="sans">
+    <path d="M176 359 H198" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M191 351 L200 359 191 367" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M297 359 H319" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M312 351 L321 359 312 367" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M418 359 H440" class="icon" stroke="#985565" stroke-width="5" />
+    <path d="M433 351 L442 359 433 367" class="icon" stroke="#985565" stroke-width="5" />
+
+    <circle cx="128" cy="359" r="48" fill="#2a2131" stroke="#845061" stroke-width="2" />
+    <path d="M103 365 L153 343 140 394 124 375 103 365Z" class="icon" stroke="#f1dfe5" stroke-width="4" />
+    <path d="M124 375 L141 358" class="icon" stroke="#f1dfe5" stroke-width="4" />
+    <text x="128" y="439" class="step" fill="#f2e7eb" text-anchor="middle">SEND</text>
+
+    <circle cx="249" cy="359" r="48" fill="#30252e" stroke="#a47148" stroke-width="2" />
+    <circle cx="249" cy="359" r="23" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M249 344 V359 L261 366" class="icon" stroke="#ffc178" stroke-width="4" />
+    <text x="249" y="439" class="step" fill="#ffcf94" text-anchor="middle">WAIT</text>
+
+    <circle cx="370" cy="359" r="48" fill="#3a2028" stroke="#c74d5a" stroke-width="2" filter="url(#red-glow)" />
+    <path d="M351 340 L389 378 M389 340 L351 378" class="icon" stroke="#ff6767" stroke-width="7" />
+    <text x="370" y="432" class="step" fill="#ff9290" text-anchor="middle">
+      <tspan x="370">MISTAKE</tspan>
+      <tspan x="370" dy="23">FOUND</tspan>
+    </text>
+
+    <circle cx="491" cy="359" r="48" fill="#30252e" stroke="#a47148" stroke-width="2" />
+    <path d="M469 351 A25 25 0 0 1 510 344" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M510 344 L499 343 M510 344 L507 333" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M513 367 A25 25 0 0 1 472 374" class="icon" stroke="#ffc178" stroke-width="4" />
+    <path d="M472 374 L483 375 M472 374 L475 385" class="icon" stroke="#ffc178" stroke-width="4" />
+    <text x="491" y="439" class="step" fill="#ffcf94" text-anchor="middle">REDO</text>
+
+    <rect x="79" y="495" width="479" height="76" rx="16" fill="#3a1d27" stroke="#793444" />
+    <text x="318.5" y="544" class="result" fill="#ff8c89" text-anchor="middle">WAIT. FAIL. REPEAT.</text>
+  </g>
+
+  <!-- After: spot the mistake first, fix it, and send once. -->
+  <g class="sans">
+    <rect x="642" y="207" width="99" height="38" rx="19" fill="#123b38" stroke="#287c72" />
+    <circle cx="664" cy="226" r="6" fill="#45e0cf" />
+    <text x="680" y="232" class="badge" fill="#79eee2">WITH</text>
+
+    <path d="M771 359 H822" class="icon" stroke="#2fae9f" stroke-width="5" />
+    <path d="M814 351 L824 359 814 367" class="icon" stroke="#2fae9f" stroke-width="5" />
+    <path d="M934 359 H985" class="icon" stroke="#2fae9f" stroke-width="5" />
+    <path d="M977 351 L987 359 977 367" class="icon" stroke="#2fae9f" stroke-width="5" />
+
+    <circle cx="714" cy="359" r="55" fill="#142c31" stroke="#2aa699" stroke-width="2" filter="url(#green-glow)" />
+    <path d="M684 359 Q714 331 744 359 Q714 387 684 359Z" class="icon" stroke="#70eddf" stroke-width="4" />
+    <circle cx="714" cy="359" r="10" fill="#70eddf" />
+    <text x="714" y="439" class="step" fill="#a3f8ee" text-anchor="middle">SPOT IT</text>
+
+    <circle cx="881" cy="359" r="55" fill="#142c31" stroke="#2aa699" stroke-width="2" />
+    <path d="M855 361 L874 380 909 340" class="icon" stroke="#70eddf" stroke-width="7" />
+    <text x="881" y="439" class="step" fill="#a3f8ee" text-anchor="middle">FIX IT</text>
+
+    <circle cx="1048" cy="359" r="55" fill="#142c31" stroke="#2aa699" stroke-width="2" />
+    <path d="M1021 365 L1069 344 1057 392 1042 375 1021 365Z" class="icon" stroke="#e2fffb" stroke-width="4" />
+    <path d="M1042 375 L1058 359" class="icon" stroke="#e2fffb" stroke-width="4" />
+    <circle cx="1070" cy="382" r="13" fill="#163a36" stroke="#70eddf" stroke-width="3" />
+    <path d="M1064 382 L1069 387 1077 377" class="icon" stroke="#70eddf" stroke-width="3" />
+    <text x="1048" y="439" class="step" fill="#a3f8ee" text-anchor="middle">SEND ONCE</text>
+
+    <rect x="642" y="495" width="479" height="76" rx="16" fill="#123a36" stroke="#287b71" />
+    <text x="881.5" y="544" class="result" fill="#75eee1" text-anchor="middle">FIX. SEND. DONE.</text>
+  </g>
+</svg>

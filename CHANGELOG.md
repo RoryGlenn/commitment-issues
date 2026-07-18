@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a reusable before/after workflow graphic and social-ready 16:9 export,
+  pairing the existing 26-second terminal demo with consistent README, package
+  metadata, rationale, and launch messaging: catch mistakes while they are
+  still cheap to fix, get the exact safe command, and keep CI authoritative.
+
 ### Changed
 
+- Simplified the before/after graphic into a picture-first, jargon-free story:
+  send, wait, find a mistake, and redo versus spot it, fix it, and send once.
 - Redesigned CLI help around described setup, check, and fix actions, with the
   installed version, examples, safe command-specific help, and a separate
   integration section for `commit-msg`, normally invoked automatically by Git.

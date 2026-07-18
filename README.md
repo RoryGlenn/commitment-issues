@@ -12,18 +12,27 @@
 
 **Local Git hooks for developers who overthink every commit.**
 
-GitHub Actions catches mistakes after they become expensive.
-Commitment Issues catches them while they are still cheap.
+**Catch mistakes while they're still cheap to fix.**
 
-Catch test failures, staged secrets, and Git mistakes while they are still local.
+Commit normally. When a fixable problem appears, Commitment Issues gives you an
+immediate suggestion and the exact safe command to fix it before the first
+push. CI stays authoritative.
 
-No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0, and Bun 1.3.14 · Node.js >=22.11.0
+## One small mistake. Two very different outcomes.
 
-[Quickstart](#quickstart) · [Why it is different](#why-it-is-different) ·
-[Configuration](docs/configuration.md) · [Migration](docs/migration.md) ·
-[FAQ](docs/faq.md)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg" alt="Without Commitment Issues: send work, wait, find a mistake, and do it again. With Commitment Issues: spot and fix the mistake first, then send once." width="900" />
+</p>
 
-## Commit normally. Fix safely. Push with confidence.
+**Without:** commit → push → wait → CI fails → read logs → fix → commit again →
+push → wait again.
+
+**With:** commit → immediate suggestion → run the exact fix command → push
+once.
+
+[Why earlier feedback matters](docs/why-before-ci.md).
+
+### Watch the shorter path in 26 seconds
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
@@ -32,6 +41,12 @@ No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0, and Bun 1
 Checks start advisory. Fixes run only when requested and when the repository
 state proves the operation safe. Teams can opt into individual blocking gates
 after they trust the signal.
+
+No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0, and Bun 1.3.14 · Node.js >=22.11.0
+
+[Quickstart](#quickstart) · [Why it is different](#why-it-is-different) ·
+[Configuration](docs/configuration.md) · [Migration](docs/migration.md) ·
+[FAQ](docs/faq.md)
 
 <details>
 <summary>See the main safety states</summary>

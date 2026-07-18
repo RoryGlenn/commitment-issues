@@ -45,6 +45,41 @@ function elementCounts(svg) {
   );
 }
 
+function pngDimensions(buffer) {
+  assert.deepEqual(
+    buffer.subarray(0, 8),
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  );
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
+function gifMetrics(buffer) {
+  assert.equal(buffer.subarray(0, 3).toString("ascii"), "GIF");
+  let frames = 0;
+  let durationCentiseconds = 0;
+
+  for (let index = 0; index + 7 < buffer.length; index += 1) {
+    if (
+      buffer[index] === 0x21 &&
+      buffer[index + 1] === 0xf9 &&
+      buffer[index + 2] === 0x04
+    ) {
+      frames += 1;
+      durationCentiseconds += buffer.readUInt16LE(index + 4);
+    }
+  }
+
+  return {
+    width: buffer.readUInt16LE(6),
+    height: buffer.readUInt16LE(8),
+    frames,
+    durationSeconds: durationCentiseconds / 100,
+  };
+}
+
 test("every committed SVG exposes an accessible name and description", () => {
   const tracked = spawnSync("git", ["ls-files", "*.svg"], {
     cwd: root,
@@ -152,6 +187,127 @@ test("README and how-it-works reference both refreshed flowchart themes", () => 
   }
 });
 
+test("hero story pairs a reusable comparison with a 20–30 second real workflow", () => {
+  const svg = read("assets/before-after.svg");
+  const png = fs.readFileSync(path.join(root, "assets/before-after.png"));
+  const gif = fs.readFileSync(path.join(root, "assets/demo.gif"));
+  const readme = read("README.md");
+  const rationale = read("docs/why-before-ci.md");
+  const launch = read("promo/launch.md");
+  const pkg = JSON.parse(read("package.json"));
+  const slogan = "Catch mistakes while they're still cheap to fix";
+
+  assert.deepEqual(pngDimensions(png), { width: 1200, height: 675 });
+
+  const demo = gifMetrics(gif);
+  assert.deepEqual(
+    { width: demo.width, height: demo.height },
+    { width: 1000, height: 760 },
+  );
+  assert.ok(demo.frames > 0, "demo should contain animated frames");
+  assert.ok(
+    demo.durationSeconds >= 20 && demo.durationSeconds <= 30,
+    `demo duration ${demo.durationSeconds}s should stay inside the 20–30 second story window`,
+  );
+
+  assert.match(svg, /width="1200"/);
+  assert.match(svg, /height="675"/);
+  assert.match(
+    svg,
+    /\.sans \{ font-family: "DejaVu Sans", sans-serif; \}/,
+    "comparison should name the font installed by its render workflow",
+  );
+  assert.ok(
+    svg.includes(`<title id="title">${slogan}</title>`),
+    "comparison should retain the canonical promise as its accessible title",
+  );
+
+  const visibleNodes = [
+    ...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g),
+  ].map(([, content]) =>
+    content
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+  assert.deepEqual(visibleNodes, [
+    "COMMITMENT",
+    "ISSUES",
+    "Commitment Issues spots mistakes before you send.",
+    "Fix it now. Send once. Done.",
+    "WITHOUT",
+    "SEND",
+    "WAIT",
+    "MISTAKE FOUND",
+    "REDO",
+    "WAIT. FAIL. REPEAT.",
+    "WITH",
+    "SPOT IT",
+    "FIX IT",
+    "SEND ONCE",
+    "FIX. SEND. DONE.",
+  ]);
+  const visibleCopy = visibleNodes.join(" ");
+  assert.ok(
+    visibleCopy.split(/\s+/).length <= 35,
+    "comparison should stay readable at a glance with no more than 35 visible words",
+  );
+  assert.doesNotMatch(
+    visibleCopy,
+    /\b(?:CI|commit|push|npm|context|advisory|telemetry|authoritative)\b/i,
+    "visible comparison should avoid software jargon",
+  );
+
+  for (const [name, surface] of [
+    ["README", readme],
+    ["npm description", pkg.description],
+    ["rationale", rationale],
+    ["launch kit", launch],
+  ]) {
+    assert.match(
+      surface,
+      new RegExp(slogan.replaceAll("'", "['’]"), "i"),
+      `${name} should use the canonical promise`,
+    );
+  }
+  assert.match(read("docs/definition-of-done.md"), /still cheap to fix/i);
+  assert.match(pkg.description, /advisory-first Git hooks/i);
+  assert.match(readme, /fix → commit again →\s*push → wait again/);
+  assert.match(rationale, /fixes the problem, commits again, pushes again/);
+  assert.match(
+    launch,
+    /Without Commitment Issues: send\s*work, wait, find a mistake, and do it again/,
+  );
+  assert.match(svg, /mistake is spotted and fixed first/);
+  assert.match(launch, /next-release npm metadata/);
+  assert.match(launch, /\[ \] Confirm the live npm page/);
+
+  const comparisonIndex = readme.indexOf("assets/before-after.svg");
+  const demoIndex = readme.indexOf("assets/demo.gif");
+  const quickstartIndex = readme.indexOf("## Quickstart");
+  assert.ok(comparisonIndex >= 0, "README should embed the comparison");
+  assert.ok(
+    comparisonIndex < demoIndex && demoIndex < quickstartIndex,
+    "README should tell the comparison and real workflow story before setup and features",
+  );
+  assert.match(
+    rationale,
+    /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/before-after\.svg/,
+  );
+  for (const surface of [
+    "Product Hunt",
+    "LinkedIn",
+    "Reddit",
+    "Hacker News",
+    "X",
+  ]) {
+    assert.ok(launch.includes(surface), `launch kit should cover ${surface}`);
+  }
+  assert.match(launch, /assets\/before-after\.svg/);
+  assert.match(launch, /assets\/before-after\.png/);
+  assert.match(launch, /assets\/demo\.gif/);
+});
+
 test("demo tape records a reproducible feature-branch workflow", () => {
   const tape = read("promo/demo.tape");
   const workflow = read(".github/workflows/render-demo.yml");
@@ -172,6 +328,15 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     resetIndex,
   );
   const renderIndex = workflow.indexOf("run: vhs promo/demo.tape");
+  const comparisonRenderIndex = workflow.indexOf(
+    "name: Render assets/before-after.png from assets/before-after.svg",
+  );
+  const comparisonUploadIndex = workflow.indexOf(
+    "name: Upload rendered before/after asset",
+  );
+  const comparisonVerifyIndex = workflow.indexOf(
+    "name: Verify rendered before/after asset matches committed export",
+  );
   const metadataIndex = workflow.indexOf(
     "name: Verify rendered demo dimensions and timing",
   );
@@ -187,14 +352,22 @@ test("demo tape records a reproducible feature-branch workflow", () => {
   assert.doesNotMatch(tape, /ln -s "\$REPO\/node_modules" node_modules/);
   assert.match(workflow, /npm ci --ignore-scripts/);
   assert.match(workflow, /node-version: "24\.14\.0"/);
+  assert.match(
+    workflow,
+    /apt-get install --yes ffmpeg fonts-dejavu-core zsh/,
+    "render workflow should install the comparison's exact font",
+  );
   for (const input of [
     ".github/workflows/render-demo.yml",
+    "assets/before-after.png",
+    "assets/before-after.svg",
     "assets/demo.gif",
     "promo/demo.tape",
     "package.json",
     "package-lock.json",
     "scripts/**",
     "test/demo-visual-comparison.test.mjs",
+    "test/visual-assets.test.mjs",
     "tools/compare-demo-gifs.mjs",
   ]) {
     assert.ok(
@@ -203,6 +376,27 @@ test("demo tape records a reproducible feature-branch workflow", () => {
     );
   }
   assert.ok(renderIndex >= 0, "workflow should render the demo");
+  assert.ok(
+    comparisonRenderIndex >= 0,
+    "workflow should render the before/after PNG from its SVG source",
+  );
+  assert.match(
+    workflow,
+    /cp assets\/before-after\.png "\$RUNNER_TEMP\/committed-before-after\.png"/,
+  );
+  assert.match(
+    workflow,
+    /ffmpeg -nostdin -hide_banner -loglevel error\s+-f svg_pipe -i assets\/before-after\.svg\s+-frames:v 1 -y assets\/before-after\.png/,
+  );
+  assert.match(
+    workflow,
+    /cmp --silent\s+\\\s+"\$RUNNER_TEMP\/committed-before-after\.png"\s+\\\s+assets\/before-after\.png/,
+  );
+  assert.ok(
+    comparisonUploadIndex > comparisonRenderIndex &&
+      comparisonVerifyIndex > comparisonUploadIndex,
+    "workflow should preserve the rendered comparison before rejecting drift",
+  );
   assert.match(
     workflow,
     /cp assets\/demo\.gif "\$RUNNER_TEMP\/committed-demo\.gif"/,

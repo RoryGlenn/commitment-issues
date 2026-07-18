@@ -21,8 +21,8 @@ workstreams run in their documented dependency order, ending with independent
 final verification in
 [#138](https://github.com/RoryGlenn/commitment-issues/issues/138).
 
-The technically validated, human-written public launch tracked in
-[#78](https://github.com/RoryGlenn/commitment-issues/issues/78) follows that
+The technically validated, human-written Product Hunt launch tracked in
+[#240](https://github.com/RoryGlenn/commitment-issues/issues/240) follows that
 verification. The launch has no fixed date until every audit workstream is
 closed, every Critical and High finding is resolved, remaining findings have an
 explicit disposition, and the final verification passes. Non-blocking feature
@@ -137,7 +137,7 @@ The project does not intend to:
 
 - Treat the production-readiness tracker and its nine workstreams as the
   current execution plan. Independent verification in #138 gates the launch in
-  #78.
+  #240.
 - Treat [ADOPTION.md](ADOPTION.md) as the maintainer checklist for work that has
   already landed and launch/adoption tasks that follow the audit.
 - Treat linked GitHub issues as the detailed acceptance criteria for proposed

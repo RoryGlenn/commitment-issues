@@ -11,7 +11,50 @@ Recheck those signals on launch day rather than relying on this snapshot.
 
 ---
 
+## Message and media kit
+
+Lead with the developer's feedback loop before listing features. Keep this
+three-part sequence intact across the repository README, next-release npm
+metadata, Product Hunt description, LinkedIn, Reddit, Hacker News, and X:
+
+> **Catch mistakes while they're still cheap to fix.**
+>
+> Commit normally. When a fixable problem appears, Commitment Issues gives you
+> an immediate suggestion and the exact safe command to fix it before the first
+> push. CI stays authoritative.
+>
+> Watch the 26-second workflow: commit → suggestion → `npm run commit:fix` →
+> successful push.
+
+Use the first sentence as the general short lead. Use all three paragraphs when
+the surface allows more context; follow them with feature or compatibility
+detail only after the value is clear. Product Hunt's compact combined tagline
+is “Catch mistakes early with advisory-first Git hooks”; begin its description
+with the canonical promise above. For a shorter X post, use:
+
+> Catch mistakes while they're still cheap to fix. Get immediate, advisory Git
+> feedback and the exact safe command before your first push. CI stays
+> authoritative.
+
+| Asset                          | Best use                               | Notes                                                                 |
+| ------------------------------ | -------------------------------------- | --------------------------------------------------------------------- |
+| `assets/before-after.svg`      | GitHub/npm and linked HN documentation | Crisp, accessible source with a jargon-free before/after story        |
+| `assets/before-after.png`      | Product Hunt, LinkedIn, Reddit, and X  | 1200×675 upload-ready export; understandable without software context |
+| `assets/demo.gif`              | README/npm and posts that accept GIFs  | 26-second real workflow: advisory warning, exact fix, successful push |
+| `assets/commitment-issues.png` | Brand-led posts and social preview     | Existing 16:9 wordmark and Commit Owl artwork                         |
+
+Recommended alt text for the comparison asset: “Without Commitment Issues: send
+work, wait, find a mistake, and do it again. With Commitment Issues: spot and
+fix the mistake first, then send once.”
+
+---
+
 ## Blog post
+
+The blog is a deliberate secondary angle: it opens with the blocking-hook and
+habitual `--no-verify` problem, then connects that problem to the same
+value-first promise. Product listings and short social posts should use the
+feedback-loop lead above.
 
 **Title:** Why I stopped letting pre-commit hooks block my commits
 
@@ -27,7 +70,8 @@ picked the worst possible moment.
 
 Once `--no-verify` becomes muscle memory, the hooks may as well not exist.
 
-I wanted the opposite default: **hooks that inform, then get out of the way.**
+I wanted the opposite default: **catch mistakes while they're still cheap to
+fix, then get out of the way.**
 
 ### Advisory-first
 
@@ -72,8 +116,9 @@ Linux, macOS, Windows, and Node.js evidence for each manager.
 
 ### The point
 
-Hooks should be a helpful teammate, not a bouncer. Advisory by default, strict when
-you ask — that's the whole idea.
+Catch mistakes while they're still cheap to fix. Hooks should be a helpful
+teammate, not a bouncer: advisory by default, strict when you ask, with the
+exact safe command when a fix is available.
 
 It's MIT-licensed and on npm as `commitment-issues`. If the philosophy resonates —
 or if you think I'm wrong — I'd love the feedback.
@@ -92,12 +137,14 @@ point directly to the GitHub repository rather than to the supporting blog post.
 The listing should:
 
 - use `commitment-issues` as the product name;
-- describe the advisory-first Git-hook model in a concise tagline;
+- use “Catch mistakes early with advisory-first Git hooks” as the concise,
+  value-first tagline and open the description with “Catch mistakes while
+  they're still cheap to fix”;
 - explain what the product does within Product Hunt's description limit;
 - identify the maintainer as the maker;
 - use relevant Developer Tools, Open Source, and GitHub topics when available;
 - include the existing logo, social-preview artwork, and a legible product-flow
-  gallery; and
+  gallery led by `assets/before-after.png` and supported by the demo GIF; and
 - avoid superlatives, coordinated voting, or an upvote request.
 
 The first maker comment should explain:
@@ -121,6 +168,12 @@ and tone.
 ## Posting checklist
 
 - [x] Generate and embed the demo GIF (`vhs promo/demo.tape` → `assets/demo.gif`).
+- [x] Add the reusable before/after SVG and 1200×675 social PNG.
+- [x] Align the README, next-release npm metadata, rationale, Product Hunt, and
+      cross-platform post copy around the same value-first message; the blog
+      reinforces it from the documented blocking-hook angle.
+- [ ] Confirm the live npm page carries the new description and README after
+      the next release.
 - [x] Add GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
 - [x] Add a social preview image (Settings → General → Social preview).
 - [x] Publish and independently verify v3.4.0, including matching npm/GitHub

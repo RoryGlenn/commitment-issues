@@ -144,6 +144,13 @@ production-readiness workstream #130 is consolidated in the
   values, searches only the metadata-bounded frame offsets, accepts those
   differences, and rejects synthetic missing-scene, color, layout, and clipping
   regressions. Unit/integration: `test/demo-visual-comparison.test.mjs`.
+- **DEMO-003** — the reusable before/after SVG and 16:9 PNG preserve the
+  CI-only and immediate-local-feedback timelines, the exact fix command, and
+  the canonical value promise; README, next-release npm sources, rationale, and
+  launch surfaces link the story before feature detail. The real workflow GIF
+  remains between 20 and 30 seconds, while render CI requires the social PNG to
+  byte-match a fresh SVG render. Unit/CI: `test/visual-assets.test.mjs`,
+  `.github/workflows/render-demo.yml`.
 
 ### Config
 
@@ -496,7 +503,7 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
   `npx --no-install commitment-issues --help`.
 - **LIFE-005** — the complete clean-registry launch path (`init`, advisory
   commit warning, `commit:fix`, and related push-time tests) remains a launch
-  gate in issue #78.
+  gate in issue #240.
 - **CLIENT-001** — VS Code, JetBrains, and GitHub Desktop require manual UI
   validation against an exact artifact before the release claims those clients
   as verified. An unavailable lane must instead be classified as
