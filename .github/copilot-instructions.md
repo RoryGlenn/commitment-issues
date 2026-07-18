@@ -1,5 +1,9 @@
 # Copilot instructions for commitment-issues
 
+Start with the repository-wide [`AGENTS.md`](../AGENTS.md), then load the
+task-specific skill linked below. This file adds Copilot-specific context; it
+does not replace the repository-wide workflow and pull-request rules.
+
 `commitment-issues` is an **advisory-first** Git hook toolkit for JS/TS projects (native `.git/hooks` wiring + direct ESLint/Prettier runs — no husky, no lint-staged). It reports problems without discarding unstaged work, rewriting pushed history, or blocking — **blocking is opt-in** via `precommitChecks`. Preserve that philosophy in every change: warn and continue by default; gate enforcement behind explicit config.
 
 ## Hard constraints
@@ -7,17 +11,24 @@
 - **Pure ESM `.mjs`, no build step, no transpile.** Node `>=22.11.0`. Uses the built-in `node --test` runner and `node:assert/strict` — no Jest/Mocha/Vitest. The one extra test library is `fast-check` (property-based tests in `test/property.test.js`, kept `.js` so the OpenSSF Scorecard fuzzing check detects it).
 - **Cross-platform.** CI runs on Ubuntu/macOS/Windows × Node 22.11.0/24. No shell-specific assumptions, no hard-coded path separators (normalize `\\` → `/` before matching).
 - `scripts/*.mjs` = entry commands (top-level code + `process.exit`); `scripts/lib/*.mjs` = pure, unit-tested helpers. Push logic down into `lib/`.
-- Community-health, governance, and these agent files live in `.github/` so they stay out of the npm tarball (`package.json` `files` allowlists only `scripts/ assets/*.svg docs/ README.md CHANGELOG.md LICENSE`).
+- Community-health and detailed agent guidance live in `.github/`; the root
+  `AGENTS.md` is the repository-wide discovery entrypoint. `package.json`
+  contains an exact file allowlist rather than broad directory entries, so all
+  of this repository-only guidance stays out of the npm tarball.
 
 ## Before you push (always)
 
 ```bash
-npm test
 npm run lint
 npm run format:check   # `npm run format` to fix
+npm test
 ```
 
 Add/adjust a test for every behavior change (bug fixes get a regression test). Update `docs/` and the `## [Unreleased]` block in `CHANGELOG.md` for any user-visible change.
+
+Sign every commit with `git commit -s`. When confident issue or ticket work is
+complete, push the focused branch and open a pull request; do not close the
+issue before the pull request merges.
 
 ## Top traps
 
