@@ -62,9 +62,9 @@ const COMMANDS = {
   "commit-msg": {
     file: "commit-msg.mjs",
     visibility: "compatibility",
-    group: null,
+    group: "Integration",
     order: 0,
-    summary: "Check a commit message supplied by Git",
+    summary: "Check a commit message when invoked automatically by Git",
     usage: "commit-msg <message-file>",
     options: [],
   },
@@ -138,7 +138,7 @@ const COMMANDS = {
   },
 };
 
-const PRIMARY_GROUPS = ["Setup", "Checks", "Fixes"];
+const HELP_GROUPS = ["Setup", "Checks", "Fixes", "Integration"];
 const DOCUMENTATION_URL = "https://github.com/RoryGlenn/commitment-issues";
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
@@ -155,11 +155,11 @@ function formatRows(rows) {
 }
 
 function printGlobalHelp(stream) {
-  const sections = PRIMARY_GROUPS.map((group) => {
+  const sections = HELP_GROUPS.map((group) => {
     const rows = Object.entries(COMMANDS)
       .filter(
         ([, command]) =>
-          command.visibility === "primary" && command.group === group,
+          command.visibility !== "hidden" && command.group === group,
       )
       .sort(([, left], [, right]) => left.order - right.order)
       .map(([name, command]) => [name, command.summary]);
@@ -171,6 +171,7 @@ Catch mistakes locally—before CI makes them expensive.
 
 Usage:
   commitment-issues <command> [options]
+  commitment-issues help <command>
 
 ${sections}
 

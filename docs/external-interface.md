@@ -24,15 +24,18 @@ flags:
 - `--version` and `-v`
 
 Primary `--help` output is organized around the developer actions normally run
-by hand:
+by hand. A separate group identifies the Git integration normally invoked
+automatically:
 
 - Setup: `init`, `doctor`, and `uninstall`
 - Checks: `precommit` and `prepush`
 - Fixes: `fix-staged` and `commit-fix`
+- Integration: `commit-msg <message-file>` (normally invoked automatically by
+  Git)
 
-`commit-msg <message-file>` and `fix-staged-js [files...]` remain callable
-public interfaces for Git and package wiring, but they are omitted from primary
-help so integration plumbing does not compete with normal developer actions.
+`fix-staged-js [files...]` remains a callable public compatibility interface
+for package wiring, but it is omitted from primary help so low-level mutation
+plumbing does not compete with the safer `fix-staged` developer action.
 Every documented command supports both `commitment-issues help <command>` and
 `commitment-issues <command> --help`; these help paths exit 0 without invoking
 the target command or inspecting or changing a repository.

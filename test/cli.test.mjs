@@ -69,7 +69,7 @@ const COMMAND_HELP = [
   {
     name: "commit-msg",
     usage: "commit-msg <message-file>",
-    summary: "Check a commit message supplied by Git",
+    summary: "Check a commit message when invoked automatically by Git",
   },
   {
     name: "precommit",
@@ -185,6 +185,7 @@ test("cli prints action-oriented global help and exits 0", (t) => {
       "init",
       "doctor",
       "uninstall",
+      "commit-msg",
       "precommit",
       "prepush",
       "fix-staged",
@@ -197,7 +198,7 @@ test("cli prints action-oriented global help and exits 0", (t) => {
     );
   }
 
-  for (const omitted of ["commit-msg", "fix-staged-js", "vows"]) {
+  for (const omitted of ["fix-staged-js", "vows"]) {
     assert.doesNotMatch(
       result.stdout,
       new RegExp(`\\b${escapeRegExp(omitted)}\\b`),
@@ -207,7 +208,12 @@ test("cli prints action-oriented global help and exits 0", (t) => {
   const setupIndex = result.stdout.indexOf("Setup:");
   const checksIndex = result.stdout.indexOf("Checks:");
   const fixesIndex = result.stdout.indexOf("Fixes:");
-  assert.ok(setupIndex < checksIndex && checksIndex < fixesIndex);
+  const integrationIndex = result.stdout.indexOf("Integration:");
+  assert.ok(
+    setupIndex < checksIndex &&
+      checksIndex < fixesIndex &&
+      fixesIndex < integrationIndex,
+  );
   assert.ok(
     result.stdout.indexOf("init", setupIndex) <
       result.stdout.indexOf("doctor", setupIndex),
@@ -217,6 +223,7 @@ test("cli prints action-oriented global help and exits 0", (t) => {
       result.stdout.indexOf("uninstall", setupIndex),
   );
   assert.match(result.stdout, /-v, --version\s+Show the installed version/);
+  assert.match(result.stdout, /commitment-issues help <command>/);
   assert.match(result.stdout, /commitment-issues init --dry-run/);
   assert.match(
     result.stdout,
