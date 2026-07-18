@@ -197,6 +197,19 @@ not establish an after p50, p95, or flake result, so aggregate fields remain
 |            2 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                    |
 |            3 | Comparable code/full graph | TBD                                                                             | TBD                                        |  TBD | TBD        | TBD                | TBD                                                    |
 
+### Excluded runs and reruns
+
+[Run #753 attempt 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651498979/attempts/1)
+is excluded from the primary cohort. All four Windows shard jobs passed on the
+first attempt, but the unchanged Ubuntu/Node 24 coverage job exited nonzero
+after its buffered log ended mid-test without a failed assertion, stale-badge
+message, or coverage-threshold diagnostic. The fail-closed `CI Success` job
+correctly failed. A
+[failed-jobs-only retry](https://github.com/RoryGlenn/commitment-issues/actions/runs/29651498979/attempts/2)
+then passed the coverage job and aggregate. Because that retry did not execute
+the complete graph, neither attempt is a comparable successful first-attempt
+sample.
+
 | Metric             | Before p50 | Before p95 | After p50 | After p95 | Target    | Result |
 | ------------------ | ---------- | ---------- | --------- | --------- | --------- | ------ |
 | Wall clock         | 5m 30s     | 5m 43s     | TBD       | TBD       | 3–3.5 min | TBD    |
