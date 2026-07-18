@@ -178,6 +178,12 @@ npm, pnpm, Yarn, and Bun package lifecycles plus packed launch scenarios for
 POSIX `sh`, Bash, Fish, Zsh, Windows PowerShell, and Command Prompt. Keep
 changes cross-platform even if you develop on only one operating system.
 
+On Windows, the unchanged test suite and packed npm lifecycle now run as
+separate parallel required jobs on both supported Node lines. This is a CI
+scheduling change only: it does not remove tests, lifecycle assertions, or any
+of the local commands above. The aggregate `CI Success` check requires both
+Windows results to report explicit success.
+
 ## Coding style
 
 - Formatting is enforced by Prettier.

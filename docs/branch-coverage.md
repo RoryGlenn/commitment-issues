@@ -134,8 +134,10 @@ The test strategy also enforces behavior that a percentage cannot:
 - generated message-state SVGs are regenerated in a private temporary
   directory and compared byte-for-byte with all 64 committed assets;
 - the aggregate `CI Success` job accepts only explicit success from DCO, the
-  full OS/Node check matrix, and the package-manager lifecycle matrix across
-  Ubuntu, macOS, and Windows (plus exact-minimum-Node manager lanes);
+  full OS/Node test and npm lifecycle graph, and the non-npm package-manager
+  lifecycle matrix across Ubuntu, macOS, and Windows (plus exact-minimum-Node
+  manager lanes); the parallel Windows test and npm lifecycle jobs must each
+  succeed independently;
 - property tests exercise path normalization and ownership invariants, while
   real disposable Git repositories cover CLI and hook behavior;
 - no snapshot update can mask behavior: assertions target exact structured
@@ -147,6 +149,11 @@ The test strategy also enforces behavior that a percentage cannot:
 Ubuntu CI enforces 100% lines, branches, and functions on Node 22.11.0 and Node 24. Node 24 is the canonical badge producer: `npm run coverage:check` runs the
 same gated command and fails if the committed README badge differs from the
 generated value.
+
+Windows still runs the same complete test suite and packed npm lifecycle on
+both Node lines. Those commands are separate parallel required jobs to shorten
+the critical path; the split does not shard, skip, or remove tests, and it does
+not change either Ubuntu coverage denominator.
 
 The badge rounds to one decimal place, while all three CI thresholds evaluate
 Node's unrounded coverage result. Rounding therefore never relaxes the 100%

@@ -126,10 +126,24 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   const berryLock = readJson("test/fixtures/yarn-berry/package-lock.json");
   const lifecycle = readText("scripts/ci-lifecycle-smoke.mjs");
   const workflow = readText(".github/workflows/ci.yml");
+  const windowsNpmJob = workflow
+    .split(/^ {2}windows-npm-lifecycle:$/m)[1]
+    ?.split(/^ {2}shell-compat:$/m)[0];
   const job = workflow
     .split(/^ {2}pm-lifecycle:$/m)[1]
     ?.split(/^ {2}ci-success:$/m)[0];
   assert.ok(job, "ci.yml should define the pm-lifecycle job");
+  assert.ok(
+    windowsNpmJob,
+    "ci.yml should define the parallel Windows npm lifecycle job",
+  );
+
+  assert.match(windowsNpmJob, /runs-on: windows-latest/);
+  assert.match(windowsNpmJob, /node-version: \["22\.11\.0", "24"\]/);
+  assert.match(
+    windowsNpmJob,
+    /run: node tools\/run-prebuilt-lifecycle-test\.mjs/,
+  );
 
   assert.match(job, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
   assert.match(job, /node-version: \["24"\]/);
@@ -534,7 +548,7 @@ test("CI Success includes DCO and all DCO baselines stay documented", () => {
 
   assert.match(
     ci,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/,
   );
   assert.match(ci, /node tools\/check-dco-range\.mjs/);
   assert.match(ci, /fetch-depth: 0/);

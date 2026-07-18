@@ -374,11 +374,15 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
 });
 
-test("required npm CI lifecycle lanes consume an explicitly prebuilt tarball", () => {
+test("required npm CI lifecycle lanes consume explicitly prebuilt tarballs", () => {
   const workflow = readText(".github/workflows/ci.yml");
   const checkJob = workflow.slice(
     workflow.indexOf("\n  check:"),
-    workflow.indexOf("\n  pm-lifecycle:"),
+    workflow.indexOf("\n  windows-npm-lifecycle:"),
+  );
+  const windowsLifecycleJob = workflow.slice(
+    workflow.indexOf("\n  windows-npm-lifecycle:"),
+    workflow.indexOf("\n  shell-compat:"),
   );
   const wrapper = readText("tools/run-prebuilt-lifecycle-test.mjs");
   const wrapperHash = wrapper.indexOf(
@@ -390,7 +394,18 @@ test("required npm CI lifecycle lanes consume an explicitly prebuilt tarball", (
 
   assert.match(
     checkJob,
-    /- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/,
+    /- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+if: matrix\.os != 'windows-latest'\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/,
+  );
+  assert.match(
+    windowsLifecycleJob,
+    /runs-on: windows-latest[\s\S]*node-version: \["22\.11\.0", "24"\][\s\S]*- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
+  );
+  assert.equal(
+    `${checkJob}\n${windowsLifecycleJob}`.match(
+      /run: node tools\/run-prebuilt-lifecycle-test\.mjs/gu,
+    )?.length ?? 0,
+    2,
+    "non-Windows check lanes and the dedicated Windows matrix should each declare one lifecycle owner",
   );
   assert.equal(
     wrapper.match(/\brun\(\s*"npm"\s*,\s*\[\s*"pack"\s*,/gu)?.length ?? 0,
