@@ -9,7 +9,8 @@ For installation and quick usage, see the [README](../README.md).
 
 ## CLI commands
 
-`commitment-issues` exposes these public commands and version flags:
+The callable public compatibility surface includes these commands and version
+flags:
 
 - `init`
 - `uninstall`
@@ -22,9 +23,25 @@ For installation and quick usage, see the [README](../README.md).
 - `fix-staged-js`
 - `--version` and `-v`
 
+Primary `--help` output is organized around the developer actions normally run
+by hand:
+
+- Setup: `init`, `doctor`, and `uninstall`
+- Checks: `precommit` and `prepush`
+- Fixes: `fix-staged` and `commit-fix`
+
+`commit-msg <message-file>` and `fix-staged-js [files...]` remain callable
+public interfaces for Git and package wiring, but they are omitted from primary
+help so integration plumbing does not compete with normal developer actions.
+Every documented command supports both `commitment-issues help <command>` and
+`commitment-issues <command> --help`; these help paths exit 0 without invoking
+the target command or inspecting or changing a repository.
+
 Examples:
 
 ```bash
+npx --no-install commitment-issues --help
+npx --no-install commitment-issues help init
 npx --no-install commitment-issues init
 npx --no-install commitment-issues uninstall --dry-run
 npx --no-install commitment-issues doctor
@@ -48,6 +65,10 @@ The public argument contract is deliberately small:
 | `commit-msg`               | the message-file path supplied by Git                                 |
 | `commit-fix`, `fix-staged` | no arguments                                                          |
 | `fix-staged-js`            | zero or more explicit file paths                                      |
+
+The global `--help`/`-h` output shows the installed package version. A command's
+`--help` flag and the equivalent `help <command>` form take the safe help path
+before command dispatch.
 
 Unknown options and excess positional arguments exit nonzero. Setup, removal,
 and doctor validate their arguments before changing project files or hooks, so

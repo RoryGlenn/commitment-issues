@@ -47,6 +47,59 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const COMMAND_HELP = [
+  {
+    name: "init",
+    usage: "init [--dry-run | -n]",
+    summary: "Install Git hooks in this repository",
+    option: "-n, --dry-run",
+  },
+  {
+    name: "uninstall",
+    usage: "uninstall [--dry-run | -n]",
+    summary: "Remove Commitment Issues from this repository",
+    option: "-n, --dry-run",
+  },
+  {
+    name: "doctor",
+    usage: "doctor [--quiet]",
+    summary: "Check and repair the installation",
+    option: "--quiet",
+  },
+  {
+    name: "commit-msg",
+    usage: "commit-msg <message-file>",
+    summary: "Check a commit message supplied by Git",
+  },
+  {
+    name: "precommit",
+    usage: "precommit [--json]",
+    summary: "Check staged changes now",
+    option: "--json",
+  },
+  {
+    name: "prepush",
+    usage: "prepush [remote-name] [remote-url] [--json]",
+    summary: "Check changes that would be pushed",
+    option: "--json",
+  },
+  {
+    name: "commit-fix",
+    usage: "commit-fix",
+    summary: "Safely fix and amend the latest unpushed commit",
+  },
+  {
+    name: "fix-staged",
+    usage: "fix-staged",
+    summary: "Fix files currently staged for commit",
+  },
+  {
+    name: "fix-staged-js",
+    usage: "fix-staged-js [files...]",
+    summary: "Fix explicit files supplied by package wiring",
+  },
+];
+
 function snapshotWorktree(tempDir) {
   const entries = [];
 
@@ -106,34 +159,125 @@ function snapshotRepositoryState(tempDir) {
   };
 }
 
-test("cli prints usage and exits 0 for --help", (t) => {
+test("cli prints action-oriented global help and exits 0", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   const result = cli(tempDir, ["--help"]);
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /commitment-issues <command>/);
+  const expectedVersion = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  ).version;
 
-  for (const command of [
-    "init",
-    "uninstall",
-    "doctor",
-    "commit-msg",
-    "precommit",
-    "prepush",
-    "commit-fix",
-    "fix-staged",
-    "fix-staged-js",
-  ]) {
-    assert.match(result.stdout, new RegExp(`\\b${escapeRegExp(command)}\\b`));
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.match(
+    result.stdout,
+    new RegExp(`Commitment Issues v${expectedVersion}`),
+  );
+  assert.match(
+    result.stdout,
+    /Catch mistakes locally—before CI makes them expensive\./,
+  );
+  assert.match(result.stdout, /commitment-issues <command> \[options\]/);
+
+  for (const { name, summary } of COMMAND_HELP.filter(({ name }) =>
+    [
+      "init",
+      "doctor",
+      "uninstall",
+      "precommit",
+      "prepush",
+      "fix-staged",
+      "commit-fix",
+    ].includes(name),
+  )) {
+    assert.match(
+      result.stdout,
+      new RegExp(`\\b${escapeRegExp(name)}\\s+${escapeRegExp(summary)}`),
+    );
   }
 
-  const commandList = result.stdout
-    .split(/\r?\n/)
-    .find((line) => line.startsWith("Commands:"));
-  assert.ok(commandList);
-  assert.doesNotMatch(commandList, /\bvows\b/);
-  assert.match(result.stdout, /Some commitments come with vows\./);
+  for (const omitted of ["commit-msg", "fix-staged-js", "vows"]) {
+    assert.doesNotMatch(
+      result.stdout,
+      new RegExp(`\\b${escapeRegExp(omitted)}\\b`),
+    );
+  }
+
+  const setupIndex = result.stdout.indexOf("Setup:");
+  const checksIndex = result.stdout.indexOf("Checks:");
+  const fixesIndex = result.stdout.indexOf("Fixes:");
+  assert.ok(setupIndex < checksIndex && checksIndex < fixesIndex);
+  assert.ok(
+    result.stdout.indexOf("init", setupIndex) <
+      result.stdout.indexOf("doctor", setupIndex),
+  );
+  assert.ok(
+    result.stdout.indexOf("doctor", setupIndex) <
+      result.stdout.indexOf("uninstall", setupIndex),
+  );
+  assert.match(result.stdout, /-v, --version\s+Show the installed version/);
+  assert.match(result.stdout, /commitment-issues init --dry-run/);
+  assert.match(
+    result.stdout,
+    /https:\/\/github\.com\/RoryGlenn\/commitment-issues/,
+  );
+});
+
+test("cli prints command help through both conventional forms without side effects", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const before = snapshotRepositoryState(tempDir);
+
+  for (const { name, usage, summary, option } of COMMAND_HELP) {
+    const helpCommand = cli(tempDir, ["help", name]);
+    const helpFlag = cli(tempDir, [name, "--help"]);
+
+    for (const result of [helpCommand, helpFlag]) {
+      assert.equal(result.status, 0, name);
+      assert.equal(result.stderr, "", name);
+      assert.match(result.stdout, new RegExp(escapeRegExp(`${summary}.`)));
+      assert.ok(
+        result.stdout.includes(`  commitment-issues ${usage}`),
+        `${name} usage`,
+      );
+      assert.match(result.stdout, /--help\s+Show help for this command/);
+      if (option) assert.ok(result.stdout.includes(option), `${name} option`);
+    }
+
+    assert.equal(helpCommand.stdout, helpFlag.stdout, name);
+  }
+
+  assert.deepEqual(snapshotRepositoryState(tempDir), before);
+});
+
+test("cli keeps the Easter egg hidden from command help", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const helpCommand = cli(tempDir, ["help", "vows"]);
+  const helpFlag = cli(tempDir, ["vows", "--help"]);
+
+  assert.equal(helpCommand.status, 1);
+  assert.match(helpCommand.stderr, /unknown command 'vows'/);
+  assert.doesNotMatch(helpCommand.stderr, /Show the Commitment Issues vows/);
+  assert.equal(helpFlag.status, 1);
+  assert.match(helpFlag.stderr, /expected no arguments/);
+  assert.doesNotMatch(helpFlag.stderr, /Show the Commitment Issues vows/);
+});
+
+test("cli treats bare help as global help and rejects extra help targets", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const globalHelp = cli(tempDir, ["help"]);
+  const extraTarget = cli(tempDir, ["help", "init", "doctor"]);
+
+  assert.equal(globalHelp.status, 0);
+  assert.match(globalHelp.stdout, /Commitment Issues v/);
+  assert.match(globalHelp.stdout, /Setup:/);
+  assert.equal(extraTarget.status, 1);
+  assert.match(extraTarget.stderr, /expected one command; received 2/);
 });
 
 test("cli prints the package version for --version and -v", (t) => {
@@ -438,9 +582,24 @@ test("cli help works outside a git repo and node project", (t) => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "commitment-cli-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
 
-  const result = sourceCli(tempDir, ["--help"]);
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /commitment-issues <command>/);
+  const globalHelp = sourceCli(tempDir, ["--help"]);
+  assert.equal(globalHelp.status, 0);
+  assert.match(globalHelp.stdout, /commitment-issues <command>/);
+
+  for (const { name, usage } of COMMAND_HELP) {
+    for (const args of [
+      ["help", name],
+      [name, "--help"],
+    ]) {
+      const result = sourceCli(tempDir, args);
+      assert.equal(result.status, 0, args.join(" "));
+      assert.ok(
+        result.stdout.includes(`commitment-issues ${usage}`),
+        args.join(" "),
+      );
+    }
+  }
+  assert.deepEqual(fs.readdirSync(tempDir), []);
 });
 
 test("cli reports subcommand errors outside a node project", (t) => {
