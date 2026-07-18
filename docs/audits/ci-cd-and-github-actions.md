@@ -525,3 +525,21 @@ and immutability plumbing stays available in every lifecycle harness. A
 separate three-OS shell-group benchmark may test removal of four duplicated
 setup boundaries; package-manager lifecycle aggregation remains coordinated
 with #175 so one early failure cannot hide later evidence.
+
+Trusted-base documentation routing is now proven by the three first-attempt
+revisions of
+[PR #248](https://github.com/RoryGlenn/commitment-issues/pull/248):
+[runs #764](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655750863),
+[#765](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655802829),
+and
+[#766](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655846425).
+Every run used trusted base
+`ad25036d36a691e81a8cbb710c08708e438e904a`, emitted the exact docs-only
+tuple, passed classifier, DCO, static quality, and `CI Success`, and exposed all
+seven full-graph groups as expected skips. Static quality passed all 164
+focused assertions, including coverage-badge freshness. Wall-clock observations
+were 31s, 35s, and 47s (p50 35s; nearest-rank p95 47s); summed runner times were
+40s, 46s, and 41s (p50 41s; p95 46s). This satisfies the under-one-minute
+documentation target without removing applicable checks. Runtime,
+package-manager, structural rename/deletion, unknown-classification, and
+post-classifier external-fork routing remain separate #204 evidence items.

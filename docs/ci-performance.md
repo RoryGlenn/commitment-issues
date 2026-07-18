@@ -367,7 +367,17 @@ link, asset, release, badge-freshness, and workflow-policy assertions.
 | -----: | ---------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ---------------------------- | ------------------------: | ------- | ---------- | ------------------ |
 |      1 | [#764 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655750863/attempts/1) | `0a3dcbd79bb75875c56fe8457165d5708fb5582e` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:23:01–18:23:32 |                     4 / 7 | 24s     | 31s        | 40s                |
 |      2 | [#765 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655802829/attempts/1) | `5eb90b709ba47c371fc10e2582e607f48b4c6d08` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:24:38–18:25:13 |                     4 / 7 | 26s     | 35s        | 46s                |
-|      3 | TBD                                                                                            | TBD                                        | TBD                                        | TBD                          |                 TBD / TBD | TBD     | TBD        | TBD                |
+|      3 | [#766 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655846425/attempts/1) | `c0b44ccd976c37d2bfe88d7bb9b32d9eafb25ad5` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:25:56–18:26:43 |                     4 / 7 | 23s     | 47s        | 41s                |
+
+All three samples passed on their first attempt against the same trusted base.
+Ordered wall-clock observations were 31s, 35s, and 47s, producing a 35s p50
+and 47s nearest-rank p95. Ordered summed runner observations were 40s, 41s, and
+46s, producing a 41s p50 and 46s p95. Static quality took 23–26s. The p95
+therefore remains 13s below the one-minute documentation target while retaining
+every applicable check. Compared directionally with the single pre-classifier
+documentation reference in run #739, the new median is about 91% shorter in
+wall time and 98% lower in summed runner time; run #739 remains a reference,
+not a three-run before cohort.
 
 The final issue evidence should also link the routing runs for runtime,
 package-manager, workflow, rename/deletion, unknown-classification, and fork
