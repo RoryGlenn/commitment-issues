@@ -294,12 +294,16 @@ evidence, not same-change-class or documentation-routing proof.
 `140f219136496d2c9cfd43ebc9e41e64a1e26f0e`. Issue #204 was then closed as
 completed, but its change-classifier, lifecycle-reuse decision,
 documentation-only timing, and required routing cases still lacked evidence.
-The classifier follow-up therefore treats the issue state as bookkeeping, not
-proof that those acceptance criteria were met.
+The classifier follow-up therefore treated that issue state as bookkeeping,
+not proof that those acceptance criteria were met. Issue #204 is open again to
+track the remaining hosted evidence.
 
-### Fail-closed classifier candidate
+### Fail-closed classifier and hosted bootstrap
 
-The candidate uses the complete local merge-base diff rather than GitHub's
+The classifier merged through
+[PR #247](https://github.com/RoryGlenn/commitment-issues/pull/247) as
+`ad25036d36a691e81a8cbb710c08708e438e904a`. It uses the complete local
+merge-base diff rather than GitHub's
 bounded files API. It reports all required categories but selects the small
 route only for non-empty `A`/`M` records on an explicit
 documentation/metadata allowlist. DCO and `quality` still run. Quality retains
@@ -347,13 +351,33 @@ smaller setup-reuse candidate for a separate benchmark, while manager lifecycle
 aggregation remains coordinated with #175.
 
 Record documentation-only routing separately because run #739 is only one
-before reference and is not part of the three-run full-graph cohort:
+before reference and is not part of the three-run full-graph cohort. The cohort
+below uses successful first-attempt `pull_request` runs from consecutive
+revisions of one pull request against the same trusted-base workflow, changing
+only allowlisted documentation with `A` or `M` status.
 
-| Documentation sample | CI run | Head commit | Classifier result | Jobs | Wall clock | Applicable checks retained |
-| -------------------: | ------ | ----------- | ----------------- | ---: | ---------- | -------------------------- |
-|                    1 | TBD    | TBD         | TBD               |  TBD | TBD        | TBD                        |
-|                    2 | TBD    | TBD         | TBD               |  TBD | TBD        | TBD                        |
-|                    3 | TBD    | TBD         | TBD               |  TBD | TBD        | TBD                        |
+Every sample must report `route=docs`, `full_graph=false`, `docs_only=true`,
+`categories=documentation-metadata`, and `reason=docs-only`. Classifier, DCO,
+static quality, and `CI Success` must succeed while all seven full-graph job
+groups are expected skips. Static quality retains actionlint, dependency
+audit, lint, formatting, and the 164 focused documentation, metadata, schema,
+link, asset, release, badge-freshness, and workflow-policy assertions.
+
+| Sample | CI run / attempt                                                                               | Head commit                                | Trusted base                               | UTC interval                 | Successful / skipped jobs | Quality | Wall clock | Summed runner time |
+| -----: | ---------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ---------------------------- | ------------------------: | ------- | ---------- | ------------------ |
+|      1 | [#764 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655750863/attempts/1) | `0a3dcbd79bb75875c56fe8457165d5708fb5582e` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:23:01–18:23:32 |                     4 / 7 | 24s     | 31s        | 40s                |
+|      2 | [#765 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655802829/attempts/1) | `5eb90b709ba47c371fc10e2582e607f48b4c6d08` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:24:38–18:25:13 |                     4 / 7 | 26s     | 35s        | 46s                |
+|      3 | [#766 / 1](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655846425/attempts/1) | `c0b44ccd976c37d2bfe88d7bb9b32d9eafb25ad5` | `ad25036d36a691e81a8cbb710c08708e438e904a` | 2026-07-18 18:25:56–18:26:43 |                     4 / 7 | 23s     | 47s        | 41s                |
+
+All three samples passed on their first attempt against the same trusted base.
+Ordered wall-clock observations were 31s, 35s, and 47s, producing a 35s p50
+and 47s nearest-rank p95. Ordered summed runner observations were 40s, 41s, and
+46s, producing a 41s p50 and 46s p95. Static quality took 23–26s. The p95
+therefore remains 13s below the one-minute documentation target while retaining
+every applicable check. Compared directionally with the single pre-classifier
+documentation reference in run #739, the new median is about 91% shorter in
+wall time and 98% lower in summed runner time; run #739 remains a reference,
+not a three-run before cohort.
 
 The final issue evidence should also link the routing runs for runtime,
 package-manager, workflow, rename/deletion, unknown-classification, and fork
