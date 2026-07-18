@@ -91,6 +91,25 @@ The gate is intended to reject changed messages, layout or color shifts,
 clipping, and missing scenes. Update the committed GIF only after reviewing the
 artifact; do not lower the threshold to accept an unexplained mismatch.
 
+## Before/after asset verification
+
+`assets/before-after.svg` is the editable, accessible source for the comparison
+story. Regenerate the social upload after every source change:
+
+```sh
+ffmpeg -nostdin -hide_banner -loglevel error \
+  -f svg_pipe -i assets/before-after.svg \
+  -frames:v 1 -y assets/before-after.png
+```
+
+The PNG must remain 1200×675. Review both files at full size and at a reduced
+social-feed size: the without/with paths, exact `npm run commit:fix` command,
+and “Catch mistakes while they're still cheap to fix” promise must remain
+legible. The `Render demo` workflow regenerates the PNG, uploads the rendered
+artifact for inspection, and requires it to byte-match the committed export.
+`test/visual-assets.test.mjs` checks that workflow contract plus the dimensions,
+story, cross-surface references, and demo's absolute 20–30 second duration.
+
 ## npm package contents
 
 Use this command to inspect the exact release manifest:
@@ -101,14 +120,14 @@ npm pack --dry-run --json --ignore-scripts
 
 The package boundary is explicit:
 
-| Class                          | Included in npm? | Contents                                                                      |
-| ------------------------------ | ---------------- | ----------------------------------------------------------------------------- |
-| Runtime                        | Yes              | Explicit CLI, command, and transitive helper paths in `package.json`          |
-| User documentation             | Yes              | Explicit guides in `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE` |
-| README assets                  | Yes              | Only SVGs referenced by the installed README                                  |
-| Lifecycle and coverage tooling | No               | The six repository-only modules classified in `branch-coverage.md`            |
-| Maintainer and audit evidence  | No               | Repository-only planning, galleries, reviews, and operational records         |
-| Promotional media              | No               | `assets/commitment-issues.png` and `assets/demo.gif`                          |
+| Class                          | Included in npm? | Contents                                                                                                    |
+| ------------------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Runtime                        | Yes              | Explicit CLI, command, and transitive helper paths in `package.json`                                        |
+| User documentation             | Yes              | Explicit guides in `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE`                               |
+| Relative README assets         | Yes              | Only SVGs referenced by relative path in the installed README                                               |
+| Lifecycle and coverage tooling | No               | The six repository-only modules classified in `branch-coverage.md`                                          |
+| Maintainer and audit evidence  | No               | Repository-only planning, galleries, reviews, and operational records                                       |
+| Promotional media              | No               | `assets/commitment-issues.png`, `assets/before-after.svg`, `assets/before-after.png`, and `assets/demo.gif` |
 
 The runtime script allowlist is intentionally file-by-file. The
 [coverage policy](branch-coverage.md#source-scope) records the complementary
@@ -117,8 +136,8 @@ actual `npm pack` manifest, require the public bin target, and follow every
 relative runtime import so a helper cannot be omitted accidentally. New scripts
 remain out of npm until a maintainer deliberately classifies them.
 
-The README loads the hero PNG and demo GIF from stable GitHub URLs so npm can
-render them without adding roughly 1.4 MB of promotional media to every package.
+The README loads the hero PNG, before/after SVG, and demo GIF from stable GitHub
+URLs so npm can render them without adding promotional media to every package.
 
 Relative links in shipped Markdown must resolve within the exact `npm pack`
 manifest, not merely within the source checkout. Package tests validate that

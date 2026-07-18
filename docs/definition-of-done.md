@@ -7,8 +7,8 @@ moving target.
 
 ## Product promise
 
-`commitment-issues` catches common, fixable Git workflow problems while they
-are still cheap to correct, without taking control away from the developer.
+`commitment-issues` catches common, fixable Git workflow mistakes while they're
+still cheap to fix, without taking control away from the developer.
 
 The supported product must remain:
 
@@ -95,8 +95,8 @@ Promotion also requires:
   removal;
 - no known defect that compromises installation, distribution, security, hook
   integrity, reversibility, or the core product promise; and
-- readiness to execute the human-written launch tracked by
-  [#78](https://github.com/RoryGlenn/commitment-issues/issues/78).
+- readiness to execute the human-written Product Hunt launch tracked by
+  [#240](https://github.com/RoryGlenn/commitment-issues/issues/240).
 
 ## Stop rule
 

@@ -8,6 +8,7 @@ not installed with the npm package unless users need it offline.
 ## Start here
 
 - [Project overview and quickstart](../README.md)
+- [Before/after workflow and why it matters](why-before-ci.md)
 - [Configuration and behavior](configuration.md) — canonical option, default,
   validation, and check behavior reference
 - [FAQ and troubleshooting](faq.md)
@@ -72,10 +73,6 @@ They are evidence, not living descriptions of later code.
 The scenario matrix and message-state gallery are repository evidence. Their
 mechanically checkable parts are enforced by tests and maintainer tools; manual
 limitations remain written down explicitly.
-
-## Rationale
-
-- [Why catch problems before CI?](why-before-ci.md)
 
 ## Contribution guidance
 

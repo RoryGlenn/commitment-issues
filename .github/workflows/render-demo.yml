@@ -4,12 +4,15 @@ on:
   pull_request:
     paths:
       - ".github/workflows/render-demo.yml"
+      - "assets/before-after.png"
+      - "assets/before-after.svg"
       - "assets/demo.gif"
       - "promo/demo.tape"
       - "package.json"
       - "package-lock.json"
       - "scripts/**"
       - "test/demo-visual-comparison.test.mjs"
+      - "test/visual-assets.test.mjs"
       - "tools/compare-demo-gifs.mjs"
   workflow_dispatch:
 
@@ -69,6 +72,15 @@ jobs:
       - name: Preserve the committed demo for visual comparison
         run: cp assets/demo.gif "$RUNNER_TEMP/committed-demo.gif"
 
+      - name: Preserve the committed before/after export
+        run: cp assets/before-after.png "$RUNNER_TEMP/committed-before-after.png"
+
+      - name: Render assets/before-after.png from assets/before-after.svg
+        run: >-
+          ffmpeg -nostdin -hide_banner -loglevel error
+          -f svg_pipe -i assets/before-after.svg
+          -frames:v 1 -y assets/before-after.png
+
       - name: Render assets/demo.gif from promo/demo.tape
         run: vhs promo/demo.tape
 
@@ -79,6 +91,24 @@ jobs:
           path: assets/demo.gif
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload rendered before/after asset
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rendered-before-after
+          path: assets/before-after.png
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify rendered before/after asset matches committed export
+        run: |
+          if ! cmp --silent \
+            "$RUNNER_TEMP/committed-before-after.png" \
+            assets/before-after.png; then
+            echo "assets/before-after.png is stale; regenerate it from assets/before-after.svg." >&2
+            exit 1
+          fi
+          echo "Rendered before/after PNG exactly matches the committed export."
 
       - name: Verify rendered demo dimensions and timing
         env:

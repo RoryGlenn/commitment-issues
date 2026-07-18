@@ -10,6 +10,11 @@ in `package.json` `files`.)
 - [x] "How it compares" table (vs a hand-rolled husky + lint-staged setup, lefthook, pre-commit).
 - [x] "Package managers" section (npm, pnpm, yarn, bun).
 - [x] Demo GIF near the top of the README — rendered from `promo/demo.tape` (regenerate with `vhs promo/demo.tape`).
+- [x] Before/after workflow graphic with SVG for README/docs and a 16:9 PNG for
+      social posts.
+- [x] Consistent "Catch mistakes while they're still cheap to fix" messaging in
+      the README, next-release npm metadata, rationale, and launch kit.
+- [ ] Confirm the live npm page carries the new story after the next release.
 - [x] Simple logo / wordmark for the README header and social preview.
 
 ## Trust signals
