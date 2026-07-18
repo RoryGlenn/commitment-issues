@@ -316,9 +316,23 @@ own smaller graph.
 
 The full matrix now waits for the classifier's full-history checkout and Node
 setup. Because the adopted cohort was already at the upper edge of the
-3–3.5-minute wall-clock target, the first hosted full-route run is a go/no-go
-measurement: record classifier duration, queue delay, total wall clock, and
-runner time before calling full-route performance unchanged.
+3–3.5-minute wall-clock target, the first hosted full-route run was treated as
+a go/no-go measurement rather than assuming that dependency barrier was free.
+
+[PR #247 run #761](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655146160)
+passed all 39 jobs at
+`3f897f8c2bac2d9533d57c0789e779db4a5a07aa`. Because the base commit did not
+yet contain a trusted classifier, the 4-second classifier job emitted the
+expected bootstrap tuple: `route=full`, `full_graph=true`, `docs_only=false`,
+`categories=unknown`, and `reason=trusted-classifier-unavailable`. The first
+full-graph job started two seconds after classification completed, and
+`CI Success` passed. End-to-end wall clock was 3m 27s and summed runner time
+was 37m 13s. The immediately preceding successful full run,
+[#760](https://github.com/RoryGlenn/commitment-issues/actions/runs/29654045168),
+took 3m 44s and 38m 59s across 38 jobs. One adjacent comparison does not prove
+a causal speedup, but it does show that the new gate did not move this hosted
+full route outside the 3–3.5-minute wall-clock target. Trusted-base category
+and documentation-route evidence remains separate below.
 
 The lifecycle fan-out proposal was also measured before adoption. Ten local
 packs averaged 0.308s for a 146 KiB tarball, so avoiding 29 of the current 30

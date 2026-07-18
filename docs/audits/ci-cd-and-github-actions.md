@@ -490,12 +490,23 @@ currently exercises 164 documentation, metadata, schema, link, asset, release,
 and policy assertions in about 4.6 seconds locally. That subset derives the
 canonical 100% badge from the enforced threshold, so README-only edits retain
 badge freshness without rerunning runtime coverage. Full-route coverage and
-compatibility commands are unchanged. Hosted route and timing evidence remains
-to be filled after the classifier workflow is available on the PR base.
-The full jobs have a classifier dependency barrier, so the first hosted
-full-route run must also show whether full-history checkout and Node setup move
-ordinary code feedback beyond the adopted cohort's target; cancellation uses
-`!cancelled()` so a superseded PR does not keep that matrix alive.
+compatibility commands are unchanged.
+
+The first hosted bootstrap measurement is complete.
+[PR #247 run #761](https://github.com/RoryGlenn/commitment-issues/actions/runs/29655146160)
+passed all 39 jobs at
+`3f897f8c2bac2d9533d57c0789e779db4a5a07aa`. Its 4-second classifier job
+emitted the expected fail-closed tuple `route=full`, `full_graph=true`,
+`docs_only=false`, `categories=unknown`, and
+`reason=trusted-classifier-unavailable`, because the PR base did not yet
+contain the trusted script. The first full-graph job started two seconds after
+classification completed. `CI Success` passed after 3m 27s wall clock; summed
+runner time was 37m 13s. This validates the rollout fallback and shows that the
+classifier barrier did not move the full route outside the 3–3.5-minute
+wall-clock target. It does not substitute for the post-merge trusted-base
+documentation, category, structural-change, unknown, and external-fork routing
+evidence. Cancellation uses `!cancelled()` so a superseded PR does not keep
+that matrix alive.
 
 The proposed cross-job "pack once, download everywhere" lifecycle reuse was
 measured and rejected rather than assumed to be faster. Ten local
