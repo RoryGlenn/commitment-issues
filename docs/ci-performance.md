@@ -294,12 +294,16 @@ evidence, not same-change-class or documentation-routing proof.
 `140f219136496d2c9cfd43ebc9e41e64a1e26f0e`. Issue #204 was then closed as
 completed, but its change-classifier, lifecycle-reuse decision,
 documentation-only timing, and required routing cases still lacked evidence.
-The classifier follow-up therefore treats the issue state as bookkeeping, not
-proof that those acceptance criteria were met.
+The classifier follow-up therefore treated that issue state as bookkeeping,
+not proof that those acceptance criteria were met. Issue #204 is open again to
+track the remaining hosted evidence.
 
-### Fail-closed classifier candidate
+### Fail-closed classifier and hosted bootstrap
 
-The candidate uses the complete local merge-base diff rather than GitHub's
+The classifier merged through
+[PR #247](https://github.com/RoryGlenn/commitment-issues/pull/247) as
+`ad25036d36a691e81a8cbb710c08708e438e904a`. It uses the complete local
+merge-base diff rather than GitHub's
 bounded files API. It reports all required categories but selects the small
 route only for non-empty `A`/`M` records on an explicit
 documentation/metadata allowlist. DCO and `quality` still run. Quality retains
@@ -347,13 +351,23 @@ smaller setup-reuse candidate for a separate benchmark, while manager lifecycle
 aggregation remains coordinated with #175.
 
 Record documentation-only routing separately because run #739 is only one
-before reference and is not part of the three-run full-graph cohort:
+before reference and is not part of the three-run full-graph cohort. The cohort
+below uses successful first-attempt `pull_request` runs from consecutive
+revisions of one pull request against the same trusted-base workflow, changing
+only allowlisted documentation with `A` or `M` status.
 
-| Documentation sample | CI run | Head commit | Classifier result | Jobs | Wall clock | Applicable checks retained |
-| -------------------: | ------ | ----------- | ----------------- | ---: | ---------- | -------------------------- |
-|                    1 | TBD    | TBD         | TBD               |  TBD | TBD        | TBD                        |
-|                    2 | TBD    | TBD         | TBD               |  TBD | TBD        | TBD                        |
-|                    3 | TBD    | TBD         | TBD               |  TBD | TBD        | TBD                        |
+Every sample must report `route=docs`, `full_graph=false`, `docs_only=true`,
+`categories=documentation-metadata`, and `reason=docs-only`. Classifier, DCO,
+static quality, and `CI Success` must succeed while all seven full-graph job
+groups are expected skips. Static quality retains actionlint, dependency
+audit, lint, formatting, and the 164 focused documentation, metadata, schema,
+link, asset, release, badge-freshness, and workflow-policy assertions.
+
+| Sample | CI run / attempt | Head commit | Trusted base | UTC interval | Successful / skipped jobs | Wall clock | Summed runner time |
+| -----: | ---------------- | ----------- | ------------ | ------------ | ------------------------: | ---------- | ------------------ |
+|      1 | TBD              | TBD         | TBD          | TBD          |                 TBD / TBD | TBD        | TBD                |
+|      2 | TBD              | TBD         | TBD          | TBD          |                 TBD / TBD | TBD        | TBD                |
+|      3 | TBD              | TBD         | TBD          | TBD          |                 TBD / TBD | TBD        | TBD                |
 
 The final issue evidence should also link the routing runs for runtime,
 package-manager, workflow, rename/deletion, unknown-classification, and fork

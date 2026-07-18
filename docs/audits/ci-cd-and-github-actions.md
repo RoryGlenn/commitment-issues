@@ -447,10 +447,13 @@ reuse decision, documentation-route timing, and routing-evidence items were
 still absent; the follow-up below records that gap instead of treating the
 closed state as technical evidence.
 
-## 2026-07-18 fail-closed classifier candidate and lifecycle decision (#204)
+## 2026-07-18 fail-closed classifier and lifecycle decision (#204)
 
-The follow-up classifier reads the complete local Git diff from the true merge
-base with `--name-status -z --find-renames`. It emits the requested runtime,
+The classifier merged through
+[PR #247](https://github.com/RoryGlenn/commitment-issues/pull/247) as
+`ad25036d36a691e81a8cbb710c08708e438e904a`. It reads the complete local Git
+diff from the true merge base with `--name-status -z --find-renames` and emits
+the requested runtime,
 package-manager, test/fixture, workflow/release, documentation/metadata,
 demo/asset, and unknown categories, but optimizes only a non-empty change set
 containing `A`/`M` records whose every path is on the explicit
