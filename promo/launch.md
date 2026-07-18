@@ -4,7 +4,7 @@ Maintainer material for putting `commitment-issues` in front of people. It is
 not shipped in the npm package because `promo/` is outside the `package.json`
 `files` allowlist.
 
-Current technical baseline: v3.3.2 is live on npm, its immutable GitHub Release
+Current technical baseline: v3.4.0 is live on npm, its immutable GitHub Release
 contains the exact npm tarball and matching SLSA provenance, issue #39 is
 closed, and the demo GIF, repository topics, and social preview are complete.
 Recheck those signals on launch day rather than relying on this snapshot.
@@ -82,20 +82,25 @@ Repo: https://github.com/RoryGlenn/commitment-issues
 
 ---
 
-## Show HN preparation
+## Product Hunt preparation
 
-Do not reuse generated launch copy. Write the Show HN title, first comment, and
-every reply personally, from scratch, and follow the official Show HN and
-Hacker News guidelines linked from issue #78.
+Follow the official Product Hunt launch, posting, and featuring guidance linked
+from issue #240. Use a personal account, complete any required onboarding, and
+create a draft before selecting a launch date. The primary product URL should
+point directly to the GitHub repository rather than to the supporting blog post.
 
-The human-written title should:
+The listing should:
 
-- begin with `Show HN:`;
-- describe the project neutrally and concisely;
-- link directly to the GitHub repository; and
-- avoid superlatives, marketing language, or an upvote request.
+- use `commitment-issues` as the product name;
+- describe the advisory-first Git-hook model in a concise tagline;
+- explain what the product does within Product Hunt's description limit;
+- identify the maintainer as the maker;
+- use relevant Developer Tools, Open Source, and GitHub topics when available;
+- include the existing logo, social-preview artwork, and a legible product-flow
+  gallery; and
+- avoid superlatives, coordinated voting, or an upvote request.
 
-The first comment should explain, in the maintainer's own words:
+The first maker comment should explain:
 
 - what the project does and who it is for;
 - the blocking-hook and habitual `--no-verify` problem;
@@ -108,7 +113,8 @@ Prepare personal answers for likely questions about Husky/lint-staged and CI,
 bypasses, partial staging, telemetry and configured-command trust, monorepos,
 platform compatibility, the proposed v4 direction, release verification, and
 the v3.3.0/v3.3.1 fix-forward history. The durable product answers live in the
-FAQ; launch replies must still be written personally.
+FAQ; the maintainer should review the final listing and every reply for accuracy
+and tone.
 
 ---
 
@@ -117,15 +123,19 @@ FAQ; launch replies must still be written personally.
 - [x] Generate and embed the demo GIF (`vhs promo/demo.tape` → `assets/demo.gif`).
 - [x] Add GitHub repo topics: `git-hooks`, `husky`, `lint-staged`, `pre-commit`, `eslint`, `prettier`, `developer-tools`.
 - [x] Add a social preview image (Settings → General → Social preview).
-- [x] Publish and independently verify v3.3.2, including matching npm/GitHub
+- [x] Publish and independently verify v3.4.0, including matching npm/GitHub
       tarballs and signed SLSA provenance.
 - [ ] Re-run the clean-install launch path: `init`, advisory commit warning,
       `commit:fix`, and related push-time tests.
 - [ ] Recheck npm, the immutable GitHub Release assets, CI, CodeQL, DCO,
       Scorecard, README media, and repository availability on launch day.
-- [ ] Publish the blog on your site; cross-post to dev.to and Hashnode with a canonical link back.
-- [ ] Confirm the personal HN account can submit and the title/first comment are
-      human-written and ready.
-- [ ] Post Show HN in the chosen launch window and add the first comment within
-      approximately one or two minutes.
-- [ ] Reserve at least three uninterrupted hours for personal replies.
+- [ ] Publish the blog on your site; cross-post to DEV with a canonical link back.
+- [ ] Confirm the personal Product Hunt account can post and has completed any
+      required onboarding.
+- [ ] Create and review the Product Hunt draft, direct repository URL, tagline,
+      description, topics, maker attribution, gallery, and first maker comment.
+- [ ] Schedule the launch for a day when the maintainer can stay available after
+      Product Hunt's 12:01 a.m. PT launch boundary.
+- [ ] Post the first maker comment promptly and reserve launch-day time for
+      technical replies and feedback triage.
+- [ ] Start milestone #2's 14-day validation window after the launch.

@@ -16,8 +16,8 @@ in `package.json` `files`.)
 
 - [x] `CHANGELOG.md` in Keep a Changelog format, shipped in the tarball.
 - [x] Current immutable GitHub Release with independently verified assets
-      (v3.3.2). Its legacy empty notes are documented; future releases require
-      reviewed changelog notes.
+      (v3.4.0). The legacy empty notes through v3.3.2 are documented; current
+      and future releases require reviewed changelog notes.
 - [x] Cross-platform CI (Ubuntu/macOS/Windows × Node 22.11.0/24) with coverage.
 - [x] Scenario-coverage tracker mapping the full test suite.
 - [x] `CONTRIBUTING.md`, issue/PR templates, and a Code of Conduct.
@@ -32,7 +32,7 @@ direct adoption lever.
 - [x] Publish via npm **Trusted Publishing** (OIDC from the `publish.yml`
       release workflow) — tokenless, with npm provenance. Live since v2.4.0.
 - [x] Publish the exact npm tarball and matching signed SLSA provenance on one
-      immutable GitHub Release. End-to-end validated with v3.3.2.
+      immutable GitHub Release. End-to-end validated with v3.4.0.
 - [x] `.github/dependabot.yml` (or Renovate) for automated dependency-update PRs.
 - [x] OpenSSF Scorecard workflow + badge.
 - [x] Coverage badge in the README — surfaces the CI coverage result.
@@ -68,13 +68,13 @@ direct adoption lever.
 
 ## Content & community
 
-- [ ] Prepare and execute the human-written Show HN launch tracked in
-      [#78](https://github.com/RoryGlenn/commitment-issues/issues/78). The factual
-      checklist is in `promo/launch.md`; the title, first comment, and replies must
-      be written personally rather than generated or AI-edited.
+- [ ] Prepare and execute the Product Hunt launch tracked in
+      [#240](https://github.com/RoryGlenn/commitment-issues/issues/240). The
+      checklist is in `promo/launch.md`; the maintainer reviews the final listing,
+      first maker comment, and replies for accuracy and tone.
 - [ ] Blog post: "Why I stopped letting pre-commit hooks block my commits." Draft ready in `promo/launch.md`.
 - [ ] Answer relevant threads (r/javascript, r/node, StackOverflow, "husky is annoying" discussions) — genuinely, not spammy.
-- [ ] Cross-post to dev.to / Hashnode.
+- [ ] Cross-post to DEV with the original article set as the canonical URL.
 - [x] Public roadmap (`ROADMAP.md` or a GitHub Project).
 - [x] `FUNDING.yml` / GitHub Sponsors (optional).
 
