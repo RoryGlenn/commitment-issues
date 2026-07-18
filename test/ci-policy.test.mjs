@@ -256,7 +256,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.doesNotMatch(check, /npm run (?:lint|format:check)/u);
   assert.match(
     aggregate,
-    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
+    /needs:\s+\[\s+dco,\s+quality,\s+check,\s+windows-tests,\s+windows-npm-lifecycle,\s+shell-compat,\s+pm-lifecycle,\s+migration-lifecycle,\s+codeql,\s+\]/u,
   );
   assert.match(migration, /runs-on: ubuntu-latest/u);
   assert.match(migration, /node-version: "24"/u);
@@ -266,6 +266,7 @@ test("static quality work is single-lane and gates CI Success", () => {
   );
   assert.doesNotMatch(migration, /strategy:\s+fail-fast:/u);
   assert.match(aggregate, /needs\.quality\.result != 'success'/u);
+  assert.match(aggregate, /needs\['windows-tests'\]\.result != 'success'/u);
   assert.match(
     aggregate,
     /needs\['windows-npm-lifecycle'\]\.result != 'success'/u,
@@ -278,35 +279,81 @@ test("static quality work is single-lane and gates CI Success", () => {
   assert.match(aggregate, /needs\.codeql\.result != 'success'/u);
 });
 
-test("Windows npm tests and lifecycle run once in parallel required jobs", () => {
+test("Windows shards execute every test file once beside required npm lifecycle", () => {
   const workflow = read(".github/workflows/ci.yml");
+  const packageJson = JSON.parse(read("package.json"));
   const jobs = new Map(
     workflowJobBlocks(workflow).map(({ name, source }) => [name, source]),
   );
   const check = jobs.get("check") ?? "";
+  const windowsTests = jobs.get("windows-tests") ?? "";
   const windowsLifecycle = jobs.get("windows-npm-lifecycle") ?? "";
   const aggregate = jobs.get("ci-success") ?? "";
+  const testOperands = packageJson.scripts.test.replace(/^node --test\s+/u, "");
+  const shardCommands = [1, 2].map(
+    (shard) => `node --test --test-shard=${shard}/2 ${testOperands}`,
+  );
 
-  assert.match(check, /os: \[ubuntu-latest, macos-latest, windows-latest\]/u);
+  assert.match(check, /os: \[ubuntu-latest, macos-latest\]/u);
+  assert.doesNotMatch(check, /windows-latest/u);
   assert.match(
     check,
     /node-version:\s+- "22\.11\.0"\s+- "24"/u,
-    "the original OS and Node matrix must continue routing Windows through the test step",
+    "the unsharded Ubuntu and macOS lanes must retain both supported Node lines",
   );
   assert.match(
     check,
-    /name: Unit and integration tests\s+if: matrix\.os != 'ubuntu-latest'\s+run: npm test/u,
-    "the existing check matrix should keep the one test-suite invocation used by Windows",
+    /name: Unit and integration tests\s+if: matrix\.os == 'macos-latest'\s+run: npm test/u,
+    "macOS should retain the complete unsharded test suite",
   );
   assert.equal(
     workflow.match(/^\s+run: npm test\s*$/gmu)?.length ?? 0,
     1,
-    "required CI should declare the unsharded npm test command exactly once",
+    "required CI should declare the complete unsharded npm test command once for macOS",
   );
   assert.match(
     check,
-    /name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+if: matrix\.os != 'windows-latest'\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
-    "the combined check job should retain npm lifecycle evidence only on non-Windows lanes",
+    /name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
+    "the non-Windows matrix should retain npm lifecycle evidence",
+  );
+  assert.match(check, /run: npm run test:coverage/u);
+  assert.match(check, /run: npm run coverage:check/u);
+  assert.doesNotMatch(
+    check,
+    /--test-shard/u,
+    "authoritative Ubuntu coverage and the complete macOS suite must stay unsharded",
+  );
+
+  assert.match(windowsTests, /runs-on: windows-latest/u);
+  assert.match(windowsTests, /fail-fast: false/u);
+  assert.match(windowsTests, /node-version: \["22\.11\.0", "24"\]/u);
+  assert.match(windowsTests, /shard: \[1, 2\]/u);
+  assert.match(windowsTests, /COMMITMENT_ISSUES: 0/u);
+  assert.match(windowsTests, /run: npm ci/u);
+  assert.doesNotMatch(windowsTests, /^ {4}needs:/mu);
+  assert.doesNotMatch(windowsTests, /NODE_OPTIONS|npm test\s+--/u);
+  for (const [offset, command] of shardCommands.entries()) {
+    const shard = offset + 1;
+    assert.match(
+      windowsTests,
+      new RegExp(
+        `name: Unit and integration tests \\(shard ${shard}/2\\)\\s+if: matrix\\.shard == ${shard}\\s+run: ${escapeRegExp(command)}`,
+        "u",
+      ),
+      `Windows shard ${shard}/2 should use the complete npm-test file operands`,
+    );
+    assert.equal(
+      workflow.match(
+        new RegExp(`^\\s+run: ${escapeRegExp(command)}\\s*$`, "gmu"),
+      )?.length ?? 0,
+      1,
+      `Windows shard ${shard}/2 should be declared exactly once`,
+    );
+  }
+  assert.equal(
+    windowsTests.match(/--test-shard=[12]\/2/gu)?.length ?? 0,
+    2,
+    "complementary native shards should partition the complete file operands exactly once",
   );
 
   assert.match(windowsLifecycle, /runs-on: windows-latest/u);
@@ -332,8 +379,8 @@ test("Windows npm tests and lifecycle run once in parallel required jobs", () =>
   );
   assert.match(
     aggregate,
-    /windows-npm-lifecycle[\s\S]*needs\['windows-npm-lifecycle'\]\.result != 'success'/u,
-    "the parallel Windows lifecycle matrix must remain behind CI Success",
+    /windows-tests[\s\S]*windows-npm-lifecycle[\s\S]*needs\['windows-tests'\]\.result != 'success'[\s\S]*needs\['windows-npm-lifecycle'\]\.result != 'success'/u,
+    "all Windows shard and lifecycle legs must remain behind CI Success",
   );
 });
 

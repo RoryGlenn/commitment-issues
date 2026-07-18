@@ -136,8 +136,8 @@ The test strategy also enforces behavior that a percentage cannot:
 - the aggregate `CI Success` job accepts only explicit success from DCO, the
   full OS/Node test and npm lifecycle graph, and the non-npm package-manager
   lifecycle matrix across Ubuntu, macOS, and Windows (plus exact-minimum-Node
-  manager lanes); the parallel Windows test and npm lifecycle jobs must each
-  succeed independently;
+  manager lanes); every complementary Windows test shard and the parallel npm
+  lifecycle lanes must succeed;
 - property tests exercise path normalization and ownership invariants, while
   real disposable Git repositories cover CLI and hook behavior;
 - no snapshot update can mask behavior: assertions target exact structured
@@ -150,10 +150,12 @@ Ubuntu CI enforces 100% lines, branches, and functions on Node 22.11.0 and Node 
 same gated command and fails if the committed README badge differs from the
 generated value.
 
-Windows still runs the same complete test suite and packed npm lifecycle on
-both Node lines. Those commands are separate parallel required jobs to shorten
-the critical path; the split does not shard, skip, or remove tests, and it does
-not change either Ubuntu coverage denominator.
+Windows runs the same top-level test-file set through complementary native Node
+shards `1/2` and `2/2` on both Node lines. Their union assigns every test file
+exactly once, while the packed npm lifecycle remains a separate parallel
+required job. The two Ubuntu coverage lanes stay complete and unsharded, so
+the Windows scheduling change does not alter either coverage denominator or
+the badge-freshness gate.
 
 The badge rounds to one decimal place, while all three CI thresholds evaluate
 Node's unrounded coverage result. Rounding therefore never relaxes the 100%

@@ -39,19 +39,20 @@ production-readiness workstream #130 is consolidated in the
   `test/visual-assets.test.mjs`.
 - **TEST-005** — the aggregate branch-protection gate succeeds only when DCO,
   the complete OS/Node test and npm lifecycle graph, and the non-npm
-  package-manager lifecycle matrix each report explicit success. The parallel
-  Windows test and npm lifecycle jobs are independent required dependencies;
-  skipped or incomplete dependencies fail closed. Unit/invariant:
+  package-manager lifecycle matrix each report explicit success. Every
+  complementary Windows test shard and the parallel npm lifecycle matrix must
+  succeed; skipped or incomplete results fail closed. Unit/invariant:
   `test/test-quality.test.mjs`; CI: `.github/workflows/ci.yml`.
 - **TEST-006** — exact logo content and fresh-value behavior are directly
   asserted rather than credited through incidental coverage. Unit:
   `test/logo.test.mjs`.
-- **TEST-007** — Windows executes the unchanged complete test suite and packed
-  npm lifecycle once on Node 22.11.0 and once on Node 24, with the two commands
-  scheduled as separate parallel jobs rather than sequential steps. No test or
-  lifecycle assertion is removed by the split. Workflow/invariant:
-  `test/ci-policy.test.mjs`, `test/release-integrity.test.mjs`; CI:
-  `.github/workflows/ci.yml`.
+- **TEST-007** — Windows assigns the same top-level test-file set to the exact
+  native Node shard pair `1/2` and `2/2` on Node 22.11.0 and Node 24. The union
+  executes every test file exactly once on each Node line. The packed npm
+  lifecycle remains a separate parallel job, while authoritative Ubuntu
+  coverage stays complete and unsharded. No test or lifecycle assertion is
+  removed by the split. Workflow/invariant: `test/ci-policy.test.mjs`,
+  `test/release-integrity.test.mjs`; CI: `.github/workflows/ci.yml`.
 
 ### Package publishing
 

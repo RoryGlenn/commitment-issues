@@ -378,7 +378,7 @@ test("required npm CI lifecycle lanes consume explicitly prebuilt tarballs", () 
   const workflow = readText(".github/workflows/ci.yml");
   const checkJob = workflow.slice(
     workflow.indexOf("\n  check:"),
-    workflow.indexOf("\n  windows-npm-lifecycle:"),
+    workflow.indexOf("\n  windows-tests:"),
   );
   const windowsLifecycleJob = workflow.slice(
     workflow.indexOf("\n  windows-npm-lifecycle:"),
@@ -394,7 +394,7 @@ test("required npm CI lifecycle lanes consume explicitly prebuilt tarballs", () 
 
   assert.match(
     checkJob,
-    /- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+if: matrix\.os != 'windows-latest'\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/,
+    /- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/,
   );
   assert.match(
     windowsLifecycleJob,
