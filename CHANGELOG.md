@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Redesigned CLI help around described setup, check, and fix actions, with the
+  installed version, examples, and safe command-specific help. Git- and
+  package-invoked compatibility commands remain callable but no longer compete
+  with developer-facing actions in primary help.
+
 ## [3.4.0] - 2026-07-16
 
 ### Added
