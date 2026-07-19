@@ -62,7 +62,7 @@ export function buildWelcomeMessage({
       "",
       pc.bold("Commitment Issues is active here."),
       "",
-      "This repository uses its own product on every",
+      "Commitment Issues checks changes before each",
       "commit. Keep the hooks enabled, and tell us if",
       "any guidance feels confusing.",
       "",

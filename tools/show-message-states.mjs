@@ -442,6 +442,13 @@ const SCENARIOS = [
     },
   },
   {
+    name: "init/dry-run-already-configured",
+    run(dir) {
+      script(dir, "init.mjs");
+      return script(dir, "init.mjs", { args: ["--dry-run"] });
+    },
+  },
+  {
     name: "uninstall/success",
     run(dir) {
       script(dir, "init.mjs");
