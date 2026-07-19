@@ -562,10 +562,8 @@ p95 42m 29s). Compared directionally with the pre-optimization cohort, wall
 p50/p95 improved 31.8%/11.4% while runner p50/p95 increased about 16.0%.
 The same-change-class median misses the upper wall target by 15 seconds, and
 the runner target remains open; both performance targets remain unmet. Runtime
-routing and the primary-after cohort are complete; package-manager, workflow,
-structural rename/deletion,
-unknown-classification, and post-classifier external-fork routing remain
-separate #204 evidence items.
+routing and the primary-after cohort are complete; the remaining hosted routes
+are recorded below.
 
 Trusted-base package-manager routing is now proven by
 [PR #250](https://github.com/RoryGlenn/commitment-issues/pull/250) and its
@@ -578,9 +576,7 @@ trusted base `5f85b396acc7c721d03376b3a08cd2d59825fb48`. All 39 jobs passed with
 graph-level skips, retaining both 100% coverage lanes, badge freshness, every
 supported OS, Node line, package manager and shell, CodeQL, and `CI Success`.
 The run took 3m 28s wall clock and 39m 06s summed runner time. Package-manager
-routing is complete; workflow, structural rename/deletion,
-unknown-classification, and post-classifier external-fork routing remain open
-#204 evidence items.
+routing is complete.
 
 Trusted-base workflow routing is now proven by
 [PR #251](https://github.com/RoryGlenn/commitment-issues/pull/251) and its
@@ -594,6 +590,39 @@ graph-level skips, retaining actionlint, both 100% coverage lanes, badge
 freshness, the complete compatibility graph, CodeQL, and `CI Success`. The run
 took 3m 43s wall clock and 38m 28s summed runner time. The classifier now also
 writes its five decision fields to an always-running job summary whose trusted
-output wiring is regression-tested. Workflow routing is complete; structural
-rename/deletion, unknown-classification, and post-classifier external-fork
-routing remain open #204 evidence items.
+output wiring is regression-tested. Workflow routing is complete; the
+structural, unknown-path, and external-fork controls follow.
+
+Structural and unknown-path routing are proven by two disposable pull requests
+that were closed without merging after their evidence completed.
+[PR #252](https://github.com/RoryGlenn/commitment-issues/pull/252) made a real
+`R100` fixture rename; first-attempt
+[run #779](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676699294)
+reported the full route with `reason=structural-change` and passed all 39 jobs
+in 3m 35s wall clock and 38m 04s summed runner time.
+[PR #253](https://github.com/RoryGlenn/commitment-issues/pull/253) added an
+unallowlisted top-level path; first-attempt
+[run #780](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676717379)
+reported `categories=unknown` and `reason=unknown-path`, then passed all 39
+jobs in 4m 51s wall clock and 38m 35s summed runner time. Neither negative
+control produced a graph-level skip.
+
+Post-classifier external-fork routing is proven by disposable cross-repository
+[PR #254](https://github.com/RoryGlenn/commitment-issues/pull/254) from
+`RoryGlenn1234/commitment-issues`. First-attempt
+[run #783](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676952975)
+executed classifier code from immutable upstream base
+`4be8a48aff93d3f87f6783f2fa3ac4558c681928` and emitted the exact docs-only
+tuple. Classifier, DCO, static quality, and `CI Success` succeeded; all seven
+full-graph groups were expected skips. The run took 44s wall clock and 44s
+summed runner time, proving that the base classifier—not fork code—authorizes a
+reduced graph.
+
+The final architecture has hosted evidence for runtime, package-manager,
+workflow, documentation-only, structural rename, unknown-path, bootstrap-
+failure, and external-fork routes. All safety and compatibility guarantees
+remain enforced. The adopted sharding benchmark reached 3m 30s wall-clock p50,
+while the stricter runtime-only cohort measured 3m 45s p50 and 40m 58s runner
+p50; the runner goal and that cohort's final 15 wall-clock seconds were not
+manufactured away. Documentation-only p50 was 35s. Issue #204's implementation
+and evidence program is complete with those measured outcomes.

@@ -421,10 +421,9 @@ and the 15–18-minute runner target remains open. This records the result
 honestly while completing the required runtime routing and primary-after
 evidence.
 
-The final issue evidence should also link the routing runs for package-manager,
-workflow, rename/deletion, unknown-classification, and fork pull requests. A
-faster happy path is insufficient if any of those paths can silently omit
-applicable evidence.
+The remaining hosted routing cases are recorded below. A faster happy path is
+insufficient if any package-manager, workflow, structural, unknown, or fork
+path can silently omit applicable evidence.
 
 ### Trusted-base package-manager routing
 
@@ -442,9 +441,7 @@ lanes, badge freshness, every OS and Node line, all npm and non-npm lifecycle
 jobs, migration, every shell lane, CodeQL, and `CI Success`. The run covered
 2026-07-19 06:15:47–06:19:15 UTC: 3m 28s wall clock and 39m 06s summed runner
 time. This proves that a package-manager change cannot select the reduced
-documentation route. Workflow, structural rename/deletion,
-unknown-classification, and post-classifier external-fork routing remain
-separate #204 evidence items.
+documentation route. The workflow and negative-control evidence follows.
 
 ### Trusted-base workflow routing and visible summary
 
@@ -464,5 +461,64 @@ the complete compatibility graph, CodeQL, and `CI Success`. The run covered
 2026-07-19 06:31:32–06:35:15 UTC: 3m 43s wall clock and 38m 28s summed runner
 time. This proves that a workflow change cannot select the reduced
 documentation route and leaves a fixed, human-readable decision record on the
-classifier job. Structural rename/deletion, unknown-classification, and
-post-classifier external-fork routing remain separate #204 evidence items.
+classifier job.
+
+### Structural and unknown-path negative controls
+
+Disposable [PR #252](https://github.com/RoryGlenn/commitment-issues/pull/252)
+made a real `R100` fixture rename and updated both references without changing
+the fixture's contents. Its first-attempt
+[run #779](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676699294)
+used trusted base `04804936c62db16a44f335a5186b43fa5984ca55` and reported
+`route=full`, `full_graph=true`, `docs_only=false`,
+`categories=package-manager,tests-fixtures`, and
+`reason=structural-change`. All 39 jobs passed with no graph-level skips in
+3m 35s wall clock and 38m 04s summed runner time. The PR was closed without
+merging after the evidence completed.
+
+Disposable [PR #253](https://github.com/RoryGlenn/commitment-issues/pull/253)
+added one harmless top-level path outside every classifier allowlist. Its
+first-attempt
+[run #780](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676717379)
+used the same trusted base and reported `route=full`, `full_graph=true`,
+`docs_only=false`, `categories=unknown`, and `reason=unknown-path`. All 39 jobs
+and `CI Success` passed with no graph-level skips in 4m 51s wall clock and
+38m 35s summed runner time. That PR was also closed without merging. Together,
+the two probes prove that neither structural Git status nor an unrecognized
+path can select the reduced graph.
+
+### Post-classifier external-fork routing
+
+Disposable cross-repository
+[PR #254](https://github.com/RoryGlenn/commitment-issues/pull/254) proposed one
+allowlisted documentation modification from
+`RoryGlenn1234/commitment-issues`. Its first-attempt
+[run #783](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676952975)
+identified that external head repository while executing the classifier from
+immutable upstream base `4be8a48aff93d3f87f6783f2fa3ac4558c681928`. It reported
+`route=docs`, `full_graph=false`, `docs_only=true`,
+`categories=documentation-metadata`, and `reason=docs-only`.
+
+Classifier, DCO, static quality, and `CI Success` succeeded, while all seven
+full-graph groups appeared as expected skips. The run took 44s wall clock and
+44s summed runner time. The PR was closed without merging its probe comment.
+This proves that a fork can receive the small route when the upstream base
+classifier independently validates the complete diff; fork code does not
+choose its own route.
+
+### Final #204 outcome
+
+The hosted suite now covers runtime, package-manager, workflow,
+documentation-only, structural rename, unknown-path, bootstrap-failure, and
+post-classifier external-fork routing. Every full-route sample retained both
+100% coverage lanes, badge freshness, the complete supported compatibility
+graph, CodeQL, and fail-closed `CI Success`; the reduced route retained every
+applicable documentation and policy assertion.
+
+The adopted all-Node shard architecture reached a 3m 30s wall-clock p50 in its
+three-run benchmark, compared with 5m 30s before. The stricter runtime-only
+after cohort measured 3m 45s p50, 15 seconds above the upper wall target, and
+40m 58s runner p50, so the 15–18-minute runner goal was not achieved.
+Documentation-only p50 was 35s. These are the measured outcomes: #204's
+implementation, safety, and evidence program is complete without weakening
+tests or relabeling an unmet runner target as a success.
