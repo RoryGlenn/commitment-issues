@@ -350,6 +350,27 @@ test("change routing skips full CI only for one exact documentation tuple", () =
   ]) {
     assert.match(classifier, new RegExp(`echo "${output}"`, "u"));
   }
+  assert.match(
+    classifier,
+    /- name: Summarize CI route\s+if: always\(\)\s+shell: bash/u,
+  );
+  for (const [variable, output] of [
+    ["CI_ROUTE", "route"],
+    ["CI_FULL_GRAPH", "full_graph"],
+    ["CI_DOCS_ONLY", "docs_only"],
+    ["CI_CATEGORIES", "categories"],
+    ["CI_REASON", "reason"],
+  ]) {
+    assert.match(
+      classifier,
+      new RegExp(
+        `${variable}: \\$\\{\\{ steps\\.changes\\.outputs\\.${output} \\}\\}`,
+        "u",
+      ),
+    );
+  }
+  assert.match(classifier, /## CI routing/u);
+  assert.match(classifier, />> "\$GITHUB_STEP_SUMMARY"/u);
   assert.doesNotMatch(classifier, /npm (?:ci|install)|run:[^\n]*\$\{\{/u);
 
   for (const alwaysJob of ["dco", "quality"]) {
