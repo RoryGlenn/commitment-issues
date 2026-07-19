@@ -12,14 +12,14 @@ export function minimumNodeVersion(engine) {
   return String(engine).match(/>=\s*(\d+\.\d+\.\d+)/)?.[1] ?? null;
 }
 
-function versionDifference(current, minimum) {
+function compareNodeVersions(current, minimum) {
   const currentParts = current.split(".").map(Number);
   const minimumParts = minimum.split(".").map(Number);
-  return (
-    currentParts
-      .map((part, index) => part - minimumParts[index])
-      .find((difference) => difference !== 0) ?? 0
-  );
+  for (let index = 0; index < currentParts.length; index += 1) {
+    const difference = currentParts[index] - minimumParts[index];
+    if (difference !== 0) return difference;
+  }
+  return 0;
 }
 
 /**
@@ -34,7 +34,7 @@ export function unsupportedNodeVersionMessage(current, engine) {
   if (!minimum) {
     throw new TypeError(`Unsupported Node engine range: ${engine}`);
   }
-  if (versionDifference(current, minimum) >= 0) {
+  if (compareNodeVersions(current, minimum) >= 0) {
     return null;
   }
   return `commitment-issues: Node.js ${minimum} or newer is required; found ${current}.`;
