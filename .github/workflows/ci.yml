@@ -92,11 +92,11 @@ jobs:
             echo
             echo '| Field | Value |'
             echo '| --- | --- |'
-            printf '| Route | `%s` |\n' "$route"
-            printf '| Full graph | `%s` |\n' "$full_graph"
-            printf '| Documentation only | `%s` |\n' "$docs_only"
-            printf '| Categories | `%s` |\n' "$categories"
-            printf '| Reason | `%s` |\n' "$reason"
+            printf '| Route | %s |\n' "$route"
+            printf '| Full graph | %s |\n' "$full_graph"
+            printf '| Documentation only | %s |\n' "$docs_only"
+            printf '| Categories | %s |\n' "$categories"
+            printf '| Reason | %s |\n' "$reason"
           } >> "$GITHUB_STEP_SUMMARY"
 
   dco:
