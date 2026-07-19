@@ -425,3 +425,23 @@ The final issue evidence should also link the routing runs for package-manager,
 workflow, rename/deletion, unknown-classification, and fork pull requests. A
 faster happy path is insufficient if any of those paths can silently omit
 applicable evidence.
+
+### Trusted-base package-manager routing
+
+[PR #250](https://github.com/RoryGlenn/commitment-issues/pull/250) changes the
+canonical lifecycle-manager support representation and its consumers, with
+tests that keep unsupported and migration-only managers outside the wrong
+support boundary. Its first-attempt
+[run #774](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676158125)
+used trusted base `5f85b396acc7c721d03376b3a08cd2d59825fb48` and reported
+`route=full`, `full_graph=true`, `docs_only=false`,
+`categories=package-manager,tests-fixtures`, and `reason=full-category`.
+
+All 39 jobs passed with zero graph-level skips, including both 100% coverage
+lanes, badge freshness, every OS and Node line, all npm and non-npm lifecycle
+jobs, migration, every shell lane, CodeQL, and `CI Success`. The run covered
+2026-07-19 06:15:47–06:19:15 UTC: 3m 28s wall clock and 39m 06s summed runner
+time. This proves that a package-manager change cannot select the reduced
+documentation route. Workflow, structural rename/deletion,
+unknown-classification, and post-classifier external-fork routing remain
+separate #204 evidence items.
