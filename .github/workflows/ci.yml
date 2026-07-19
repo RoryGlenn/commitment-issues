@@ -71,6 +71,34 @@ jobs:
           git cat-file blob "$CI_BASE_SHA:tools/classify-ci-changes.mjs" > "$TRUSTED_CLASSIFIER"
           node "$TRUSTED_CLASSIFIER"
 
+      - name: Summarize CI route
+        if: always()
+        shell: bash
+        env:
+          CI_ROUTE: ${{ steps.changes.outputs.route }}
+          CI_FULL_GRAPH: ${{ steps.changes.outputs.full_graph }}
+          CI_DOCS_ONLY: ${{ steps.changes.outputs.docs_only }}
+          CI_CATEGORIES: ${{ steps.changes.outputs.categories }}
+          CI_REASON: ${{ steps.changes.outputs.reason }}
+        run: |
+          route="${CI_ROUTE:-unavailable}"
+          full_graph="${CI_FULL_GRAPH:-unavailable}"
+          docs_only="${CI_DOCS_ONLY:-unavailable}"
+          categories="${CI_CATEGORIES:-unavailable}"
+          reason="${CI_REASON:-unavailable}"
+
+          {
+            echo "## CI routing"
+            echo
+            echo '| Field | Value |'
+            echo '| --- | --- |'
+            printf '| Route | %s |\n' "$route"
+            printf '| Full graph | %s |\n' "$full_graph"
+            printf '| Documentation only | %s |\n' "$docs_only"
+            printf '| Categories | %s |\n' "$categories"
+            printf '| Reason | %s |\n' "$reason"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   dco:
     name: DCO
     runs-on: ubuntu-latest

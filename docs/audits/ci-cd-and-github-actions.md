@@ -581,3 +581,19 @@ The run took 3m 28s wall clock and 39m 06s summed runner time. Package-manager
 routing is complete; workflow, structural rename/deletion,
 unknown-classification, and post-classifier external-fork routing remain open
 #204 evidence items.
+
+Trusted-base workflow routing is now proven by
+[PR #251](https://github.com/RoryGlenn/commitment-issues/pull/251) and its
+first-attempt successful-head
+[run #778](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676579989).
+The workflow and policy-test change emitted `route=full`, `full_graph=true`,
+`docs_only=false`, `categories=tests-fixtures,workflow-release`, and
+`reason=full-category` against trusted base
+`04804936c62db16a44f335a5186b43fa5984ca55`. All 39 jobs passed with no
+graph-level skips, retaining actionlint, both 100% coverage lanes, badge
+freshness, the complete compatibility graph, CodeQL, and `CI Success`. The run
+took 3m 43s wall clock and 38m 28s summed runner time. The classifier now also
+writes its five decision fields to an always-running job summary whose trusted
+output wiring is regression-tested. Workflow routing is complete; structural
+rename/deletion, unknown-classification, and post-classifier external-fork
+routing remain open #204 evidence items.
