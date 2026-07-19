@@ -29,7 +29,7 @@ const TARGETS = {
   fish: {
     platforms: new Set(["linux"]),
     executable: "fish",
-    fixture: "invoke.fish",
+    fixture: "run.fish",
     runner: "shell-compat.fish",
   },
   zsh: {

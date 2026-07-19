@@ -69,7 +69,7 @@ test("shell compatibility launcher rejects missing and malformed inputs", () => 
 test("tracked shell adapters expose the same black-box actions", () => {
   const fixtures = [
     "test/fixtures/shell-compat/invoke.sh",
-    "test/fixtures/shell-compat/invoke.fish",
+    "test/fixtures/shell-compat/run.fish",
     "test/fixtures/shell-compat/invoke.ps1",
     "test/fixtures/shell-compat/invoke.cmd",
   ];
