@@ -194,6 +194,9 @@ schemas, links, assets, release integrity, formatting, and workflow policy.
 Pull requests execute the classifier stored at the immutable base commit, so a
 fork cannot edit the decision code used to classify itself; a missing trusted
 copy bootstraps to the full graph.
+The classifier job always summarizes its route, flags, categories, and reason;
+missing outputs display as unavailable so the decision remains visible even if
+a later job fails.
 Runtime, package, test, workflow/release, demo/asset, mixed, and unknown changes
 run the full compatibility graph. So do all deletions, renames, and copies,
 even when both paths are documentation. Shallow history, missing commits,

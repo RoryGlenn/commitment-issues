@@ -63,9 +63,11 @@ production-readiness workstream #130 is consolidated in the
   statuses, shallow or missing history, malformed output, and Git failures
   also take the full graph. The small route derives the canonical 100% badge.
   Fork PRs execute classifier code from the immutable base commit, with a fixed
-  full-route bootstrap when it is unavailable. `CI Success` distinguishes the
-  small route's expected skips from missing or failed work. Unit/real-Git
-  fixture:
+  full-route bootstrap when it is unavailable. An always-running job summary
+  exposes the fixed route, flags, categories, and reason, using `unavailable`
+  when trusted outputs are absent. `CI Success` distinguishes the small route's
+  expected skips from missing or failed work. Hosted route evidence is recorded
+  in the [CI audit](audits/ci-cd-and-github-actions.md). Unit/real-Git fixture:
   `test/ci-change-classifier.test.mjs`; workflow invariant:
   `test/ci-policy.test.mjs`; CI: `.github/workflows/ci.yml`.
 
