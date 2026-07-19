@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   formatLifecycleManagers,
-  SUPPORTED_LIFECYCLE_MANAGERS,
+  isSupportedLifecycleManager,
 } from "./lib/lifecycle-managers.mjs";
 
 function fail(message) {
@@ -57,7 +57,7 @@ while (args.length > 0) {
   tarball = resolveTarball(value);
 }
 
-if (!SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager)) {
+if (!isSupportedLifecycleManager(packageManager)) {
   fail(
     `Unsupported package manager "${packageManager}" (expected: ${formatLifecycleManagers()}).`,
   );

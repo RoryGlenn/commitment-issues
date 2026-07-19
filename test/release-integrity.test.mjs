@@ -13,8 +13,12 @@ import {
   normalizeReleaseVersion,
 } from "../tools/release-preflight.mjs";
 import {
+  formatLifecycleManagers,
+  formatMigrationManagers,
   hasExactOutputLine,
   hasSuppliedTarballDigest,
+  isSupportedLifecycleManager,
+  isSupportedMigrationManager,
   shouldEnforcePosixPackageModes,
 } from "../scripts/lib/lifecycle-managers.mjs";
 
@@ -569,6 +573,21 @@ test("lifecycle artifact helpers preserve exact output and platform boundaries",
     false,
     "the marker must contain the expected digest",
   );
+});
+
+test("lifecycle manager support is exposed through read-only helpers", () => {
+  assert.equal(formatLifecycleManagers(), "npm, pnpm, yarn, yarn-berry, bun");
+  assert.equal(formatMigrationManagers(), "npm, pnpm, yarn, bun");
+
+  for (const packageManager of ["npm", "pnpm", "yarn", "yarn-berry", "bun"]) {
+    assert.equal(isSupportedLifecycleManager(packageManager), true);
+  }
+  assert.equal(isSupportedLifecycleManager("corepack"), false);
+
+  for (const packageManager of ["npm", "pnpm", "yarn", "bun"]) {
+    assert.equal(isSupportedMigrationManager(packageManager), true);
+  }
+  assert.equal(isSupportedMigrationManager("yarn-berry"), false);
 });
 
 test("lifecycle launcher rejects malformed tarball arguments before integration", (t) => {
