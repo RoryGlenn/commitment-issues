@@ -466,3 +466,5 @@ time. This proves that a workflow change cannot select the reduced
 documentation route and leaves a fixed, human-readable decision record on the
 classifier job. Structural rename/deletion, unknown-classification, and
 post-classifier external-fork routing remain separate #204 evidence items.
+
+<!-- External-fork routing probe for #204; this disposable change is not merged. -->
