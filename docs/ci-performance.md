@@ -445,3 +445,24 @@ time. This proves that a package-manager change cannot select the reduced
 documentation route. Workflow, structural rename/deletion,
 unknown-classification, and post-classifier external-fork routing remain
 separate #204 evidence items.
+
+### Trusted-base workflow routing and visible summary
+
+[PR #251](https://github.com/RoryGlenn/commitment-issues/pull/251) adds an
+always-running classifier step summary with the route, full-graph and
+documentation-only booleans, categories, and reason. Policy tests require the
+summary to use the trusted classifier outputs and to remain visible even when
+a later job fails. Its first-attempt successful-head
+[run #778](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676579989)
+used trusted base `04804936c62db16a44f335a5186b43fa5984ca55` and reported
+`route=full`, `full_graph=true`, `docs_only=false`,
+`categories=tests-fixtures,workflow-release`, and `reason=full-category`.
+
+All 39 jobs passed with zero graph-level skips, including actionlint in the
+unconditional static-quality job, both 100% coverage lanes, badge freshness,
+the complete compatibility graph, CodeQL, and `CI Success`. The run covered
+2026-07-19 06:31:32–06:35:15 UTC: 3m 43s wall clock and 38m 28s summed runner
+time. This proves that a workflow change cannot select the reduced
+documentation route and leaves a fixed, human-readable decision record on the
+classifier job. Structural rename/deletion, unknown-classification, and
+post-classifier external-fork routing remain separate #204 evidence items.
