@@ -566,3 +566,18 @@ routing and the primary-after cohort are complete; package-manager, workflow,
 structural rename/deletion,
 unknown-classification, and post-classifier external-fork routing remain
 separate #204 evidence items.
+
+Trusted-base package-manager routing is now proven by
+[PR #250](https://github.com/RoryGlenn/commitment-issues/pull/250) and its
+first-attempt
+[run #774](https://github.com/RoryGlenn/commitment-issues/actions/runs/29676158125).
+The lifecycle-manager support change and its tests emitted `route=full`,
+`full_graph=true`, `docs_only=false`,
+`categories=package-manager,tests-fixtures`, and `reason=full-category` against
+trusted base `5f85b396acc7c721d03376b3a08cd2d59825fb48`. All 39 jobs passed with no
+graph-level skips, retaining both 100% coverage lanes, badge freshness, every
+supported OS, Node line, package manager and shell, CodeQL, and `CI Success`.
+The run took 3m 28s wall clock and 39m 06s summed runner time. Package-manager
+routing is complete; workflow, structural rename/deletion,
+unknown-classification, and post-classifier external-fork routing remain open
+#204 evidence items.

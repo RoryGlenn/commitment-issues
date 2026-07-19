@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   formatLifecycleManagers,
-  SUPPORTED_LIFECYCLE_MANAGERS,
+  isSupportedLifecycleManager,
 } from "../../scripts/lib/lifecycle-managers.mjs";
 
 const integrationDir = path.dirname(fileURLToPath(import.meta.url));
@@ -18,7 +18,7 @@ const tarball = process.env.COMMITMENT_ISSUES_LIFECYCLE_TARBALL;
 
 test(`${packageManager} runs packed lifecycle hooks across workspaces and worktrees`, () => {
   assert.ok(
-    SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager),
+    isSupportedLifecycleManager(packageManager),
     `unsupported lifecycle package manager: ${packageManager}; expected ${formatLifecycleManagers()}`,
   );
 

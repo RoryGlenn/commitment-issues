@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   formatMigrationManagers,
-  SUPPORTED_MIGRATION_MANAGERS,
+  isSupportedMigrationManager,
 } from "../scripts/lib/lifecycle-managers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -41,7 +41,7 @@ export function parseMigrationArgs(argv, cwd = process.cwd()) {
     args[0] && !args[0].startsWith("-") ? args.shift() : "npm";
   let tarball;
 
-  if (!SUPPORTED_MIGRATION_MANAGERS.has(packageManager)) {
+  if (!isSupportedMigrationManager(packageManager)) {
     throw new Error(
       `Unsupported package manager "${packageManager}" (expected: ${formatMigrationManagers()}).`,
     );

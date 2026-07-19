@@ -8,9 +8,10 @@ import os from "node:os";
 import path from "node:path";
 import crossSpawn from "cross-spawn";
 import {
+  formatLifecycleManagers,
   hasExactOutputLine,
+  isSupportedLifecycleManager,
   shouldEnforcePosixPackageModes,
-  SUPPORTED_LIFECYCLE_MANAGERS,
   SUPPLIED_TARBALL_DIGEST_PREFIX,
   YARN_BERRY_VERSION,
   YARN_CLASSIC_VERSION,
@@ -28,11 +29,9 @@ const root = process.cwd();
 const args = process.argv.slice(2);
 const packageManager =
   args[0] && !args[0].startsWith("-") ? args.shift() : "npm";
-if (!SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager)) {
+if (!isSupportedLifecycleManager(packageManager)) {
   throw new Error(
-    `Unsupported package manager "${packageManager}" (expected: ${[
-      ...SUPPORTED_LIFECYCLE_MANAGERS,
-    ].join(", ")}).`,
+    `Unsupported package manager "${packageManager}" (expected: ${formatLifecycleManagers()}).`,
   );
 }
 

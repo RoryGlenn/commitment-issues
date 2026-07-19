@@ -1,7 +1,7 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
-export const SUPPORTED_LIFECYCLE_MANAGERS = new Set([
+const SUPPORTED_LIFECYCLE_MANAGERS = new Set([
   "npm",
   "pnpm",
   "yarn",
@@ -9,18 +9,21 @@ export const SUPPORTED_LIFECYCLE_MANAGERS = new Set([
   "bun",
 ]);
 
-export const SUPPORTED_MIGRATION_MANAGERS = new Set([
-  "npm",
-  "pnpm",
-  "yarn",
-  "bun",
-]);
+const SUPPORTED_MIGRATION_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);
 
 export const YARN_CLASSIC_VERSION = "1.22.22";
 export const YARN_BERRY_VERSION = "4.17.0";
 
 export const SUPPLIED_TARBALL_DIGEST_PREFIX =
   "[lifecycle smoke] supplied tarball sha256:";
+
+export function isSupportedLifecycleManager(packageManager) {
+  return SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager);
+}
+
+export function isSupportedMigrationManager(packageManager) {
+  return SUPPORTED_MIGRATION_MANAGERS.has(packageManager);
+}
 
 export function formatLifecycleManagers() {
   return [...SUPPORTED_LIFECYCLE_MANAGERS].join(", ");
