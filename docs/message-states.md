@@ -54,7 +54,10 @@ Shown only when `init` finishes wiring every configured hook along with the scri
   <img src="../assets/init-dry-run.svg" alt="Info output previewing the changes init would make without writing files" width="716">
 </p>
 
-Shown for `init --dry-run`: the same change list, but nothing is written.
+Shown for `init --dry-run`: when changes are pending, it shows the same change
+list without writing anything and explains how to apply it. When setup is
+already complete, it reports that nothing would change and does not instruct
+the user to apply nonexistent changes.
 
 ### Already configured
 
@@ -171,7 +174,7 @@ preserved instead of being edited heuristically.
 │                                                    │
 │   Commitment Issues is active here.                │
 │                                                    │
-│   This repository uses its own product on every    │
+│   Commitment Issues checks changes before each     │
 │   commit. Keep the hooks enabled, and tell us if   │
 │   any guidance feels confusing.                    │
 │                                                    │

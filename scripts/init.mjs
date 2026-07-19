@@ -525,7 +525,9 @@ const setupSummary =
 const footer = dryRun
   ? [
       pc.dim("No files were written."),
-      pc.dim("Run again without --dry-run to apply these changes."),
+      ...(created.length > 0
+        ? [pc.dim("Run again without --dry-run to apply these changes.")]
+        : []),
     ]
   : hooksActive
     ? [

@@ -73,7 +73,8 @@ test("welcome message includes the compact Commit Owl and detected doctor comman
   assert.match(text, /\( {3}\)/);
   assert.match(text, /-"-"-/);
   assert.match(text, /Commitment Issues is active here\./);
-  assert.match(text, /uses its own product on every\s+commit/);
+  assert.match(text, /checks changes before each\s+commit/);
+  assert.doesNotMatch(text, /uses its own product/);
   assert.match(text, /tell us if\s+any guidance feels confusing/);
   assert.match(text, /pnpm run doctor/);
 

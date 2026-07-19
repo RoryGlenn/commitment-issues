@@ -109,6 +109,39 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
 });
 
+test("init dry run suggests applying only when changes are pending", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    private: true,
+    type: "module",
+  });
+
+  const pending = runInit(tempDir, ["--dry-run"]);
+  const pendingOutput = `${pending.stdout}${pending.stderr}`;
+  assert.equal(pending.status, 0);
+  assert.match(pendingOutput, /Would add:/);
+  assert.match(
+    pendingOutput,
+    /Run again without --dry-run to apply these changes\./,
+  );
+
+  assert.equal(runInit(tempDir).status, 0);
+
+  const configured = runInit(tempDir, ["--dry-run"]);
+  const configuredOutput = `${configured.stdout}${configured.stderr}`;
+  assert.equal(configured.status, 0);
+  assert.match(configuredOutput, /Already configured — nothing to change\./);
+  assert.match(configuredOutput, /No files were written\./);
+  assert.doesNotMatch(
+    configuredOutput,
+    /Run again without --dry-run to apply these changes\./,
+  );
+});
+
 test("init rejects unknown options before changing project or hook state", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

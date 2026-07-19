@@ -36,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   but no longer competes with the safer developer-facing fix action in primary
   help.
 
+### Fixed
+
+- Corrected the once-per-clone welcome so it accurately describes Commitment
+  Issues in ordinary consumer repositories instead of claiming every project
+  uses its own product.
+- `init --dry-run` no longer tells an already-configured project to rerun and
+  apply changes when there are no changes to apply. Dry runs that preview real
+  setup work retain the apply instruction.
+
 ## [3.4.0] - 2026-07-16
 
 ### Added
