@@ -251,6 +251,23 @@ export function largeFileIssue(sizes, guardConfig) {
 }
 
 /**
+ * Advisory issue for a staged file-size probe that could not complete.
+ * @param {{code?: string}|null} [error] - Optional child-process error.
+ * @returns {object} Issue for the consolidated pre-commit box.
+ */
+export function largeFileInspectionIssue(error = null) {
+  const outputLimitExceeded = error?.code === "ENOBUFS";
+  return {
+    autoFixable: false,
+    type: "shape",
+    message: "Staged file-size check unavailable",
+    detail: outputLimitExceeded
+      ? "Git returned more index data than the bounded inspection buffer allows."
+      : "Git could not inspect staged blob sizes; retry after restoring Git access.",
+  };
+}
+
+/**
  * Advisory issue for staged generated/build-artifact files, or null.
  * @param {string[]} stagedFiles - All staged paths (unfiltered).
  * @param {{generatedPaths: string[]}} guardConfig - Resolved guard config.

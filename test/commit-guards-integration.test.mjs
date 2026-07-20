@@ -14,8 +14,10 @@ import {
   cleanupTempRepo,
   createTempRepo,
   fakeGitEnv,
+  REAL_GIT,
   run,
   setPrecommitConfig,
+  writeCrossPlatformShim,
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
@@ -36,6 +38,38 @@ function stageCleanFile(tempDir, name = "clean.md") {
 
 function headSha(tempDir) {
   return run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+}
+
+function largeIndexGitEnv(tempDir, targetBytes) {
+  const binDir = path.join(tempDir, `.large-index-${targetBytes}`);
+  fs.mkdirSync(binDir, { recursive: true });
+  writeCrossPlatformShim(
+    binDir,
+    "git",
+    `import fs from "node:fs";
+import { spawnSync } from "node:child_process";
+const args = process.argv.slice(2);
+const realGit = process.env.FAKE_GIT_REAL || "git";
+if (args.includes("ls-files") && args.includes("--stage") && args.includes("-z")) {
+  const result = spawnSync(realGit, args, { encoding: null, maxBuffer: 4 * 1024 * 1024 });
+  if (result.error || result.status !== 0) {
+    if (result.stderr) process.stderr.write(result.stderr);
+    process.exit(result.status == null ? 1 : result.status);
+  }
+  const filler = "100644 " + "0".repeat(40) + " 0\\ttracked/" + "x".repeat(72) + "\\0";
+  const repeats = Math.max(0, Math.ceil((${targetBytes} - result.stdout.length) / Buffer.byteLength(filler)));
+  fs.writeFileSync(1, Buffer.concat([result.stdout, Buffer.from(filler.repeat(repeats))]));
+  process.exit(0);
+}
+const result = spawnSync(realGit, args, { stdio: "inherit" });
+process.exit(result.status == null ? 1 : result.status);
+`,
+  );
+  return {
+    ...process.env,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+    FAKE_GIT_REAL: REAL_GIT,
+  };
 }
 
 // The temp repo inherits this repo's package.json, which disables
@@ -260,7 +294,12 @@ test("precommit warns about staged files over the size threshold", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  setPrecommitConfig(tempDir, { maxFileSizeMb: 1 });
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    maxFileSizeMb: 1,
+    protectedBranches: [],
+    scanSecrets: false,
+  });
   fs.writeFileSync(
     path.join(tempDir, "huge.bin"),
     Buffer.alloc(2 * 1024 * 1024, 1),
@@ -274,6 +313,55 @@ test("precommit warns about staged files over the size threshold", (t) => {
   assert.match(output, /1 staged file over 1 MB/);
   assert.match(output, /2\.0 MB {2}huge\.bin/);
   assert.match(output, /Git LFS/);
+});
+
+test("precommit keeps the large-file guard above spawnSync's default buffer", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, { maxFileSizeMb: 1 });
+  fs.writeFileSync(
+    path.join(tempDir, "huge.bin"),
+    Buffer.alloc(2 * 1024 * 1024, 1),
+  );
+  run("git", ["add", "huge.bin"], tempDir);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+    { env: largeIndexGitEnv(tempDir, 2 * 1024 * 1024) },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /1 staged file over 1 MB/);
+  assert.doesNotMatch(output, /file-size check unavailable/);
+});
+
+test("precommit reports an index beyond the bounded inspection ceiling", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    hookOutput: "normal",
+    maxFileSizeMb: 1,
+    protectedBranches: [],
+    scanSecrets: false,
+  });
+  stageCleanFile(tempDir);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    tempDir,
+    { env: largeIndexGitEnv(tempDir, 17 * 1024 * 1024) },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Staged file-size check unavailable/);
+  assert.match(output, /bounded inspection buffer/);
 });
 
 test("precommit warns about staged generated files", (t) => {
@@ -487,7 +575,7 @@ test("a failing numstat skips the size guard but keeps other guards", (t) => {
   assert.match(output, /1 generated file staged/);
 });
 
-test("a failing cat-file skips the large-file guard without blocking", (t) => {
+test("a failing cat-file reports the unavailable guard without blocking", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -514,7 +602,9 @@ test("a failing cat-file skips the large-file guard without blocking", (t) => {
 
   assert.equal(result.status, 0);
   assert.doesNotMatch(output, /over 1 MB/);
-  assert.match(output, /No lintable or formattable files staged/);
+  assert.match(output, /Staged file-size check unavailable/);
+  assert.match(output, /retry after restoring Git/);
+  assert.match(output, /access\./);
 });
 
 test("a failing behind-count probe skips the upstream guard", (t) => {
