@@ -7,6 +7,7 @@ on:
       - "assets/before-after.png"
       - "assets/before-after.svg"
       - "assets/demo.gif"
+      - "assets/product-hunt-*"
       - "promo/demo.tape"
       - "package.json"
       - "package-lock.json"
@@ -75,11 +76,40 @@ jobs:
       - name: Preserve the committed before/after export
         run: cp assets/before-after.png "$RUNNER_TEMP/committed-before-after.png"
 
+      - name: Preserve the committed Product Hunt exports
+        run: |
+          mkdir -p "$RUNNER_TEMP/product-hunt"
+          cp assets/product-hunt-thumbnail.png "$RUNNER_TEMP/product-hunt/"
+          cp assets/product-hunt-01-before-after.png "$RUNNER_TEMP/product-hunt/"
+          cp assets/product-hunt-02-setup.png "$RUNNER_TEMP/product-hunt/"
+          cp assets/product-hunt-03-advisory.png "$RUNNER_TEMP/product-hunt/"
+          cp assets/product-hunt-04-safe-fix.png "$RUNNER_TEMP/product-hunt/"
+
       - name: Render assets/before-after.png from assets/before-after.svg
         run: >-
           ffmpeg -nostdin -hide_banner -loglevel error
           -f svg_pipe -i assets/before-after.svg
           -frames:v 1 -y assets/before-after.png
+
+      - name: Render Product Hunt media pack
+        run: |
+          set -euo pipefail
+          ffmpeg -nostdin -hide_banner -loglevel error \
+            -f svg_pipe -i assets/product-hunt-thumbnail.svg \
+            -frames:v 1 -y assets/product-hunt-thumbnail.png
+          ffmpeg -nostdin -hide_banner -loglevel error \
+            -f svg_pipe -i assets/before-after.svg \
+            -vf pad=1270:760:35:42:color=0x060a18 \
+            -frames:v 1 -y assets/product-hunt-01-before-after.png
+          ffmpeg -nostdin -hide_banner -loglevel error \
+            -f svg_pipe -i assets/product-hunt-02-setup.svg \
+            -frames:v 1 -y assets/product-hunt-02-setup.png
+          ffmpeg -nostdin -hide_banner -loglevel error \
+            -f svg_pipe -i assets/product-hunt-03-advisory.svg \
+            -frames:v 1 -y assets/product-hunt-03-advisory.png
+          ffmpeg -nostdin -hide_banner -loglevel error \
+            -f svg_pipe -i assets/product-hunt-04-safe-fix.svg \
+            -frames:v 1 -y assets/product-hunt-04-safe-fix.png
 
       - name: Render assets/demo.gif from promo/demo.tape
         run: vhs promo/demo.tape
@@ -100,6 +130,19 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload rendered Product Hunt media pack
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rendered-product-hunt-media
+          path: |
+            assets/product-hunt-thumbnail.png
+            assets/product-hunt-01-before-after.png
+            assets/product-hunt-02-setup.png
+            assets/product-hunt-03-advisory.png
+            assets/product-hunt-04-safe-fix.png
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Verify rendered before/after asset matches committed export
         run: |
           if ! cmp --silent \
@@ -109,6 +152,24 @@ jobs:
             exit 1
           fi
           echo "Rendered before/after PNG exactly matches the committed export."
+
+      - name: Verify rendered Product Hunt assets match committed exports
+        run: |
+          set -euo pipefail
+          for asset in \
+            product-hunt-thumbnail.png \
+            product-hunt-01-before-after.png \
+            product-hunt-02-setup.png \
+            product-hunt-03-advisory.png \
+            product-hunt-04-safe-fix.png; do
+            if ! cmp --silent \
+              "$RUNNER_TEMP/product-hunt/$asset" \
+              "assets/$asset"; then
+              echo "assets/$asset is stale; regenerate the Product Hunt media pack." >&2
+              exit 1
+            fi
+          done
+          echo "Rendered Product Hunt PNGs exactly match the committed exports."
 
       - name: Verify rendered demo dimensions and timing
         env:

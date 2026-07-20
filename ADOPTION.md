@@ -12,6 +12,9 @@ in `package.json` `files`.)
 - [x] Demo GIF near the top of the README — rendered from `promo/demo.tape` (regenerate with `vhs promo/demo.tape`).
 - [x] Before/after workflow graphic with SVG for README/docs and a 16:9 PNG for
       social posts.
+- [x] Product Hunt-ready media pack with a square thumbnail and four static
+      gallery cards covering the plain-language value story, setup, advisory
+      warning, and safe fix.
 - [x] Consistent "Catch mistakes while they're still cheap to fix" messaging in
       the README, next-release npm metadata, rationale, and launch kit.
 - [ ] Confirm the live npm page carries the new story after the next release.

@@ -114,6 +114,39 @@ inspection, and requires it to byte-match the committed export.
 dimensions, plain-language story, cross-surface references, and demo's
 absolute 20–30 second duration.
 
+## Product Hunt asset verification
+
+The Product Hunt pack reuses the comparison story and keeps the remaining
+cards as editable SVGs. Regenerate the complete upload set with the same
+commands used by the `Render demo` workflow:
+
+```sh
+ffmpeg -nostdin -hide_banner -loglevel error \
+  -f svg_pipe -i assets/product-hunt-thumbnail.svg \
+  -frames:v 1 -y assets/product-hunt-thumbnail.png
+ffmpeg -nostdin -hide_banner -loglevel error \
+  -f svg_pipe -i assets/before-after.svg \
+  -vf pad=1270:760:35:42:color=0x060a18 \
+  -frames:v 1 -y assets/product-hunt-01-before-after.png
+ffmpeg -nostdin -hide_banner -loglevel error \
+  -f svg_pipe -i assets/product-hunt-02-setup.svg \
+  -frames:v 1 -y assets/product-hunt-02-setup.png
+ffmpeg -nostdin -hide_banner -loglevel error \
+  -f svg_pipe -i assets/product-hunt-03-advisory.svg \
+  -frames:v 1 -y assets/product-hunt-03-advisory.png
+ffmpeg -nostdin -hide_banner -loglevel error \
+  -f svg_pipe -i assets/product-hunt-04-safe-fix.svg \
+  -frames:v 1 -y assets/product-hunt-04-safe-fix.png
+```
+
+The thumbnail must remain 240×240 and below 3 MB. Each numbered gallery card
+must remain 1270×760 and below 130 KB. Review the cards in their documented
+order at full size and at 600 pixels wide. Card 1 must explain the value without
+software knowledge; cards 2–4 may then show the real commands and advisory-first
+flow. The listing fields, order, and alt text are canonical in
+`promo/launch.md`. The render workflow uploads the regenerated pack and
+byte-compares it with the committed exports.
+
 ## npm package contents
 
 Use this command to inspect the exact release manifest:
@@ -124,14 +157,14 @@ npm pack --dry-run --json --ignore-scripts
 
 The package boundary is explicit:
 
-| Class                          | Included in npm? | Contents                                                                                                    |
-| ------------------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------- |
-| Runtime                        | Yes              | Explicit CLI, command, and transitive helper paths in `package.json`                                        |
-| User documentation             | Yes              | Explicit guides in `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE`                               |
-| Relative README assets         | Yes              | Only SVGs referenced by relative path in the installed README                                               |
-| Lifecycle and coverage tooling | No               | The six repository-only modules classified in `branch-coverage.md`                                          |
-| Maintainer and audit evidence  | No               | Repository-only planning, galleries, reviews, and operational records                                       |
-| Promotional media              | No               | `assets/commitment-issues.png`, `assets/before-after.svg`, `assets/before-after.png`, and `assets/demo.gif` |
+| Class                          | Included in npm? | Contents                                                                                                      |
+| ------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| Runtime                        | Yes              | Explicit CLI, command, and transitive helper paths in `package.json`                                          |
+| User documentation             | Yes              | Explicit guides in `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE`                                 |
+| Relative README assets         | Yes              | Only SVGs referenced by relative path in the installed README                                                 |
+| Lifecycle and coverage tooling | No               | The six repository-only modules classified in `branch-coverage.md`                                            |
+| Maintainer and audit evidence  | No               | Repository-only planning, galleries, reviews, and operational records                                         |
+| Promotional media              | No               | `assets/commitment-issues.png`, the before/after and Product Hunt source/export assets, and `assets/demo.gif` |
 
 The runtime script allowlist is intentionally file-by-file. The
 [coverage policy](branch-coverage.md#source-scope) records the complementary

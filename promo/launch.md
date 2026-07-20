@@ -15,7 +15,7 @@ Recheck those signals on launch day rather than relying on this snapshot.
 
 Lead with the developer's feedback loop before listing features. Keep this
 three-part sequence intact across the repository README, next-release npm
-metadata, Product Hunt description, LinkedIn, Reddit, Hacker News, and X:
+metadata, Product Hunt description, LinkedIn, Reddit, and X:
 
 > **Catch mistakes while they're still cheap to fix.**
 >
@@ -38,7 +38,7 @@ with the canonical promise above. For a shorter X post, use:
 
 | Asset                          | Best use                               | Notes                                                                 |
 | ------------------------------ | -------------------------------------- | --------------------------------------------------------------------- |
-| `assets/before-after.svg`      | GitHub/npm and linked HN documentation | Crisp, accessible source with a jargon-free before/after story        |
+| `assets/before-after.svg`      | GitHub/npm and long-form documentation | Crisp, accessible source with a jargon-free before/after story        |
 | `assets/before-after.png`      | Product Hunt, LinkedIn, Reddit, and X  | 1200×675 upload-ready export; understandable without software context |
 | `assets/demo.gif`              | README/npm and posts that accept GIFs  | 26-second real workflow: advisory warning, exact fix, successful push |
 | `assets/commitment-issues.png` | Brand-led posts and social preview     | Existing 16:9 wordmark and Commit Owl artwork                         |
@@ -147,7 +147,63 @@ The listing should:
   gallery led by `assets/before-after.png` and supported by the demo GIF; and
 - avoid superlatives, coordinated voting, or an upvote request.
 
-The first maker comment should explain:
+### Ready-to-enter listing fields
+
+This payload stays inside the stricter limits in Product Hunt's current
+[posting guide](https://help.producthunt.com/en/articles/479557-how-to-post-a-product)
+and
+[launch preparation guide](https://www.producthunt.com/launch/preparing-for-launch).
+The maintainer must still preview and approve every field in Product Hunt before
+scheduling.
+
+- **Primary URL:** `https://github.com/RoryGlenn/commitment-issues`
+- **Name:** `commitment-issues`
+- **Tagline (50/60 characters):** `Catch mistakes early with advisory-first Git hooks`
+- **Description (254/260 characters):** `Catch mistakes while they're still cheap to fix. Commitment Issues spots Git workflow problems before your first push, suggests the exact safe command, and stays advisory by default. Local-only, telemetry-free, open source, for JavaScript and TypeScript.`
+- **Pricing:** Free
+- **Status:** Available now
+- **Topics:** Developer Tools, Open Source, GitHub
+- **Hunter and maker:** use Rory's eligible personal Product Hunt account and
+  confirm the maker badge in the preview; do not use a company account.
+
+### Upload-ready media pack
+
+Use these files in this order. The thumbnail is Product Hunt's recommended
+240×240 square and is under 3 MB. All four static gallery cards use the
+recommended 1270×760 canvas and are under 130 KB. The gallery therefore remains
+complete even if the optional GIF is not accepted or displayed.
+
+| Order | Upload file                               | Purpose                                                              | Alt text                                                                                                                       |
+| ----: | ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+|     — | `assets/product-hunt-thumbnail.png`       | Required square thumbnail                                            | Split-heart Commitment Issues logo on a dark background.                                                                       |
+|     1 | `assets/product-hunt-01-before-after.png` | Jargon-free value story                                              | Without Commitment Issues: send, wait, find a mistake, and redo. With Commitment Issues: spot it, fix it, and send once.       |
+|     2 | `assets/product-hunt-02-setup.png`        | The two installation and setup commands                              | Two commands install and set up Commitment Issues; the next commit then receives helpful checks.                               |
+|     3 | `assets/product-hunt-03-advisory.png`     | A real advisory-style warning and its exact fix command              | By default, a commit continues while Commitment Issues identifies two fixable ESLint problems and suggests npm run commit:fix. |
+|     4 | `assets/product-hunt-04-safe-fix.png`     | The safe fix followed by the shorter send-once outcome               | The suggested command safely amends the latest commit, producing a simple fix, send, done path.                                |
+|     5 | `assets/demo.gif`                         | Optional 26-second motion proof after the four self-contained stills | Commitment Issues setup, a non-blocking warning, the exact safe fix command, and a successful push.                            |
+
+The editable source mapping is explicit:
+
+- `assets/product-hunt-thumbnail.svg` →
+  `assets/product-hunt-thumbnail.png`;
+- `assets/before-after.svg` →
+  `assets/product-hunt-01-before-after.png`;
+- `assets/product-hunt-02-setup.svg` →
+  `assets/product-hunt-02-setup.png`;
+- `assets/product-hunt-03-advisory.svg` →
+  `assets/product-hunt-03-advisory.png`; and
+- `assets/product-hunt-04-safe-fix.svg` →
+  `assets/product-hunt-04-safe-fix.png`.
+
+The render workflow regenerates every PNG and rejects a stale export.
+
+### Human-only first maker comment worksheet
+
+Product Hunt's current
+[commenting guidelines](https://help.producthunt.com/en/articles/10030102-commenting-guidelines)
+reject LLM-generated comments. Rory must write and approve the final first
+maker comment in his own voice. Use these prompts as a factual checklist, not
+as copy to paste:
 
 - what the project does and who it is for;
 - the blocking-hook and habitual `--no-verify` problem;
@@ -155,6 +211,11 @@ The first maker comment should explain:
 - the safe-fix, local-only, and native-hook design choices;
 - current JS/TS, Node, Yarn Plug'n'Play, shell, and GUI-client boundaries; and
 - the specific tradeoffs on which feedback would be useful.
+
+Add one personal detail that only the maintainer can supply: the real moment a
+blocking hook made `--no-verify` feel easier than fixing the problem, what that
+experience cost, and why this different default was worth building. End with a
+specific request for feedback rather than a request for votes.
 
 Prepare personal answers for likely questions about Husky/lint-staged and CI,
 bypasses, partial staging, telemetry and configured-command trust, monorepos,
@@ -169,6 +230,8 @@ and tone.
 
 - [x] Generate and embed the demo GIF (`vhs promo/demo.tape` → `assets/demo.gif`).
 - [x] Add the reusable before/after SVG and 1200×675 social PNG.
+- [x] Prepare the Product Hunt-native 240×240 thumbnail and four-card
+      1270×760 static gallery, with deterministic source/export checks.
 - [x] Align the README, next-release npm metadata, rationale, Product Hunt, and
       cross-platform post copy around the same value-first message; the blog
       reinforces it from the documented blocking-hook angle.
