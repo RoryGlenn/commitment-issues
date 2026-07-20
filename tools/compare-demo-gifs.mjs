@@ -184,8 +184,12 @@ export function compareDemoVisuals(
   };
 }
 
-function readNumber(name, fallback, { integer = false } = {}) {
-  const raw = process.env[name];
+function readNumber(
+  name,
+  fallback,
+  { env = process.env, integer = false } = {},
+) {
+  const raw = env[name];
   if (raw !== undefined && raw.trim() === "") {
     throw new Error(`${name} must not be empty`);
   }
@@ -200,53 +204,135 @@ function formatShift(shiftFrames) {
   return `${shiftFrames > 0 ? "+" : ""}${shiftFrames}`;
 }
 
-function main(argv) {
-  if (argv.length !== 2) {
-    console.error(
-      "Usage: node tools/compare-demo-gifs.mjs <committed.gif> <rendered.gif>",
-    );
-    return 2;
+const USAGE =
+  "Usage: node tools/compare-demo-gifs.mjs [--json] <committed.gif> <rendered.gif>";
+
+function parseArguments(argv) {
+  const paths = [];
+  let json = false;
+  let optionsEnded = false;
+
+  for (const argument of argv) {
+    if (!optionsEnded && argument === "--") {
+      optionsEnded = true;
+    } else if (!optionsEnded && argument === "--json") {
+      if (json) {
+        throw new Error("Option --json may only be specified once.");
+      }
+      json = true;
+    } else if (!optionsEnded && argument.startsWith("-")) {
+      throw new Error(`Unknown option: ${argument}`);
+    } else {
+      paths.push(argument);
+    }
+  }
+
+  if (paths.length !== 2) {
+    throw new Error("Expected exactly two GIF paths.");
+  }
+
+  return { json, paths };
+}
+
+function humanResult(result, regions) {
+  const scoreSummary = result.scores
+    .map(
+      ({ shiftFrames, score }) =>
+        `${formatShift(shiftFrames)}=${score.toFixed(6)}`,
+    )
+    .join(", ");
+  const regionSummary = regions.map(({ name }) => name).join(", ");
+
+  if (!result.passed) {
+    return {
+      status: 1,
+      stdout: "",
+      stderr:
+        `Rendered demo normalized visual similarity ${result.best.score.toFixed(6)} is below ${result.minimumSsim.toFixed(6)}.\n` +
+        `Evaluated rendered-frame shifts (${scoreSummary}); masked only: ${regionSummary}.\n`,
+    };
+  }
+
+  return {
+    status: 0,
+    stdout:
+      `Rendered demo normalized visual similarity ${result.best.score.toFixed(6)} meets ${result.minimumSsim.toFixed(6)} at a ${formatShift(result.best.shiftFrames)}-frame shift.\n` +
+      `Evaluated rendered-frame shifts (${scoreSummary}); masked only: ${regionSummary}.\n`,
+    stderr: "",
+  };
+}
+
+export function buildJsonResult(
+  result,
+  {
+    framesPerSecond = DEMO_FRAMES_PER_SECOND,
+    regions = VOLATILE_DEMO_REGIONS,
+  } = {},
+) {
+  return {
+    passed: result.passed,
+    minimumSsim: result.minimumSsim,
+    best: result.best,
+    scores: result.scores,
+    framesPerSecond,
+    maskedRegions: regions.map(({ name }) => name),
+  };
+}
+
+// JSON stdout is reserved for completed comparisons. Argument, environment,
+// input, and FFmpeg failures remain operational errors on stderr with exit 2.
+export function runDemoComparison(
+  argv,
+  {
+    compare = compareDemoVisuals,
+    env = process.env,
+    framesPerSecond = DEMO_FRAMES_PER_SECOND,
+    regions = VOLATILE_DEMO_REGIONS,
+  } = {},
+) {
+  let options;
+  try {
+    options = parseArguments(argv);
+  } catch (error) {
+    return {
+      status: 2,
+      stdout: "",
+      stderr: `${error.message}\n${USAGE}\n`,
+    };
   }
 
   try {
-    const minimumSsim = readNumber("MINIMUM_SSIM", 0.997);
+    const minimumSsim = readNumber("MINIMUM_SSIM", 0.997, { env });
     const maxShiftFrames = readNumber("MAX_TEMPORAL_SHIFT_FRAMES", 2, {
+      env,
       integer: true,
     });
-    const result = compareDemoVisuals(argv[0], argv[1], {
+    const result = compare(options.paths[0], options.paths[1], {
+      framesPerSecond,
       minimumSsim,
       maxShiftFrames,
+      regions,
     });
-    const scoreSummary = result.scores
-      .map(
-        ({ shiftFrames, score }) =>
-          `${formatShift(shiftFrames)}=${score.toFixed(6)}`,
-      )
-      .join(", ");
-    const regionSummary = VOLATILE_DEMO_REGIONS.map(({ name }) => name).join(
-      ", ",
-    );
 
-    if (!result.passed) {
-      console.error(
-        `Rendered demo normalized visual similarity ${result.best.score.toFixed(6)} is below ${result.minimumSsim.toFixed(6)}.`,
-      );
-      console.error(
-        `Evaluated rendered-frame shifts (${scoreSummary}); masked only: ${regionSummary}.`,
-      );
-      return 1;
+    if (options.json) {
+      return {
+        status: result.passed ? 0 : 1,
+        stdout: `${JSON.stringify(
+          buildJsonResult(result, { framesPerSecond, regions }),
+          null,
+          2,
+        )}\n`,
+        stderr: "",
+      };
     }
 
-    console.log(
-      `Rendered demo normalized visual similarity ${result.best.score.toFixed(6)} meets ${result.minimumSsim.toFixed(6)} at a ${formatShift(result.best.shiftFrames)}-frame shift.`,
-    );
-    console.log(
-      `Evaluated rendered-frame shifts (${scoreSummary}); masked only: ${regionSummary}.`,
-    );
-    return 0;
+    return humanResult(result, regions);
   } catch (error) {
-    console.error(`Demo visual comparison failed: ${error.message}`);
-    return 2;
+    return {
+      status: 2,
+      stdout: "",
+      stderr: `Demo visual comparison failed: ${error.message}\n`,
+    };
   }
 }
 
@@ -255,5 +341,8 @@ const isDirectRun =
   path.resolve(process.argv[1]) ===
     path.resolve(fileURLToPath(import.meta.url));
 if (isDirectRun) {
-  process.exitCode = main(process.argv.slice(2));
+  const result = runDemoComparison(process.argv.slice(2));
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  process.exitCode = result.status;
 }
