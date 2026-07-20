@@ -12,6 +12,8 @@ not installed with the npm package unless users need it offline.
 - [Configuration and behavior](configuration.md) — canonical option, default,
   validation, and check behavior reference
 - [FAQ and troubleshooting](faq.md)
+- [Git terms in plain language](faq.md#git-terms-used-in-this-project) — working
+  tree, staged changes, hooks, branches, and other words newcomers encounter
 - [Migration guide](migration.md)
 - [How commitment-issues works](how-it-works.md)
 

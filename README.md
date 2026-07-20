@@ -245,6 +245,7 @@ dependencies, ignores, and lockfiles are preserved.
 - [Configuration and behavior](docs/configuration.md)
 - [Compatibility and installation support](docs/compatibility.md)
 - [FAQ and troubleshooting](docs/faq.md)
+- [Git terms in plain language](docs/faq.md#git-terms-used-in-this-project)
 - [Migration guide](docs/migration.md)
 - [External interface](docs/external-interface.md)
 - [JSON output](docs/json-output.md)

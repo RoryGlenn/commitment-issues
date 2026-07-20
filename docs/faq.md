@@ -5,6 +5,9 @@ table lives in [Configuration and behavior](configuration.md), and public
 command/output compatibility lives in the
 [external interface](external-interface.md).
 
+New to Git? The [plain-language Git glossary](#git-terms-used-in-this-project)
+explains the words used on this page.
+
 ## Is this a replacement for Husky or lint-staged?
 
 Yes, for the workflow it covers. `commitment-issues` owns native Git hook wiring
@@ -207,3 +210,101 @@ the lockfile, and anything whose ownership cannot be proven.
 Node.js 22.11.0 is the first Node 22 LTS release and the minimum exercised by
 the CI matrix. Node 24 is tested as well. Older runtimes are outside the
 supported release contract.
+
+## Git terms used in this project
+
+Git uses short names for different versions of the same files. This glossary
+explains those names and why they matter to `commitment-issues`.
+
+### Working tree
+
+Your **working tree** is the checked-out copy of the project: the files as they
+currently exist on your computer. A file there can match what is staged,
+contain additional unstaged edits, or be unchanged. The safe-fix commands
+inspect the working tree so they do not overwrite work you still need.
+
+### Staged changes and the index
+
+**Staged changes** are the exact file versions selected for the next commit.
+Git keeps that selection in a hidden staging area, also called the **index**.
+
+For example, imagine you select `app.js` and then edit it again. The commit
+still gets the earlier, staged version unless you select the file again.
+`commitment-issues` checks the staged version because that is what the commit
+is about to save.
+
+### Unstaged changes
+
+**Unstaged changes** are edits to a tracked file that are not selected for the
+next commit. They stay on your computer after that commit. The explicit fix
+commands keep them separate and refuse a fix when they cannot do that safely.
+
+### Untracked file
+
+An **untracked file** exists in the project folder, but Git is not currently
+tracking it. For example, a new `notes.txt` file stays out of a commit until you
+choose to stage it. A commit check does not add an untracked file merely because
+it exists.
+
+### Partially staged file
+
+A **partially staged file** has one version selected for the next commit and
+more edits to that same file left unstaged. The next commit would contain the
+selected version, while the extra edits would stay on your computer.
+
+A formatter could accidentally mix those two versions. That is why
+`npm run fix:staged` refuses a partially staged file instead of guessing what
+you meant.
+
+### Git hook
+
+A **Git hook** is a small program that Git runs at a particular moment, such as
+before a commit or push. `commitment-issues init` connects the package to local
+hooks so it can check work at those moments. The hooks belong only to that
+clone, and their warnings do not block by default.
+
+### Upstream branch
+
+An **upstream branch** is the branch or other Git reference that a local branch
+is configured to follow. It is usually a remote-tracking branch such as
+`origin/main`, but it can be another local reference. For a remote-tracking
+upstream, fetching updates Git's last-seen version. Git can then tell whether
+your local branch is behind it. `commitment-issues` uses this information for
+its behind-upstream advice and can use it as a comparison point during a push.
+It does not fetch from the network for you.
+
+### Default branch and protected branch
+
+The **default branch** is the repository's usual starting and merging branch,
+often `main`. A **protected branch** is a branch name treated as needing extra
+care. A branch can be both, but the two terms do not mean the same thing.
+
+`commitment-issues` warns about direct commits and pushes to `main` and
+`master` by default. It blocks only when the repository explicitly enables
+that behavior. Rules enforced by a Git hosting service are separate.
+
+### Amend
+
+To **amend** is to replace the latest commit with a new version instead of
+adding another commit. The commit's identifier changes. `npm run commit:fix`
+amends only when the latest commit is unpushed and the tracked working tree is
+safe; otherwise it refuses.
+
+### Detached HEAD
+
+**HEAD** is Git's name for what you currently have checked out. A **detached
+HEAD** means HEAD points directly to a commit instead of to a branch name. You
+can inspect or test that commit, but a new commit is not automatically attached
+to your normal branch.
+
+Without a branch name, `commitment-issues` cannot apply its branch-name warning.
+Its non-branch checks still run.
+
+### Reflog
+
+The **reflog** is a private, local list of places where HEAD and branch names
+pointed recently. Git normally records the move caused by an amend, so the
+reflog can help you find the older commit identifier.
+
+The reflog is not shared when you push and is not a permanent backup.
+`commitment-issues` never treats it as permission to rewrite pushed history.
