@@ -281,6 +281,32 @@ test("the published package has no dependency install lifecycle scripts", () => 
   assert.equal(pkg.scripts.doctor, "node scripts/doctor.mjs");
 });
 
+test("contributor guidance separates first-time setup from hook repair", () => {
+  const pkg = readJson("package.json");
+  const contributing = readText(".github/CONTRIBUTING.md");
+  const configuration = readText("docs/configuration.md");
+  const messageStates = readText("docs/message-states.md");
+  const readme = readText("README.md");
+  const firstTime = "**First-time setup: `npm ci`**";
+  const repair = "**Verify or repair the hooks anytime: `npm run doctor`**";
+
+  assert.ok(contributing.includes(firstTime));
+  assert.ok(contributing.includes(repair));
+  assert.ok(contributing.indexOf(firstTime) < contributing.indexOf(repair));
+  assert.match(
+    configuration,
+    /Verify or repair the hooks anytime: pnpm run doctor/,
+  );
+  assert.match(
+    messageStates,
+    /Verify or repair the hooks anytime: npm run doctor/,
+  );
+  assert.doesNotMatch(messageStates, /Check your setup anytime/);
+  assert.match(readme, /\[contribution guide\]\([^)]*CONTRIBUTING\.md\)/u);
+  assert.equal(Object.hasOwn(pkg.scripts, "setup"), false);
+  assert.doesNotMatch(contributing, /npm run setup/);
+});
+
 test("husky and lint-staged stay out of the dependency tree", () => {
   const pkg = readJson("package.json");
   // v3 owns the hook wiring (.git/hooks) and the staged-fix pipeline

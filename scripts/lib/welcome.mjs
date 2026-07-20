@@ -37,8 +37,8 @@ export function welcomeContentWidth(
 ) {
   const reported = Number(stream.columns ?? env.COLUMNS);
   return Number.isFinite(reported) && reported > 0
-    ? Math.max(12, Math.min(48, reported - 6))
-    : 48;
+    ? Math.max(12, Math.min(51, reported - 6))
+    : 51;
 }
 
 /**
@@ -51,13 +51,15 @@ export function welcomeContentWidth(
  */
 export function buildWelcomeMessage({
   doctorCommand = runScript("doctor"),
-  contentWidth = 48,
+  contentWidth = 51,
 } = {}) {
+  const repairHint = `Verify or repair the hooks anytime: ${doctorCommand}`;
+  const owlWidth = Math.min(contentWidth, Math.max(48, repairHint.length));
   return {
     severity: "info",
     lines: [
       ...COMMIT_OWL.map(
-        ({ art, suffix = "" }) => centered(art, contentWidth) + suffix,
+        ({ art, suffix = "" }) => centered(art, owlWidth) + suffix,
       ),
       "",
       pc.bold("Commitment Issues is active here."),
@@ -66,7 +68,7 @@ export function buildWelcomeMessage({
       "commit. Keep the hooks enabled, and tell us if",
       "any guidance feels confusing.",
       "",
-      pc.dim(`Check your setup anytime: ${doctorCommand}`),
+      pc.dim(repairHint),
     ],
   };
 }

@@ -321,6 +321,9 @@ function lifecycleEnv() {
   delete env.COMMITMENT_ISSUES;
   delete env.COMMITMENT_ISSUES_LIFECYCLE_PM;
   delete env.COMMITMENT_ISSUES_LIFECYCLE_TARBALL;
+  // Captured lifecycle output should use the renderer's stable default width.
+  // Narrow-terminal wrapping is exercised separately by the welcome tests.
+  delete env.COLUMNS;
   return env;
 }
 
@@ -1031,6 +1034,12 @@ try {
   assertSmoke(
     deferredWelcome.includes("Commitment Issues is active here."),
     "the next eligible pre-commit invocation should show the deferred welcome",
+  );
+  assertSmoke(
+    deferredWelcome.includes(
+      `Verify or repair the hooks anytime: ${packageManagerHint} run doctor`,
+    ),
+    "the welcome should name hook repair with the detected package manager",
   );
   assertSmoke(
     fs.existsSync(welcomeMarkerPath(smokeDir)),

@@ -165,22 +165,22 @@ preserved instead of being edited heuristically.
 ### First-commit welcome
 
 ```text
-╭─────────────────────── info ───────────────────────╮
-│                                                    │
-│                         ,_,                        │
-│                        (O,O)  <3                   │
-│                        (   )                       │
-│                        -"-"-                       │
-│                                                    │
-│   Commitment Issues is active here.                │
-│                                                    │
-│   Commitment Issues checks changes before each     │
-│   commit. Keep the hooks enabled, and tell us if   │
-│   any guidance feels confusing.                    │
-│                                                    │
-│   Check your setup anytime: npm run doctor         │
-│                                                    │
-╰───────────────────────────────────────────────────╯
+╭───────────────────────── info ─────────────────────────╮
+│                                                        │
+│                          ,_,                           │
+│                         (O,O)  <3                      │
+│                         (   )                          │
+│                         -"-"-                          │
+│                                                        │
+│   Commitment Issues is active here.                    │
+│                                                        │
+│   Commitment Issues checks changes before each         │
+│   commit. Keep the hooks enabled, and tell us if       │
+│   any guidance feels confusing.                        │
+│                                                        │
+│   Verify or repair the hooks anytime: npm run doctor   │
+│                                                        │
+╰────────────────────────────────────────────────────────╯
 ```
 
 Shown once per clone as the final presentation for the first eligible clean or

@@ -76,7 +76,17 @@ test("welcome message includes the compact Commit Owl and detected doctor comman
   assert.match(text, /checks changes before each\s+commit/);
   assert.doesNotMatch(text, /uses its own product/);
   assert.match(text, /tell us if\s+any guidance feels confusing/);
-  assert.match(text, /pnpm run doctor/);
+  assert.match(text, /Verify or repair the hooks anytime: pnpm run doctor/);
+  assert.doesNotMatch(text, /Check your setup anytime/);
+
+  const wide = buildWelcomeMessage({ doctorCommand: "pnpm run doctor" });
+  const wideLines = wide.lines.map((line) => stripAnsi(line));
+  const wideFaceStart = wideLines[1].indexOf("(O,O)");
+  const repairHint = wideLines.at(-1);
+  assert.equal(
+    wideFaceStart,
+    Math.floor((repairHint.length - "(O,O)".length) / 2),
+  );
 
   const owl = first.lines.slice(0, 4).map((line) => stripAnsi(line));
   const faceStart = owl[1].indexOf("(O,O)");
@@ -95,13 +105,13 @@ test("welcome message includes the compact Commit Owl and detected doctor comman
 });
 
 test("welcome content width follows the terminal and stays compact", () => {
-  assert.equal(welcomeContentWidth({}, {}), 48);
+  assert.equal(welcomeContentWidth({}, {}), 51);
   assert.equal(welcomeContentWidth({ COLUMNS: "24" }, {}), 18);
-  assert.equal(welcomeContentWidth({ COLUMNS: "80" }, {}), 48);
+  assert.equal(welcomeContentWidth({ COLUMNS: "80" }, {}), 51);
   assert.equal(welcomeContentWidth({ COLUMNS: "10" }, {}), 12);
   assert.equal(welcomeContentWidth({ COLUMNS: "80" }, { columns: 40 }), 34);
-  assert.equal(welcomeContentWidth({ COLUMNS: "invalid" }, {}), 48);
-  assert.equal(welcomeContentWidth({ COLUMNS: "-1" }, {}), 48);
+  assert.equal(welcomeContentWidth({ COLUMNS: "invalid" }, {}), 51);
+  assert.equal(welcomeContentWidth({ COLUMNS: "-1" }, {}), 51);
 });
 
 test("welcome marker path resolves below Git's common directory", () => {
@@ -294,7 +304,10 @@ test("absent configuration shows the welcome once and creates the marker", (t) =
   assert.equal(countTerminalBoxes(firstOutput), 1);
   assert.match(firstOutput, /Commitment Issues is active here\./);
   assert.match(firstOutput, /\(O,O\) {2}<3/);
-  assert.match(firstOutput, /(?:npm|pnpm|yarn|bun) run doctor/);
+  assert.match(
+    firstOutput,
+    /Verify or repair the hooks anytime: (?:npm|pnpm|yarn|bun) run doctor/,
+  );
   assert.equal(fs.existsSync(markerPath), true);
   assert.equal(second.status, 0);
   assert.equal(combinedOutput(second).trim(), "");
@@ -380,7 +393,8 @@ test("Commit Owl welcome remains readable in a narrow terminal", (t) => {
     "(O,O)<3",
     '-"-"-',
     "CommitmentIssuesisactivehere.",
-    "run doctor",
+    "Verifyorrepairthehooksanytime:",
+    "rundoctor",
   ]) {
     assert.ok(compact.includes(expected.replace(/\s/g, "")), expected);
   }
