@@ -99,6 +99,9 @@ npx --no-install commitment-issues init --dry-run
 npx --no-install commitment-issues init
 ```
 
+Want to see the advisory workflow without touching an existing project? Follow
+the [five-minute disposable-repository tutorial](docs/try-it-safely.md).
+
 Then commit and push normally:
 
 ```bash
