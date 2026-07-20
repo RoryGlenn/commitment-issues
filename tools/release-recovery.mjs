@@ -20,6 +20,11 @@ const MAX_REMOTE_ARTIFACT_BYTES = 5 * 1024 * 1024;
 const MAX_RELEASE_PAGES = 20;
 const LEGACY_EMPTY_RELEASE_NOTE_VERSIONS = new Set(["3.3.0", "3.3.2"]);
 
+export const NPM_PROPAGATION_RETRY_POLICY = Object.freeze({
+  deadlineMs: 60_000,
+  backoffMs: Object.freeze([1_000, 2_000, 4_000, 8_000, 15_000, 15_000]),
+});
+
 export const RELEASE_STATES = Object.freeze({
   BEFORE_NPM: "before-npm",
   AFTER_NPM: "after-npm",
@@ -171,16 +176,17 @@ function validateGithubProvenance(bytes, expected, label) {
   }
 }
 
-function validateNpmObservation(npm, expected) {
-  const metadata = npm?.metadata;
+function validateNpmIdentity(metadata, expected) {
   if (
     metadata?.name !== expected.packageName ||
     metadata?.version !== expected.version
   ) {
     fail("npm returned package identity that does not match the release.");
   }
+}
 
-  const remoteBytes = Buffer.from(npm.tarballBytes ?? []);
+function validateNpmArtifact(metadata, tarballBytes, expected) {
+  const remoteBytes = Buffer.from(tarballBytes ?? []);
   const remoteDigests = artifactDigests(remoteBytes);
   if (
     remoteDigests.sha256 !== expected.tarballDigests.sha256 ||
@@ -197,7 +203,11 @@ function validateNpmObservation(npm, expected) {
   ) {
     fail("npm registry digest metadata does not match the downloaded tarball.");
   }
+}
 
+function validateNpmObservation(npm, expected) {
+  validateNpmIdentity(npm?.metadata, expected);
+  validateNpmArtifact(npm.metadata, npm.tarballBytes, expected);
   validateNpmProvenance(npm.attestations, expected);
 }
 
@@ -461,51 +471,170 @@ async function requireStatus(response, expectedStatus, label) {
   }
 }
 
-async function fetchNpmObservation(expected, request) {
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function npmPropagationError(label) {
+  fail(
+    `${label} remained unavailable with HTTP 404; the npm propagation retry budget was exhausted or its ${NPM_PROPAGATION_RETRY_POLICY.deadlineMs / 1_000}-second deadline left no room for another bounded retry.`,
+  );
+}
+
+function npmPropagationDeadlineError() {
+  fail(
+    `npm propagation inspection exceeded its ${NPM_PROPAGATION_RETRY_POLICY.deadlineMs / 1_000}-second deadline.`,
+  );
+}
+
+async function withNpmDeadline(propagation, operation) {
+  if (!propagation) return operation();
+
+  const remaining = Math.ceil(propagation.deadlineAt - propagation.now());
+  if (remaining <= 0) {
+    npmPropagationDeadlineError();
+  }
+
+  const controller = new AbortController();
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = propagation.scheduleTimeout(() => {
+      controller.abort();
+      reject(new Error("npm propagation inspection deadline elapsed"));
+    }, remaining);
+  });
+  try {
+    return await Promise.race([operation(controller.signal), deadline]);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      npmPropagationDeadlineError();
+    }
+    throw error;
+  } finally {
+    propagation.cancelTimeout(timer);
+  }
+}
+
+async function requestNpmResource(request, url, options, propagation, inspect) {
+  return withNpmDeadline(propagation, async (signal) => {
+    const response = await request(
+      url,
+      signal ? { ...options, signal } : options,
+    );
+    return inspect(response);
+  });
+}
+
+async function retryNpmNotFound(label, propagation) {
+  const delay = NPM_PROPAGATION_RETRY_POLICY.backoffMs[propagation.retryIndex];
+  const remaining = propagation.deadlineAt - propagation.now();
+  if (delay === undefined || delay >= remaining) {
+    npmPropagationError(label);
+  }
+
+  propagation.onRetry({
+    label,
+    delayMs: delay,
+    attempt: propagation.retryIndex + 2,
+    maxAttempts: NPM_PROPAGATION_RETRY_POLICY.backoffMs.length + 1,
+  });
+  propagation.retryIndex += 1;
+  await propagation.sleep(delay);
+}
+
+async function fetchNpmObservation(expected, request, propagation = null) {
   const metadataUrl = `${NPM_REGISTRY}/${encodeURIComponent(expected.packageName)}/${encodeURIComponent(expected.version)}`;
-  const metadataResponse = await request(metadataUrl, {
-    headers: npmHeaders(),
-    redirect: "error",
-  });
-  if (metadataResponse.status === 404) return null;
-  await requireStatus(metadataResponse, 200, "npm package");
-  const metadata = await readJson(metadataResponse, "npm package");
+  while (true) {
+    const metadataResult = await requestNpmResource(
+      request,
+      metadataUrl,
+      {
+        headers: npmHeaders(),
+        redirect: "error",
+      },
+      propagation,
+      async (response) => {
+        if (response.status === 404) return { notFound: true };
+        await requireStatus(response, 200, "npm package");
+        const metadata = await readJson(response, "npm package");
+        validateNpmIdentity(metadata, expected);
+        return { notFound: false, metadata };
+      },
+    );
+    if (metadataResult.notFound) {
+      if (!propagation) return null;
+      await retryNpmNotFound("npm package", propagation);
+      continue;
+    }
+    const { metadata } = metadataResult;
 
-  const tarballUrl = assertHttpsHost(
-    metadata?.dist?.tarball,
-    "registry.npmjs.org",
-    "npm tarball",
-  );
-  const tarballResponse = await request(tarballUrl, {
-    headers: { "User-Agent": "commitment-issues-release-recovery" },
-    redirect: "error",
-  });
-  await requireStatus(tarballResponse, 200, "npm tarball");
-  const tarballBytes = await readBytes(tarballResponse, "npm tarball");
+    const tarballUrl = assertHttpsHost(
+      metadata?.dist?.tarball,
+      "registry.npmjs.org",
+      "npm tarball",
+    );
+    const tarballBytes = await requestNpmResource(
+      request,
+      tarballUrl,
+      {
+        headers: { "User-Agent": "commitment-issues-release-recovery" },
+        redirect: "error",
+      },
+      propagation,
+      async (response) => {
+        await requireStatus(response, 200, "npm tarball");
+        const bytes = await readBytes(response, "npm tarball");
+        validateNpmArtifact(metadata, bytes, expected);
+        return bytes;
+      },
+    );
 
-  const attestationUrl = assertHttpsHost(
-    metadata?.dist?.attestations?.url,
-    "registry.npmjs.org",
-    "npm attestation",
-  );
-  const attestationResponse = await request(attestationUrl, {
-    headers: npmHeaders(),
-    redirect: "error",
-  });
-  await requireStatus(attestationResponse, 200, "npm attestation");
-  const attestations = await readJson(attestationResponse, "npm attestation");
+    const attestationUrl = assertHttpsHost(
+      metadata?.dist?.attestations?.url,
+      "registry.npmjs.org",
+      "npm attestation",
+    );
+    const attestationResult = await requestNpmResource(
+      request,
+      attestationUrl,
+      {
+        headers: npmHeaders(),
+        redirect: "error",
+      },
+      propagation,
+      async (response) => {
+        if (response.status === 404) return { notFound: true };
+        await requireStatus(response, 200, "npm attestation");
+        const attestations = await readJson(response, "npm attestation");
+        validateNpmProvenance(attestations, expected);
+        return { notFound: false, attestations };
+      },
+    );
+    if (attestationResult.notFound && propagation) {
+      await retryNpmNotFound("npm attestation", propagation);
+      continue;
+    }
+    if (attestationResult.notFound) {
+      fail("npm attestation check failed with HTTP 404.");
+    }
+    const { attestations } = attestationResult;
 
-  const packumentResponse = await request(
-    `${NPM_REGISTRY}/${encodeURIComponent(expected.packageName)}`,
-    {
-      headers: npmHeaders(),
-      redirect: "error",
-    },
-  );
-  await requireStatus(packumentResponse, 200, "npm packument");
-  const packument = await readJson(packumentResponse, "npm packument");
+    const packument = await requestNpmResource(
+      request,
+      `${NPM_REGISTRY}/${encodeURIComponent(expected.packageName)}`,
+      {
+        headers: npmHeaders(),
+        redirect: "error",
+      },
+      propagation,
+      async (response) => {
+        await requireStatus(response, 200, "npm packument");
+        return readJson(response, "npm packument");
+      },
+    );
 
-  return { metadata, tarballBytes, attestations, packument };
+    return { metadata, tarballBytes, attestations, packument };
+  }
 }
 
 async function fetchGithubReleases(expected, token, request) {
@@ -633,10 +762,32 @@ export function validateArtifactBasenames({
   return { tarballName, provenanceName };
 }
 
-export async function inspectReleaseState(input, { request = fetch } = {}) {
+export async function inspectReleaseState(
+  input,
+  {
+    request = fetch,
+    retryNpmPropagation = false,
+    sleep: wait = sleep,
+    now = Date.now,
+    scheduleTimeout = setTimeout,
+    cancelTimeout = clearTimeout,
+    onNpmPropagationRetry = () => {},
+  } = {},
+) {
   const expected = expectedRelease(input);
+  const propagation = retryNpmPropagation
+    ? {
+        deadlineAt: now() + NPM_PROPAGATION_RETRY_POLICY.deadlineMs,
+        now,
+        sleep: wait,
+        scheduleTimeout,
+        cancelTimeout,
+        onRetry: onNpmPropagationRetry,
+        retryIndex: 0,
+      }
+    : null;
   const [npm, releases] = await Promise.all([
-    fetchNpmObservation(expected, request),
+    fetchNpmObservation(expected, request, propagation),
     fetchGithubReleases(expected, input.githubToken, request),
   ]);
   const localProvenanceBytes = input.provenanceBytes
@@ -779,22 +930,32 @@ async function main() {
   });
   validateWorkflowSource(tag, commit);
 
-  const result = await inspectReleaseState({
-    packageName: packageJson.name,
-    version,
-    tag,
-    commit,
-    repository,
-    githubToken,
-    tarballBytes: readRegularFile(options.tarball, "Release tarball"),
-    releaseTitle: releaseMetadata.title,
-    releaseNotes: releaseMetadata.notes,
-    allowEmptyPublishedReleaseNotes:
-      releaseMetadata.historical?.releaseNotesState === "legacy-empty",
-    provenanceBytes: options.provenance
-      ? readRegularFile(options.provenance, "Release provenance")
-      : null,
-  });
+  const result = await inspectReleaseState(
+    {
+      packageName: packageJson.name,
+      version,
+      tag,
+      commit,
+      repository,
+      githubToken,
+      tarballBytes: readRegularFile(options.tarball, "Release tarball"),
+      releaseTitle: releaseMetadata.title,
+      releaseNotes: releaseMetadata.notes,
+      allowEmptyPublishedReleaseNotes:
+        releaseMetadata.historical?.releaseNotesState === "legacy-empty",
+      provenanceBytes: options.provenance
+        ? readRegularFile(options.provenance, "Release provenance")
+        : null,
+    },
+    {
+      retryNpmPropagation: options.requireNpm,
+      onNpmPropagationRetry: ({ label, delayMs, attempt, maxAttempts }) => {
+        console.log(
+          `${label} returned HTTP 404; retrying in ${delayMs / 1_000}s (attempt ${attempt}/${maxAttempts}).`,
+        );
+      },
+    },
+  );
   if (options.requireNpm) requireNpmBoundary(result.state);
 
   const outputs = releaseOutputs(result.state);

@@ -208,6 +208,10 @@ Use the state table and byte-verification procedure in the
   `dist-tags.latest` all name the same candidate. A moved, rolled-back, or newer
   `latest` blocks automatic resume and requires an owner decision and new patch.
   Prefer rerunning failed jobs so the successful npm job remains untouched.
+- Immediately after a successful publish, the release verifier tolerates only
+  exact-version or exact-attestation HTTP 404 propagation. Six bounded backoffs
+  run inside a hard 60-second deadline; every other failure or mismatch remains
+  immediately terminal.
 - The final release job cryptographically verifies its local SLSA bundle.
   Existing draft assets must be byte-identical to those locally verified
   artifacts. An empty or exact tarball-only draft may survive a full rerun, but

@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  NPM_PROPAGATION_RETRY_POLICY,
   RELEASE_STATES,
   artifactDigests,
   classifyReleaseState,
@@ -175,6 +176,68 @@ function githubRelease(
     prerelease: false,
     immutable,
     assets,
+  };
+}
+
+function inspectionInput(release) {
+  return {
+    packageName: release.packageName,
+    version: release.version,
+    tag: release.tag,
+    commit: release.commit,
+    repository: release.repository,
+    githubToken: "read-only-test-token",
+    tarballBytes: TARBALL,
+    releaseTitle: release.releaseTitle,
+    releaseNotes: release.releaseNotes,
+    allowEmptyPublishedReleaseNotes: release.allowEmptyPublishedReleaseNotes,
+  };
+}
+
+function mockedReleaseApis(release, npm, overrides = {}) {
+  const urls = {
+    metadata: `https://registry.npmjs.org/${release.packageName}/${release.version}`,
+    tarball: npm.metadata.dist.tarball,
+    attestation: npm.metadata.dist.attestations.url,
+    packument: `https://registry.npmjs.org/${release.packageName}`,
+    githubReleases: `https://api.github.com/repos/${release.repository}/releases?per_page=100&page=1`,
+  };
+  const defaults = {
+    metadata: () => Response.json(npm.metadata),
+    tarball: () => new Response(TARBALL, { status: 200 }),
+    attestation: () => Response.json(npm.attestations),
+    packument: () => Response.json(npm.packument),
+    githubReleases: () => Response.json([]),
+  };
+  const calls = [];
+  const request = async (url, options) => {
+    const key = Object.entries(urls).find(
+      ([, expectedUrl]) => String(url) === expectedUrl,
+    )?.[0];
+    assert.ok(key, `unexpected request: ${String(url)}`);
+    const callCount = calls.filter((call) => call.key === key).length + 1;
+    calls.push({ key, options });
+    return (overrides[key] ?? defaults[key])({ callCount, options });
+  };
+  return {
+    request,
+    calls,
+    count(key) {
+      return calls.filter((call) => call.key === key).length;
+    },
+  };
+}
+
+function fakePropagationClock() {
+  let milliseconds = 0;
+  const waits = [];
+  return {
+    waits,
+    now: () => milliseconds,
+    sleep: async (delay) => {
+      waits.push(delay);
+      milliseconds += delay;
+    },
   };
 }
 
@@ -567,6 +630,302 @@ test("incomplete recovery requires npm latest to remain on the candidate", () =>
   );
 });
 
+test("post-publication inspection waits for exact npm version propagation", async () => {
+  const release = expected();
+  const npm = npmObservation(release);
+  const clock = fakePropagationClock();
+  const retries = [];
+  const api = mockedReleaseApis(release, npm, {
+    metadata: ({ callCount }) =>
+      callCount === 1
+        ? new Response(null, { status: 404 })
+        : Response.json(npm.metadata),
+  });
+
+  const result = await inspectReleaseState(inspectionInput(release), {
+    request: api.request,
+    retryNpmPropagation: true,
+    sleep: clock.sleep,
+    now: clock.now,
+    onNpmPropagationRetry: (retry) => retries.push(retry),
+  });
+
+  assert.equal(result.state, RELEASE_STATES.AFTER_NPM);
+  assert.equal(releaseOutputs(result.state).publish_npm, "false");
+  assert.equal(api.count("metadata"), 2);
+  assert.deepEqual(clock.waits, [1_000]);
+  assert.deepEqual(retries, [
+    {
+      label: "npm package",
+      delayMs: 1_000,
+      attempt: 2,
+      maxAttempts: NPM_PROPAGATION_RETRY_POLICY.backoffMs.length + 1,
+    },
+  ]);
+});
+
+test("post-publication inspection waits for exact npm attestation propagation", async () => {
+  const release = expected();
+  const npm = npmObservation(release);
+  const clock = fakePropagationClock();
+  const api = mockedReleaseApis(release, npm, {
+    attestation: ({ callCount }) =>
+      callCount <= 2
+        ? new Response(null, { status: 404 })
+        : Response.json(npm.attestations),
+  });
+
+  const result = await inspectReleaseState(inspectionInput(release), {
+    request: api.request,
+    retryNpmPropagation: true,
+    sleep: clock.sleep,
+    now: clock.now,
+  });
+
+  assert.equal(result.state, RELEASE_STATES.AFTER_NPM);
+  assert.equal(api.count("metadata"), 3);
+  assert.equal(api.count("attestation"), 3);
+  assert.deepEqual(clock.waits, [1_000, 2_000]);
+});
+
+test("npm propagation polling stops at its production retry bound", async (t) => {
+  assert.equal(
+    NPM_PROPAGATION_RETRY_POLICY.backoffMs.reduce(
+      (total, delay) => total + delay,
+      0,
+    ),
+    45_000,
+    "the fixed backoff leaves time for the final request inside the hard deadline",
+  );
+
+  for (const target of ["metadata", "attestation"]) {
+    await t.test(target, async () => {
+      const release = expected();
+      const npm = npmObservation(release);
+      const clock = fakePropagationClock();
+      const api = mockedReleaseApis(release, npm, {
+        [target]: () => new Response(null, { status: 404 }),
+      });
+
+      await assert.rejects(
+        inspectReleaseState(inspectionInput(release), {
+          request: api.request,
+          retryNpmPropagation: true,
+          sleep: clock.sleep,
+          now: clock.now,
+        }),
+        new RegExp(
+          `npm ${target === "metadata" ? "package" : "attestation"} remained unavailable.*retry budget was exhausted or its 60-second deadline`,
+          "u",
+        ),
+      );
+      assert.deepEqual(clock.waits, NPM_PROPAGATION_RETRY_POLICY.backoffMs);
+      assert.equal(
+        api.count(target),
+        NPM_PROPAGATION_RETRY_POLICY.backoffMs.length + 1,
+      );
+    });
+  }
+});
+
+test("npm propagation deadline covers stalled response bodies", async () => {
+  const release = expected();
+  const npm = npmObservation(release);
+  let fireDeadline;
+  let bodyReadStarted;
+  const bodyRead = new Promise((resolve) => {
+    bodyReadStarted = resolve;
+  });
+  const cancelled = [];
+  const api = mockedReleaseApis(release, npm, {
+    metadata: ({ options }) =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            options.signal.addEventListener(
+              "abort",
+              () => controller.error(options.signal.reason),
+              { once: true },
+            );
+          },
+          pull() {
+            bodyReadStarted();
+            return new Promise(() => {});
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+  });
+
+  const inspection = inspectReleaseState(inspectionInput(release), {
+    request: api.request,
+    retryNpmPropagation: true,
+    now: () => 0,
+    scheduleTimeout: (callback, delay) => {
+      assert.equal(delay, NPM_PROPAGATION_RETRY_POLICY.deadlineMs);
+      fireDeadline = callback;
+      return "npm-deadline";
+    },
+    cancelTimeout: (timer) => cancelled.push(timer),
+  });
+
+  await bodyRead;
+  assert.equal(typeof fireDeadline, "function");
+  fireDeadline();
+  await assert.rejects(
+    inspection,
+    /npm propagation inspection exceeded its 60-second deadline/u,
+  );
+  assert.equal(api.calls[0].options.signal.aborted, true);
+  assert.deepEqual(cancelled, ["npm-deadline"]);
+});
+
+test("the pre-publication classifier keeps one-shot npm absence behavior", async () => {
+  const release = expected();
+  const npm = npmObservation(release);
+  const api = mockedReleaseApis(release, npm, {
+    metadata: () => new Response(null, { status: 404 }),
+  });
+
+  const result = await inspectReleaseState(inspectionInput(release), {
+    request: api.request,
+  });
+
+  assert.equal(result.state, RELEASE_STATES.BEFORE_NPM);
+  assert.equal(api.count("metadata"), 1);
+});
+
+test("attestation 404 is terminal outside a post-publication check", async () => {
+  const release = expected();
+  const npm = npmObservation(release);
+  const api = mockedReleaseApis(release, npm, {
+    attestation: () => new Response(null, { status: 404 }),
+  });
+
+  await assert.rejects(
+    inspectReleaseState(inspectionInput(release), { request: api.request }),
+    /npm attestation check failed with HTTP 404/u,
+  );
+  assert.equal(api.count("attestation"), 1);
+});
+
+test("only expected npm propagation 404s are retried", async (t) => {
+  const cases = [
+    {
+      name: "unexpected status",
+      response: () => new Response(null, { status: 503 }),
+      pattern: /npm attestation check failed with HTTP 503/u,
+    },
+    {
+      name: "request failure",
+      response: () => {
+        throw new Error("network unavailable");
+      },
+      pattern: /network unavailable/u,
+    },
+    {
+      name: "malformed response",
+      response: () =>
+        new Response("not JSON", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      pattern: /npm attestation returned invalid JSON/u,
+    },
+    {
+      name: "mismatched provenance",
+      response: (npm, release) =>
+        Response.json({
+          attestations: [
+            {
+              predicateType: "https://slsa.dev/provenance/v1",
+              bundle: bundle(npmStatement(release, { commit: "b".repeat(40) })),
+            },
+          ],
+        }),
+      pattern: /npm provenance source commit does not match/u,
+    },
+  ];
+
+  for (const testCase of cases) {
+    await t.test(testCase.name, async () => {
+      const release = expected();
+      const npm = npmObservation(release);
+      const clock = fakePropagationClock();
+      const api = mockedReleaseApis(release, npm, {
+        attestation: () => testCase.response(npm, release),
+      });
+
+      await assert.rejects(
+        inspectReleaseState(inspectionInput(release), {
+          request: api.request,
+          retryNpmPropagation: true,
+          sleep: clock.sleep,
+          now: clock.now,
+        }),
+        testCase.pattern,
+      );
+      assert.equal(api.count("attestation"), 1);
+      assert.deepEqual(clock.waits, []);
+    });
+  }
+});
+
+test("other endpoints and identity mismatches remain immediately terminal", async (t) => {
+  const cases = [
+    {
+      name: "package identity",
+      key: "metadata",
+      response: (npm) => Response.json({ ...npm.metadata, name: "other" }),
+      pattern: /package identity that does not match/u,
+    },
+    {
+      name: "tarball 404",
+      key: "tarball",
+      response: () => new Response(null, { status: 404 }),
+      pattern: /npm tarball check failed with HTTP 404/u,
+    },
+    {
+      name: "packument 404",
+      key: "packument",
+      response: () => new Response(null, { status: 404 }),
+      pattern: /npm packument check failed with HTTP 404/u,
+    },
+    {
+      name: "GitHub 404",
+      key: "githubReleases",
+      response: () => new Response(null, { status: 404 }),
+      pattern: /GitHub Releases check failed with HTTP 404/u,
+    },
+  ];
+
+  for (const testCase of cases) {
+    await t.test(testCase.name, async () => {
+      const release = expected();
+      const npm = npmObservation(release);
+      const clock = fakePropagationClock();
+      const api = mockedReleaseApis(release, npm, {
+        [testCase.key]: () => testCase.response(npm),
+      });
+
+      await assert.rejects(
+        inspectReleaseState(inspectionInput(release), {
+          request: api.request,
+          retryNpmPropagation: true,
+          sleep: clock.sleep,
+          now: clock.now,
+        }),
+        testCase.pattern,
+      );
+      assert.equal(api.count(testCase.key), 1);
+      assert.deepEqual(clock.waits, []);
+    });
+  }
+});
+
 test("inspects npm bytes and authenticated GitHub drafts through mocked APIs", async () => {
   const release = expected();
   const npm = npmObservation(release);
@@ -750,5 +1109,10 @@ test("the recovery helper is read-only", () => {
   assert.doesNotMatch(
     source,
     /(?:execFile|spawn)Sync\(\s*["']npm["']|method:\s*["']DELETE["']/u,
+  );
+  assert.match(
+    source,
+    /retryNpmPropagation:\s*options\.requireNpm/u,
+    "--require-npm must enable bounded post-publication propagation polling",
   );
 });

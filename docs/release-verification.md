@@ -209,8 +209,15 @@ v3.3.2 Releases may retain an empty body; the validator fixes that boundary in
 For a candidate retry, verify that the workflow event is a tag push, the run's
 head SHA equals the tag's peeled commit, and npm provenance names
 `RoryGlenn/commitment-issues`, `.github/workflows/publish.yml`, the exact tag,
-and that same commit. An npm `E404` means the version is absent; any other
-lookup failure is unknown state and must stop recovery.
+and that same commit. The initial classifier treats an exact-version npm
+`E404` as absence. After `npm publish` succeeds, the confirmation and final
+revalidation allow only the exact version and its exact attestation endpoint to
+return HTTP 404 temporarily. They retry after 1, 2, 4, 8, 15, and 15 seconds,
+with every npm request and body read contained by one hard 60-second deadline.
+Any other status, request failure, malformed response, or identity, digest,
+`latest`, repository, workflow, tag, or commit mismatch stops immediately. A
+404 that exhausts the retry budget or deadline also fails closed and requires
+the normal recovery classification.
 
 An incomplete or draft release may resume automatically only while npm's
 `dist-tags.latest` still equals the candidate version. If an owner rolled the
