@@ -17,6 +17,7 @@ flags:
 - `doctor`
 - `precommit`
 - `prepush`
+- `panic`
 - `commit-msg <message-file>` (normally invoked by Git)
 - `commit-fix`
 - `fix-staged`
@@ -28,7 +29,7 @@ by hand. A separate group identifies the Git integration normally invoked
 automatically:
 
 - Setup: `init`, `doctor`, and `uninstall`
-- Checks: `precommit` and `prepush`
+- Checks: `precommit`, `prepush`, and the read-only `panic` guide
 - Fixes: `fix-staged` and `commit-fix`
 - Integration: `commit-msg <message-file>` (normally invoked automatically by
   Git)
@@ -50,6 +51,7 @@ npx --no-install commitment-issues uninstall --dry-run
 npx --no-install commitment-issues doctor
 npx --no-install commitment-issues precommit --json
 npx --no-install commitment-issues prepush --json
+npx --no-install commitment-issues panic
 npx --no-install commitment-issues commit-msg .git/COMMIT_EDITMSG
 npx --no-install commitment-issues --version
 ```
@@ -65,6 +67,7 @@ The public argument contract is deliberately small:
 | `doctor`                   | optional `--quiet`                                                    |
 | `precommit`                | optional `--json`                                                     |
 | `prepush`                  | up to the remote name and URL supplied by Git, plus optional `--json` |
+| `panic`                    | no arguments                                                          |
 | `commit-msg`               | the message-file path supplied by Git                                 |
 | `commit-fix`, `fix-staged` | no arguments                                                          |
 | `fix-staged-js`            | zero or more explicit file paths                                      |
@@ -84,6 +87,16 @@ workflow and are not reported as having active hooks.
 Detached HEAD intentionally has no protected branch identity, so the
 protected-branch guard does not fire in that state. File, secret, size,
 generated-file, lint, format, and related-test checks continue normally.
+
+`panic` is a local, deterministic, non-interactive inspection guide. It starts
+with the current repository state and `git status`, then conditionally explains
+read-only commands for the observed state. It can label a content-preserving
+unstage command or a verified previous-branch switch as a reversible option,
+but suppresses those options while a merge, rebase, or cherry-pick is active,
+while conflicts remain, or when any required state probe is unavailable. It
+never executes a displayed command. Examples never interpolate repository
+paths, so shell-sensitive filenames cannot become command text. Commands that
+discard files or force ref/history changes are outside this interface.
 
 ## Scripts added by `init`
 
@@ -177,9 +190,11 @@ success and informational states without changing execution or exit behavior.
 The once-per-clone welcome is intentionally independent of `hookOutput`; its
 dedicated configuration opt-out is `showWelcomeOnFirstCommit: false`.
 
-Operational commands (`init`, `uninstall`, `doctor`, and explicit fix commands)
-are outside the hook-output policy. Mixed findings use the strongest final
-severity.
+Operational commands (`init`, `uninstall`, `doctor`, `panic`, and explicit fix
+commands) are outside the hook-output policy. Mixed findings use the strongest
+final severity. A normal `panic` run emits exactly one box; help and argument
+errors take the CLI's normal single text response path before repository
+inspection.
 
 Product-owned human output treats repository, Git, configuration, process, and
 argument values as untrusted terminal text. Embedded carriage returns,
@@ -213,6 +228,10 @@ JSON escaping rather than the visible human-output notation above.
   patches have a distinct unavailable-scan terminal/JSON result; advisory mode
   warns and continues.
 - Fix commands return nonzero when safety checks fail or manual work remains.
+- `panic` exits 0 after a complete working-tree inspection and exits nonzero
+  outside a working tree, when Git state is unavailable, or for invalid
+  arguments. Its exit status never reflects a performed recovery operation,
+  because it performs none.
 - JSON mode reports the same exit code in `exitCode`; it does not change whether
   a result blocks.
 - Missing built-in peer tools are advisory in hooks and never invoke an implicit

@@ -958,6 +958,14 @@ export function createLifecycleIntegration() {
       run() {
         const [helpCommand, helpArgs] = execBin(["--help"]);
         run(helpCommand, helpArgs, repoDir);
+        const [panicCommand, panicArgs] = execBin(["panic"]);
+        const panicOutput = runForOutput(panicCommand, panicArgs, repoDir);
+        assertLifecycle(
+          panicOutput.includes("Current state:") &&
+            panicOutput.includes("git status") &&
+            panicOutput.includes("This guide did not change"),
+          "the packed panic command should provide one read-only recovery guide",
+        );
         const [initCommand, initArgs] = execBin(["init"]);
         run(initCommand, initArgs, repoDir);
         // A repeated setup must remain idempotent under the manager's real

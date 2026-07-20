@@ -94,6 +94,7 @@ claim-to-scenario map remains in
 | `scripts/fix-staged-js.mjs`       | explicit-file formatter/linter execution and error propagation                         | `test/fix-staged-js.test.mjs`                                                          |
 | `scripts/fix-staged.mjs`          | safe staged-file repair without overwriting partial work                               | `test/fix-staged.test.mjs`                                                             |
 | `scripts/init.mjs`                | idempotent setup, validation, preflight, and hook ownership                            | `test/init.test.mjs`                                                                   |
+| `scripts/panic.mjs`               | optional-lock-free repository inspection and one-box recovery guidance                 | `test/panic.test.mjs`                                                                  |
 | `scripts/precommit.mjs`           | staged checks, findings, secret/test policy, JSON and protected-branch outcomes        | `test/precommit.test.mjs`                                                              |
 | `scripts/prepush.mjs`             | pushed-range test selection, deleted/renamed paths, blocking/advisory outcomes         | `test/prepush.test.mjs`                                                                |
 | `scripts/uninstall.mjs`           | exact owned cleanup, dry run, preservation of custom state                             | `test/uninstall.test.mjs`                                                              |
@@ -108,6 +109,7 @@ claim-to-scenario map remains in
 | `scripts/lib/logo.mjs`            | exact branded header and fresh return values                                           | `test/logo.test.mjs`                                                                   |
 | `scripts/lib/message.mjs`         | severity, tone, wrapping, and single-summary composition                               | `test/message.test.mjs`                                                                |
 | `scripts/lib/package-manager.mjs` | package-manager detection and command construction                                     | `test/package-manager.test.mjs`                                                        |
+| `scripts/lib/panic.mjs`           | read-only Git-state parsing, safe guide selection, and one-presentation modeling       | `test/panic.test.mjs`                                                                  |
 | `scripts/lib/process.mjs`         | shell-free child execution, environment isolation, timeout and process-tree cleanup    | `test/process.test.mjs`                                                                |
 | `scripts/lib/push-base.mjs`       | upstream, first-push, remote, and range-base inference                                 | `test/push-base.test.mjs`                                                              |
 | `scripts/lib/runtime.mjs`         | package-engine minimum parsing and unsupported-Node diagnostics                        | `test/runtime.test.mjs`; normal CLI subprocess coverage                                |

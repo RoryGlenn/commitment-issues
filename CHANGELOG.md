@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the beginner-friendly `panic` command: one deterministic, read-only
+  view of the current Git state with explained inspection steps and narrowly
+  gated, content-preserving unstage or previous-branch options. It covers
+  detached HEAD, active merge/rebase/cherry-pick conflicts, staged and deleted
+  changes, untracked files, and recent branch switches without executing a
+  recovery operation or displaying commands that discard work or force
+  history changes.
 - Added a tested, fail-closed pull-request change classifier. Pure
   documentation and metadata changes retain DCO, static quality, formatting,
   dependency audit, and focused documentation, schema, link, asset, release,

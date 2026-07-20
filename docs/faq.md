@@ -83,6 +83,25 @@ npm run commit:fix
 states it cannot inspect safely. Resolve the condition named in the refusal and
 retry; do not bypass a safety check merely to force an amend.
 
+## I think I made a Git mistake. Where should I start?
+
+Run the local, read-only guide from inside the project:
+
+```bash
+npx --no-install commitment-issues panic
+```
+
+It presents the observed state first, explains `git status`, and adds only
+context-supported inspection steps for detached HEAD, active
+merge/rebase/cherry-pick conflicts, staged or deleted changes, untracked files,
+and recent branch switches. Any suggested state-changing option preserves
+working-tree content and is labeled separately. The command itself is
+deterministic and non-interactive: it never performs recovery, and it withholds
+state-changing guidance whenever inspection is incomplete or a conflict is in
+progress. Back up important files and ask for help if the explanation does not
+match what you intended; the guide cannot promise that Git still contains
+missing data.
+
 ## How are related tests selected?
 
 The tool looks next to a changed source file, in an adjacent `__tests__`

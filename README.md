@@ -110,6 +110,21 @@ git commit -m "your message"
 git push
 ```
 
+### Think you made a Git mistake?
+
+Run the read-only recovery guide from inside the project:
+
+```bash
+npx --no-install commitment-issues panic
+```
+
+It starts with the repository's current state and `git status`, then explains
+only the inspection steps relevant to what Git reports. When Git can prove a
+content-preserving option is applicable, it may also show how to unstage work
+or return to the previously checked-out branch. The guide never runs a
+recovery operation, never guesses at missing state, and never includes commands
+that discard files or force history changes.
+
 When the tool reports a safe fix path:
 
 ```bash
