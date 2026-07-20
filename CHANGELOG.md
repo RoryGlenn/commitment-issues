@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Contributor onboarding now distinguishes first-time locked dependency setup
+  (`npm ci`) from the lighter hook verification and repair command
+  (`npm run doctor`). The once-per-clone welcome names that repair task
+  directly while retaining its detected package-manager command.
 - Release evidence now treats the hosted workflow's single accepted tarball as
   the authoritative byte-level candidate and records each run's SHA-256,
   source, tag, runner OS/image, and exact Node/npm versions together without

@@ -120,8 +120,9 @@ welcome and leaves it available for a later clean invocation.
 The first eligible clean or informational human-readable pre-commit run in a
 clone shows a compact Commit Owl welcome as its one final presentation. It
 explains that `commitment-issues` is active and asks contributors to report
-confusing hook guidance. The setup hint uses the detected package manager, such
-as `pnpm run doctor` in a pnpm project.
+confusing hook guidance. The hook verification and repair hint uses the
+detected package manager, such as
+`Verify or repair the hooks anytime: pnpm run doctor` in a pnpm project.
 
 Warnings and errors always take priority. They render without the welcome and
 without creating its marker, so the contributor can still receive onboarding

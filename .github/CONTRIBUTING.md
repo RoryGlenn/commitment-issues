@@ -54,23 +54,33 @@ transpilation step.
    git fetch upstream
    ```
 
-3. Install the exact locked dependencies:
+3. **First-time setup: `npm ci`**
+
+   Install the exact dependency versions recorded in `package-lock.json`:
 
    ```bash
    npm ci
    ```
 
-   Dependency installation intentionally runs no package-owned install
-   lifecycle. The `doctor` command in the next step verifies and repairs the
-   local hook wiring without replacing unrelated custom hooks. On your first
-   commit in the clone, the Commit Owl welcome confirms that this repository is
-   using its own product. Keep the hooks enabled, and please report any guidance
-   that feels confusing—the hook experience is product feedback.
+   This repository intentionally runs no package-owned dependency install
+   lifecycle, so installing dependencies is separate from checking the local
+   Git hooks.
 
-4. Confirm the checkout is healthy:
+4. **Verify or repair the hooks anytime: `npm run doctor`**
 
    ```bash
    npm run doctor
+   ```
+
+   This lighter command checks and repairs the local hook wiring without
+   reinstalling dependencies or replacing unrelated custom hooks. On your
+   first commit in the clone, the Commit Owl welcome confirms that
+   `commitment-issues` is active. Keep the hooks enabled, and please report any
+   guidance that feels confusing—the hook experience is product feedback.
+
+5. Confirm the checkout is healthy:
+
+   ```bash
    npm run lint
    npm run format:check
    npm test
