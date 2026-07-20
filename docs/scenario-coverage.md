@@ -116,6 +116,9 @@ production-readiness workstream #130 is consolidated in the
   `after-npm`, and `complete` states; inconsistent or unavailable evidence and
   source/digest mismatches fail closed. Before-npm requires no GitHub draft or
   release, and incomplete recovery requires `latest` to remain on the candidate.
+  Post-publication confirmation polls only exact-version and exact-attestation
+  HTTP 404 propagation with deterministic backoff inside a hard 60-second
+  deadline; other statuses, malformed data, and mismatches remain terminal.
   The final job cryptographically verifies local SLSA provenance; every existing
   draft asset must be byte-identical, so a draft containing provenance can
   resume only through a failed-job rerun retaining the original bundle.
@@ -123,7 +126,7 @@ production-readiness workstream #130 is consolidated in the
   unpublish remain outside automation. Mocked unit: `test/release-recovery.test.mjs`;
   workflow invariant:
   `test/release-integrity.test.mjs`; classifier: `tools/release-recovery.mjs`;
-  tracking: #183.
+  tracking: #183 and #234.
 - **PKG-016** — release validation requires `package.json`, both root lockfile
   version records, the exact `vX.Y.Z` tag, one dated changelog section, the
   GitHub Release title, and its non-empty reviewed body to agree. The final

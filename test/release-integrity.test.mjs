@@ -165,6 +165,13 @@ test("publish workflow gates and publishes one immutable release", () => {
     workflow.indexOf("\n  publish:"),
     workflow.indexOf("\n  provenance:"),
   );
+  const initialRecoveryStep = publishJob.slice(
+    publishJob.indexOf("- name: Classify release recovery state"),
+    publishJob.indexOf("- name: Upload tarball artifact"),
+  );
+  const confirmationStep = publishJob.slice(
+    publishJob.indexOf("- name: Confirm npm publication boundary"),
+  );
   const provenanceJob = workflow.slice(
     workflow.indexOf("\n  provenance:"),
     workflow.indexOf("\n  publish-release:"),
@@ -184,6 +191,9 @@ test("publish workflow gates and publishes one immutable release", () => {
     "- name: Classify release recovery state",
   );
   const publishStep = workflow.indexOf("- name: Publish to npm");
+  const confirmRecoveryGate = workflow.indexOf(
+    "- name: Confirm npm publication boundary",
+  );
   const provenanceDownload = workflow.indexOf(
     "- name: Download provenance artifact",
   );
@@ -205,6 +215,7 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.notEqual(packStep, -1);
   assert.notEqual(recoveryGate, -1);
   assert.notEqual(publishStep, -1);
+  assert.notEqual(confirmRecoveryGate, -1);
   assert.match(
     candidateJob,
     /runs-on: ubuntu-latest/,
@@ -252,6 +263,12 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.match(
     workflow,
     /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
+  );
+  assert.equal(
+    workflow.match(/npm publish "\.\/\$TARBALL" --access public/gu)?.length ??
+      0,
+    1,
+    "the workflow must contain exactly one guarded npm publish command",
   );
   for (const releaseInput of [
     ".github/workflows/publish.yml",
@@ -305,6 +322,13 @@ test("publish workflow gates and publishes one immutable release", () => {
     publishJob,
     /name: Classify release recovery state\s+id: recovery[\s\S]*?run: node tools\/release-recovery\.mjs/,
   );
+  assert.doesNotMatch(initialRecoveryStep, /--require-npm/);
+  assert.match(confirmationStep, /--require-npm/);
+  assert.match(
+    publishJob,
+    /name: Classify release recovery state[\s\S]*?run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"[\s\S]*?name: Publish to npm[\s\S]*?npm publish "\.\/\$TARBALL" --access public[\s\S]*?name: Confirm npm publication boundary[\s\S]*?--require-npm/,
+    "the post-publication confirmation enables bounded npm propagation polling",
+  );
   assert.match(
     publishJob,
     /name: Upload tarball artifact\s+if: steps\.recovery\.outputs\.release_needed == 'true'[\s\S]*?overwrite: true/,
@@ -340,7 +364,7 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.match(workflow, /overwrite_files:\s+false/);
   assert.match(
     workflow,
-    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?name: Generate reviewed release notes[\s\S]*?npm run release:validate -- --tag "\$RELEASE_TAG" --notes-file release-notes\.md[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
+    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?--require-npm[\s\S]*?name: Generate reviewed release notes[\s\S]*?npm run release:validate -- --tag "\$RELEASE_TAG" --notes-file release-notes\.md[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
   );
   assert.match(
     workflow,
@@ -363,7 +387,9 @@ test("publish workflow gates and publishes one immutable release", () => {
     "the only release uploader must use the Node 24 action line",
   );
   assert.ok(
-    publishStep < provenanceDownload &&
+    recoveryGate < publishStep &&
+      publishStep < confirmRecoveryGate &&
+      confirmRecoveryGate < provenanceDownload &&
       provenanceDownload < provenanceVerification &&
       provenanceVerification < finalRecoveryGate &&
       finalRecoveryGate < releaseNotesGate &&

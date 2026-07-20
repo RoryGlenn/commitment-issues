@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Trusted npm publication now tolerates the registry's short metadata and
+  attestation propagation delay. Only exact-version and exact-attestation HTTP
+  404 responses receive bounded backoff inside a hard 60-second deadline;
+  malformed data, unexpected statuses, and any package, tarball, provenance,
+  source, or `latest` mismatch still fail immediately without republishing.
 - Corrected the once-per-clone welcome so it accurately describes Commitment
   Issues in ordinary consumer repositories instead of claiming every project
   uses its own product.

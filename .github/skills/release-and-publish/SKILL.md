@@ -152,8 +152,14 @@ gh release view "v$VERSION" \
   --json name,body,isDraft,isImmutable,targetCommitish,assets,url
 ```
 
-An npm `E404` means the npm boundary was not crossed; any other failed or
-malformed lookup is unknown state and must fail closed. An incomplete or draft
+During the initial classifier, an exact-version npm `E404` means the npm
+boundary was not crossed. After publication, the `--require-npm` confirmation
+allows only exact-version and exact-attestation HTTP 404 responses to propagate:
+it retries with 1, 2, 4, 8, 15, and 15 second backoffs inside a hard 60-second
+deadline. Every successful response is still checked against the retained
+tarball, package identity, `latest`, repository, workflow, tag, and commit.
+Unexpected statuses, request failures, malformed data, and any mismatch stop
+immediately; exhausting the retry budget or deadline fails closed. An incomplete or draft
 release may resume automatically only while npm's `latest` dist-tag still names
 the candidate version. A rollback or newer `latest` is an operator decision and
 blocks automatic resume; do not move the pointer merely to make the gate pass.
