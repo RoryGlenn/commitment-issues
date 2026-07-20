@@ -2,7 +2,7 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
-import { run } from "./lib/process.mjs";
+import { run, withoutGitLocalEnvironment } from "./lib/process.mjs";
 import { printBoxModel } from "./lib/ui.mjs";
 import {
   buildPanicGuide,
@@ -24,7 +24,7 @@ if (args.length > 0) {
 }
 
 const gitEnvironment = {
-  ...process.env,
+  ...withoutGitLocalEnvironment(),
   GIT_OPTIONAL_LOCKS: "0",
   GIT_PAGER: "cat",
   GIT_TERMINAL_PROMPT: "0",

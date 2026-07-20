@@ -3,6 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -495,6 +496,38 @@ test("panic keeps its untracked inspection repository-wide from a subdirectory",
   assert.equal(inspection.status, 0, inspection.stderr);
   assert.equal(inspection.stdout.trim(), "outside.txt");
   assertReadOnlyAndSafe(result, before, tempDir);
+});
+
+test("panic ignores inherited Git routing and inspects the current repository", (t) => {
+  const tempDir = createTempRepo();
+  const routedDir = createTempRepo();
+  t.after(() => {
+    cleanupTempRepo(tempDir);
+    cleanupTempRepo(routedDir);
+  });
+  writeFile(path.join(tempDir, "current-repository.txt"), "keep me\n");
+  const before = snapshotTree(tempDir);
+  const routedBefore = snapshotTree(routedDir);
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "cli.mjs"), "panic"],
+    {
+      cwd: tempDir,
+      encoding: "utf8",
+      env: {
+        ...PLAIN_ENV,
+        GIT_DIR: path.join(routedDir, ".git"),
+        GIT_WORK_TREE: routedDir,
+        GIT_INDEX_FILE: path.join(routedDir, ".git", "index"),
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /untracked file/);
+  assertReadOnlyAndSafe(result, before, tempDir);
+  assert.deepEqual(snapshotTree(routedDir), routedBefore);
 });
 
 test("panic offers verified previous-branch guidance for branch switches and detached HEAD", (t) => {
