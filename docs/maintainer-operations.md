@@ -189,6 +189,21 @@ user-documentation files are missing, maintenance tooling or internal evidence
 enters the tarball, or promotional media is included. Do not raise the limits
 merely to accommodate documentation or media growth.
 
+## Release candidate identity
+
+The normal release's authoritative byte-level candidate is the tarball created
+once by the hosted tag workflow and accepted by its recovery and publication
+gates. Retain its run-summary filename, SHA-256, release tag, source commit,
+runner OS/image, and exact Node/npm versions with the release evidence. Local
+pre-tag packs remain useful for manifest, lifecycle, and compatibility review,
+but their digests are scoped to their recorded environments; an equal extracted
+tree does not establish equal compressed bytes.
+
+Use the separate archive-byte and extracted-tree procedure in
+[Release Verification](release-verification.md#authoritative-candidate-identity)
+when comparing candidates. Do not turn a clean tree comparison into a claim
+that the archive hashes match.
+
 ## Partial release incidents
 
 Do not rerun a failed tag workflow until the release state is known. Record the
@@ -239,11 +254,13 @@ and replacement version in the incident issue.
 - Run `npm pack --dry-run --json --ignore-scripts` and review the exact files
   and sizes.
 - Run the release collision preflight before versioning.
+- Retain the hosted candidate summary containing its digest, source, tag,
+  runner OS/image, and exact Node/npm pack toolchain.
 - Classify any failed tag workflow before authorizing a retry or registry
   metadata change.
 - Follow the [release-verification guide](release-verification.md) after
   publishing.
-- Complete and retain the exact-candidate
+- Complete and retain the exact-artifact
   [GUI Git-client checklist](git-client-release-checklist.md) before claiming
   verified GUI-client support. Otherwise mark unavailable lanes unverified,
   narrow the support claim, and link a follow-up issue; shell-matrix success

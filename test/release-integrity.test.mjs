@@ -302,7 +302,7 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
   assert.match(
     workflow,
-    /name: Generate provenance subject[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}[\s\S]*?sha256sum "\$TARBALL"/,
+    /name: Record hosted candidate identity[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}[\s\S]*?sha256sum "\$TARBALL"/,
   );
   assert.match(
     publishJob,
@@ -401,6 +401,78 @@ test("publish workflow gates and publishes one immutable release", () => {
     workflow,
     /npm (?:unpublish|deprecate|dist-tag)|git tag -[df]|gh release delete/,
     "automated recovery must not mutate public identifiers or registry policy",
+  );
+});
+
+test("hosted release candidate records byte identity and pack toolchain together", () => {
+  const workflow = readText(".github/workflows/publish.yml");
+  const candidateJob = workflow.slice(
+    workflow.indexOf("\n  candidate:"),
+    workflow.indexOf("\n  publish:"),
+  );
+  const packStep = candidateJob.indexOf("- name: Pack tarball");
+  const identityStep = candidateJob.indexOf(
+    "- name: Record hosted candidate identity",
+  );
+  const uploadStep = candidateJob.indexOf(
+    "- name: Upload verified release candidate",
+  );
+  const identityBlock = candidateJob.slice(identityStep, uploadStep);
+
+  assert.ok(
+    packStep !== -1 &&
+      identityStep !== -1 &&
+      uploadStep !== -1 &&
+      packStep < identityStep &&
+      identityStep < uploadStep,
+    "the workflow must identify the same candidate after packing and before upload",
+  );
+  assert.match(identityBlock, /hash_line="\$\(sha256sum "\$TARBALL"\)"/u);
+  assert.match(
+    identityBlock,
+    /hashes="\$\(printf '%s\\n' "\$hash_line" \| base64 -w0\)"/u,
+    "the provenance subject must derive from the recorded candidate hash",
+  );
+  assert.match(identityBlock, /sha256="\$\{hash_line%% \*\}"/u);
+  assert.match(identityBlock, /node_version="\$\(node --version\)"/u);
+  assert.match(identityBlock, /npm_version="\$\(npm --version\)"/u);
+  assert.match(
+    identityBlock,
+    /### Hosted release candidate built by this run[\s\S]*?GITHUB_STEP_SUMMARY/u,
+    "a rebuilt candidate must not be declared authoritative before recovery accepts it",
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Filename \| \\`%s\\` \|\\n" "\$TARBALL"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| SHA-256 \| \\`%s\\` \|\\n" "\$sha256"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Release tag \| \\`%s\\` \|\\n" "\$GITHUB_REF_NAME"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Source commit \| \\`%s\\` \|\\n" "\$GITHUB_SHA"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Runner \| \\`%s %s; %s %s\\` \|\\n"[\s\S]*?"\$RUNNER_OS" "\$RUNNER_ARCH"[\s\S]*?"\$\{ImageOS:-unknown-image\}" "\$\{ImageVersion:-unknown-version\}"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Node \| \\`%s\\` \|\\n" "\$node_version"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| npm \| \\`%s\\` \|\\n" "\$npm_version"/u,
+  );
+  assert.equal(
+    npmPackInvocations(identityBlock).length,
+    0,
+    "recording identity must never rebuild the candidate",
   );
 });
 
@@ -672,6 +744,65 @@ test("release verification uses supported npm provenance surfaces", () => {
   assert.match(docs, /must never be moved or reused/);
   assert.match(docs, /git merge-base --is-ancestor/);
   assert.match(docs, /tag rules must separately restrict `v\*` creation/);
+});
+
+test("release evidence distinguishes archive bytes from package-tree identity", () => {
+  const docs = readText("docs/release-verification.md");
+  const guide = readText(".github/skills/release-and-publish/SKILL.md");
+  const audit = readText("docs/audits/independent-final-verification.md");
+  const localDigest =
+    "6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56";
+  const hostedDigest =
+    "99f421294984c2bab50e5a282dc33e59ad2137d0f26f35643f6bec09497ce3f6";
+
+  assert.match(
+    docs,
+    /authoritative byte-level candidate is selected by the\s+hosted release workflow/u,
+  );
+  assert.match(
+    docs,
+    /becomes authoritative\s+only when the later recovery and publication gates accept it/u,
+  );
+  assert.match(docs, /runner OS\/image/u);
+  assert.match(docs, /Archive-byte identity/u);
+  assert.match(docs, /Extracted-tree identity/u);
+  assert.match(docs, /sha256sum "\$LOCAL_TARBALL" "\$HOSTED_TARBALL"/u);
+  assert.match(docs, /cmp "\$LOCAL_TARBALL" "\$HOSTED_TARBALL"/u);
+  assert.match(
+    docs,
+    /LC_ALL=C tar -tvzf "\$LOCAL_TARBALL" \| LC_ALL=C sort > "\$COMPARE_DIR\/local\.list"/u,
+  );
+  assert.match(
+    docs,
+    /LC_ALL=C tar -tvzf "\$HOSTED_TARBALL" \| LC_ALL=C sort > "\$COMPARE_DIR\/hosted\.list"/u,
+  );
+  assert.match(docs, /diff --recursive --no-dereference/u);
+  assert.match(
+    guide,
+    /local\s+pre-tag pack qualifies contents and behavior\s+only/u,
+  );
+
+  assert.match(
+    audit,
+    new RegExp(
+      `macOS Darwin 25\\.5\\.0 arm64; Node 26\\.4\\.0; npm 11\\.17\\.0[\\s\\S]*?${localDigest}`,
+      "u",
+    ),
+  );
+  assert.match(
+    audit,
+    new RegExp(
+      `Node 24\\.18\\.0; npm 11\\.16\\.0[\\s\\S]*?${hostedDigest}`,
+      "u",
+    ),
+  );
+  assert.match(audit, /extracted\s+54-file trees/u);
+  assert.match(audit, /immutable v3\.4\.0[\s\S]*?remain\s+unchanged/u);
+  assert.doesNotMatch(
+    audit,
+    /report merge must reproduce SHA-256/u,
+    "the historical local digest must not remain a cross-toolchain promise",
+  );
 });
 
 test("release preflight accepts a completely unused exact version", async () => {

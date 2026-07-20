@@ -190,7 +190,9 @@ test("documentation separates automated shells from manual Git clients", () => {
   ]) {
     assert.match(checklist, new RegExp(escapeRegExp(client), "u"));
   }
-  assert.match(checklist, /exact release-candidate tarball/u);
+  assert.match(checklist, /against one exact tarball/u);
+  assert.match(checklist, /local\s+qualification artifact/u);
+  assert.match(checklist, /accepted hosted tarball/u);
   assert.match(checklist, /do not manufacture a pass/iu);
   assert.match(checklist, /#231/u);
   assert.match(index, /git-client-release-checklist\.md/u);

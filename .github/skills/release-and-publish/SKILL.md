@@ -40,6 +40,16 @@ publication. The SLSA generator retains its signed output as a workflow
 artifact, and one final release action stages both files and publishes the
 reviewed changelog section as the immutable GitHub Release body.
 
+For the normal release path, the single hosted pack accepted by the recovery
+and publication gates is the authoritative byte-level candidate. The candidate
+job records each run's filename, SHA-256, release tag, source commit, runner
+OS/image, and exact Node/npm versions together without declaring a rejected
+rebuild authoritative. A local pre-tag pack qualifies contents and behavior
+only; never promise that its digest predicts the hosted digest unless both
+archives were produced with the same pinned toolchain and then proved
+byte-identical. See the separate archive and extracted-tree comparisons in
+[`docs/release-verification.md`](../../../docs/release-verification.md).
+
 ## Release flow (in order)
 
 1. **Clean tree + green suite.** Ensure `git status` is clean and:
@@ -85,7 +95,10 @@ reviewed changelog section as the immutable GitHub Release body.
    publishing with automatic provenance and the reviewed changelog section as
    the GitHub Release notes. No `npm login`, no token. Before pushing, confirm
    the live `v*` tag rules still restrict release-tag creation to the release
-   authority and prevent updates or deletion.
+   authority and prevent updates or deletion. The candidate job builds one
+   hosted archive; it becomes authoritative only after the recovery and
+   publication gates accept it. Retain its run-summary digest, runner, and
+   Node/npm toolchain evidence.
 6. **Verify** the exact version is live, confirm the npm provenance/signature
    surfaces, confirm the GitHub Release contains both `.tgz` and
    `.intoto.jsonl`, compare the npm and GitHub tarballs, and run the independent
@@ -266,6 +279,13 @@ npm-only path as a complete signed release.
   `.tgz` to `npm run test:lifecycle:npm -- --tarball ...` before hashing or
   publishing it. Keep both gates; `prepublishOnly` remains defense in depth for
   a direct root-directory publish.
+- **Equal package trees do not prove equal tarball bytes.** npm and its archive
+  dependencies may encode or compress the same manifest differently across
+  toolchain versions. The normal hosted candidate becomes authoritative only
+  after the release/recovery gates accept it; record its SHA-256 beside the
+  runner and exact Node/npm versions. Treat local pre-tag digests as
+  environment-scoped qualification evidence unless the archive hashes actually
+  match.
 - **`prepublishOnly` failing** blocks a direct root-directory publish by design
   — it validates release metadata, runs the full test suite, and exercises the
   packaging lifecycle. Fix the failure; do not bypass it.

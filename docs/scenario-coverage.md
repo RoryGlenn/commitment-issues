@@ -95,9 +95,14 @@ production-readiness workstream #130 is consolidated in the
 - **PKG-011** — the publish workflow packs once, lifecycle-tests the exact
   tarball, confirms its CLI bin/shebang/version on every platform and normalized
   0755/0644 file modes on POSIX/release producers, then hashes, uploads, and
-  publishes that unchanged artifact. Windows lanes retain platform-relevant
-  bin-shim, installability, and digest checks. SLSA generation remains separate,
-  and one final immutable-release uploader owns the tarball and provenance.
+  publishes that unchanged artifact. The hosted pack becomes the authoritative
+  byte-level candidate only after the recovery/publication gates accept it, and
+  its run summary keeps the SHA-256, source, tag, runner OS/image, and exact
+  Node/npm toolchain together without blessing a rejected rebuild. Local packs
+  qualify tree contents and behavior without promising cross-toolchain
+  archive-byte identity. Windows lanes retain platform-relevant bin-shim,
+  installability, and digest checks. SLSA generation remains separate, and one
+  final immutable-release uploader owns the tarball and provenance.
   Unit/invariant:
   `test/release-integrity.test.mjs`; integration:
   `test/integration/lifecycle-manager.test.mjs` and
