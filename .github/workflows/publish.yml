@@ -135,15 +135,15 @@ jobs:
             echo
             echo "| Evidence | Value |"
             echo "| --- | --- |"
-            printf '| Filename | `%s` |\n' "$TARBALL"
-            printf '| SHA-256 | `%s` |\n' "$sha256"
-            printf '| Release tag | `%s` |\n' "$GITHUB_REF_NAME"
-            printf '| Source commit | `%s` |\n' "$GITHUB_SHA"
-            printf '| Runner | `%s %s; %s %s` |\n' \
+            printf "| Filename | \`%s\` |\n" "$TARBALL"
+            printf "| SHA-256 | \`%s\` |\n" "$sha256"
+            printf "| Release tag | \`%s\` |\n" "$GITHUB_REF_NAME"
+            printf "| Source commit | \`%s\` |\n" "$GITHUB_SHA"
+            printf "| Runner | \`%s %s; %s %s\` |\n" \
               "$RUNNER_OS" "$RUNNER_ARCH" \
               "${ImageOS:-unknown-image}" "${ImageVersion:-unknown-version}"
-            printf '| Node | `%s` |\n' "$node_version"
-            printf '| npm | `%s` |\n' "$npm_version"
+            printf "| Node | \`%s\` |\n" "$node_version"
+            printf "| npm | \`%s\` |\n" "$npm_version"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload verified release candidate

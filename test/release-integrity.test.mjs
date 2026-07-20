@@ -443,26 +443,32 @@ test("hosted release candidate records byte identity and pack toolchain together
   );
   assert.match(
     identityBlock,
-    /printf '\| Filename \| `%s` \|\\n' "\$TARBALL"/u,
-  );
-  assert.match(identityBlock, /printf '\| SHA-256 \| `%s` \|\\n' "\$sha256"/u);
-  assert.match(
-    identityBlock,
-    /printf '\| Release tag \| `%s` \|\\n' "\$GITHUB_REF_NAME"/u,
+    /printf "\| Filename \| \\`%s\\` \|\\n" "\$TARBALL"/u,
   );
   assert.match(
     identityBlock,
-    /printf '\| Source commit \| `%s` \|\\n' "\$GITHUB_SHA"/u,
+    /printf "\| SHA-256 \| \\`%s\\` \|\\n" "\$sha256"/u,
   );
   assert.match(
     identityBlock,
-    /printf '\| Runner \| `%s %s; %s %s` \|\\n'[\s\S]*?"\$RUNNER_OS" "\$RUNNER_ARCH"[\s\S]*?"\$\{ImageOS:-unknown-image\}" "\$\{ImageVersion:-unknown-version\}"/u,
+    /printf "\| Release tag \| \\`%s\\` \|\\n" "\$GITHUB_REF_NAME"/u,
   );
   assert.match(
     identityBlock,
-    /printf '\| Node \| `%s` \|\\n' "\$node_version"/u,
+    /printf "\| Source commit \| \\`%s\\` \|\\n" "\$GITHUB_SHA"/u,
   );
-  assert.match(identityBlock, /printf '\| npm \| `%s` \|\\n' "\$npm_version"/u);
+  assert.match(
+    identityBlock,
+    /printf "\| Runner \| \\`%s %s; %s %s\\` \|\\n"[\s\S]*?"\$RUNNER_OS" "\$RUNNER_ARCH"[\s\S]*?"\$\{ImageOS:-unknown-image\}" "\$\{ImageVersion:-unknown-version\}"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Node \| \\`%s\\` \|\\n" "\$node_version"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| npm \| \\`%s\\` \|\\n" "\$npm_version"/u,
+  );
   assert.equal(
     npmPackInvocations(identityBlock).length,
     0,
