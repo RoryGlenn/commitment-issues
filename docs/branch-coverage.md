@@ -8,6 +8,18 @@ Run the canonical measurement with:
 npm run test:coverage
 ```
 
+Inspect the exact denominator and test inputs without running tests or writing
+a report with:
+
+```bash
+npm run coverage:scope
+```
+
+The read-only report lists the measured runtime sources, explicit maintenance
+exclusions, top-level test patterns, and required line, branch, and function
+threshold. It reads the same constants as the real coverage runner, sorts each
+path group deterministically, and creates no LCOV or temporary report files.
+
 The command uses Node's built-in test coverage on both supported Node lines and
 requires **100% line, branch, and function coverage**. It passes every source
 file explicitly, writes a temporary LCOV report, and fails if any intended
@@ -112,7 +124,7 @@ The six percentage exclusions are not test exclusions:
 | `scripts/ci-lifecycle-smoke.mjs`           | packed-package integration fixture executed in disposable repos | `test/integration/lifecycle-manager.test.mjs`; CI manager matrix          |
 | `scripts/lib/coverage-badge.mjs`           | coverage policy and badge parser                                | `test/coverage-badge.test.mjs`, `test/test-quality.test.mjs`              |
 | `scripts/lib/lifecycle-managers.mjs`       | integration harness command definitions                         | `test/integration/lifecycle-manager.test.mjs`                             |
-| `scripts/run-branch-coverage.mjs`          | the coverage runner itself                                      | `npm run test:coverage`; contract checks in `test/metadata.test.mjs`      |
+| `scripts/run-branch-coverage.mjs`          | the coverage runner and read-only scope report                  | `npm run test:coverage`; `test/coverage-scope.test.mjs`; metadata checks  |
 | `scripts/run-lifecycle-test.mjs`           | outer package-manager integration launcher                      | `npm run test:lifecycle:*`; `test/integration/lifecycle-manager.test.mjs` |
 | `scripts/update-readme-coverage-badge.mjs` | maintainer badge updater                                        | `test/update-readme-coverage-badge.test.mjs`                              |
 
