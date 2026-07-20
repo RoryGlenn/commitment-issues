@@ -355,7 +355,7 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.match(workflow, /draft:\s+false/);
   assert.match(
     publishReleaseJob,
-    /uses: actions\/setup-node@[0-9a-f]{40} # v6[\s\S]*?node-version: "24"/u,
+    /uses: actions\/setup-node@[0-9a-f]{40} # v7[\s\S]*?node-version: "24"/u,
     "the final recovery and note generator must run on the pinned release runtime",
   );
   assert.match(workflow, /name:\s+\$\{\{ github\.ref_name \}\}/u);
