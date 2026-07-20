@@ -102,6 +102,7 @@ claim-to-scenario map remains in
 | `scripts/lib/checks.mjs`          | lint, formatting, test, timeout, and finding classification                            | `test/checks.test.mjs`                                                                 |
 | `scripts/lib/commit-guards.mjs`   | branch and worktree guards across Git states                                           | `test/commit-guards.test.mjs`                                                          |
 | `scripts/lib/config.mjs`          | package/standalone precedence, validation, defaults, and diagnostics                   | `test/config.test.mjs`                                                                 |
+| `scripts/lib/debug-artifacts.mjs` | opt-in staged debug rules, false-positive policy, exemptions, and aggregate findings   | `test/debug-artifacts.test.mjs`, `test/debug-artifacts-integration.test.mjs`           |
 | `scripts/lib/files.mjs`           | NUL-safe Git paths, ownership, stable project-file writes, workspace roots, and paths  | `test/lib-files.test.mjs`, `test/path-normalization.test.mjs`, `test/property.test.js` |
 | `scripts/lib/hooks.mjs`           | hook classification, resolution, ownership, and safe writes                            | `test/hooks.test.mjs`                                                                  |
 | `scripts/lib/json-output.mjs`     | stable machine-readable schema and status mapping                                      | `test/json-output.test.mjs`                                                            |

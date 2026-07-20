@@ -40,10 +40,20 @@ import {
   envFileFindings,
   filterExemptFindings,
   findingLines,
-  inspectSecretDiffResult,
+  inspectStagedDiffResult,
   resolveSecretScanConfig,
+  secretFindingsForAddedLines,
   secretsIssue,
 } from "./lib/secret-scan.mjs";
+import {
+  DEBUG_ARTIFACT_CHECK_ID,
+  DEBUG_ARTIFACT_FINDING_ID,
+  DEBUG_ARTIFACT_UNAVAILABLE_ID,
+  debugArtifactFindingsForGitAddedLines,
+  debugArtifactScanUnavailableIssue,
+  debugArtifactsIssue,
+  resolveDebugArtifactConfig,
+} from "./lib/debug-artifacts.mjs";
 import {
   buildAdvisoryMessage,
   plural,
@@ -142,6 +152,7 @@ const config = loadPrecommitConfig();
 const hookOutput = resolveHookOutput(config);
 const guardConfig = resolveGuardConfig(config);
 const secretScanConfig = resolveSecretScanConfig(config);
+const debugArtifactConfig = resolveDebugArtifactConfig(config);
 const jsonOutput = createJsonOutput({
   command: "precommit",
   mode:
@@ -345,6 +356,25 @@ jsonOutput.addCheck({
 
 const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
 
+// Secrets and debug-artifact advisories share one validated staged patch. The
+// parser preserves unusual Git paths, ignores binary/deletion-only sections,
+// and exposes only added lines to deterministic local rules.
+const stagedDiff =
+  secretScanConfig.scanSecrets || debugArtifactConfig.scanDebugArtifacts
+    ? run("git", [
+        ...GIT_PATH_ARGS,
+        "diff",
+        "--cached",
+        "-U0",
+        "--no-color",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+      ])
+    : null;
+const stagedDiffInspection = stagedDiff
+  ? inspectStagedDiffResult(stagedDiff)
+  : { addedLines: [], inspected: false, outcome: "disabled" };
+
 // Staged-secrets scan: high-precision patterns against *added* lines only,
 // plus staged .env files. Advisory mode warns and continues when the patch is
 // unavailable; explicit blocking mode fails closed.
@@ -358,20 +388,14 @@ function collectSecretFindings() {
     };
   }
   const findings = [...envFileFindings(rawStagedFiles)];
-  const diff = run("git", [
-    ...GIT_PATH_ARGS,
-    "diff",
-    "--cached",
-    "-U0",
-    "--no-color",
-  ]);
-  const inspection = inspectSecretDiffResult(diff);
-  findings.push(...inspection.findings);
+  findings.push(
+    ...secretFindingsForAddedLines(stagedDiffInspection.addedLines),
+  );
   return {
     findings: filterExemptFindings(findings, secretScanConfig.secretExempt),
-    diffInspected: inspection.inspected,
-    inspectionOutcome: inspection.outcome,
-    diffStatus: diff.status,
+    diffInspected: stagedDiffInspection.inspected,
+    inspectionOutcome: stagedDiffInspection.outcome,
+    diffStatus: stagedDiff.status,
   };
 }
 
@@ -426,6 +450,57 @@ jsonOutput.addCheck({
     diffInspected: secretDiffInspected,
     inspectionOutcome: secretInspectionOutcome,
     status: secretDiffStatus,
+  },
+});
+
+const debugArtifactFindings = debugArtifactConfig.scanDebugArtifacts
+  ? debugArtifactFindingsForGitAddedLines(
+      stagedDiffInspection.addedLines,
+      debugArtifactConfig.debugArtifactExempt,
+    )
+  : [];
+const debugArtifactScanUnavailable =
+  debugArtifactConfig.scanDebugArtifacts && !stagedDiffInspection.inspected;
+const debugArtifactIssues = [];
+if (debugArtifactScanUnavailable) {
+  debugArtifactIssues.push(
+    debugArtifactScanUnavailableIssue(stagedDiffInspection.outcome),
+  );
+}
+const debugArtifactIssue = debugArtifactsIssue(debugArtifactFindings);
+if (debugArtifactIssue) {
+  debugArtifactIssues.push(debugArtifactIssue);
+}
+
+jsonOutput.addCheck({
+  id: DEBUG_ARTIFACT_CHECK_ID,
+  status: !debugArtifactConfig.scanDebugArtifacts
+    ? "skipped"
+    : debugArtifactScanUnavailable || debugArtifactFindings.length > 0
+      ? "advisory"
+      : "passed",
+  summary: !debugArtifactConfig.scanDebugArtifacts
+    ? "Debug artifact scanning is disabled"
+    : debugArtifactScanUnavailable
+      ? "Debug artifact diff could not be inspected"
+      : debugArtifactFindings.length > 0
+        ? `${debugArtifactFindings.length} temporary debug artifact${debugArtifactFindings.length === 1 ? "" : "s"} found`
+        : "No temporary debug artifacts found",
+  details: {
+    findingId: debugArtifactScanUnavailable
+      ? DEBUG_ARTIFACT_UNAVAILABLE_ID
+      : debugArtifactFindings.length > 0
+        ? DEBUG_ARTIFACT_FINDING_ID
+        : null,
+    findingCount: debugArtifactFindings.length,
+    findings: debugArtifactFindings,
+    diffInspected: debugArtifactConfig.scanDebugArtifacts
+      ? stagedDiffInspection.inspected
+      : false,
+    inspectionOutcome: debugArtifactConfig.scanDebugArtifacts
+      ? stagedDiffInspection.outcome
+      : "disabled",
+    status: debugArtifactConfig.scanDebugArtifacts ? stagedDiff.status : null,
   },
 });
 
@@ -491,6 +566,8 @@ function collectGuardIssues() {
   if (secretIssue) {
     guardIssues.push(secretIssue);
   }
+
+  guardIssues.push(...debugArtifactIssues);
 
   const branchIssue = protectedBranchIssue(branch, guardConfig);
   if (branchIssue) {
@@ -577,7 +654,9 @@ function collectGuardIssues() {
 }
 
 const issues = collectGuardIssues();
-const guardIssues = issues.filter((issue) => issue.type !== "secrets");
+const guardIssues = issues.filter(
+  (issue) => issue.type !== "secrets" && issue.type !== DEBUG_ARTIFACT_CHECK_ID,
+);
 jsonOutput.addCheck({
   id: "commit-guards",
   status: guardIssues.length > 0 ? "advisory" : "passed",

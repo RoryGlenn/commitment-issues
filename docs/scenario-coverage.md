@@ -199,6 +199,9 @@ production-readiness workstream #130 is consolidated in the
 - **CFG-009** — malformed JSON and non-object standalone roots warn at hook time and fall back to package configuration. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
 - **CFG-010** — nested `commitMessage` keys are allowlisted, sanitized, typo-diagnosed, and disabled unless `enabled: true`. Unit: `test/config.test.mjs`.
 - **CFG-011** — valid standalone values remain active when the package source is malformed; hooks surface the package failure instead of changing policy silently. Unit/subprocess: `test/config.test.mjs`, `test/precommit.test.mjs`.
+- **CFG-012** — `scanDebugArtifacts` and `debugArtifactExempt` are allowlisted,
+  type-checked, sanitized, and remain disabled unless explicitly enabled. Unit:
+  `test/config.test.mjs`, `test/debug-artifacts.test.mjs`.
 
 ### CLI command matrix
 
@@ -334,6 +337,39 @@ production-readiness workstream #130 is consolidated in the
 - **PRE-015** — the default-on Commit Owl welcome appears once per clone as the sole final box for an eligible clean/informational result, uses a Git-common-directory marker shared by linked worktrees, stays readable at narrow widths, and supports an explicit opt-out. Unit/fixture: `test/welcome.test.mjs`.
 - **PRE-016** — JSON mode, `--no-verify`, `COMMITMENT_ISSUES=0`, and legacy `HUSKY=0` neither display nor consume the welcome; marker probe/write/render failures never block checks. Unit/real-Git fixture: `test/welcome.test.mjs`.
 - **PRE-017** — a first-run warning or error takes priority without rendering or consuming the welcome, preserving the one-box invariant in both hook-output modes. Unit/fixture: `test/welcome.test.mjs`.
+
+### Debug-artifact advisory
+
+- **DBG-001** — every curated JavaScript, Python, Ruby, TODO-remove, and
+  FIXME-temporary rule has a unique stable ID, rationale, language scope, and
+  positive fixture. Unit: `test/debug-artifacts.test.mjs`.
+- **DBG-002** — same-line strings, prose, comment-prefixed statements, inline
+  comments, unsupported files, removed lines, and unchanged context do not
+  fire. Multiline block comments, template strings, and triple-quoted strings
+  document and test the zero-context scanner's physical-line limitation plus
+  path-exemption escape hatch. Default docs, fixture, snapshot, and effective
+  generated-path exclusions are explicit and may be replaced by repository
+  exemptions. Unit/fixture:
+  `test/debug-artifacts.test.mjs`, `test/debug-artifacts-integration.test.mjs`.
+- **DBG-003** — the shared staged-patch parser preserves quoted control-byte,
+  Unicode, newline, and literal-backslash paths, reports accurate added-line
+  numbers, accepts binary, rename, and deletion sections, and rejects malformed
+  structure. Canonical CLI prefixes defeat hostile repository diff-prefix
+  configuration, and newline-bearing paths still honor glob exemptions.
+  Unit/fixture:
+  `test/debug-artifacts.test.mjs`, `test/debug-artifacts-integration.test.mjs`.
+- **DBG-004** — all matches aggregate into one advisory human finding and one
+  command-level presentation; JSON publishes the stable `debug-artifacts`
+  check, detected/unavailable subtype IDs inside extensible check details, and
+  structured rule details while preserving both exit `0` and the strict JSON
+  schema-v1 finding shape. Subprocess:
+  `test/debug-artifacts-integration.test.mjs`,
+  `test/json-output.test.mjs`.
+- **DBG-005** — enabled secret and debug checks reuse one staged-patch Git
+  invocation; launch, nonzero, and malformed results remain visible
+  debug-artifact advisories rather than blockers or false clean states.
+  Unit/subprocess: `test/debug-artifacts.test.mjs`,
+  `test/debug-artifacts-integration.test.mjs`.
 
 ### Commit-message linting
 

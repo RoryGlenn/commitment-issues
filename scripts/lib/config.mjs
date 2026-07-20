@@ -40,6 +40,7 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "blockProtectedBranches",
   "blockPushOnTestFailure",
   "commitMessage",
+  "debugArtifactExempt",
   "generatedPaths",
   "hookOutput",
   "maxCommitFiles",
@@ -48,6 +49,7 @@ export const KNOWN_PRECOMMIT_CONFIG_KEYS = [
   "protectedBranches",
   "requireTests",
   "runStagedTests",
+  "scanDebugArtifacts",
   "scanSecrets",
   "secretExempt",
   "showWelcomeOnFirstCommit",
@@ -65,12 +67,14 @@ const BOOLEAN_CONFIG_KEYS = [
   "blockPushOnTestFailure",
   "requireTests",
   "runStagedTests",
+  "scanDebugArtifacts",
   "scanSecrets",
   "showWelcomeOnFirstCommit",
 ];
 
 // String-array keys share one validation/sanitization shape.
 const STRING_ARRAY_CONFIG_KEYS = [
+  "debugArtifactExempt",
   "generatedPaths",
   "protectedBranches",
   "secretExempt",

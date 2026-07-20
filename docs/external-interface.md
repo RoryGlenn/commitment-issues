@@ -178,6 +178,14 @@ boundary, and optional commitlint behavior. Adding or changing a key requires
 updating the [configuration reference](configuration.md), runtime allowlist,
 and tests together.
 
+`scanDebugArtifacts` is an explicit opt-in for the local added-line advisory;
+`debugArtifactExempt` is its allowlisted repository-path exemption list. The
+check publishes the stable `debug-artifacts` check ID, a
+`debug-artifacts.detected`/`debug-artifacts.unavailable` subtype in the check's
+extensible JSON details, and per-rule identifiers. It accepts no user regular
+expressions or shell commands and does not extend the strict top-level JSON v1
+finding shape.
+
 ## Output interface
 
 Human commands render at most one outcome box per invocation. The one-time
@@ -221,6 +229,8 @@ JSON escaping rather than the visible human-output notation above.
 ## Exit behavior
 
 - Commit and push checks are advisory by default.
+- Debug-artifact findings and inspection failures are always advisory; there is
+  no blocking configuration for this check.
 - Protected-branch, secret, push-test, and commit-message blocking require the
   corresponding explicit configuration.
 - With `blockOnSecrets: true`, a detected secret and an unavailable staged-patch

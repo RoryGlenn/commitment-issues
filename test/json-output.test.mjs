@@ -29,6 +29,22 @@ const jsonOutputSchema = JSON.parse(
   fs.readFileSync(path.resolve("docs/json-output.schema.json"), "utf8"),
 );
 
+// Preserve the strict finding shape shipped before debug-artifact subtypes.
+// Schema v1 forbids undeclared top-level fields, so every v1 payload must keep
+// validating against this shape even as check-specific details grow.
+const preDebugArtifactV1FindingSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["check", "severity", "message", "autoFixable", "details"],
+  properties: {
+    check: { type: "string" },
+    severity: { enum: ["warning", "error"] },
+    message: { type: "string" },
+    autoFixable: { type: "boolean" },
+    details: { type: "array", items: { type: "string" } },
+  },
+};
+
 function assertSchemaValue(value, schema, pointer = "$") {
   if (schema.$ref) {
     const referenced = schema.$ref
@@ -97,6 +113,13 @@ function jsonPayload(result) {
   assert.equal(payload.schemaVersion, JSON_OUTPUT_SCHEMA_VERSION);
   assert.equal(payload.exitCode, result.status);
   assertSchemaValue(payload, jsonOutputSchema);
+  payload.findings.forEach((finding, index) =>
+    assertSchemaValue(
+      finding,
+      preDebugArtifactV1FindingSchema,
+      `$.findings[${index}] (pre-debug-artifact v1 shape)`,
+    ),
+  );
   for (const key of [
     "command",
     "mode",
@@ -205,6 +228,10 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
     "1",
     "two",
   ]);
+  assert.equal(
+    issueToJsonFinding({ id: "debug-artifacts.detected" }).id,
+    undefined,
+  );
 
   assert.equal(
     normalizeProcessOutcome({
@@ -422,6 +449,56 @@ test("precommit --json reports advisory findings and a safe command", (t) => {
   assert.ok(payload.findings.some((finding) => finding.check === "format"));
   assert.match(payload.suggestions[0].command, /commit:fix/);
   assert.doesNotMatch(result.stdout, /Pre-commit suggestions found|╭|╰/);
+});
+
+test("precommit JSON exposes stable debug check, rule, and subtype ids", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  commitConfig(tempDir, {
+    debugArtifactExempt: [],
+    protectedBranches: [],
+    requireTests: false,
+    scanDebugArtifacts: true,
+    scanSecrets: false,
+  });
+  writeFile(path.join(tempDir, "src", "app.py"), "pdb.set_trace()\n");
+  run("git", ["add", "src/app.py"], tempDir);
+
+  let result = cli(tempDir, ["precommit", "--json"]);
+  let payload = jsonPayload(result);
+  const check = payload.checks.find(({ id }) => id === "debug-artifacts");
+  const finding = payload.findings.find(
+    ({ check: findingCheck }) => findingCheck === "debug-artifacts",
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(payload.status, "advisory");
+  assert.equal(check.status, "advisory");
+  assert.equal(check.details.findingId, "debug-artifacts.detected");
+  assert.deepEqual(check.details.findings, [
+    {
+      file: "src/app.py",
+      line: 1,
+      ruleId: "python.pdb-set-trace",
+      label: "pdb.set_trace call",
+    },
+  ]);
+  assert.equal(finding.check, "debug-artifacts");
+  assert.equal(finding.severity, "warning");
+
+  result = cli(tempDir, ["precommit", "--json"], {
+    env: fakeGitEnv(tempDir, "diff --cached -U0"),
+  });
+  payload = jsonPayload(result);
+  assert.equal(result.status, 0);
+  assert.equal(payload.status, "advisory");
+  assert.equal(payload.findings[0].check, "debug-artifacts");
+  assert.equal(payload.findings[0].id, undefined);
+  assert.equal(
+    payload.checks.find(({ id }) => id === "debug-artifacts").details.findingId,
+    "debug-artifacts.unavailable",
+  );
 });
 
 test(

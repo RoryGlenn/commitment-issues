@@ -142,6 +142,8 @@ manager's install command; the hook does not ask `npx` to download it.
 - **Safe explicit fixes:** ambiguous partial staging, dirty tracked worktrees,
   and pushed history are refused.
 - **Related push tests:** runs tests associated with the files being pushed.
+- **Debug-junk advisory:** optionally catches common temporary instrumentation
+  only on newly staged lines.
 - **Native hook ownership:** no Husky, lint-staged, or separate hook manager.
 - **Self-repair:** `doctor` restores missing generated hooks after install or
   clone without overwriting custom hooks.
@@ -158,6 +160,7 @@ manager's install command; the hook does not ask `npx` to download it.
 | Related pushed-file tests                | Advisory after `init`               | `blockPushOnTestFailure`       |
 | Protected branches                       | Warns on direct commit/push         | `blockProtectedBranches`       |
 | Likely staged secrets and dotenv files   | Warns with file/line detail         | `blockOnSecrets`               |
+| Temporary staged debug artifacts         | Off until explicitly enabled        | Advisory only                  |
 | Branch behind upstream                   | Suggests pulling or rebasing        | —                              |
 | Oversized commits, large/generated files | Suggests a safer next step          | —                              |
 | Commit messages through commitlint       | Off until enabled, then advisory    | `commitMessage.blockOnFailure` |
@@ -218,12 +221,12 @@ Already using another system? Follow the [migration guide](docs/migration.md).
 
 ## From advisory to enforced
 
-| Action            | Default after `init`                                                              | Stricter option                              |
-| ----------------- | --------------------------------------------------------------------------------- | -------------------------------------------- |
-| `git commit`      | Reports lint, formatting, missing-test, secret, branch, and commit-shape findings | Enable the relevant secret or branch blocker |
-| `git push`        | Runs related pushed-file tests in advisory mode                                   | Enable `blockPushOnTestFailure`              |
-| Commit message    | Off until enabled, then advisory                                                  | Enable `commitMessage.blockOnFailure`        |
-| Automatic changes | Only explicit fix commands                                                        | No implicit mutation mode                    |
+| Action            | Default after `init`                                                                                                 | Stricter option                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `git commit`      | Reports lint, formatting, missing-test, secret, branch, and commit-shape findings; debug-artifact scanning is opt-in | Enable the relevant secret or branch blocker |
+| `git push`        | Runs related pushed-file tests in advisory mode                                                                      | Enable `blockPushOnTestFailure`              |
+| Commit message    | Off until enabled, then advisory                                                                                     | Enable `commitMessage.blockOnFailure`        |
+| Automatic changes | Only explicit fix commands                                                                                           | No implicit mutation mode                    |
 
 When `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes
 precedence. Roll out one enforcement choice at a time after the team has

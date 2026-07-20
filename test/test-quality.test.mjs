@@ -21,6 +21,10 @@ const runtimeTestOwners = {
   "scripts/lib/checks.mjs": ["test/checks.test.mjs"],
   "scripts/lib/commit-guards.mjs": ["test/commit-guards.test.mjs"],
   "scripts/lib/config.mjs": ["test/config.test.mjs"],
+  "scripts/lib/debug-artifacts.mjs": [
+    "test/debug-artifacts.test.mjs",
+    "test/debug-artifacts-integration.test.mjs",
+  ],
   "scripts/lib/files.mjs": [
     "test/lib-files.test.mjs",
     "test/path-normalization.test.mjs",

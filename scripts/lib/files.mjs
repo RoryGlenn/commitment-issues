@@ -222,10 +222,10 @@ export function globToRegExp(glob) {
     if (char === "*" && normalizedGlob[i + 1] === "*") {
       i += 2;
       if (normalizedGlob[i] === "/") {
-        pattern += "(?:.*/)?";
+        pattern += "(?:[\\s\\S]*/)?";
         i += 1;
       } else {
-        pattern += ".*";
+        pattern += "[\\s\\S]*";
       }
     } else if (char === "*") {
       pattern += "[^/]*";
