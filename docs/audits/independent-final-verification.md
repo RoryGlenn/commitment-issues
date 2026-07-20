@@ -25,11 +25,12 @@ Rory Glenn remains the repository owner and release authority.
 is ready for release authorization.**
 
 No new product defect or undispositioned Critical/High finding was found. The
-clean integrated source, runtime coverage, exact source-snapshot artifact,
-package-manager and migration lifecycles, locally available shells, hosted
-matrix, adversarial suites, performance tiers, documentation, visual assets,
-live GitHub controls, published v3.3.2 provenance, and the final v3.4.0
-candidate all passed.
+clean integrated source, runtime coverage, locally qualified source-snapshot
+artifact, package-manager and migration lifecycles, locally available shells,
+hosted matrix, adversarial suites, performance tiers, documentation, visual
+assets, live GitHub controls, published v3.3.2 provenance, and the v3.4.0
+packed-content baseline all passed. The hosted authoritative v3.4.0 archive did
+not exist at the time of this verdict; its later identity is recorded below.
 
 The external-fork, npm, and OpenSSF controls tracked in #180, #195, and #199
 were completed on 2026-07-16. The maintainer explicitly accepted the bounded
@@ -54,20 +55,22 @@ evidence is recorded in the Audit 6 report and external PR #227.
 
 The final packed-content baseline declares version 3.4.0. PR #232 narrowed the
 GUI support claims before release and merged at verified, DCO-compliant commit
-`279c78f`. One clean detached checkout packed the final candidate once outside
-the checkout:
+`279c78f`. One clean detached checkout packed a local pre-release qualification
+artifact once outside the checkout:
 
 | Property                 | Value                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| Classification           | Local qualification artifact; not the authoritative hosted release archive                        |
 | Filename                 | `commitment-issues-3.4.0.tgz`                                                                     |
 | Packed-content source    | `279c78ff7ae0bab64ed7b295e65c430ef7ccc84d`                                                        |
+| Pack host and toolchain  | macOS Darwin 25.5.0 arm64; Node 26.4.0; npm 11.17.0                                               |
 | SHA-256                  | `6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56`                                |
 | SHA-1                    | `8c3e4dbcd631ea504f2287a29c9289a2e2338644`                                                        |
 | SHA-512 integrity        | `sha512-s4K7a+vetXgyxCsMZb75/sIo6NJeLDxzr+e0zX0HxiP5q6LiDR7Xx65kOtnwbRqraZt1Mx77W1EUV6/MDXUK8A==` |
 | Compressed/unpacked size | 147,251 / 532,577 bytes                                                                           |
 | Manifest                 | 54 reviewed files; no bundled dependencies                                                        |
 
-Those exact bytes passed npm 11.17.0, pnpm 11.9.0, Yarn Classic 1.22.22,
+Those exact local bytes passed npm 11.17.0, pnpm 11.9.0, Yarn Classic 1.22.22,
 Yarn Berry 4.17.0 with `nodeLinker: node-modules`, macOS `/bin/sh`, and Zsh
 packed lifecycles. The first local Berry attempt stopped before product
 execution because its integrity-pinned CLI fixture had not been installed in
@@ -91,6 +94,40 @@ passed. Published-asset identity, registry attestations, SLSA provenance, and
 the clean registry install are necessarily post-publication release checks;
 they remain owned by the publish workflow and release-verification guide, not
 silently represented as pre-release evidence.
+
+### Post-publication candidate identity correction
+
+This correction was added on 2026-07-19 after
+[#235](https://github.com/RoryGlenn/commitment-issues/issues/235) identified
+that the local and hosted pack toolchains encoded the same package tree into
+different archive bytes.
+
+The later `v3.4.0` tag pointed to
+[`b561790ecaafc24942c3c5a00ff381850bc281b8`](https://github.com/RoryGlenn/commitment-issues/commit/b561790ecaafc24942c3c5a00ff381850bc281b8).
+Release run
+[29579790970](https://github.com/RoryGlenn/commitment-issues/actions/runs/29579790970)
+then produced and published the authoritative hosted candidate:
+
+| Property                | Value                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| Classification          | Authoritative hosted release archive                                               |
+| Filename                | `commitment-issues-3.4.0.tgz`                                                      |
+| Source commit           | `b561790ecaafc24942c3c5a00ff381850bc281b8`                                         |
+| Pack host and toolchain | GitHub-hosted `ubuntu-24.04` x64 image `20260714.240.1`; Node 24.18.0; npm 11.16.0 |
+| SHA-256                 | `99f421294984c2bab50e5a282dc33e59ad2137d0f26f35643f6bec09497ce3f6`                 |
+| Manifest                | 54 reviewed files; no bundled dependencies                                         |
+
+The local and hosted `.tgz` files are not byte-identical. The contemporaneous
+comparison recorded in #235 found that their extracted 54-file trees, including
+paths, contents, sizes, and modes, and their verbose tar listings were
+identical. The byte difference was confined to archive encoding or compression
+across the recorded pack environments. Therefore the local `6c9d3f…` digest
+remains valid only for the artifact built on macOS Darwin 25.5.0 arm64 with
+Node 26.4.0/npm 11.17.0; it never predicted the hosted digest. The hosted
+`99f421…` archive is authoritative because the workflow lifecycle-tested,
+hash-checked, published, attached, and generated SLSA provenance for those same
+bytes. The immutable v3.4.0 tag, npm package, GitHub Release, and assets remain
+unchanged.
 
 ## Initial independent checkout and inventory
 
@@ -459,16 +496,15 @@ npm run release:preflight -- 3.4.0
 
 ## Completion conditions
 
-Audit 9's repository, external-control, exact-candidate, classification, and
+Audit 9's repository, external-control, local-artifact, classification, and
 reporting criteria are satisfied. No Critical/High blocker or undispositioned
 audit finding remains. The unexecuted GUI-client rows are explicitly unverified
 and owned by #231; they are not release claims or launch gates.
 
-After this repository-only report change merges, repeat the packed digest and
-green-main read-back. Because `docs/audits/` is excluded from the npm package,
-the report merge must reproduce SHA-256
-`6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56`.
-Close #138 and #101 only after that read-back. Creating `v3.4.0` remains a
-separate, explicit release authorization; the tag, npm publication, provenance,
-GitHub Release, and post-publication verification must still follow the release
-workflow and immutable-tag rules.
+The original post-merge read-back reproduced local SHA-256
+`6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56`
+with the recorded local toolchain because `docs/audits/` is excluded from the
+npm package. That result qualified the local package tree and test artifact; it
+was not a cross-toolchain promise. The subsequently authorized release used the
+separate hosted identity recorded above and preserved every immutable-release
+rule.

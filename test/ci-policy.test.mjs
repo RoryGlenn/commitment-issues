@@ -665,7 +665,7 @@ test("publish shell scripts receive generated names through the environment", ()
   );
   assert.match(
     workflow,
-    /name: Generate provenance subject\s+id: hash\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: \|\s+hashes="\$\(sha256sum "\$TARBALL" \| base64 -w0\)"/su,
+    /name: Record hosted candidate identity\s+id: hash\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: \|\s+hash_line="\$\(sha256sum "\$TARBALL"\)"\s+hashes="\$\(printf '%s\\n' "\$hash_line" \| base64 -w0\)"/su,
   );
   assert.match(
     workflow,

@@ -126,6 +126,68 @@ To download the package tarball for inspection:
 npm pack "commitment-issues@$VERSION"
 ```
 
+## Authoritative candidate identity
+
+The normal release's authoritative byte-level candidate is selected by the
+hosted release workflow. After a release tag is pushed, its read-only candidate
+job packs exactly once, tests that same `.tgz`, and records the filename,
+SHA-256, release tag, source commit, runner OS/image, exact Node version, and
+exact npm version together in the workflow run summary. Every later artifact
+handoff verifies or names those same bytes.
+
+The summary describes the candidate built by that particular run; it does not
+declare the archive authoritative early. The archive becomes authoritative
+only when the later recovery and publication gates accept it. On a rerun after
+a public boundary has been crossed, the already-published bytes remain
+authoritative and a different rebuild fails closed.
+
+A tarball packed locally before the tag push is qualification evidence, not a
+prediction of the hosted digest. It can prove that the intended files install
+and behave correctly. It is byte-identical to the hosted candidate only when
+the two archive hashes actually match; the same source and package manifest do
+not establish that claim across Node or npm versions. Use the same pinned pack
+toolchain and then compare the actual hashes before promising cross-environment
+byte equality.
+
+Archive identity and extracted package-tree identity answer different
+questions:
+
+- **Archive-byte identity** means every byte in the two compressed `.tgz` files
+  matches. Equal SHA-256 values, confirmed with `cmp`, prove this.
+- **Extracted-tree identity** means the archives describe the same paths, file
+  types, modes, sizes, symlink targets, and regular-file contents. Different
+  compression or archive encoding can produce different archive hashes while
+  this tree remains identical.
+
+On the Ubuntu release environment, compare both identities separately:
+
+```bash
+LOCAL_TARBALL=/path/to/local-candidate.tgz
+HOSTED_TARBALL=/path/to/hosted-candidate.tgz
+
+sha256sum "$LOCAL_TARBALL" "$HOSTED_TARBALL"
+if cmp "$LOCAL_TARBALL" "$HOSTED_TARBALL" >/dev/null; then
+  echo "archive bytes match"
+else
+  echo "archive bytes differ; compare the extracted trees next"
+fi
+
+COMPARE_DIR="$(mktemp -d)"
+mkdir "$COMPARE_DIR/local" "$COMPARE_DIR/hosted"
+tar -xzf "$LOCAL_TARBALL" -C "$COMPARE_DIR/local"
+tar -xzf "$HOSTED_TARBALL" -C "$COMPARE_DIR/hosted"
+LC_ALL=C tar -tvzf "$LOCAL_TARBALL" | LC_ALL=C sort > "$COMPARE_DIR/local.list"
+LC_ALL=C tar -tvzf "$HOSTED_TARBALL" | LC_ALL=C sort > "$COMPARE_DIR/hosted.list"
+diff -u "$COMPARE_DIR/local.list" "$COMPARE_DIR/hosted.list"
+diff --recursive --no-dereference \
+  "$COMPARE_DIR/local/package" "$COMPARE_DIR/hosted/package"
+```
+
+The first two commands test compressed archive bytes. The two `diff` commands
+then test semantic archive metadata and extracted contents. Record each
+candidate's digest, runner/pack host, and Node/npm versions with the result; a
+clean tree comparison must never be reported as an equal archive digest.
+
 ## GitHub release assets
 
 Beginning with v3.3.2, the npm and GitHub Release tarballs are byte-identical and

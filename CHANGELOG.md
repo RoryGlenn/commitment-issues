@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Release evidence now treats the hosted workflow's single accepted tarball as
+  the authoritative byte-level candidate and records each run's SHA-256,
+  source, tag, runner OS/image, and exact Node/npm versions together without
+  blessing a rejected rebuild. Local pre-release packs remain content and
+  behavior evidence without promising identical compressed bytes across
+  environments; Audit 9 now records both v3.4.0 artifacts accurately without
+  changing the immutable release.
 - Trusted npm publication now tolerates the registry's short metadata and
   attestation propagation delay. Only exact-version and exact-attestation HTTP
   404 responses receive bounded backoff inside a hard 60-second deadline;

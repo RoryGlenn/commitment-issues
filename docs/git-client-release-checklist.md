@@ -6,10 +6,14 @@ required CI launches the packed artifact from Bash, Fish, Zsh, POSIX `sh`,
 Windows PowerShell, and Command Prompt, while a GUI client supplies its own
 process environment and presentation of hook output.
 
-Complete this checklist against the exact release-candidate tarball after the
-required shell matrix passes and before publishing any claim of verified
-GUI-client support. Do not substitute a source checkout, `npm link`, a registry
-version, or an integrated-terminal run for the client's Source Control UI.
+Complete this checklist against one exact tarball after the required shell
+matrix passes and before publishing any claim of verified GUI-client support.
+Before the tag workflow accepts a hosted archive, that tarball is a local
+qualification artifact whose digest is scoped to its recorded pack
+environment; do not call it the authoritative release archive. After
+publication, use the accepted hosted tarball. Do not substitute a source
+checkout, `npm link`, a different registry version, or an integrated-terminal
+run for the client's Source Control UI.
 
 If a required client or host is unavailable, do not manufacture a pass. Mark
 the lane unsupported/unverified in the release evidence and compatibility
@@ -24,7 +28,10 @@ Record one shared header for the review:
 | Field                     | Value |
 | ------------------------- | ----- |
 | Candidate version         |       |
+| Artifact classification   |       |
 | Candidate tarball SHA-256 |       |
+| Pack host/runner          |       |
+| Candidate Node/npm        |       |
 | Source commit             |       |
 | Required CI run           |       |
 | Reviewer and date         |       |

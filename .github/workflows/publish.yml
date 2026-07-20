@@ -119,13 +119,32 @@ jobs:
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: node tools/run-migration-lifecycle-test.mjs npm --tarball "$TARBALL"
 
-      - name: Generate provenance subject
+      - name: Record hosted candidate identity
         id: hash
         env:
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: |
-          hashes="$(sha256sum "$TARBALL" | base64 -w0)"
+          hash_line="$(sha256sum "$TARBALL")"
+          hashes="$(printf '%s\n' "$hash_line" | base64 -w0)"
+          sha256="${hash_line%% *}"
+          node_version="$(node --version)"
+          npm_version="$(npm --version)"
           echo "hashes=$hashes" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Hosted release candidate built by this run"
+            echo
+            echo "| Evidence | Value |"
+            echo "| --- | --- |"
+            printf '| Filename | `%s` |\n' "$TARBALL"
+            printf '| SHA-256 | `%s` |\n' "$sha256"
+            printf '| Release tag | `%s` |\n' "$GITHUB_REF_NAME"
+            printf '| Source commit | `%s` |\n' "$GITHUB_SHA"
+            printf '| Runner | `%s %s; %s %s` |\n' \
+              "$RUNNER_OS" "$RUNNER_ARCH" \
+              "${ImageOS:-unknown-image}" "${ImageVersion:-unknown-version}"
+            printf '| Node | `%s` |\n' "$node_version"
+            printf '| npm | `%s` |\n' "$npm_version"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload verified release candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
