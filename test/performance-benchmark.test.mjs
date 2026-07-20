@@ -82,6 +82,18 @@ test("full-hook benchmarks reject advisory results with their report", () => {
       return true;
     },
   );
+
+  const unsafeArguments = {
+    conclusions: {
+      hookRunsPass: true,
+      hostBudgetsPass: true,
+      windowsBatchesWithinBudget: false,
+    },
+  };
+  assert.throws(
+    () => enforceBenchmarkReport(unsafeArguments, false),
+    /argument batches exceed the Windows budget/u,
+  );
 });
 
 test("Windows argv accounting is conservative and reports a bounded prefix", () => {
@@ -133,5 +145,26 @@ test("smoke benchmark proves hook correctness without asserting wall time", () =
   assert.equal(report.fixture.kept, false);
   assert.equal(report.fixture.path, null);
   assert.ok(report.argumentPressure.length >= 4);
+  assert.equal(report.conclusions.windowsBatchesWithinBudget, true);
+  assert.ok(
+    report.argumentPressure.every(
+      (entry) =>
+        entry.runtimeBatchCount >= 1 &&
+        entry.maxRuntimeBatchUnits <= entry.runtimeBudget &&
+        entry.runtimeBatchesWithinBudget,
+    ),
+  );
+  assert.equal(
+    report.argumentPressure.find(
+      (entry) => entry.name === "git ls-files --stage",
+    ).transport,
+    "whole-index NUL output with exact staged-path filtering",
+  );
+  assert.equal(report.metrics.precommit.batches.eslint.completed, 1);
+  assert.equal(report.metrics.prepush.batches["push-tests"].completed, 1);
+  assert.deepEqual(report.metrics.prepush.batches["push-tests"].summary, {
+    passed: PERFORMANCE_TIERS.smoke.pairs,
+    failed: 0,
+  });
   assert.equal(fs.existsSync(report.fixture.path || ""), false);
 });

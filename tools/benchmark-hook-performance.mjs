@@ -14,7 +14,12 @@ import {
   collectTestsForFiles,
   formatFilePattern,
 } from "../scripts/lib/files.mjs";
-import { withoutGitLocalEnvironment } from "../scripts/lib/process.mjs";
+import {
+  batchProcessArguments,
+  estimatedProcessArgumentUnits,
+  processArgumentBudget,
+  withoutGitLocalEnvironment,
+} from "../scripts/lib/process.mjs";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -146,6 +151,12 @@ export function enforceBenchmarkReport(report, enforceBudgets) {
       report,
     );
   }
+  if (report.conclusions.windowsBatchesWithinBudget === false) {
+    throw reportFailure(
+      "One or more runtime argument batches exceed the Windows budget",
+      report,
+    );
+  }
   if (enforceBudgets && !report.conclusions.hostBudgetsPass) {
     throw reportFailure("One or more measured host budgets regressed", report);
   }
@@ -227,47 +238,79 @@ function measureDiscovery(repoDir, files, iterations) {
 // argument allows for quotes, backslash escaping, and cross-spawn's additional
 // metacharacter escaping without pretending this is an exact cmd.exe parser.
 export function estimatedWindowsCommandUnits(command, args) {
-  return [command, ...args].reduce(
-    (total, value, index) =>
-      total + String(value).length * 2 + 2 + (index === 0 ? 0 : 1),
-    0,
-  );
+  return estimatedProcessArgumentUnits(command, args, "win32");
 }
 
 export function itemsWithinWindowsBudget(command, fixedArgs, items, budget) {
   let units = estimatedWindowsCommandUnits(command, fixedArgs);
+  const commandUnits = estimatedWindowsCommandUnits(command, []);
   let count = 0;
   for (const item of items) {
-    units += String(item).length * 2 + 3;
+    units += estimatedWindowsCommandUnits(command, [item]) - commandUnits;
     if (units > budget) break;
     count += 1;
   }
   return count;
 }
 
-function argumentBoundary(name, command, fixedArgs, items) {
-  const units = estimatedWindowsCommandUnits(command, [...fixedArgs, ...items]);
+function argumentBoundary(
+  name,
+  command,
+  fixedArgs,
+  items,
+  {
+    legacyFixedArgs = fixedArgs,
+    legacyItems = items,
+    transport = "bounded batches",
+  } = {},
+) {
+  const units = estimatedWindowsCommandUnits(command, [
+    ...legacyFixedArgs,
+    ...legacyItems,
+  ]);
+  const runtimeBudget = processArgumentBudget("win32");
+  const runtimeBatches =
+    items.length > 0
+      ? batchProcessArguments(command, fixedArgs, items, {
+          platform: "win32",
+          budget: runtimeBudget,
+        })
+      : [
+          {
+            args: fixedArgs,
+            items: [],
+            estimatedUnits: estimatedWindowsCommandUnits(command, fixedArgs),
+          },
+        ];
+  const maxRuntimeBatchUnits = Math.max(
+    ...runtimeBatches.map((batch) => batch.estimatedUnits),
+  );
   return {
     name,
-    itemCount: items.length,
+    itemCount: legacyItems.length,
     estimatedWindowsUnits: units,
     createProcessBudget: WINDOWS_CREATE_PROCESS_BUDGET,
     withinCreateProcessBudget: units <= WINDOWS_CREATE_PROCESS_BUDGET,
     itemsWithinCreateProcessBudget: itemsWithinWindowsBudget(
       command,
-      fixedArgs,
-      items,
+      legacyFixedArgs,
+      legacyItems,
       WINDOWS_CREATE_PROCESS_BUDGET,
     ),
     cmdBudget: WINDOWS_CMD_BUDGET,
     withinCmdBudget: units <= WINDOWS_CMD_BUDGET,
     itemsWithinCmdBudget: itemsWithinWindowsBudget(
       command,
-      fixedArgs,
-      items,
+      legacyFixedArgs,
+      legacyItems,
       WINDOWS_CMD_BUDGET,
     ),
     batchingRequiredForFullTier: units > WINDOWS_CREATE_PROCESS_BUDGET,
+    transport,
+    runtimeBudget,
+    runtimeBatchCount: runtimeBatches.length,
+    maxRuntimeBatchUnits,
+    runtimeBatchesWithinBudget: maxRuntimeBatchUnits <= runtimeBudget,
   };
 }
 
@@ -294,8 +337,20 @@ function argumentReport(stagedFiles, selectedTests) {
     argumentBoundary(
       "git ls-files --stage",
       "git.exe",
-      ["-c", "core.quotePath=false", "ls-files", "--stage", "-z", "--"],
-      stagedFiles,
+      ["-c", "core.quotePath=false", "ls-files", "--stage", "-z"],
+      [],
+      {
+        legacyFixedArgs: [
+          "-c",
+          "core.quotePath=false",
+          "ls-files",
+          "--stage",
+          "-z",
+          "--",
+        ],
+        legacyItems: stagedFiles,
+        transport: "whole-index NUL output with exact staged-path filtering",
+      },
     ),
     argumentBoundary(
       "ESLint",
@@ -497,6 +552,21 @@ function parseHookJson(result, label) {
   }
 }
 
+function hookBatchCounts(payload) {
+  return Object.fromEntries(
+    (payload.checks || [])
+      .filter((check) => Number.isInteger(check.details?.batchCount))
+      .map((check) => [
+        check.id,
+        {
+          completed: check.details.batchCount,
+          planned: check.details.plannedBatchCount,
+          summary: check.details.summary ?? null,
+        },
+      ]),
+  );
+}
+
 export async function runBenchmark(options) {
   const tier = PERFORMANCE_TIERS[options.tier];
   const repoDir = createTempRepo();
@@ -552,6 +622,7 @@ export async function runBenchmark(options) {
         stdoutBytes: Buffer.byteLength(precommitResult.stdout),
         stderrBytes: Buffer.byteLength(precommitResult.stderr),
         status: precommitPayload.status,
+        batches: hookBatchCounts(precommitPayload),
       };
 
       const base = run("git", ["rev-parse", "HEAD"], repoDir).stdout.trim();
@@ -575,6 +646,7 @@ export async function runBenchmark(options) {
         stdoutBytes: Buffer.byteLength(prepushResult.stdout),
         stderrBytes: Buffer.byteLength(prepushResult.stderr),
         status: prepushPayload.status,
+        batches: hookBatchCounts(prepushPayload),
       };
     }
 
@@ -635,6 +707,9 @@ export async function runBenchmark(options) {
         gitPathspecTransportRequired: argumentPressure
           .filter((boundary) => boundary.name === "git ls-files --stage")
           .some((boundary) => boundary.batchingRequiredForFullTier),
+        windowsBatchesWithinBudget: argumentPressure.every(
+          (boundary) => boundary.runtimeBatchesWithinBudget,
+        ),
       },
     };
     report.conclusions.hostBudgetsPass = Object.values(report.budgets).every(
@@ -664,10 +739,10 @@ function printHuman(report) {
     );
   }
   console.log(`fixture disk: ${report.fixture.diskMiB} MiB`);
-  console.log("Windows argument pressure:");
+  console.log("Windows argument transport:");
   for (const boundary of report.argumentPressure) {
     console.log(
-      `- ${boundary.name}: ${boundary.estimatedWindowsUnits}/${boundary.createProcessBudget} UTF-16 units; ${boundary.batchingRequiredForFullTier ? "batching required" : "within direct-process budget"}`,
+      `- ${boundary.name}: legacy ${boundary.estimatedWindowsUnits} units; ${boundary.runtimeBatchCount} ${boundary.transport === "bounded batches" ? "batch(es)" : "probe"}, max ${boundary.maxRuntimeBatchUnits}/${boundary.runtimeBudget}`,
     );
   }
   console.log(

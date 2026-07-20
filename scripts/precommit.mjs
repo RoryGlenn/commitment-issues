@@ -5,10 +5,10 @@ import pc from "picocolors";
 import { printHookBoxModel } from "./lib/ui.mjs";
 import {
   isNodeTestCommand,
-  nodeTestArguments,
+  nodeTestArgumentParts,
+  runBatchedCommand,
+  runToolBatches,
   TOOL_TIMEOUT_MS,
-  runTool,
-  spawnAsync,
   run,
   withoutGitLocalEnvironment,
 } from "./lib/process.mjs";
@@ -21,6 +21,7 @@ import {
 import {
   eslintManualIssues,
   formatEslintManualIssue,
+  parsePrettierList,
   summarizeEslintJson,
 } from "./lib/checks.mjs";
 import {
@@ -86,23 +87,16 @@ if (outputArgs.error) {
 const jsonMode = outputArgs.enabled;
 
 function runEslint(files) {
-  return runTool(
+  return runToolBatches(
     "eslint",
-    [
-      "--cache",
-      "--cache-strategy",
-      "content",
-      "--format",
-      "json",
-      "--",
-      ...files,
-    ],
+    ["--cache", "--cache-strategy", "content", "--format", "json", "--"],
+    files,
     { stdio: ["pipe", "pipe", "pipe"] },
   );
 }
 
 function runPrettier(files) {
-  return runTool(
+  return runToolBatches(
     "prettier",
     [
       "--cache",
@@ -113,8 +107,8 @@ function runPrettier(files) {
       "--list-different",
       "--ignore-unknown",
       "--",
-      ...files,
     ],
+    files,
     { stdio: ["pipe", "pipe", "pipe"] },
   );
 }
@@ -125,13 +119,18 @@ function runStagedTestCommand(testCommand, tests) {
   // checkout by cwd, while any nested Git fixtures remain isolated.
   const env = withoutGitLocalEnvironment();
   delete env.NODE_TEST_CONTEXT;
-  const args = isNodeTestCommand(testCommand)
-    ? nodeTestArguments(testCommand, tests)
-    : [...testCommand.slice(1), ...tests];
-  return spawnAsync(testCommand[0], args, {
-    env,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  const nodeParts = isNodeTestCommand(testCommand)
+    ? nodeTestArgumentParts(testCommand, tests)
+    : null;
+  return runBatchedCommand(
+    testCommand[0],
+    nodeParts?.fixedArgs ?? testCommand.slice(1),
+    nodeParts?.fileArgs ?? tests,
+    {
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
 }
 
 const config = loadPrecommitConfig();
@@ -527,14 +526,7 @@ function collectGuardIssues() {
   }
 
   if (guardConfig.maxFileSizeMb > 0) {
-    const index = run("git", [
-      ...GIT_PATH_ARGS,
-      "ls-files",
-      "--stage",
-      "-z",
-      "--",
-      ...rawStagedFiles,
-    ]);
+    const index = run("git", [...GIT_PATH_ARGS, "ls-files", "--stage", "-z"]);
     const indexEntries = parseLsFilesStage(index.stdout);
     if (!index.error && index.status === 0 && indexEntries !== null) {
       const objectByFile = new Map(
@@ -703,6 +695,10 @@ const prettierOutcome = normalizeProcessOutcome(prettierResult);
 const stagedTestOutcome = testRun ? normalizeProcessOutcome(testRun) : null;
 const processDidNotComplete = (outcome) =>
   ["timeout", "spawn-error", "signal", "missing-tool"].includes(outcome);
+const completedBatchResults = (result) =>
+  result.batchResults.filter(
+    (batch) => !processDidNotComplete(normalizeProcessOutcome(batch)),
+  );
 
 if (eslintResult) {
   if (processDidNotComplete(eslintOutcome)) {
@@ -716,39 +712,50 @@ if (eslintResult) {
         timeoutSeconds: TOOL_TIMEOUT_MS / 1000,
       }),
     );
-  } else {
-    const { issueCount: eslintIssueCount, fixableCount: eslintFixableCount } =
-      summarizeEslintJson(eslintResult.stdout);
-    const eslintManualCount = eslintIssueCount - eslintFixableCount;
+  }
 
-    if (eslintFixableCount > 0) {
-      issues.push({
-        autoFixable: true,
-        type: "lint",
-        message: `${eslintFixableCount} auto-fixable ESLint issue${eslintFixableCount === 1 ? "" : "s"} found`,
-      });
-    }
+  let eslintIssueCount = 0;
+  let eslintFixableCount = 0;
+  let eslintFailedWithoutIssues = false;
+  const eslintManualDetail = [];
+  for (const batch of completedBatchResults(eslintResult)) {
+    const batchSummary = summarizeEslintJson(batch.stdout);
+    eslintIssueCount += batchSummary.issueCount;
+    eslintFixableCount += batchSummary.fixableCount;
+    eslintManualDetail.push(
+      ...eslintManualIssues(batch.stdout).map((issue) =>
+        formatEslintManualIssue(issue, process.cwd()),
+      ),
+    );
+    eslintFailedWithoutIssues ||=
+      batchSummary.issueCount === 0 && batch.status > 1;
+  }
+  const eslintManualCount = eslintIssueCount - eslintFixableCount;
 
-    if (eslintManualCount > 0) {
-      const manualDetail = eslintManualIssues(eslintResult.stdout).map(
-        (issue) => formatEslintManualIssue(issue, process.cwd()),
-      );
-      issues.push({
-        autoFixable: false,
-        type: "lint",
-        message: `${eslintManualCount} ESLint issue${eslintManualCount === 1 ? "" : "s"} needing manual fixes`,
-        detail: manualDetail,
-      });
-    }
+  if (eslintFixableCount > 0) {
+    issues.push({
+      autoFixable: true,
+      type: "lint",
+      message: `${eslintFixableCount} auto-fixable ESLint issue${eslintFixableCount === 1 ? "" : "s"} found`,
+    });
+  }
 
-    if (eslintIssueCount === 0 && (eslintResult.status || 0) > 1) {
-      issues.push({
-        autoFixable: false,
-        type: "lint",
-        message: "ESLint failed before reporting any file issues",
-        detail: "Check ESLint install and project config",
-      });
-    }
+  if (eslintManualCount > 0) {
+    issues.push({
+      autoFixable: false,
+      type: "lint",
+      message: `${eslintManualCount} ESLint issue${eslintManualCount === 1 ? "" : "s"} needing manual fixes`,
+      detail: eslintManualDetail,
+    });
+  }
+
+  if (eslintFailedWithoutIssues) {
+    issues.push({
+      autoFixable: false,
+      type: "lint",
+      message: "ESLint failed before reporting any file issues",
+      detail: "Check ESLint install and project config",
+    });
   }
 }
 
@@ -772,6 +779,11 @@ jsonOutput.addCheck({
     status: eslintResult?.status ?? null,
     signal: eslintResult?.signal ?? null,
     outcome: eslintOutcome,
+    batchCount: eslintResult?.batchCount ?? 0,
+    plannedBatchCount: eslintResult?.plannedBatchCount ?? 0,
+    batchOutcomes: (eslintResult?.batchResults ?? []).map(
+      ({ outcome, status, signal }) => ({ outcome, status, signal }),
+    ),
   },
 });
 
@@ -786,32 +798,31 @@ if (processDidNotComplete(prettierOutcome)) {
       timeoutSeconds: TOOL_TIMEOUT_MS / 1000,
     }),
   );
-} else {
-  const failed = prettierResult.status !== 0 && prettierResult.status !== 1;
-  const files =
-    prettierResult.status === 1
-      ? prettierResult.stdout
-          .split("\n")
-          .map((file) => file.trim())
-          .filter(Boolean)
-      : [];
-  if (failed) {
-    // A crash (parse error, broken install) is not a formatting issue:
-    // commit:fix cannot resolve it, so never present it as auto-fixable.
-    issues.push({
-      autoFixable: false,
-      type: "format",
-      message: "Prettier failed to complete",
-      detail: "Check Prettier install and project config",
-    });
-  } else if (files.length > 0) {
-    issues.push({
-      autoFixable: true,
-      type: "format",
-      message: `${files.length} file${files.length === 1 ? "" : "s"} need Prettier formatting`,
-      detail: files,
-    });
-  }
+}
+
+let prettierFailed = false;
+const prettierFiles = [];
+for (const batch of completedBatchResults(prettierResult)) {
+  const parsed = parsePrettierList(batch.status, batch.stdout);
+  prettierFailed ||= parsed.failed;
+  prettierFiles.push(...parsed.files);
+}
+if (prettierFailed) {
+  // A crash (parse error, broken install) is not a formatting issue:
+  // commit:fix cannot resolve it, so never present it as auto-fixable.
+  issues.push({
+    autoFixable: false,
+    type: "format",
+    message: "Prettier failed to complete",
+    detail: "Check Prettier install and project config",
+  });
+} else if (prettierFiles.length > 0) {
+  issues.push({
+    autoFixable: true,
+    type: "format",
+    message: `${prettierFiles.length} file${prettierFiles.length === 1 ? "" : "s"} need Prettier formatting`,
+    detail: prettierFiles,
+  });
 }
 
 const formatIssues = issues.filter((issue) => issue.type === "format");
@@ -824,6 +835,11 @@ jsonOutput.addCheck({
     status: prettierResult.status,
     signal: prettierResult.signal,
     outcome: prettierOutcome,
+    batchCount: prettierResult.batchCount,
+    plannedBatchCount: prettierResult.plannedBatchCount,
+    batchOutcomes: prettierResult.batchResults.map(
+      ({ outcome, status, signal }) => ({ outcome, status, signal }),
+    ),
   },
 });
 
@@ -873,6 +889,11 @@ jsonOutput.addCheck({
     status: testRun?.status ?? null,
     signal: testRun?.signal ?? null,
     outcome: stagedTestOutcome,
+    batchCount: testRun?.batchCount ?? 0,
+    plannedBatchCount: testRun?.plannedBatchCount ?? 0,
+    batchOutcomes: (testRun?.batchResults ?? []).map(
+      ({ outcome, status, signal }) => ({ outcome, status, signal }),
+    ),
   },
 });
 

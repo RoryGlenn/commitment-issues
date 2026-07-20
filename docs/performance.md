@@ -71,36 +71,77 @@ unlike machines. Refresh the dated table when a deliberate scaling change is
 accepted; preserve the command, tier, host details, and before/after reports in
 the pull request.
 
-## Current path-count boundary
+## Bounded argument transport
 
-The hooks currently pass path lists directly as child-process arguments. There
-is no universal safe file count because the limit depends on every path's
-length, quoting, executable path, configured test command, operating system,
-and launcher.
+There is no universal safe file count because the limit depends on every
+path's length, encoding, quoting, executable path, configured test command,
+operating system, and launcher. The hooks therefore use one greedy,
+argument-aware policy rather than a maximum number of files:
 
-The benchmark therefore reports a conservative UTF-16 command-line estimate
-against a 30,000-unit Windows direct-process budget and a 7,500-unit `cmd.exe`
-budget. For the `large` tier's 135–140-unit hostile paths, the direct-process
-prefix was approximately:
+| Runtime             | Per-launch budget | Accounting and safety margin                                                                  |
+| ------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| Windows             | 6,000 units       | Conservative UTF-16 estimate including doubled quoting/escaping allowance; below `cmd.exe`    |
+| macOS, Linux, POSIX | 24,000 bytes      | UTF-8 command and argv bytes including NUL terminators; well below supported-host exec limits |
 
-| Invocation             | Items within 30,000 units | Items within 7,500 units | Full 250-pair tier |
-| ---------------------- | ------------------------- | ------------------------ | ------------------ |
-| `git ls-files --stage` | 108                       | 27                       | batching required  |
-| ESLint                 | 106                       | 25                       | batching required  |
-| Prettier               | 107                       | 26                       | batching required  |
-| Configured Node tests  | 105                       | 26                       | batching required  |
+The executable and every fixed configured option count against the same
+budget. Variable arguments are added in order while the estimate remains at or
+below the boundary; a path is never split. This intentionally defines no file
+count. If even the fixed command or one legal item cannot fit, the hook reports
+the same structured unavailable-command advisory or blocking result it uses
+for a launch failure.
 
-At the `argv-pressure` tier's 167–172-unit paths, the direct-process prefixes
-fall to 86–88 items and the `cmd.exe` prefixes to 20–22. These are conservative
-fixture-specific planning values, not advertised product maxima.
+ESLint, Prettier, staged tests, and pre-push tests run their batches
+sequentially under one overall configured timeout. A normal non-zero exit does
+not skip later batches, so findings and failures from every path are retained.
+A timeout, signal, or spawn failure stops later launches; the existing
+process-tree cleanup applies to the interrupted child. Node's configured
+options remain before `--`, configured positional tests run once, discovered
+leading-hyphen paths remain unambiguous, and Git-local environment variables
+remain stripped.
 
-Accordingly, the full large tier is measured as correct on the recorded POSIX
-host, while Windows correctness is supported only when the complete command
-fits its launcher limit. The follow-up is tracked in
-[#212](https://github.com/RoryGlenn/commitment-issues/issues/212): it must use
-bounded batches for ESLint, Prettier, and configured tests, plus bounded Git
-pathspec transport, while preserving aggregate findings, exit behavior,
-NUL-safe path handling, timeouts, and test-selection semantics.
+The pre-commit large-file guard no longer sends staged paths back to
+`git ls-files`. It reads the whole index once with `--stage -z`, parses the
+NUL-delimited records, and filters the exact staged-path set locally. This is
+semantically equivalent for stage-zero blobs and also preserves conflicted and
+hostile path parsing without a pathspec argv.
+
+### Issue #212 before/after validation
+
+The change was measured on 2026-07-20 using Node 24.14.0, Git 2.51.1, Linux
+x64, and an Intel Xeon Platinum 8573C host. These same-host timings verify that
+bounded transport stays inside the existing budgets; they are not performance
+guarantees.
+
+| Tier            | Measurement      | Before    | After     | Result |
+| --------------- | ---------------- | --------- | --------- | ------ |
+| `large`         | Discovery median | 10.611 ms | 13.440 ms | passed |
+| `large`         | Pre-commit       | 7.864 s   | 4.501 s   | passed |
+| `large`         | Pre-push         | 3.142 s   | 3.556 s   | passed |
+| `large`         | Fixture disk     | 0.713 MiB | 0.713 MiB | passed |
+| `argv-pressure` | Discovery median | 75.036 ms | 74.152 ms | passed |
+| `argv-pressure` | Fixture disk     | 0.885 MiB | 0.885 MiB | passed |
+
+On the after-change POSIX `large` run, pre-commit completed all three ESLint
+batches, all three Prettier batches, and both staged-test batches. Pre-push
+completed both test batches and aggregated the expected `250 passed, 0 failed`
+summary.
+
+The report retains the legacy unbounded Windows estimate for comparison and
+also plans the actual bounded transport. Every planned batch stays within the
+6,000-unit runtime budget:
+
+| Invocation             | `large` legacy | `large` transport (max units) | `argv-pressure` legacy | `argv-pressure` transport (max units) |
+| ---------------------- | -------------- | ----------------------------- | ---------------------- | ------------------------------------- |
+| `git ls-files --stage` | 139,143        | 1 whole-index probe (109)     | 684,143                | 1 whole-index probe (109)             |
+| ESLint                 | 139,413        | 25 batches (5,973)            | 684,413                | 125 batches (5,885)                   |
+| Prettier               | 139,556        | 27 batches (5,833)            | 684,556                | 134 batches (5,681)                   |
+| Configured Node tests  | 70,910         | 13 batches (5,820)            | 347,160                | 63 batches (5,712)                    |
+
+Boundary tests cover just-under, exact-boundary, and multi-batch inputs for
+both POSIX-byte and Windows-unit accounting. The ordinary sharded Windows CI
+runs those tests and the real multi-batch hook regressions on Node 22.11.0 and
+Node 24, providing hosted Windows evidence without adding wall-clock
+assertions.
 
 ## Regression policy
 

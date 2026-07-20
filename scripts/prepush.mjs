@@ -15,9 +15,10 @@ import {
 } from "./lib/message.mjs";
 import {
   isNodeTestCommand,
+  nodeTestArgumentParts,
   nodeTestArguments,
   run,
-  spawnAsync,
+  runBatchedCommand,
   TOOL_TIMEOUT_MS,
   withoutGitLocalEnvironment,
 } from "./lib/process.mjs";
@@ -573,6 +574,24 @@ delete env.NODE_TEST_CONTEXT;
 let result;
 let summary = null;
 
+function aggregateTestSummaries(batchResult, summaries) {
+  if (
+    summaries.some((entry) => entry === null) ||
+    batchResult.batchResults.some(
+      (entry) => entry.outcome !== "success" && entry.outcome !== "nonzero",
+    )
+  ) {
+    return null;
+  }
+  return summaries.reduce(
+    (totals, entry) => ({
+      passed: totals.passed + entry.passed,
+      failed: totals.failed + entry.failed,
+    }),
+    { passed: 0, failed: 0 },
+  );
+}
+
 if (isNodeTest) {
   // Keep reporter output below a freshly created private directory. A
   // predictable shared-temp filename can collide with or follow an attacker-
@@ -581,29 +600,48 @@ if (isNodeTest) {
     path.join(os.tmpdir(), "commitment-issues-prepush-"),
   );
   const tapFile = path.join(tapDir, "results.tap");
-  const args = nodeTestArguments(testCommand, testFiles, [
+  const parts = nodeTestArgumentParts(testCommand, testFiles, [
     "--test-reporter=spec",
     "--test-reporter-destination=stdout",
     "--test-reporter=tap",
     `--test-reporter-destination=${tapFile}`,
   ]);
-  result = await spawnAsync(testCommand[0], args, {
-    env,
-    stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
-  });
+  const batchSummaries = [];
   try {
-    summary = parseNodeTestSummary(fs.readFileSync(tapFile, "utf8"));
-  } catch {
-    summary = null;
+    result = await runBatchedCommand(
+      testCommand[0],
+      parts.fixedArgs,
+      parts.fileArgs,
+      {
+        env,
+        stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
+        beforeBatch: () => fs.writeFileSync(tapFile, ""),
+        afterBatch: () =>
+          batchSummaries.push(
+            parseNodeTestSummary(fs.readFileSync(tapFile, "utf8")),
+          ),
+      },
+    );
+    summary = aggregateTestSummaries(result, batchSummaries);
   } finally {
     fs.rmSync(tapDir, { recursive: true, force: true });
   }
 } else {
-  result = await spawnAsync(fullCommand[0], fullCommand.slice(1), {
-    env,
-    echo: !jsonMode,
-  });
-  summary = parseNodeTestSummary(`${result.stdout}\n${result.stderr}`);
+  result = await runBatchedCommand(
+    testCommand[0],
+    testCommand.slice(1),
+    testFiles,
+    {
+      env,
+      echo: !jsonMode,
+    },
+  );
+  summary = aggregateTestSummaries(
+    result,
+    result.batchResults.map((batch) =>
+      parseNodeTestSummary(`${batch.stdout}\n${batch.stderr}`),
+    ),
+  );
 }
 
 if (jsonMode) {
@@ -652,6 +690,13 @@ if (testDidNotComplete) {
       error: result.error?.message || null,
       outcome: testOutcome,
       summary,
+      batchCount: result.batchCount,
+      plannedBatchCount: result.plannedBatchCount,
+      batchOutcomes: result.batchResults.map(({ outcome, status, signal }) => ({
+        outcome,
+        status,
+        signal,
+      })),
     },
   });
   if (blocking) {
@@ -715,6 +760,13 @@ if (testOutcome === "nonzero") {
       signal: result.signal,
       outcome: testOutcome,
       summary,
+      batchCount: result.batchCount,
+      plannedBatchCount: result.plannedBatchCount,
+      batchOutcomes: result.batchResults.map(({ outcome, status, signal }) => ({
+        outcome,
+        status,
+        signal,
+      })),
     },
   });
   if (blocking) {
@@ -773,6 +825,13 @@ jsonOutput.addCheck({
     signal: result.signal,
     outcome: testOutcome,
     summary,
+    batchCount: result.batchCount,
+    plannedBatchCount: result.plannedBatchCount,
+    batchOutcomes: result.batchResults.map(({ outcome, status, signal }) => ({
+      outcome,
+      status,
+      signal,
+    })),
   },
 });
 

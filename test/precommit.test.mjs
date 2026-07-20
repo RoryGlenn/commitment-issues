@@ -934,6 +934,54 @@ test("pluralizes formatting issues across multiple files", (t) => {
   );
 });
 
+test("aggregates ESLint and Prettier findings across argument batches", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    requireTests: false,
+    protectedBranches: [],
+  });
+  const fileCount = 240;
+  for (let index = 0; index < fileCount; index += 1) {
+    const name = `batch-${String(index).padStart(3, "0")}-${"x".repeat(105)}.js`;
+    writeFile(
+      path.join(tempDir, "src", "batched", name),
+      `const unused${index}=${index}\n`,
+    );
+  }
+  run("git", ["add", "src/batched"], tempDir);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs"), "--json"],
+    tempDir,
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  const eslint = payload.checks.find((check) => check.id === "eslint");
+  const prettier = payload.checks.find((check) => check.id === "prettier");
+
+  assert.ok(eslint.details.plannedBatchCount > 1);
+  assert.equal(eslint.details.batchCount, eslint.details.plannedBatchCount);
+  assert.equal(eslint.details.outcome, "nonzero");
+  assert.ok(
+    eslint.details.batchOutcomes.every(
+      (batch) => batch.outcome === "nonzero" && batch.status === 1,
+    ),
+  );
+  assert.ok(prettier.details.plannedBatchCount > 1);
+  assert.equal(prettier.details.batchCount, prettier.details.plannedBatchCount);
+  assert.equal(prettier.details.outcome, "nonzero");
+  assert.ok(
+    prettier.details.batchOutcomes.every(
+      (batch) => batch.outcome === "nonzero" && batch.status === 1,
+    ),
+  );
+  assert.match(JSON.stringify(payload.findings), /240 ESLint issues/u);
+  assert.match(JSON.stringify(payload.findings), /240 files need Prettier/u);
+});
+
 test(
   "passes exact NUL-delimited pathological paths to staged tests",
   { skip: process.platform === "win32" },
