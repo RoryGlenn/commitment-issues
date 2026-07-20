@@ -16,6 +16,51 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "..");
+const usage = "Usage: node scripts/run-branch-coverage.mjs [--scope]";
+
+function scopeList(title, values) {
+  return [
+    `${title} (${values.length}):`,
+    ...[...values].sort().map((value) => `  ${value}`),
+  ];
+}
+
+function coverageScopeText() {
+  return [
+    "Runtime coverage scope",
+    "",
+    ...scopeList("Measured runtime source files", BRANCH_COVERAGE_SOURCE_FILES),
+    "",
+    ...scopeList(
+      "Explicitly excluded maintenance source files",
+      BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES,
+    ),
+    "",
+    ...scopeList("Test file patterns", BRANCH_COVERAGE_TEST_PATTERNS),
+    "",
+    "Required coverage threshold:",
+    `  lines: ${RUNTIME_COVERAGE_THRESHOLD}%`,
+    `  branches: ${RUNTIME_COVERAGE_THRESHOLD}%`,
+    `  functions: ${RUNTIME_COVERAGE_THRESHOLD}%`,
+  ].join("\n");
+}
+
+const cliArgs = process.argv.slice(2);
+const unknownOption = cliArgs.find((argument) => argument !== "--scope");
+if (unknownOption) {
+  console.error(`Unknown option: ${unknownOption}`);
+  console.error(usage);
+  process.exit(1);
+}
+if (cliArgs.length > 1) {
+  console.error("The --scope option may be supplied only once.");
+  console.error(usage);
+  process.exit(1);
+}
+if (cliArgs[0] === "--scope") {
+  console.log(coverageScopeText());
+  process.exit(0);
+}
 
 function topLevelTests() {
   const suffixes = BRANCH_COVERAGE_TEST_PATTERNS.map((pattern) =>

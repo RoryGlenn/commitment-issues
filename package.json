@@ -99,6 +99,7 @@
     "release:validate": "node tools/validate-release-metadata.mjs",
     "test": "node --test test/*.test.mjs test/*.test.js",
     "test:coverage": "node scripts/run-branch-coverage.mjs",
+    "coverage:scope": "node scripts/run-branch-coverage.mjs --scope",
     "coverage:badge": "node scripts/update-readme-coverage-badge.mjs",
     "coverage:check": "node scripts/update-readme-coverage-badge.mjs --check",
     "test:precommit": "node scripts/precommit.mjs",
