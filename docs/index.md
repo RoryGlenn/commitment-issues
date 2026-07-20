@@ -8,6 +8,7 @@ not installed with the npm package unless users need it offline.
 ## Start here
 
 - [Project overview and quickstart](../README.md)
+- [Try it safely in a disposable repository](try-it-safely.md)
 - [Before/after workflow and why it matters](why-before-ci.md)
 - [Configuration and behavior](configuration.md) — canonical option, default,
   validation, and check behavior reference

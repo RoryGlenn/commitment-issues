@@ -866,6 +866,7 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
     "docs/migration.md",
     "docs/monorepo.md",
     "docs/release-verification.md",
+    "docs/try-it-safely.md",
     "docs/why-before-ci.md",
     "docs/yarn-berry.md",
   ]);
