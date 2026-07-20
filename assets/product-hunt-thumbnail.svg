@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="img" aria-labelledby="title desc">
+  <title id="title">Commitment Issues Product Hunt thumbnail</title>
+  <desc id="desc">A dark square with a bright split-heart mark and the Commitment Issues name.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#080c1c"/>
+      <stop offset="1" stop-color="#17102b"/>
+    </linearGradient>
+    <linearGradient id="heart" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5555"/>
+      <stop offset="0.55" stop-color="#ff6f72"/>
+      <stop offset="1" stop-color="#c86cff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .sans { font-family: "DejaVu Sans", sans-serif; }
+    </style>
+  </defs>
+  <rect width="240" height="240" rx="42" fill="url(#background)"/>
+  <circle cx="120" cy="88" r="74" fill="#552d84" opacity="0.16"/>
+  <path d="M120 159 C96 137 56 112 56 76 C56 50 77 34 98 38 C109 40 117 47 120 57 C123 47 131 40 142 38 C163 34 184 50 184 76 C184 112 144 137 120 159Z" fill="url(#heart)" filter="url(#glow)"/>
+  <path d="M116 48 L128 70 L116 86 L129 103 L114 121 L123 151" fill="none" stroke="#0d1021" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <g class="sans" text-anchor="middle">
+    <text x="120" y="192" fill="#f8fafc" font-size="20" font-weight="800" letter-spacing="0.2">commitment</text>
+    <text x="120" y="218" fill="#ff6f72" font-size="24" font-weight="900" letter-spacing="0.6">issues</text>
+  </g>
+</svg>

@@ -849,6 +849,15 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
     "assets/before-after.svg",
     "assets/before-after.png",
     "assets/demo.gif",
+    "assets/product-hunt-thumbnail.svg",
+    "assets/product-hunt-thumbnail.png",
+    "assets/product-hunt-01-before-after.png",
+    "assets/product-hunt-02-setup.svg",
+    "assets/product-hunt-02-setup.png",
+    "assets/product-hunt-03-advisory.svg",
+    "assets/product-hunt-03-advisory.png",
+    "assets/product-hunt-04-safe-fix.svg",
+    "assets/product-hunt-04-safe-fix.png",
   ]) {
     assert.equal(
       files.has(promotionalAsset),

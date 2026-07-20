@@ -14,6 +14,44 @@ const flowchartPaths = [
   "assets/project-flowchart-light.svg",
   "assets/project-flowchart-dark.svg",
 ];
+const productHuntPngs = [
+  {
+    path: "assets/product-hunt-thumbnail.png",
+    width: 240,
+    height: 240,
+    maximumBytes: 3 * 1024 * 1024,
+  },
+  ...[
+    "assets/product-hunt-01-before-after.png",
+    "assets/product-hunt-02-setup.png",
+    "assets/product-hunt-03-advisory.png",
+    "assets/product-hunt-04-safe-fix.png",
+  ].map((assetPath) => ({
+    path: assetPath,
+    width: 1270,
+    height: 760,
+    maximumBytes: 130 * 1024,
+  })),
+];
+const productHuntSvgSources = [
+  "assets/product-hunt-thumbnail.svg",
+  "assets/product-hunt-02-setup.svg",
+  "assets/product-hunt-03-advisory.svg",
+  "assets/product-hunt-04-safe-fix.svg",
+];
+const productHuntRenderMappings = [
+  ["assets/product-hunt-thumbnail.svg", "assets/product-hunt-thumbnail.png"],
+  ["assets/before-after.svg", "assets/product-hunt-01-before-after.png"],
+  ["assets/product-hunt-02-setup.svg", "assets/product-hunt-02-setup.png"],
+  [
+    "assets/product-hunt-03-advisory.svg",
+    "assets/product-hunt-03-advisory.png",
+  ],
+  [
+    "assets/product-hunt-04-safe-fix.svg",
+    "assets/product-hunt-04-safe-fix.png",
+  ],
+];
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -294,18 +332,98 @@ test("hero story pairs a reusable comparison with a 20–30 second real workflow
     rationale,
     /raw\.githubusercontent\.com\/RoryGlenn\/commitment-issues\/main\/assets\/before-after\.svg/,
   );
-  for (const surface of [
-    "Product Hunt",
-    "LinkedIn",
-    "Reddit",
-    "Hacker News",
-    "X",
-  ]) {
+  for (const surface of ["Product Hunt", "LinkedIn", "Reddit", "X"]) {
     assert.ok(launch.includes(surface), `launch kit should cover ${surface}`);
   }
+  assert.doesNotMatch(launch, /Hacker News/);
   assert.match(launch, /assets\/before-after\.svg/);
   assert.match(launch, /assets\/before-after\.png/);
   assert.match(launch, /assets\/demo\.gif/);
+});
+
+test("Product Hunt media pack is upload-ready and tied to approved copy", () => {
+  const launch = read("promo/launch.md");
+  const workflow = read(".github/workflows/render-demo.yml");
+  const tagline = "Catch mistakes early with advisory-first Git hooks";
+  const description =
+    "Catch mistakes while they're still cheap to fix. Commitment Issues spots Git workflow problems before your first push, suggests the exact safe command, and stays advisory by default. Local-only, telemetry-free, open source, for JavaScript and TypeScript.";
+
+  assert.equal(tagline.length, 50);
+  assert.ok(tagline.length <= 60);
+  assert.equal(description.length, 254);
+  assert.ok(description.length <= 260);
+  assert.ok(launch.includes(`**Tagline (50/60 characters):** \`${tagline}\``));
+  assert.ok(
+    launch.includes(`**Description (254/260 characters):** \`${description}\``),
+  );
+  assert.match(launch, /\*\*Pricing:\*\* Free/);
+  assert.match(launch, /\*\*Status:\*\* Available now/);
+  assert.match(launch, /Developer Tools, Open Source, GitHub/);
+  assert.match(launch, /Human-only first maker comment worksheet/);
+  assert.match(launch, /Rory must write and approve the final first/);
+  assert.match(launch, /request for feedback rather than a request for votes/);
+  assert.match(
+    read("assets/product-hunt-03-advisory.svg"),
+    /By default, your commit continues/,
+  );
+
+  for (const asset of productHuntPngs) {
+    const buffer = fs.readFileSync(path.join(root, asset.path));
+    assert.deepEqual(
+      pngDimensions(buffer),
+      { width: asset.width, height: asset.height },
+      `${asset.path} should retain its Product Hunt dimensions`,
+    );
+    assert.ok(
+      buffer.byteLength <= asset.maximumBytes,
+      `${asset.path} should remain within its upload budget`,
+    );
+    assert.ok(launch.includes(asset.path));
+  }
+
+  for (const sourcePath of productHuntSvgSources) {
+    const svg = read(sourcePath);
+    const expectedSize = sourcePath.includes("thumbnail") ? 240 : 1270;
+    const expectedHeight = sourcePath.includes("thumbnail") ? 240 : 760;
+    assert.match(svg, new RegExp(`width="${expectedSize}"`));
+    assert.match(svg, new RegExp(`height="${expectedHeight}"`));
+    assert.match(svg, /font-family: "DejaVu Sans"/);
+    assert.ok(launch.includes(sourcePath));
+  }
+
+  assert.match(workflow, /assets\/product-hunt-\*/);
+  for (const output of productHuntPngs.map(
+    ({ path: assetPath }) => assetPath,
+  )) {
+    assert.ok(
+      workflow.includes(output),
+      `render workflow should regenerate ${output}`,
+    );
+  }
+  assert.match(
+    workflow,
+    /pad=1270:760:35:42:color=0x060a18/,
+    "the first gallery card should deterministically pad the plain-language comparison",
+  );
+  const renderStep = workflow.match(
+    /- name: Render Product Hunt media pack\s+run: \|\n([\s\S]*?)\n\s+- name: Render assets\/demo\.gif/,
+  )?.[1];
+  assert.ok(renderStep, "workflow should expose one bounded media-render step");
+  const renderedPairs = [
+    ...renderStep.matchAll(
+      /-i (assets\/\S+)[\s\S]*?-frames:v 1 -y (assets\/\S+)/g,
+    ),
+  ].map(([, source, output]) => [source, output]);
+  assert.deepEqual(
+    renderedPairs,
+    productHuntRenderMappings,
+    "each Product Hunt PNG should be rendered from its documented SVG source",
+  );
+  assert.match(workflow, /name: Upload rendered Product Hunt media pack/);
+  assert.match(
+    workflow,
+    /name: Verify rendered Product Hunt assets match committed exports/,
+  );
 });
 
 test("demo tape records a reproducible feature-branch workflow", () => {
