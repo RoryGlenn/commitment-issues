@@ -462,9 +462,38 @@ test("panic describes staged, deleted, untracked, and hostile paths without inte
   assert.match(output, /untracked file/);
   assert.match(output, /git diff --cached/);
   assert.match(output, /git diff/);
-  assert.match(output, /git ls-files --others --exclude-standard/);
+  assert.match(
+    output,
+    /git ls-files --others --exclude-standard --full-name -- :\//,
+  );
   assert.match(output, /git restore --staged -- :\//);
   assert.doesNotMatch(output, /quote|semi;colon|untracked notes/);
+  assertReadOnlyAndSafe(result, before, tempDir);
+});
+
+test("panic keeps its untracked inspection repository-wide from a subdirectory", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const nestedDir = path.join(tempDir, "nested");
+  fs.mkdirSync(nestedDir);
+  writeFile(path.join(tempDir, "outside.txt"), "keep me\n");
+  const before = snapshotTree(tempDir);
+
+  const result = sourceCli(nestedDir);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /untracked file/);
+  assert.match(
+    result.stdout,
+    /git ls-files --others --exclude-standard --full-name -- :\//,
+  );
+  const inspection = run(
+    "git",
+    ["ls-files", "--others", "--exclude-standard", "--full-name", "--", ":/"],
+    nestedDir,
+  );
+  assert.equal(inspection.status, 0, inspection.stderr);
+  assert.equal(inspection.stdout.trim(), "outside.txt");
   assertReadOnlyAndSafe(result, before, tempDir);
 });
 

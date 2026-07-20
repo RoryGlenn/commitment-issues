@@ -286,7 +286,7 @@ export function buildPanicGuide(facts) {
   if (status.untracked > 0) {
     steps.push(
       inspection(
-        "git ls-files --others --exclude-standard",
+        "git ls-files --others --exclude-standard --full-name -- :/",
         "Lists untracked, non-ignored files without adding or deleting them.",
       ),
     );
