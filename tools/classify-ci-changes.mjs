@@ -42,7 +42,6 @@ const PACKAGE_MANAGER_FILES = new Set([
   "package.json",
   "pnpm-lock.yaml",
   "yarn.lock",
-  "scripts/ci-lifecycle-smoke.mjs",
   "scripts/lib/lifecycle-managers.mjs",
   "scripts/run-lifecycle-test.mjs",
   "tools/run-migration-lifecycle-test.mjs",

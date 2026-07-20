@@ -126,7 +126,7 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   const lock = readJson("package-lock.json");
   const berryFixture = readJson("test/fixtures/yarn-berry/package.json");
   const berryLock = readJson("test/fixtures/yarn-berry/package-lock.json");
-  const lifecycle = readText("scripts/ci-lifecycle-smoke.mjs");
+  const lifecycle = readText("test/integration/helpers/lifecycle-fixture.mjs");
   const workflow = readText(".github/workflows/ci.yml");
   const windowsNpmJob = workflow
     .split(/^ {2}windows-npm-lifecycle:$/m)[1]
@@ -166,6 +166,11 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
     pkg.scripts["test:migration:yarn"],
     "node tools/run-migration-lifecycle-test.mjs yarn",
   );
+  assert.deepEqual(
+    Object.keys(pkg.scripts).filter((name) => name.startsWith("test:smoke")),
+    [],
+    "the structured lifecycle suite should have one canonical script family",
+  );
   assert.equal(lock.packages["node_modules/yarn"].version, "1.22.22");
   assert.match(lock.packages["node_modules/yarn"].integrity, /^sha512-/);
   assert.equal(berryFixture.dependencies["@yarnpkg/cli-dist"], "4.17.0");
@@ -195,12 +200,12 @@ test("package-manager lifecycle CI covers supported OSes and the Node floor", ()
   assert.match(job, /bun-version: "1\.3\.14"/);
   assert.match(
     lifecycle,
-    /function yarnBerryTarballSpec\(tarball\)[\s\S]*?sha256\(artifact\) === sha256\(tarball\)[\s\S]*?return "commitment-issues@file:\.\.\/yarn-berry-artifact\/commitment-issues\.tgz"/u,
+    /function yarnBerryTarballSpec\(tarball, tempRoot\)[\s\S]*?sha256\(artifact\) === sha256\(tarball\)[\s\S]*?return "commitment-issues@file:\.\.\/yarn-berry-artifact\/commitment-issues\.tgz"/u,
     "Yarn Berry should receive an identified, digest-checked relative tarball locator",
   );
   assert.match(
     lifecycle,
-    /case "yarn-berry":[\s\S]*?yarnBerryTarballSpec\(tarball\)[\s\S]*?case "bun":/u,
+    /case "yarn-berry":[\s\S]*?yarnBerryTarballSpec\(tarball, tempRoot\)[\s\S]*?case "bun":/u,
     "the Yarn Berry install should use the portable staged locator",
   );
 });
@@ -253,7 +258,10 @@ test("bootstrap dependency ranges stay inside the verified Node and tool matrix"
     eslint: "^9.0.0 || ^10.0.0",
     prettier: "^3.0.0",
   });
-  assert.match(readText("scripts/ci-lifecycle-smoke.mjs"), /"globals@\^17"/);
+  assert.match(
+    readText("test/integration/helpers/lifecycle-fixture.mjs"),
+    /"globals@\^17"/,
+  );
 
   for (const file of [
     "README.md",
@@ -692,7 +700,8 @@ test("Audit 7 records the completed npm publication control", () => {
   assert.match(audit, /`mfa=publish`/);
   assert.match(audit, /zero\s+account tokens/);
   assert.doesNotMatch(audit, /not yet authorized to publish/);
-  assert.match(audit, /Accepted and deferred as non-blocking maintenance/);
+  assert.match(audit, /Addressed with named `node:test` phases/);
+  assert.match(audit, /failures identify their phase directly/);
   assert.match(
     audit,
     /01cbf76a27b0bc82d4334021a067fcd34ad7a62aa0ec9c6044efe78c5932551e/,
@@ -1005,9 +1014,8 @@ test("every terminal box title appears in the message-states gallery", () => {
     .join("\n");
   const haystack = `${docs}\n${svgText}`;
 
-  // User-facing entry scripts plus the advisory-message builder. The
-  // maintainer-only scripts (ci-lifecycle-smoke, update-readme-coverage-badge)
-  // are deliberately outside the documented gallery.
+  // User-facing entry scripts plus the advisory-message builder. Maintainer
+  // lifecycle and coverage tooling is deliberately outside the gallery.
   const sources = [
     "scripts/cli.mjs",
     "scripts/commit-fix.mjs",

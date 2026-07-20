@@ -15,7 +15,7 @@
 - Recovery classifier: `tools/release-recovery.mjs`
 - Lifecycle integration: `scripts/run-lifecycle-test.mjs` →
   `test/integration/lifecycle-manager.test.mjs` →
-  `scripts/ci-lifecycle-smoke.mjs`
+  `test/integration/helpers/lifecycle-fixture.mjs`
 - Cross-version migration integration:
   `test/integration/lifecycle-migration.test.mjs`
 
@@ -112,16 +112,16 @@ satisfies the prospective link invariant.
 
 ## Tracked findings
 
-| Issue                                                             | Final disposition                                                                                                                                                                                               |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#96](https://github.com/RoryGlenn/commitment-issues/issues/96)   | Closed by #190: pinned forward-upgrade fixtures, ownership-preservation assertions, real Git behavior, and an explicit unsupported in-place-downgrade/manual-rollback contract.                                 |
-| [#175](https://github.com/RoryGlenn/commitment-issues/issues/175) | Accepted and deferred as non-blocking maintenance. The real stateful lifecycle remains required and passing; named phases improve diagnostics and ownership but do not fill a release-integrity or support gap. |
-| [#183](https://github.com/RoryGlenn/commitment-issues/issues/183) | Closed by #189: fail-closed partial-publication classification, exact provenance continuity, immutable draft rules, and fix-forward recovery.                                                                   |
-| [#184](https://github.com/RoryGlenn/commitment-issues/issues/184) | Closed by #191: release metadata validation, reviewed changelog extraction, exact Release title/body inputs, recovery checks, and a fixed historical exceptions ledger.                                         |
-| [#185](https://github.com/RoryGlenn/commitment-issues/issues/185) | Closed by #192: explicit runtime allowlist, package-import closure, and hosted package-manager evidence exclude maintainer-only scripts.                                                                        |
-| [#186](https://github.com/RoryGlenn/commitment-issues/issues/186) | Closed by #193: exact-manifest and clean-install link validation plus canonical GitHub URLs for repository-only targets.                                                                                        |
-| [#187](https://github.com/RoryGlenn/commitment-issues/issues/187) | Closed by #194: time-bounded contributor grants, an effective authority matrix, and a recurring dated access review.                                                                                            |
-| [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Control completed 2026-07-16: owner authentication verified this repository, `publish.yml`, no Environment claim, publish permission, `mfa=publish`, `auth-and-writes` 2FA, and zero tokens.                    |
+| Issue                                                             | Final disposition                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#96](https://github.com/RoryGlenn/commitment-issues/issues/96)   | Closed by #190: pinned forward-upgrade fixtures, ownership-preservation assertions, real Git behavior, and an explicit unsupported in-place-downgrade/manual-rollback contract.                                                                           |
+| [#175](https://github.com/RoryGlenn/commitment-issues/issues/175) | Addressed with named `node:test` phases over one shared disposable lifecycle. Exact tarball, real-hook, package-manager matrix, workspace, clone, worktree, repair, and uninstall evidence remains stateful while failures identify their phase directly. |
+| [#183](https://github.com/RoryGlenn/commitment-issues/issues/183) | Closed by #189: fail-closed partial-publication classification, exact provenance continuity, immutable draft rules, and fix-forward recovery.                                                                                                             |
+| [#184](https://github.com/RoryGlenn/commitment-issues/issues/184) | Closed by #191: release metadata validation, reviewed changelog extraction, exact Release title/body inputs, recovery checks, and a fixed historical exceptions ledger.                                                                                   |
+| [#185](https://github.com/RoryGlenn/commitment-issues/issues/185) | Closed by #192: explicit runtime allowlist, package-import closure, and hosted package-manager evidence exclude maintainer-only scripts.                                                                                                                  |
+| [#186](https://github.com/RoryGlenn/commitment-issues/issues/186) | Closed by #193: exact-manifest and clean-install link validation plus canonical GitHub URLs for repository-only targets.                                                                                                                                  |
+| [#187](https://github.com/RoryGlenn/commitment-issues/issues/187) | Closed by #194: time-bounded contributor grants, an effective authority matrix, and a recurring dated access review.                                                                                                                                      |
+| [#195](https://github.com/RoryGlenn/commitment-issues/issues/195) | Control completed 2026-07-16: owner authentication verified this repository, `publish.yml`, no Environment claim, publish permission, `mfa=publish`, `auth-and-writes` 2FA, and zero tokens.                                                              |
 
 ## Release-readiness verdict
 

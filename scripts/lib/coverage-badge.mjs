@@ -25,7 +25,6 @@ export const RUNTIME_COVERAGE_THRESHOLD = 100;
 // Repository/package-maintenance automation is validated by its own tests and
 // lifecycle gates, but it is not part of the user-facing runtime percentage.
 export const BRANCH_COVERAGE_EXCLUDED_SOURCE_FILES = Object.freeze([
-  "scripts/ci-lifecycle-smoke.mjs",
   "scripts/lib/coverage-badge.mjs",
   "scripts/lib/lifecycle-managers.mjs",
   "scripts/run-branch-coverage.mjs",

@@ -532,7 +532,7 @@ test("required npm CI lifecycle lanes consume explicitly prebuilt tarballs", () 
   );
   assert.doesNotMatch(
     wrapper,
-    /includes\(`\[lifecycle smoke\] supplied tarball: \$\{tarball\}`\)/,
+    /includes\(`\[lifecycle integration\] supplied tarball: \$\{tarball\}`\)/,
     "TAP escapes Windows path separators differently across Node versions",
   );
 });
@@ -575,31 +575,25 @@ test("manual exact-tarball publishing tests the artifact it publishes", () => {
 test("lifecycle runners validate and forward an explicit tarball without a shell", () => {
   const runner = readText("scripts/run-lifecycle-test.mjs");
   const integration = readText("test/integration/lifecycle-manager.test.mjs");
-  const smoke = readText("scripts/ci-lifecycle-smoke.mjs");
-  const packedModes = smoke.slice(
-    smoke.indexOf("function assertPackedModes"),
-    smoke.indexOf("function inspectPackedTarball"),
+  const fixture = readText("test/integration/helpers/lifecycle-fixture.mjs");
+  const packedModes = fixture.slice(
+    fixture.indexOf("function assertPackedModes"),
+    fixture.indexOf("function inspectPackedTarball"),
   );
-  const installedCli = smoke.slice(
-    smoke.indexOf("function assertInstalledCli"),
-    smoke.indexOf("function assertFileContains"),
-  );
-  const digestMarker = smoke.slice(
-    smoke.indexOf("const initialTarballHash"),
-    smoke.indexOf("const packedMetadata"),
+  const installedCli = fixture.slice(
+    fixture.indexOf("function assertInstalledCli"),
+    fixture.indexOf("function assertFileContains"),
   );
 
   assert.match(runner, /--tarball/);
   assert.match(runner, /COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
   assert.match(runner, /delete childEnv\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
-  assert.match(integration, /COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
-  assert.match(integration, /smokeArgs\.push\("--tarball", tarball\)/);
-  assert.match(
-    integration,
-    /delete smokeEnv\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/,
-  );
-  assert.match(smoke, /--tarball/);
-  assert.match(smoke, /lstatSync\(resolved\)\.isFile\(\)/);
+  assert.match(runner, /lstatSync\(resolved\)\.isFile\(\)/);
+  assert.match(integration, /createLifecycleIntegration/);
+  assert.match(integration, /for \(const phase of lifecycle\.phases\)/);
+  assert.match(integration, /t\.test\(phase\.name/);
+  assert.match(fixture, /process\.env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(fixture, /lstatSync\(resolved\)\.isFile\(\)/);
   assert.match(
     packedModes,
     /if \(!shouldEnforcePosixPackageModes\(\)\) \{[\s\S]*?return;[\s\S]*?cli\?\.mode === 0o755[\s\S]*?file\.mode !== 0o644/,
@@ -616,19 +610,37 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
     /shouldEnforcePosixPackageModes/,
     "bin, shebang, and version checks must remain unconditional on Windows",
   );
-  assert.match(smoke, /delete env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(fixture, /delete env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
   assert.match(
-    digestMarker,
+    fixture,
     /if \(suppliedTarball\) \{[\s\S]*?SUPPLIED_TARBALL_DIGEST_PREFIX[\s\S]*?initialTarballHash/,
     "only a supplied artifact should emit its initial digest handshake",
   );
   assert.match(
-    smoke,
-    /let tarball = suppliedTarball;\s+if \(tarball\) \{[\s\S]*?supplied tarball:[\s\S]*?\} else \{[\s\S]*?run\("npm", \["pack", "--pack-destination", packDir\], root\)/,
+    fixture,
+    /tarball = suppliedTarball;\s+if \(tarball\) \{[\s\S]*?supplied tarball:[\s\S]*?\} else \{[\s\S]*?run\("npm", \["pack", "--pack-destination", packDir\], root\)/,
     "a supplied tarball must bypass the branch that creates a disposable package",
   );
+  assert.equal(
+    fixture.match(/run\("npm", \["pack",/gu)?.length ?? 0,
+    1,
+    "one stateful lifecycle should pack at most once",
+  );
+  for (const phaseName of [
+    "select the package manager",
+    "pack and inspect the exact artifact",
+    "install the packed artifact and discover workspaces",
+    "initialize and wire the hooks",
+    "commit and defer the first-run welcome",
+    "push through the real pre-push hook",
+    "repair a fresh clone",
+    "exercise a linked worktree",
+    "preview uninstall and remove owned setup",
+  ]) {
+    assert.match(fixture, new RegExp(`name: "${phaseName}"`, "u"));
+  }
   assert.doesNotMatch(
-    `${runner}\n${integration}\n${smoke}`,
+    `${runner}\n${integration}\n${fixture}`,
     /(?:execSync|spawnSync)\([^\n]*\$\{/,
     "tarball paths must cross process boundaries as argv, never shell text",
   );
@@ -652,10 +664,10 @@ test("lifecycle artifact helpers preserve exact output and platform boundaries",
   assert.equal(shouldEnforcePosixPackageModes("win32"), false);
 
   const digest = "0123456789abcdef".repeat(4);
-  const marker = `[lifecycle smoke] supplied tarball sha256: ${digest}`;
+  const marker = `[lifecycle integration] supplied tarball sha256: ${digest}`;
   assert.equal(
     hasSuppliedTarballDigest(
-      `# [lifecycle smoke] supplied tarball: C:\\\\Temp\\\\package.tgz\r\n# ${marker}\r\n`,
+      `# [lifecycle integration] supplied tarball: C:\\\\Temp\\\\package.tgz\r\n# ${marker}\r\n`,
       digest,
     ),
     true,

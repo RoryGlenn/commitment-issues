@@ -158,18 +158,18 @@ The final checkout was verified on macOS 26.5.2 with Node 26.4.0 and npm
 11.17.0. Terminal subprocesses set their own TTY, color, width, CI, and limited
 terminal hints rather than inheriting an interactive claim from the host.
 
-| Command                                                            | Result                                                         |
-| ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Targeted UI, welcome, message-state, JSON, and visual-asset suites | 57/57 passed                                                   |
-| `npm run lint`                                                     | Passed                                                         |
-| `npm run format:check`                                             | Passed                                                         |
-| `npm test`                                                         | 693/693 passed                                                 |
-| `npm run test:coverage`                                            | 693/693 passed; 100% lines, branches, and functions            |
-| `npm run coverage:check`                                           | Passed; README branch-coverage badge current at 100.0%         |
-| `npm run states`                                                   | 42/42 live scenarios completed with expected exits and ≤ 1 box |
-| `npm run test:lifecycle:npm`                                       | 1/1 packed npm lifecycle/workspace/worktree smoke passed       |
-| `npm pack --dry-run --json --ignore-scripts`                       | 57 files; 137,584-byte tarball, 498,524 bytes unpacked         |
-| `git diff --check`                                                 | Passed                                                         |
+| Command                                                            | Result                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Targeted UI, welcome, message-state, JSON, and visual-asset suites | 57/57 passed                                                    |
+| `npm run lint`                                                     | Passed                                                          |
+| `npm run format:check`                                             | Passed                                                          |
+| `npm test`                                                         | 693/693 passed                                                  |
+| `npm run test:coverage`                                            | 693/693 passed; 100% lines, branches, and functions             |
+| `npm run coverage:check`                                           | Passed; README branch-coverage badge current at 100.0%          |
+| `npm run states`                                                   | 42/42 live scenarios completed with expected exits and ≤ 1 box  |
+| `npm run test:lifecycle:npm`                                       | All named packed npm lifecycle/workspace/worktree phases passed |
+| `npm pack --dry-run --json --ignore-scripts`                       | 57 files; 137,584-byte tarball, 498,524 bytes unpacked          |
+| `git diff --check`                                                 | Passed                                                          |
 
 Hosted Windows and non-npm package-manager results must come from the relevant
 CI/audit workstreams; they are not inferred from this local record.

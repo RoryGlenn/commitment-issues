@@ -521,7 +521,7 @@ seconds in `npm ci`. Removing 29 packs would save only about nine aggregate
 seconds before adding one producer, 30 artifact downloads, and a scheduling
 barrier. Sharing `node_modules` would cross OS/tool-shim and locked-install
 boundaries and remains prohibited. The exact-tarball argv, environment, digest,
-and immutability plumbing stays available in every lifecycle harness. A
+and immutability plumbing stays available in every lifecycle lane. A
 separate three-OS shell-group benchmark may test removal of four duplicated
 setup boundaries; package-manager lifecycle aggregation remains coordinated
 with #175 so one early failure cannot hide later evidence.
