@@ -122,6 +122,10 @@ test("fun tone rewrites the exact tool timeout and unavailable messages", () => 
     funText("Unable to run staged tests"),
     /The staged tests won't even pick up the phone/,
   );
+  assert.match(
+    funText("Staged file-size check unavailable"),
+    /would not say how much baggage they are carrying/,
+  );
 });
 
 test("standard tone keeps the exact tool timeout and unavailable messages", () => {

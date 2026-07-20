@@ -30,6 +30,7 @@ import {
   isProtectedBranch,
   largeCommitIssues,
   largeFileIssue,
+  largeFileInspectionIssue,
   parseBatchCheckSizes,
   parseNumstat,
   protectedBranchIssue,
@@ -72,6 +73,10 @@ import {
 } from "./lib/files.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
+// The whole-index probe keeps argv fixed-size for Windows while allowing far
+// more output than Node's roughly 1 MiB spawnSync default. The explicit ceiling
+// prevents an unexpectedly huge index from consuming unbounded hook memory.
+const GIT_GUARD_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 
 const outputArgs = parseJsonOutputArgs(process.argv.slice(2));
 if (outputArgs.error) {
@@ -472,8 +477,9 @@ if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
 }
 
 // Advisory guards: instant git-only facts about the commit itself (branch,
-// shape, oversized or generated files, behind-upstream). Any git hiccup here
-// skips that guard — guards must never block or fail a commit.
+// shape, oversized or generated files, behind-upstream). Guards never block a
+// commit; an unavailable file-size probe becomes a visible advisory instead of
+// silently claiming that no oversized staged blob exists.
 function collectGuardIssues() {
   const guardIssues = [];
 
@@ -526,9 +532,13 @@ function collectGuardIssues() {
   }
 
   if (guardConfig.maxFileSizeMb > 0) {
-    const index = run("git", [...GIT_PATH_ARGS, "ls-files", "--stage", "-z"]);
+    const index = run("git", [...GIT_PATH_ARGS, "ls-files", "--stage", "-z"], {
+      maxBuffer: GIT_GUARD_MAX_BUFFER_BYTES,
+    });
     const indexEntries = parseLsFilesStage(index.stdout);
-    if (!index.error && index.status === 0 && indexEntries !== null) {
+    if (index.error || index.status !== 0 || indexEntries === null) {
+      guardIssues.push(largeFileInspectionIssue(index.error));
+    } else {
       const objectByFile = new Map(
         indexEntries
           .filter((entry) => entry.stage === 0)
@@ -539,6 +549,7 @@ function collectGuardIssues() {
         .map((file) => ({ file, object: objectByFile.get(file) }));
       const batch = run("git", ["cat-file", "--batch-check"], {
         input: stagedBlobs.map(({ object }) => object).join("\n"),
+        maxBuffer: GIT_GUARD_MAX_BUFFER_BYTES,
       });
       if (!batch.error && batch.status === 0) {
         const sizeIssue = largeFileIssue(
@@ -551,6 +562,8 @@ function collectGuardIssues() {
         if (sizeIssue) {
           guardIssues.push(sizeIssue);
         }
+      } else {
+        guardIssues.push(largeFileInspectionIssue(batch.error));
       }
     }
   }

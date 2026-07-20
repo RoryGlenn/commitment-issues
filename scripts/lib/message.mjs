@@ -156,6 +156,8 @@ const FUN_EXACT_MESSAGES = {
   "Unable to run ESLint": "ESLint won't even pick up the phone",
   "Unable to run Prettier": "Prettier won't even pick up the phone",
   "Unable to run staged tests": "The staged tests won't even pick up the phone",
+  "Staged file-size check unavailable":
+    "The staged files would not say how much baggage they are carrying",
 };
 
 function issueMessage(issue, tone = "standard") {

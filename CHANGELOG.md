@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The staged large-file guard now gives its fixed-argv, NUL-safe whole-index
+  probe an explicit bounded output buffer instead of inheriting Node's roughly
+  1 MiB default. Large indexes no longer silently disable oversized-file
+  findings, and genuine Git or buffer failures remain advisory but visible.
 - Pre-commit lint, format, and staged-test checks plus configured pre-push tests
   now partition path arguments by one shared platform-aware byte/unit budget
   instead of passing an unbounded argv. Non-zero batches continue so every

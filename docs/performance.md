@@ -105,6 +105,13 @@ NUL-delimited records, and filters the exact staged-path set locally. This is
 semantically equivalent for stage-zero blobs and also preserves conflicted and
 hostile path parsing without a pathspec argv.
 
+The fixed-argv index probe uses an explicit 16 MiB output ceiling rather than
+Node's roughly 1 MiB synchronous-process default. That bound supports large
+indexes without allowing unbounded hook memory use. If Git cannot complete the
+probe or an exceptional index exceeds the ceiling, the commit remains advisory
+but reports that staged file sizes could not be inspected; it never silently
+turns an unavailable size guard into a clean result.
+
 ### Issue #212 before/after validation
 
 The change was measured on 2026-07-20 using Node 24.14.0, Git 2.51.1, Linux

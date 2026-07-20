@@ -15,6 +15,7 @@ import {
   isProtectedBranch,
   largeCommitIssues,
   largeFileIssue,
+  largeFileInspectionIssue,
   matchGeneratedPaths,
   parseBatchCheckSizes,
   parseNumstat,
@@ -207,6 +208,20 @@ test("largeFileIssue lists oversized files with sizes and an LFS nudge", () => {
   assert.equal(
     largeFileIssue(sizes, resolveGuardConfig({ maxFileSizeMb: 0 })),
     null,
+  );
+});
+
+test("largeFileInspectionIssue distinguishes Git failures from the output ceiling", () => {
+  assert.deepEqual(largeFileInspectionIssue(), {
+    autoFixable: false,
+    type: "shape",
+    message: "Staged file-size check unavailable",
+    detail:
+      "Git could not inspect staged blob sizes; retry after restoring Git access.",
+  });
+  assert.match(
+    largeFileInspectionIssue({ code: "ENOBUFS" }).detail,
+    /bounded inspection buffer/,
   );
 });
 
