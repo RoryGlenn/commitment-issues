@@ -439,7 +439,12 @@ test("panic describes staged, deleted, untracked, and hostile paths without inte
     "add unstaged deletion",
   );
 
-  const hostile = "quote';$() semi;colon ü\nfile.txt";
+  // Windows rejects control characters in filenames, so keep its hostile
+  // fixture to legal metacharacters while POSIX also exercises a newline.
+  const hostile =
+    process.platform === "win32"
+      ? "quote';$() semi;colon ü file.txt"
+      : "quote';$() semi;colon ü\nfile.txt";
   writeFile(path.join(tempDir, hostile), "staged hostile path\n");
   run("git", ["add", "--", hostile], tempDir);
   fs.unlinkSync(path.join(tempDir, "staged-delete.txt"));
