@@ -167,6 +167,82 @@ you develop on only one operating system.
 - Preserve user work. Setup, repair, and fix flows must fail safely when Git or
   the filesystem cannot prove that an operation is safe.
 
+## Working with message states
+
+`commitment-issues` prints its output as compact terminal boxes. There are two
+separate, non-overlapping tools for working with the states these boxes can
+show — don't confuse them:
+
+- **Live scenario runner** (`tools/show-message-states.mjs`) drives the real
+  entry scripts inside throwaway git repositories and streams their actual
+  output to your terminal. It covers a curated, representative subset of
+  states — useful for confirming a change behaves correctly end to end.
+- **Static SVG gallery generator** (`tools/gen-message-state-svgs.mjs`) renders
+  every documented message state as a hand-specified SVG mockup into
+  `assets/`, for the exhaustive catalog in
+  [`docs/message-states.md`](../docs/message-states.md).
+
+Both tools live in `tools/`, which is maintainer-only tooling and is excluded
+from the published npm package (outside the `package.json` `files` allowlist).
+
+### Commands
+
+| Command                                 | What it does                                                     |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `npm run states`                        | Runs every representative live scenario in a throwaway repo      |
+| `npm run states -- <filter>`            | Runs only the scenario(s) whose name includes `<filter>`         |
+| `npm run states -- --list`              | Lists all available live scenario names                          |
+| `node tools/gen-message-state-svgs.mjs` | Regenerates only the SVGs defined in that script, into `assets/` |
+
+### Adding a live scenario
+
+Add an entry to the `SCENARIOS` array in `tools/show-message-states.mjs`.
+Follow the existing `<command>/<short-description>` naming convention (for
+example `precommit/large-commit`), and use the helpers in
+`test/helpers/temp-repo.mjs` to set up the exact staged files or configuration
+needed to trigger the state, then run the real script with `script()`. If the
+scenario is expected to exit non-zero, set `expectedStatus` accordingly.
+
+### Adding or regenerating a static gallery entry
+
+1. In `tools/gen-message-state-svgs.mjs`, add a `boxSvg()` call (for a
+   bordered terminal box) or `bareSvg()` call (for plain console-line output
+   like a `doctor --quiet` warning) with the **exact wording** the command
+   prints.
+2. Run:
+
+```bash
+   node tools/gen-message-state-svgs.mjs
+```
+
+to regenerate the SVG into `assets/`.
+
+3. Add the new state to [`docs/message-states.md`](../docs/message-states.md)
+   under the matching command section, embedding the generated SVG.
+
+The metadata drift test fails the build until every terminal box title used
+in the source is documented here or in a referenced SVG — this keeps the
+gallery from silently going stale as behavior changes. Run `npm test` to
+confirm this check passes after adding a new state.
+
+### Rules
+
+- A single CLI invocation renders **at most one** human-facing box. When
+  several findings apply at once, they are consolidated into one box rather
+  than printed as separate boxes.
+- Do not duplicate the full state gallery elsewhere in the docs — link to
+  [`docs/message-states.md`](../docs/message-states.md) instead.
+- These tools only affect documentation and internal test fixtures; they do
+  not change any published runtime behavior in `scripts/`.
+
+Before opening a pull request that touches message states, run:
+
+```bash
+npm test
+npm run lint
+npm run format:check
+```
+
 ## Developer Certificate of Origin
 
 This project uses the [Developer Certificate of Origin](../DCO) to confirm that
