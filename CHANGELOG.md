@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refactored the packed package-manager lifecycle from one monolithic smoke
+  script into named `node:test` phases over one shared disposable fixture.
+  Exact-tarball inspection, real Git hooks, workspace and worktree behavior,
+  clone repair, uninstall ownership, and the npm/pnpm/Yarn/Bun CI matrices
+  remain intact, while failures now identify the lifecycle phase directly.
 - Simplified the before/after graphic into a picture-first, jargon-free story:
   send, wait, find a mistake, and redo versus spot it, fix it, and send once.
 - Redesigned CLI help around described setup, check, and fix actions, with the

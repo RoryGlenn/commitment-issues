@@ -130,13 +130,15 @@ fixtures, subprocess and exit-status assertions, property tests, exact
 structured values, filesystem state, package installation flows, and narrowly
 normalized visual comparisons.
 
-An all-script diagnostic also executed the six maintenance exclusions. Five
-were 100% in the locally available path. `scripts/ci-lifecycle-smoke.mjs`
-reported 91.46% lines, 57.63% branches, and 92.59% functions in one local npm
-run because the script deliberately contains OS and npm/pnpm/Yarn/Bun branches;
-those variants are owned by the GitHub lifecycle matrices rather than inflated
-with mocks. This is a justified integration-harness exclusion, not an
-unmeasured public-runtime module.
+At the audit snapshot, an all-maintenance diagnostic executed the then-six
+repository-only maintenance sources. Five were 100% in the locally available
+path. The former monolithic lifecycle entry reported 91.46% lines, 57.63%
+branches, and 92.59% functions in one local npm run because it deliberately
+contained OS and npm/pnpm/Yarn/Bun branches; those variants are owned by the
+GitHub lifecycle matrices rather than inflated with mocks. That behavior now
+lives in named phases at `test/integration/helpers/lifecycle-fixture.mjs`. This
+is a justified separate integration boundary, not an unmeasured public-runtime
+module.
 
 ## Verification record
 

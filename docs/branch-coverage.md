@@ -39,7 +39,6 @@ These repository-only maintenance files are neither published nor included in
 the runtime percentage:
 
 ```text
-scripts/ci-lifecycle-smoke.mjs
 scripts/lib/coverage-badge.mjs
 scripts/lib/lifecycle-managers.mjs
 scripts/run-branch-coverage.mjs
@@ -47,7 +46,9 @@ scripts/run-lifecycle-test.mjs
 scripts/update-readme-coverage-badge.mjs
 ```
 
-They still have unit or integration tests. Static invariants require every
+They still have unit or integration tests. The repository-only lifecycle
+fixture lives under `test/integration/helpers/`, so it never enters the
+automatic `scripts/**/*.mjs` denominator. Static invariants require every
 script to be classified exactly once, every runtime script and relative import
 to be packed, every maintenance script to be absent, and the public bin target
 to exist. New runtime files are therefore covered but not shipped until the
@@ -64,12 +65,12 @@ test/*.test.mjs
 test/*.test.js
 ```
 
-Test files and `test/helpers/**` drive execution but are not source files in the
-percentage denominator.
+Test files, `test/helpers/**`, and `test/integration/helpers/**` drive execution
+but are not source files in the percentage denominator.
 
 The nested `test/integration/lifecycle-manager.test.mjs` suite is reported as a
 separate **package lifecycle integration** pass/fail gate. It installs and runs
-an unpacked package copy in a temporary repository; mixing those duplicate,
+an exact packed package in a temporary repository; mixing those duplicate,
 temporary source paths into the source-tree percentage would make the badge
 less reproducible rather than more complete. CI runs the npm lifecycle gate in
 the Node/OS matrix and separate pnpm, Yarn Classic, Yarn Berry `node-modules`,
@@ -117,16 +118,17 @@ claim-to-scenario map remains in
 
 ## Maintenance and integration ownership
 
-The six percentage exclusions are not test exclusions:
+The five percentage exclusions plus the integration fixture are not test
+exclusions:
 
-| Maintenance source                         | Why it is outside the runtime percentage                        | Automated evidence                                                        |
-| ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `scripts/ci-lifecycle-smoke.mjs`           | packed-package integration fixture executed in disposable repos | `test/integration/lifecycle-manager.test.mjs`; CI manager matrix          |
-| `scripts/lib/coverage-badge.mjs`           | coverage policy and badge parser                                | `test/coverage-badge.test.mjs`, `test/test-quality.test.mjs`              |
-| `scripts/lib/lifecycle-managers.mjs`       | integration harness command definitions                         | `test/integration/lifecycle-manager.test.mjs`                             |
-| `scripts/run-branch-coverage.mjs`          | the coverage runner and read-only scope report                  | `npm run test:coverage`; `test/coverage-scope.test.mjs`; metadata checks  |
-| `scripts/run-lifecycle-test.mjs`           | outer package-manager integration launcher                      | `npm run test:lifecycle:*`; `test/integration/lifecycle-manager.test.mjs` |
-| `scripts/update-readme-coverage-badge.mjs` | maintainer badge updater                                        | `test/update-readme-coverage-badge.test.mjs`                              |
+| Maintenance source                               | Why it is outside the runtime percentage                        | Automated evidence                                                        |
+| ------------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `test/integration/helpers/lifecycle-fixture.mjs` | packed-package integration fixture executed in disposable repos | `test/integration/lifecycle-manager.test.mjs`; CI manager matrix          |
+| `scripts/lib/coverage-badge.mjs`                 | coverage policy and badge parser                                | `test/coverage-badge.test.mjs`, `test/test-quality.test.mjs`              |
+| `scripts/lib/lifecycle-managers.mjs`             | integration harness command definitions                         | `test/integration/lifecycle-manager.test.mjs`                             |
+| `scripts/run-branch-coverage.mjs`                | the coverage runner and read-only scope report                  | `npm run test:coverage`; `test/coverage-scope.test.mjs`; metadata checks  |
+| `scripts/run-lifecycle-test.mjs`                 | outer package-manager integration launcher                      | `npm run test:lifecycle:*`; `test/integration/lifecycle-manager.test.mjs` |
+| `scripts/update-readme-coverage-badge.mjs`       | maintainer badge updater                                        | `test/update-readme-coverage-badge.test.mjs`                              |
 
 ## Suppressions and meaningful-coverage rules
 
