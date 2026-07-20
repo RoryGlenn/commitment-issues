@@ -41,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Pre-commit lint, format, and staged-test checks plus configured pre-push tests
+  now partition path arguments by one shared platform-aware byte/unit budget
+  instead of passing an unbounded argv. Non-zero batches continue so every
+  finding and test summary is aggregated, while one overall timeout still
+  stops interrupted work and cleans up its process tree. The staged large-file
+  guard now reads Git's NUL-delimited whole-index stage data and filters exact
+  staged paths locally, removing its unbounded pathspec argv without weakening
+  hostile-path handling.
 - Contributor onboarding now distinguishes first-time locked dependency setup
   (`npm ci`) from the lighter hook verification and repair command
   (`npm run doctor`). The once-per-clone welcome names that repair task

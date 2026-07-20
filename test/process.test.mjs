@@ -9,16 +9,25 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { MAX_TIMEOUT_MS } from "../scripts/lib/config.mjs";
 import {
+  batchProcessArguments,
   detachedForPlatform,
+  estimatedProcessArgumentUnits,
   isNodeTestCommand,
+  nodeTestArgumentParts,
   nodeTestArguments,
+  POSIX_ARGUMENT_BUDGET_BYTES,
+  processArgumentBudget,
   run,
+  runBatchedCommand,
   toolInvocation,
   runTool,
+  runToolBatches,
+  spawnArgumentBatches,
   spawnAsync,
   isPackageInstalled,
   isToolInstalled,
   terminateProcessTree,
+  WINDOWS_ARGUMENT_BUDGET_UNITS,
   withoutGitLocalEnvironment,
 } from "../scripts/lib/process.mjs";
 
@@ -51,6 +60,114 @@ test("Node test arguments separate configured options from hostile paths", () =>
       path.resolve("-option.test.mjs"),
     ],
   );
+
+  assert.deepEqual(
+    nodeTestArgumentParts(
+      ["node", "--test", "--", "configured.test.mjs"],
+      ["normal.test.mjs", "-option.test.mjs"],
+      ["--test-reporter=tap"],
+    ),
+    {
+      fixedArgs: ["--test", "--test-reporter=tap", "--"],
+      fileArgs: [
+        "configured.test.mjs",
+        "normal.test.mjs",
+        path.resolve("-option.test.mjs"),
+      ],
+    },
+  );
+});
+
+test("argument budgets use bytes on POSIX and conservative units on Windows", () => {
+  assert.equal(processArgumentBudget("linux"), POSIX_ARGUMENT_BUDGET_BYTES);
+  assert.equal(processArgumentBudget("darwin"), POSIX_ARGUMENT_BUDGET_BYTES);
+  assert.equal(processArgumentBudget("win32"), WINDOWS_ARGUMENT_BUDGET_UNITS);
+  assert.equal(
+    estimatedProcessArgumentUnits("node", ["雪.js"], "linux"),
+    Buffer.byteLength("node") + 1 + Buffer.byteLength("雪.js") + 1,
+  );
+  assert.equal(
+    estimatedProcessArgumentUnits("node", ["雪.js"], "win32"),
+    "node".length * 2 + 2 + "雪.js".length * 2 + 3,
+  );
+});
+
+test("argument batching covers just-under, exact, and multi-batch boundaries", () => {
+  for (const platform of ["linux", "win32"]) {
+    const command = "node";
+    const fixedArgs = ["--test", "--"];
+    const first = "one test.js";
+    const exact = estimatedProcessArgumentUnits(
+      command,
+      [...fixedArgs, first],
+      platform,
+    );
+
+    const justUnder = batchProcessArguments(command, fixedArgs, [first], {
+      platform,
+      budget: exact + 1,
+    });
+    assert.equal(justUnder.length, 1);
+    assert.equal(justUnder[0].estimatedUnits, exact);
+
+    const exactBoundary = batchProcessArguments(command, fixedArgs, [first], {
+      platform,
+      budget: exact,
+    });
+    assert.deepEqual(exactBoundary[0].items, [first]);
+    assert.equal(exactBoundary[0].estimatedUnits, exact);
+
+    const multi = batchProcessArguments(
+      command,
+      fixedArgs,
+      [first, first, first],
+      { platform, budget: exact },
+    );
+    assert.equal(multi.length, 3);
+    assert.deepEqual(
+      multi.map((batch) => batch.items),
+      [[first], [first], [first]],
+    );
+    assert.ok(multi.every((batch) => batch.estimatedUnits <= exact));
+  }
+});
+
+test("argument batching maps items and rejects impossible budgets", () => {
+  const command = "node";
+  const fixedArgs = ["script.mjs"];
+  const mappedBudget = estimatedProcessArgumentUnits(
+    command,
+    [...fixedArgs, "--file", "a"],
+    "linux",
+  );
+  assert.deepEqual(
+    batchProcessArguments(command, fixedArgs, ["a", "b"], {
+      platform: "linux",
+      budget: mappedBudget,
+      itemArguments: (item) => ["--file", item],
+    }).map((batch) => batch.args),
+    [
+      ["script.mjs", "--file", "a"],
+      ["script.mjs", "--file", "b"],
+    ],
+  );
+
+  assert.throws(
+    () =>
+      batchProcessArguments(command, fixedArgs, ["a"], {
+        budget: 0,
+      }),
+    (error) => error.code === "ERR_ARGUMENT_BUDGET",
+  );
+  assert.throws(
+    () =>
+      batchProcessArguments(command, fixedArgs, ["too-long"], {
+        platform: "linux",
+        budget: estimatedProcessArgumentUnits(command, fixedArgs, "linux"),
+      }),
+    (error) => error.code === "ERR_ARGUMENT_BUDGET",
+  );
+  assert.deepEqual(batchProcessArguments(command, fixedArgs, []), []);
 });
 
 test("child environments drop Git hook routing without mutating the source", () => {
@@ -315,6 +432,93 @@ test("runTool returns missing-tool without invoking a command fallback", async (
   assert.equal(result.missingTool, "definitely-not-installed-xyz");
   assert.equal(result.status, null);
   assert.equal(result.error, undefined);
+});
+
+test("runToolBatches preserves missing-tool outcomes without a fallback", async () => {
+  const result = await runToolBatches(
+    "definitely-not-installed-xyz",
+    ["--check"],
+    ["a.js", "b.js"],
+  );
+  assert.equal(result.outcome, "missing-tool");
+  assert.equal(result.missingTool, "definitely-not-installed-xyz");
+  assert.equal(result.batchCount, 1);
+  assert.equal(result.plannedBatchCount, 0);
+});
+
+test("batched commands continue after nonzero results and aggregate output", async () => {
+  const script =
+    "process.stdout.write(process.argv[1]); process.exit(process.argv[1] === 'fail' ? 2 : 0)";
+  const fixedArgs = ["-e", script];
+  const budget = Math.max(
+    estimatedProcessArgumentUnits(
+      process.execPath,
+      [...fixedArgs, "fail"],
+      process.platform,
+    ),
+    estimatedProcessArgumentUnits(
+      process.execPath,
+      [...fixedArgs, "pass"],
+      process.platform,
+    ),
+  );
+  const callbacks = [];
+  const result = await runBatchedCommand(
+    process.execPath,
+    fixedArgs,
+    ["fail", "pass"],
+    {
+      budget,
+      itemArguments: (item) => [item],
+      beforeBatch: (_batch, index) => callbacks.push(`before-${index}`),
+      afterBatch: (batch, _plan, index) =>
+        callbacks.push(`after-${index}-${batch.outcome}`),
+    },
+  );
+
+  assert.equal(result.outcome, "nonzero");
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, "failpass");
+  assert.equal(result.batchCount, 2);
+  assert.equal(result.plannedBatchCount, 2);
+  assert.deepEqual(callbacks, [
+    "before-0",
+    "after-0-nonzero",
+    "before-1",
+    "after-1-success",
+  ]);
+});
+
+test("batched commands turn planning failures into structured outcomes", async () => {
+  const result = await runBatchedCommand("node", ["--test"], ["file.js"], {
+    budget: 1,
+  });
+  assert.equal(result.outcome, "spawn-error");
+  assert.equal(result.error?.code, "ERR_ARGUMENT_BUDGET");
+  assert.equal(result.batchCount, 1);
+  assert.equal(result.plannedBatchCount, 0);
+
+  const empty = await spawnArgumentBatches("node", []);
+  assert.equal(empty.outcome, "success");
+  assert.equal(empty.status, 0);
+  assert.equal(empty.batchCount, 0);
+});
+
+test("batched commands share one timeout across callback and child work", async () => {
+  const batches = [
+    { args: ["-e", "process.exit(0)"] },
+    { args: ["-e", "process.exit(0)"] },
+  ];
+  const result = await spawnArgumentBatches(process.execPath, batches, {
+    timeoutMs: 500,
+    beforeBatch: async (_batch, index) => {
+      if (index === 1) await delay(550);
+    },
+  });
+  assert.equal(result.outcome, "timeout");
+  assert.equal(result.timedOut, true);
+  assert.equal(result.batchCount, 2);
+  assert.equal(result.plannedBatchCount, 2);
 });
 
 test("spawnAsync captures output and resolves a status", async () => {
