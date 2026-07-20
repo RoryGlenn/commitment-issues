@@ -223,6 +223,29 @@ production-readiness workstream #130 is consolidated in the
 - **CLI-019** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
 - **CLI-020** — the hidden `vows` command dispatches successfully, renders one deterministic color-aware box, wraps in narrow terminals, and leaves worktree, package, Git config, and hook state unchanged. Unit/subprocess: `test/vows.test.mjs`, `test/cli.test.mjs`.
 - **CLI-021** — every public command's option/positional boundary is documented; unsupported options and excess arguments fail before dispatch can mutate state. Subprocess: `test/cli.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`, `test/uninstall.test.mjs`.
+- **CLI-022** — `panic` is public in global and command help, dispatches through
+  the bin, accepts no arguments, and remains outside the versioned JSON surface.
+  Subprocess: `test/cli.test.mjs`, `test/panic.test.mjs`.
+
+### Panic recovery guide
+
+- **PANIC-001** — outside-repository, clean, detached-HEAD, and verified
+  previous-branch states start with the observed state and `git status`, render
+  one deterministic box, and explain every displayed command. Unit/real-Git
+  fixture: `test/panic.test.mjs`.
+- **PANIC-002** — merge, rebase, and cherry-pick conflicts show only inspection
+  guidance; no state-changing option is displayed until both the active
+  operation and unresolved paths are absent. Real-Git fixture:
+  `test/panic.test.mjs`.
+- **PANIC-003** — staged changes, staged and unstaged deletions, untracked files,
+  and an unborn HEAD receive context-supported guidance. Unstaging is offered
+  only with an existing HEAD and preserves working-tree content. Unit/real-Git
+  fixture: `test/panic.test.mjs`.
+- **PANIC-004** — the command uses only a fixed allowlist of optional-lock-free,
+  non-interactive Git probes, never executes a displayed recovery step, and
+  never interpolates hostile paths into shell examples. Repository bytes remain
+  unchanged, and commands that discard work or force history changes are absent.
+  Unit/real-Git fixture: `test/panic.test.mjs`.
 
 ### Init
 

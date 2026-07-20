@@ -98,6 +98,15 @@ const COMMANDS = {
       },
     ],
   },
+  panic: {
+    file: "panic.mjs",
+    visibility: "primary",
+    group: "Checks",
+    order: 2,
+    summary: "Show a safe starting point after a Git mistake",
+    usage: "panic",
+    options: [],
+  },
   "commit-fix": {
     file: "commit-fix.mjs",
     visibility: "primary",
@@ -185,6 +194,7 @@ Examples:
   commitment-issues init --dry-run
   commitment-issues init
   commitment-issues doctor
+  commitment-issues panic
 
 Documentation:
   ${DOCUMENTATION_URL}`);
@@ -305,7 +315,12 @@ if (
   process.exit(1);
 }
 
-const noArgumentCommands = new Set(["commit-fix", "fix-staged", "vows"]);
+const noArgumentCommands = new Set([
+  "commit-fix",
+  "fix-staged",
+  "panic",
+  "vows",
+]);
 if (noArgumentCommands.has(commandName) && commandArgs.length > 0) {
   console.error(
     escapeTerminalText(

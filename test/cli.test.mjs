@@ -84,6 +84,11 @@ const COMMAND_HELP = [
     option: "--json",
   },
   {
+    name: "panic",
+    usage: "panic",
+    summary: "Show a safe starting point after a Git mistake",
+  },
+  {
     name: "commit-fix",
     usage: "commit-fix",
     summary: "Safely fix and amend the latest unpushed commit",
@@ -188,6 +193,7 @@ test("cli prints action-oriented global help and exits 0", (t) => {
       "commit-msg",
       "precommit",
       "prepush",
+      "panic",
       "fix-staged",
       "commit-fix",
     ].includes(name),
@@ -470,6 +476,18 @@ test("cli dispatches to fix-staged-js", (t) => {
   assert.equal(combinedOutput(result).trim(), "");
 });
 
+test("cli dispatches to panic", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const result = cli(tempDir, ["panic"], {
+    env: { ...process.env, COLUMNS: "140", NO_COLOR: "1" },
+  });
+  assert.equal(result.status, 0);
+  assert.match(combinedOutput(result), /Current state:/);
+  assert.match(combinedOutput(result), /git status/);
+});
+
 test("cli dispatches the deterministic, read-only vows Easter egg", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -559,6 +577,7 @@ test("cli rejects arguments outside each command contract", (t) => {
   for (const [args, expected] of [
     [["commit-fix", "unexpected"], /expected no arguments/],
     [["fix-staged", "unexpected"], /expected no arguments/],
+    [["panic", "unexpected"], /expected no arguments/],
     [
       ["commit-msg", "message-one", "message-two"],
       /expected one message-file argument/,
