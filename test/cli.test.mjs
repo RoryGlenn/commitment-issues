@@ -68,8 +68,9 @@ const COMMAND_HELP = [
   },
   {
     name: "commit-msg",
-    usage: "commit-msg <message-file>",
+    usage: "commit-msg <message-file> | --git-path",
     summary: "Check a commit message when invoked automatically by Git",
+    option: "--git-path",
   },
   {
     name: "precommit",
@@ -582,6 +583,7 @@ test("cli rejects arguments outside each command contract", (t) => {
       ["commit-msg", "message-one", "message-two"],
       /expected one message-file argument/,
     ],
+    [["commit-msg", "--unknown"], /unknown option '--unknown'/],
     [["precommit", "--bogus"], /unknown option '--bogus'/],
     [
       ["prepush", "origin", "url", "unexpected"],

@@ -20,12 +20,17 @@ const COMMANDS = {
     group: "Setup",
     order: 0,
     summary: "Install Git hooks in this repository",
-    usage: "init [--dry-run | -n]",
+    usage: "init [--dry-run | -n] [--integration[=husky|lefthook|pre-commit]]",
     options: [
       {
         label: "-n, --dry-run",
         flags: ["-n", "--dry-run"],
         summary: "Preview changes without modifying files or hooks",
+      },
+      {
+        label: "--integration[=<manager>]",
+        flags: ["--integration"],
+        summary: "Print safe coexistence snippets for an existing manager",
       },
     ],
   },
@@ -50,12 +55,17 @@ const COMMANDS = {
     group: "Setup",
     order: 1,
     summary: "Check and repair the installation",
-    usage: "doctor [--quiet]",
+    usage: "doctor [--quiet] [--integration[=husky|lefthook|pre-commit]]",
     options: [
       {
         label: "--quiet",
         flags: ["--quiet"],
         summary: "Stay silent when the installation is healthy",
+      },
+      {
+        label: "--integration[=<manager>]",
+        flags: ["--integration"],
+        summary: "Verify user-owned hook-manager wiring without changing it",
       },
     ],
   },
@@ -65,8 +75,15 @@ const COMMANDS = {
     group: "Integration",
     order: 0,
     summary: "Check a commit message when invoked automatically by Git",
-    usage: "commit-msg <message-file>",
-    options: [],
+    usage: "commit-msg <message-file> | --git-path",
+    options: [
+      {
+        label: "--git-path",
+        flags: ["--git-path"],
+        summary:
+          "Resolve Git's active commit-message path for manager integration",
+      },
+    ],
   },
   precommit: {
     file: "precommit.mjs",
@@ -331,7 +348,19 @@ if (noArgumentCommands.has(commandName) && commandArgs.length > 0) {
 }
 if (commandName === "commit-msg" && commandArgs.length > 1) {
   console.error(
-    `commitment-issues commit-msg: expected one message-file argument; received ${commandArgs.length}`,
+    `commitment-issues commit-msg: expected one message-file argument or --git-path; received ${commandArgs.length}`,
+  );
+  process.exit(1);
+}
+if (
+  commandName === "commit-msg" &&
+  commandArgs[0]?.startsWith("--") &&
+  commandArgs[0] !== "--git-path"
+) {
+  console.error(
+    escapeTerminalText(
+      `commitment-issues commit-msg: unknown option '${commandArgs[0]}'`,
+    ),
   );
   process.exit(1);
 }

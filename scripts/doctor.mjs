@@ -9,14 +9,20 @@ import { printBoxModel } from "./lib/ui.mjs";
 import { run, isPackageInstalled, isToolInstalled } from "./lib/process.mjs";
 import {
   BIN,
+  HOOK_MANAGERS,
   classifyHook,
+  detectHookManagers,
   effectiveHooksDir,
   gitWorkTreeState,
   gitHooksDir,
   hookInvocation,
+  hookManagerInstallCommand,
+  hookManagerSnippets,
   hookNamesForConfig,
   hooksPathConfigState,
   isHuskyHooksPath,
+  inspectHookManager,
+  inspectHookManagerRunner,
   legacyHuskyDirectoryState,
   leftoverHuskyHooks,
   writeHook,
@@ -42,20 +48,50 @@ import { escapeTerminalText } from "./lib/terminal.mjs";
 // `npm install`, including CI/Docker with no `.git`).
 
 const args = process.argv.slice(2);
-const unknownOption = args.find((argument) => argument !== "--quiet");
+const integrationOptions = args.filter(
+  (argument) =>
+    argument === "--integration" || argument.startsWith("--integration="),
+);
+const unknownOption = args.find((argument) => {
+  if (["--quiet", "--integration"].includes(argument)) {
+    return false;
+  }
+  if (argument.startsWith("--integration=")) {
+    return !HOOK_MANAGERS.includes(argument.slice("--integration=".length));
+  }
+  return true;
+});
 if (unknownOption) {
   printBoxModel({
     severity: "error",
     lines: [
       pc.bold(`Unknown doctor option: ${escapeTerminalText(unknownOption)}`),
       "",
-      pc.dim("Supported option: --quiet."),
+      pc.dim(
+        "Supported options: --quiet, --integration[=husky|lefthook|pre-commit].",
+      ),
+      pc.dim("No hooks were changed."),
+    ],
+  });
+  process.exit(1);
+}
+if (integrationOptions.length > 1) {
+  printBoxModel({
+    severity: "error",
+    lines: [
+      pc.bold("The --integration option may be supplied only once."),
+      "",
       pc.dim("No hooks were changed."),
     ],
   });
   process.exit(1);
 }
 const quiet = args.includes("--quiet");
+const requestedIntegration = integrationOptions[0]
+  ? integrationOptions[0] === "--integration"
+    ? "auto"
+    : integrationOptions[0].slice("--integration=".length)
+  : null;
 const advisorySections = [];
 
 function quietWarning(message) {
@@ -124,6 +160,73 @@ if (!gitState.inside) {
         : "Run this from inside your git project.",
     ),
   ]);
+}
+
+const managerDetection = detectHookManagers();
+let integrationManager = requestedIntegration;
+if (requestedIntegration === "auto") {
+  if (managerDetection.managers.length !== 1) {
+    const detail =
+      managerDetection.managers.length === 0
+        ? "no hook manager was detected"
+        : `multiple hook managers were detected (${managerDetection.managers.join(", ")})`;
+    if (quiet) {
+      quietWarning(
+        `commitment-issues: ${detail}; choose --integration=husky, lefthook, or pre-commit.`,
+      );
+      process.exit(0);
+    }
+    finishBox(
+      "error",
+      [
+        pc.bold("Could not choose a hook-manager owner safely."),
+        "",
+        pc.dim(`${detail}.`),
+        pc.dim(
+          "Choose explicitly with --integration=husky, --integration=lefthook, or --integration=pre-commit.",
+        ),
+        pc.dim("No hooks were changed."),
+      ],
+      1,
+    );
+  }
+  [integrationManager] = managerDetection.managers;
+}
+
+const selectedManagerConfig = integrationManager
+  ? managerDetection.configFiles[integrationManager]
+  : null;
+if (selectedManagerConfig?.status === "uninspectable") {
+  const candidates = [
+    ...selectedManagerConfig.present,
+    ...selectedManagerConfig.unsafe,
+  ];
+  const detail =
+    selectedManagerConfig.present.length > 1
+      ? `multiple recognized ${integrationManager} configuration files were detected (${candidates.join(", ")})`
+      : selectedManagerConfig.unsafe.length > 0
+        ? `the ${integrationManager} manager configuration could not be inspected safely (${candidates.join(", ")})`
+        : `the ${integrationManager} configuration format requires manual review (${candidates.join(", ")})`;
+  if (quiet) {
+    quietWarning(`commitment-issues: ${detail}; no destination was chosen.`);
+    process.exit(0);
+  }
+  finishBox(
+    "error",
+    [
+      pc.bold(`Could not choose a ${integrationManager} configuration safely.`),
+      "",
+      pc.dim(`${detail}.`),
+      pc.dim(
+        selectedManagerConfig.present.length === 1 &&
+          selectedManagerConfig.unsafe.length === 0
+          ? "Review that configuration manually or use one supported YAML main configuration."
+          : "Keep one regular manager configuration, then run doctor again.",
+      ),
+      pc.dim("No hooks were changed."),
+    ],
+    1,
+  );
 }
 
 const hooksPathState = hooksPathConfigState();
@@ -214,7 +317,163 @@ if (commitMessage.enabled && !localToolInvocation("commitlint", [])) {
 }
 
 const configuredHooksPath = hooksPathState.value;
-const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
+const configuredHooksPathLabel =
+  configuredHooksPath === "" ? '""' : configuredHooksPath;
+if (integrationManager) {
+  const report = inspectHookManager(integrationManager, hookNames);
+  const runnerReport = inspectHookManagerRunner(integrationManager, hookNames);
+  const selectedEvidence = managerDetection.evidence[integrationManager];
+  const otherManagers = managerDetection.managers.filter(
+    (manager) => manager !== integrationManager,
+  );
+  const huskyPathInactive =
+    integrationManager === "husky" &&
+    (!hooksPathState.present || !isHuskyHooksPath(configuredHooksPath));
+  const managerRunnerInactive = runnerReport.status !== "wired";
+  const healthy =
+    report.status === "wired" && !huskyPathInactive && !managerRunnerInactive;
+
+  if (otherManagers.length > 0) {
+    advisorySections.push([
+      pc.bold("Multiple hook-manager owners were detected."),
+      "",
+      pc.dim(`Also detected: ${otherManagers.join(", ")}.`),
+      pc.dim(
+        `The explicit ${integrationManager} selection was verified; no manager file was changed.`,
+      ),
+    ]);
+  }
+  if (managerDetection.lintStaged) {
+    advisorySections.push([
+      pc.bold("lint-staged composition was detected."),
+      "",
+      pc.dim(
+        "It remains user-owned and should stay in the existing pre-commit flow as a separate command.",
+      ),
+    ]);
+  }
+  if (managerDetection.unsafePaths.length > 0) {
+    advisorySections.push([
+      pc.bold("Some manager paths need manual review."),
+      "",
+      ...managerDetection.unsafePaths.map((filePath) =>
+        pc.dim(`• ${escapeTerminalText(filePath)}`),
+      ),
+    ]);
+  }
+
+  if (healthy) {
+    if (quiet) {
+      process.exit(0);
+    }
+    finishBox(
+      "success",
+      [
+        pc.bold(`${integrationManager} integration is healthy.`),
+        "",
+        pc.dim(hookSummary),
+        pc.dim("Manager-owned files were inspected but not changed."),
+      ],
+      0,
+    );
+  }
+
+  const snippets =
+    report.status === "uninspectable"
+      ? []
+      : hookManagerSnippets(integrationManager, hookNames, report.destination);
+  const inactive = report.hooks.filter(({ status }) => status !== "wired");
+  const missingEvidence = selectedEvidence.length === 0;
+  const inactiveRunners = runnerReport.hooks.filter(
+    ({ status }) => status !== "wired",
+  );
+  const reason = huskyPathInactive
+    ? `core.hooksPath is ${hooksPathState.present ? `set to ${configuredHooksPathLabel}` : "unset"}; Husky's .husky/_ path is not active`
+    : report.status === "uninspectable"
+      ? "the manager configuration could not be inspected safely"
+      : missingEvidence
+        ? `no active ${integrationManager} configuration was detected`
+        : inactive.length > 0
+          ? `missing hook entries: ${inactive.map(({ name }) => name).join(", ")}`
+          : runnerReport.status === "uninspectable"
+            ? `Git's effective ${integrationManager} hook wrappers could not be inspected safely`
+            : runnerReport.status === "foreign"
+              ? `Git's effective ${integrationManager} hook wrappers are customized or unsupported: ${inactiveRunners.map(({ name }) => name).join(", ")}`
+              : `Git's effective hooks do not dispatch to ${integrationManager}: ${inactiveRunners.map(({ name }) => name).join(", ")}`;
+  const configRemediation =
+    report.status === "wired" || report.status === "uninspectable"
+      ? []
+      : [
+          "",
+          pc.dim(
+            integrationManager === "husky"
+              ? "Place each missing guarded entry before unrelated substantive commands:"
+              : "Merge the missing entries without replacing existing commands:",
+          ),
+          ...snippets.flatMap(({ name, destination, content }) => [
+            "",
+            pc.dim(`${destination} (${name}):`),
+            ...content.trimEnd().split("\n"),
+          ]),
+        ];
+  const unsafeManagerInspection =
+    report.status === "uninspectable" ||
+    ["uninspectable", "foreign"].includes(runnerReport.status);
+  const runnerRemediation = unsafeManagerInspection
+    ? [
+        "",
+        pc.dim(
+          runnerReport.status === "foreign"
+            ? "Review the customized or unsupported manager wrappers manually."
+            : "Review the uninspectable configuration or hooks directory.",
+        ),
+        pc.dim("Do not run a manager install command until that path is safe."),
+      ]
+    : huskyPathInactive
+      ? [
+          "",
+          pc.dim("Install or refresh Husky's Git hook wrappers:"),
+          pc.dim(
+            "Run the project's existing Husky install or prepare command.",
+          ),
+        ]
+      : managerRunnerInactive
+        ? [
+            "",
+            pc.dim("Install or refresh the manager's Git hook wrappers:"),
+            integrationManager === "husky"
+              ? pc.dim(
+                  "Run the project's existing Husky install or prepare command.",
+                )
+              : hookManagerInstallCommand(
+                  integrationManager,
+                  hookNames,
+                  report.destination,
+                ),
+          ]
+        : [];
+  if (quiet) {
+    quietWarning(
+      `commitment-issues: ${integrationManager} integration is incomplete (${reason}) — run \`${runScript("doctor")} --integration=${integrationManager}\`.`,
+    );
+    process.exit(0);
+  }
+  finishBox(
+    "warning",
+    [
+      pc.bold(`${integrationManager} integration needs attention.`),
+      "",
+      pc.dim(`${escapeTerminalText(reason)}.`),
+      pc.dim("Manager-owned files were left unchanged."),
+      ...configRemediation,
+      ...runnerRemediation,
+    ],
+    1,
+  );
+}
+
+const huskyEraHooksPath =
+  hooksPathState.present && isHuskyHooksPath(configuredHooksPath);
 // A husky-era hooksPath with the husky package still installed is LIVE
 // wiring: the user is keeping husky deliberately (e.g. for a commit-msg
 // hook), and husky's own prepare would fight an automatic unset anyway.
@@ -273,7 +532,7 @@ function executableFixCommand(hooksDir, name) {
 // husky-era wiring gets the same respect, except the hook files git ultimately
 // runs live in `.husky/` (husky's `_` shims delegate there) and the suggested
 // fix is the `init` migration.
-if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
+if (hooksPathState.present && (!huskyEraHooksPath || huskyEraLive)) {
   const checkDir = huskyEraLive ? path.resolve(".husky") : effectiveHooksDir();
   if (!checkDir) {
     repairFailed([
@@ -306,7 +565,9 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
         [
           pc.bold("Git hooks are healthy."),
           "",
-          pc.dim(`core.hooksPath → ${escapeTerminalText(configuredHooksPath)}`),
+          pc.dim(
+            `core.hooksPath → ${escapeTerminalText(configuredHooksPathLabel)}`,
+          ),
           pc.dim(hookSummary),
           ...(huskyEraLive
             ? [
@@ -325,7 +586,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
   }
   if (quiet) {
     quietWarning(
-      `commitment-issues: core.hooksPath is set to ${configuredHooksPath} ` +
+      `commitment-issues: core.hooksPath is set to ${configuredHooksPathLabel} ` +
         `and its hooks are missing, inactive, or do not invoke ` +
         `commitment-issues — run \`${runScript("doctor")}\`.`,
     );
@@ -337,7 +598,7 @@ if (configuredHooksPath && (!huskyEraHooksPath || huskyEraLive)) {
       pc.bold("core.hooksPath points somewhere else."),
       "",
       pc.dim(
-        `git core.hooksPath is set to ${escapeTerminalText(configuredHooksPath)}, so git only`,
+        `git core.hooksPath is set to ${escapeTerminalText(configuredHooksPathLabel)}, so git only`,
       ),
       pc.dim(
         huskyEraLive
@@ -514,7 +775,7 @@ for (const name of [...missingHooks, ...staleHooks]) {
 const repairedHooksPathState = hooksPathConfigState();
 if (
   repairedHooksPathState.error ||
-  repairedHooksPathState.value !== "" ||
+  repairedHooksPathState.present ||
   hookNames.some((name) =>
     ["missing", "stale-wired"].includes(classifyHook(hooksDir, name)),
   )
@@ -582,8 +843,10 @@ if (
       "",
       ...(unwiredHooks.length > 0
         ? [
-            pc.dim("Add the command above to each unwired hook, or delete the"),
-            pc.dim("hook file so doctor can recreate it."),
+            pc.dim(
+              "Make the command above the first substantive line in each unwired",
+            ),
+            pc.dim("hook, or delete the hook so doctor can recreate it."),
           ]
         : []),
       ...(uninspectableHooks.length > 0

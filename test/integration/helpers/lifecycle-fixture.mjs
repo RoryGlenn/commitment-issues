@@ -5,7 +5,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import crossSpawn from "cross-spawn";
 import {
   hasExactOutputLine,
@@ -18,9 +18,18 @@ import {
   findBrokenMarkdownLinksInDirectory,
   formatBrokenMarkdownLink,
 } from "../../../tools/packed-markdown-links.mjs";
+import {
+  HUSKY_V9_RUNTIME,
+  lefthookRunner,
+  preCommitRunner,
+} from "../../helpers/hook-manager-fixtures.mjs";
 
 const integrationDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(integrationDir, "..", "..", "..");
+const managerDispatchHarnessPath = path.join(
+  integrationDir,
+  "hook-manager-dispatch-harness.mjs",
+);
 
 // Which package manager to exercise end to end. Defaults to npm. Yarn Classic
 // and Yarn Berry are separate identities so their versions, commands, layouts,
@@ -291,14 +300,46 @@ function lifecycleEnv() {
   // CI invokes this integration through an outer npm script. Let manager
   // subprocesses set their own user agent and let Git hooks use the fixture's
   // lockfile instead of inheriting a false npm identity.
-  delete env.npm_config_user_agent;
-  delete env.HUSKY;
-  delete env.COMMITMENT_ISSUES;
-  delete env.COMMITMENT_ISSUES_LIFECYCLE_PM;
-  delete env.COMMITMENT_ISSUES_LIFECYCLE_TARBALL;
+  const isolatedKeys = new Set(
+    [
+      "npm_config_user_agent",
+      "HUSKY",
+      "LEFTHOOK",
+      "LEFTHOOK_BIN",
+      "LEFTHOOK_CONFIG",
+      "LEFTHOOK_VERBOSE",
+      "SKIP",
+      "COMMITMENT_ISSUES",
+      "COMMITMENT_ISSUES_LIFECYCLE_PM",
+      "COMMITMENT_ISSUES_LIFECYCLE_TARBALL",
+      "COLUMNS",
+    ].map((key) => key.toLowerCase()),
+  );
+  for (const key of Object.keys(env)) {
+    if (isolatedKeys.has(key.toLowerCase())) delete env[key];
+  }
   // Captured lifecycle output should use the renderer's stable default width.
   // Narrow-terminal wrapping is exercised separately by the welcome tests.
-  delete env.COLUMNS;
+  return env;
+}
+
+function managerLifecycleEnv(repoDir, competingManagerBin) {
+  const env = lifecycleEnv();
+  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path");
+  const localBin = path.join(repoDir, "node_modules", ".bin");
+  const homeDir = path.join(repoDir, ".lifecycle-home");
+  const configDir = path.join(homeDir, ".config");
+  fs.mkdirSync(configDir, { recursive: true });
+  for (const name of ["HOME", "USERPROFILE", "XDG_CONFIG_HOME"]) {
+    for (const key of Object.keys(env)) {
+      if (key.toLowerCase() === name.toLowerCase()) delete env[key];
+    }
+    env[name] = name === "XDG_CONFIG_HOME" ? configDir : homeDir;
+  }
+  const inheritedPath = pathKey ? env[pathKey] : undefined;
+  env[pathKey ?? "PATH"] = [localBin, competingManagerBin, inheritedPath]
+    .filter(Boolean)
+    .join(path.delimiter);
   return env;
 }
 
@@ -951,6 +992,634 @@ export function createLifecycleIntegration() {
           );
         }
         runWorkspaceTests(repoDir);
+      },
+    },
+    {
+      name: "exercise hook-manager coexistence",
+      run() {
+        // Exercise snippet-first coexistence from the installed tarball before
+        // the native lifecycle. Each manager gets its own real runner layout;
+        // every manager file is fixture-owned and must remain byte-for-byte
+        // unchanged through dry-run, init, doctor, and uninstall.
+        const packageBeforeIntegration = fs.readFileSync(
+          path.join(repoDir, "package.json"),
+          "utf8",
+        );
+        const standaloneBeforeIntegration = fs.readFileSync(
+          path.join(repoDir, ".commitmentrc.json"),
+          "utf8",
+        );
+        const managerFiles = {
+          ".husky/pre-commit":
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues precommit || exit $?\nnode_modules/.bin/lifecycle-husky-probe husky pre-commit "$@"\n',
+          ".husky/pre-push":
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues prepush "$@" || exit $?\nnode_modules/.bin/lifecycle-husky-probe husky pre-push "$@"\n',
+          ".husky/commit-msg":
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues commit-msg "$1" || exit $?\nnode_modules/.bin/lifecycle-husky-probe husky commit-msg "$@"\n',
+          "lefthook.yml": [
+            "pre-commit:",
+            "  commands:",
+            "    commitment-issues:",
+            "      run: node_modules/.bin/commitment-issues precommit",
+            "pre-push:",
+            "  commands:",
+            "    commitment-issues:",
+            "      run: node_modules/.bin/commitment-issues prepush",
+            "      use_stdin: true",
+            "commit-msg:",
+            "  commands:",
+            "    commitment-issues:",
+            "      run: node_modules/.bin/commitment-issues commit-msg --git-path",
+            "",
+          ].join("\n"),
+          ".pre-commit-config.yaml": [
+            "repos:",
+            "  - repo: local",
+            "    hooks:",
+            ...["pre-commit", "pre-push", "commit-msg"].flatMap((name) => [
+              `      - id: commitment-issues-${name}`,
+              `        name: commitment-issues ${name}`,
+              `        entry: node_modules/.bin/commitment-issues ${HOOK_SUBCOMMANDS[name].split(" ")[0]}`,
+              "        language: system",
+              `        pass_filenames: ${name === "commit-msg" ? "true" : "false"}`,
+              "        always_run: true",
+              `        stages: [${name}]`,
+            ]),
+            "",
+          ].join("\n"),
+        };
+
+        // Place a deterministic competing manager ahead of the inherited outer
+        // PATH and prove the consumer-local bin remains the first resolution.
+        const competingManagerBin = path.join(
+          tempRoot,
+          "competing-manager-bin",
+        );
+        const competingLefthook = path.join(competingManagerBin, "lefthook");
+        writeFile(
+          competingLefthook,
+          '#!/bin/sh\nif [ "$1" = "-h" ]; then exit 0; fi\nexit 97\n',
+        );
+        fs.chmodSync(competingLefthook, 0o755);
+        writeFile(
+          path.join(competingManagerBin, "lefthook.cmd"),
+          '@if "%~1"=="-h" exit /b 0\r\n@exit /b 97\r\n',
+        );
+
+        const probeSource = [
+          "#!/usr/bin/env node",
+          "const args = process.argv.slice(2);",
+          'if (args.length === 1 && args[0] === "-h") process.exit(0);',
+          'const fs = process.getBuiltinModule("node:fs");',
+          "const log = process.env.COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG;",
+          "if (!log) process.exit(91);",
+          "fs.appendFileSync(log, `${JSON.stringify(args)}\\n`);",
+          "const exitCode = Number(process.env.COMMITMENT_ISSUES_LIFECYCLE_HOOK_EXIT);",
+          "process.exit(Number.isInteger(exitCode) ? exitCode : 0);",
+          "",
+        ].join("\n");
+        const managerDispatchHarness = fs.readFileSync(
+          managerDispatchHarnessPath,
+          "utf8",
+        );
+        const probeFiles = {
+          "node_modules/.bin/lifecycle-husky-probe": probeSource,
+          "node_modules/.bin/lefthook": managerDispatchHarness,
+          "node_modules/.bin/python3": managerDispatchHarness,
+        };
+        const cliTracePath = path.join(repoDir, ".lifecycle-cli-trace.mjs");
+        const cliTraceSource = [
+          'import fs from "node:fs";',
+          'import path from "node:path";',
+          "const normalize = (value) =>",
+          '  process.platform === "win32" ? value.toLowerCase() : value;',
+          "try {",
+          "  const invokedAs = process.argv[1];",
+          "  const executable = fs.realpathSync.native(invokedAs);",
+          "  const expected = fs.realpathSync.native(",
+          '    path.join(process.cwd(), "node_modules", "commitment-issues", "scripts", "cli.mjs"),',
+          "  );",
+          "  if (normalize(executable) === normalize(expected)) {",
+          "    const log = process.env.COMMITMENT_ISSUES_LIFECYCLE_CLI_LOG;",
+          '    if (!log) throw new Error("CLI trace log is required");',
+          "    fs.appendFileSync(",
+          "      log,",
+          "      `${JSON.stringify({ invokedAs, executable, args: process.argv.slice(2) })}\\n`,",
+          "    );",
+          "  }",
+          "} catch (error) {",
+          "  if (process.env.COMMITMENT_ISSUES_LIFECYCLE_CLI_LOG) throw error;",
+          "}",
+          "",
+        ].join("\n");
+        writeFile(cliTracePath, cliTraceSource);
+        for (const [relativePath, content] of Object.entries(managerFiles)) {
+          writeFile(path.join(repoDir, relativePath), content);
+        }
+        for (const [relativePath, content] of Object.entries(probeFiles)) {
+          writeFile(path.join(repoDir, relativePath), content);
+          fs.chmodSync(path.join(repoDir, relativePath), 0o755);
+        }
+
+        const configureManagerRunner = (manager) => {
+          const runnerFiles = {};
+          let hooksPath;
+          if (manager === "husky") {
+            hooksPath = ".husky/_";
+            runnerFiles[`${hooksPath}/h`] = HUSKY_V9_RUNTIME;
+            for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+              runnerFiles[`${hooksPath}/${name}`] =
+                '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n';
+            }
+          } else {
+            hooksPath = `.lifecycle-hooks/${manager}`;
+            for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+              runnerFiles[`${hooksPath}/${name}`] =
+                manager === "lefthook"
+                  ? lefthookRunner(name)
+                  : preCommitRunner(name, {
+                      installPython: "node_modules/.bin/python3",
+                      windowsLauncher: process.platform === "win32",
+                    });
+            }
+          }
+
+          for (const [relativePath, content] of Object.entries(runnerFiles)) {
+            writeFile(path.join(repoDir, relativePath), content);
+            fs.chmodSync(path.join(repoDir, relativePath), 0o755);
+          }
+          run("git", ["config", "core.hooksPath", hooksPath], repoDir);
+          return { hooksPath, runnerFiles };
+        };
+
+        const assertFilesUnchanged = (files, operation) => {
+          for (const [relativePath, content] of Object.entries(files)) {
+            assertLifecycle(
+              fs.readFileSync(path.join(repoDir, relativePath), "utf8") ===
+                content,
+              `${operation} should preserve ${relativePath}`,
+            );
+          }
+        };
+
+        const executeManagerRunners = (manager, hooksPath) => {
+          for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+            const logPath = path.join(
+              repoDir,
+              `.lifecycle-${manager}-${name}.jsonl`,
+            );
+            fs.rmSync(logPath, { force: true });
+            const forwardedArgs = [
+              `lifecycle ${name} argument`,
+              `--sentinel=${manager}-${name}`,
+            ];
+            const wrapperPath = path.join(repoDir, hooksPath, name);
+            const shell = manager === "pre-commit" ? "bash" : "sh";
+            const result = crossSpawn.sync(
+              shell,
+              [wrapperPath, ...forwardedArgs],
+              {
+                cwd: repoDir,
+                encoding: "utf8",
+                env: {
+                  ...managerLifecycleEnv(repoDir, competingManagerBin),
+                  COMMITMENT_ISSUES: "0",
+                  COMMITMENT_ISSUES_LIFECYCLE_HOOK_EXIT: "23",
+                  COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG: logPath,
+                  COMMITMENT_ISSUES_LIFECYCLE_HOOK_MODE: "probe",
+                },
+              },
+            );
+            if (result.error) throw result.error;
+            assertLifecycle(
+              result.status === 23,
+              `${manager} ${name} should propagate exit 23, found ${result.status}: ${[result.stdout, result.stderr].filter(Boolean).join("\n")}`,
+            );
+
+            const records = fs
+              .readFileSync(logPath, "utf8")
+              .trim()
+              .split("\n")
+              .map((line) => JSON.parse(line));
+            assertLifecycle(
+              records.length === 1,
+              `${manager} ${name} should invoke exactly one manager probe`,
+            );
+            const [record] = records;
+            if (manager === "husky") {
+              assertLifecycle(
+                JSON.stringify(record) ===
+                  JSON.stringify(["husky", name, ...forwardedArgs]),
+                `Husky ${name} should forward the hook name and arguments`,
+              );
+            } else if (manager === "lefthook") {
+              assertLifecycle(
+                JSON.stringify(record) ===
+                  JSON.stringify(["run", name, ...forwardedArgs]),
+                `Lefthook ${name} should forward the hook name and arguments`,
+              );
+            } else {
+              assertLifecycle(
+                record[0] === "-mpre_commit" &&
+                  record[1] === "hook-impl" &&
+                  record[2] === "--config=.pre-commit-config.yaml" &&
+                  record[3] === `--hook-type=${name}` &&
+                  record[4] === "--hook-dir" &&
+                  record[6] === "--" &&
+                  JSON.stringify(record.slice(7)) ===
+                    JSON.stringify(forwardedArgs),
+                `pre-commit ${name} should forward config, hook type, and arguments`,
+              );
+              assertLifecycle(
+                sameFilesystemEntry(record[5], path.dirname(wrapperPath)),
+                `pre-commit ${name} should forward its real hook directory`,
+              );
+            }
+            fs.rmSync(logPath);
+          }
+        };
+
+        const readJsonLines = (logPath) =>
+          fs
+            .readFileSync(logPath, "utf8")
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+
+        const executeConfiguredManagerEntries = (manager, hooksPath) => {
+          const configPath = path.join(repoDir, ".commitmentrc.json");
+          const configBeforeContract = fs.readFileSync(configPath, "utf8");
+          const currentBranch = runForOutput(
+            "git",
+            ["symbolic-ref", "--quiet", "--short", "HEAD"],
+            repoDir,
+          );
+          const blockedPushBranch = "lifecycle-protected";
+          const missingMessagePath = path.join(
+            repoDir,
+            `.lifecycle-${manager}-missing-message.txt`,
+          );
+          const gitMessagePath = path.resolve(
+            repoDir,
+            runForOutput(
+              "git",
+              ["rev-parse", "--git-path", "COMMIT_EDITMSG"],
+              repoDir,
+            ),
+          );
+          const pushInput = `refs/heads/${currentBranch} ${"1".repeat(40)} refs/heads/${blockedPushBranch} ${"0".repeat(40)}\n`;
+          const installedBin = path.join(
+            repoDir,
+            "node_modules",
+            ".bin",
+            "commitment-issues",
+          );
+          const installedCli = path.join(
+            repoDir,
+            "node_modules",
+            "commitment-issues",
+            "scripts",
+            "cli.mjs",
+          );
+
+          writeFile(
+            configPath,
+            `${JSON.stringify(
+              {
+                ...JSON.parse(configBeforeContract),
+                blockProtectedBranches: true,
+                protectedBranches: [currentBranch, blockedPushBranch],
+                commitMessage: { enabled: true, blockOnFailure: true },
+              },
+              null,
+              2,
+            )}\n`,
+          );
+          fs.rmSync(missingMessagePath, { force: true });
+          fs.rmSync(gitMessagePath, { force: true });
+
+          try {
+            for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+              const managerLogPath = path.join(
+                repoDir,
+                `.lifecycle-${manager}-${name}-manager.jsonl`,
+              );
+              const cliLogPath = path.join(
+                repoDir,
+                `.lifecycle-${manager}-${name}-cli.jsonl`,
+              );
+              fs.rmSync(managerLogPath, { force: true });
+              fs.rmSync(cliLogPath, { force: true });
+
+              const hookArgs =
+                name === "pre-push"
+                  ? ["origin", "https://example.invalid/lifecycle.git"]
+                  : name === "commit-msg"
+                    ? [missingMessagePath]
+                    : [];
+              const input = name === "pre-push" ? pushInput : "";
+              const wrapperPath = path.join(repoDir, hooksPath, name);
+              const shell = manager === "pre-commit" ? "bash" : "sh";
+              const contractEnv = {
+                ...managerLifecycleEnv(repoDir, competingManagerBin),
+                COMMITMENT_ISSUES_LIFECYCLE_CLI_LOG: cliLogPath,
+                COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG: managerLogPath,
+                NODE_OPTIONS: `--import=${pathToFileURL(cliTracePath).href}`,
+              };
+              delete contractEnv.COMMITMENT_ISSUES_LIFECYCLE_HOOK_EXIT;
+              delete contractEnv.COMMITMENT_ISSUES_LIFECYCLE_HOOK_MODE;
+              const result = crossSpawn.sync(
+                shell,
+                [wrapperPath, ...hookArgs],
+                {
+                  cwd: repoDir,
+                  encoding: "utf8",
+                  env: contractEnv,
+                  input,
+                },
+              );
+              if (result.error) throw result.error;
+              const output = [result.stdout, result.stderr]
+                .filter(Boolean)
+                .join("\n");
+              assertLifecycle(
+                result.status === 1,
+                `${manager} ${name} should propagate the packed CLI's blocking exit 1, found ${result.status}: ${output}`,
+              );
+              if (name === "pre-commit") {
+                assertLifecycle(
+                  output.includes("Commit blocked: protected branch"),
+                  `${manager} pre-commit should execute the packed blocking policy`,
+                );
+              } else if (name === "pre-push") {
+                assertLifecycle(
+                  output.includes(`Pushing to "${blockedPushBranch}"`),
+                  `${manager} pre-push should deliver the protected ref input to the packed CLI`,
+                );
+              } else {
+                const expectedMessage =
+                  manager === "lefthook"
+                    ? "COMMIT_EDITMSG"
+                    : path.basename(missingMessagePath);
+                assertLifecycle(
+                  output.includes(expectedMessage),
+                  `${manager} commit-msg should deliver ${expectedMessage} to the packed CLI`,
+                );
+              }
+
+              const expectedCliArgs =
+                manager === "lefthook"
+                  ? name === "commit-msg"
+                    ? ["commit-msg", "--git-path"]
+                    : [HOOK_SUBCOMMANDS[name]]
+                  : manager === "pre-commit"
+                    ? name === "commit-msg"
+                      ? ["commit-msg", ...hookArgs]
+                      : [HOOK_SUBCOMMANDS[name]]
+                    : name === "pre-push"
+                      ? ["prepush", ...hookArgs]
+                      : name === "commit-msg"
+                        ? ["commit-msg", ...hookArgs]
+                        : ["precommit"];
+              const cliRecords = readJsonLines(cliLogPath);
+              assertLifecycle(
+                cliRecords.length === 1,
+                `${manager} ${name} should execute exactly one packed CLI`,
+              );
+              assertLifecycle(
+                sameFilesystemEntry(cliRecords[0].executable, installedCli),
+                `${manager} ${name} should execute the installed package CLI`,
+              );
+              assertLifecycle(
+                JSON.stringify(cliRecords[0].args) ===
+                  JSON.stringify(expectedCliArgs),
+                `${manager} ${name} should invoke the packed CLI with ${JSON.stringify(expectedCliArgs)}`,
+              );
+
+              if (manager === "husky") {
+                assertLifecycle(
+                  !fs.existsSync(managerLogPath),
+                  `Husky ${name} should stop before the later probe after the packed CLI blocks`,
+                );
+              } else {
+                const managerRecords = readJsonLines(managerLogPath);
+                assertLifecycle(
+                  managerRecords.length === 1,
+                  `${manager} ${name} should dispatch exactly one configured entry`,
+                );
+                const [record] = managerRecords;
+                assertLifecycle(
+                  record.manager === manager && record.hook === name,
+                  `${manager} ${name} should dispatch the matching config block`,
+                );
+                assertLifecycle(
+                  record.command === "node_modules/.bin/commitment-issues" &&
+                    sameFilesystemEntry(record.resolvedCommand, installedBin),
+                  `${manager} ${name} should resolve its config entry to the installed bin`,
+                );
+                assertLifecycle(
+                  JSON.stringify(record.args) ===
+                    JSON.stringify(expectedCliArgs),
+                  `${manager} ${name} should derive packed CLI argv from its config entry`,
+                );
+                assertLifecycle(
+                  record.managerInput === input,
+                  `${manager} ${name} should receive the original hook input`,
+                );
+                assertLifecycle(
+                  record.entryInput ===
+                    (manager === "lefthook" && name === "pre-push"
+                      ? pushInput
+                      : ""),
+                  `${manager} ${name} should apply its configured stdin contract`,
+                );
+                if (manager === "pre-commit" && name === "pre-push") {
+                  assertLifecycle(
+                    record.entryEnv.PRE_COMMIT_LOCAL_BRANCH ===
+                      `refs/heads/${currentBranch}` &&
+                      record.entryEnv.PRE_COMMIT_TO_REF === "1".repeat(40) &&
+                      record.entryEnv.PRE_COMMIT_REMOTE_BRANCH ===
+                        `refs/heads/${blockedPushBranch}` &&
+                      record.entryEnv.PRE_COMMIT_FROM_REF === "0".repeat(40) &&
+                      record.entryEnv.PRE_COMMIT_REMOTE_NAME === "origin" &&
+                      record.entryEnv.PRE_COMMIT_REMOTE_URL ===
+                        "https://example.invalid/lifecycle.git",
+                    "pre-commit pre-push should translate consumed stdin and hook arguments into its documented environment",
+                  );
+                }
+              }
+
+              fs.rmSync(cliLogPath);
+              fs.rmSync(managerLogPath, { force: true });
+            }
+          } finally {
+            writeFile(configPath, configBeforeContract);
+          }
+        };
+
+        const executeManagerBypasses = (manager, hooksPath) => {
+          for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+            const managerLogPath = path.join(
+              repoDir,
+              `.lifecycle-${manager}-${name}-bypass-manager.jsonl`,
+            );
+            const cliLogPath = path.join(
+              repoDir,
+              `.lifecycle-${manager}-${name}-bypass-cli.jsonl`,
+            );
+            fs.rmSync(managerLogPath, { force: true });
+            fs.rmSync(cliLogPath, { force: true });
+            const wrapperPath = path.join(repoDir, hooksPath, name);
+            const hookArgs =
+              name === "pre-push"
+                ? ["origin", "https://example.invalid/lifecycle.git"]
+                : name === "commit-msg"
+                  ? [path.join(repoDir, ".lifecycle-bypass-message")]
+                  : [];
+            const bypassEnv = {
+              ...managerLifecycleEnv(repoDir, competingManagerBin),
+              COMMITMENT_ISSUES_LIFECYCLE_CLI_LOG: cliLogPath,
+              COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG: managerLogPath,
+              NODE_OPTIONS: `--import=${pathToFileURL(cliTracePath).href}`,
+            };
+            if (manager === "husky") bypassEnv.HUSKY = "0";
+            else if (manager === "lefthook") bypassEnv.LEFTHOOK = "0";
+            else bypassEnv.SKIP = `commitment-issues-${name}`;
+
+            const result = crossSpawn.sync(
+              manager === "pre-commit" ? "bash" : "sh",
+              [wrapperPath, ...hookArgs],
+              {
+                cwd: repoDir,
+                encoding: "utf8",
+                env: bypassEnv,
+              },
+            );
+            if (result.error) throw result.error;
+            assertLifecycle(
+              result.status === 0,
+              `${manager} ${name} native bypass should exit zero, found ${result.status}`,
+            );
+            assertLifecycle(
+              !fs.existsSync(cliLogPath),
+              `${manager} ${name} native bypass should not execute the packed CLI`,
+            );
+            assertLifecycle(
+              !fs.existsSync(managerLogPath),
+              `${manager} ${name} native bypass should stop before manager dispatch`,
+            );
+          }
+        };
+
+        for (const manager of ["husky", "lefthook", "pre-commit"]) {
+          const { hooksPath, runnerFiles } = configureManagerRunner(manager);
+          const ownedFiles = {
+            ...managerFiles,
+            ...probeFiles,
+            ...runnerFiles,
+          };
+          const [previewCommand, previewArgs] = execBin([
+            "init",
+            "--dry-run",
+            `--integration=${manager}`,
+          ]);
+          const preview = runForCombinedOutput(
+            previewCommand,
+            previewArgs,
+            repoDir,
+          );
+          assertLifecycle(
+            preview.includes(`${manager} coexistence snippets`),
+            `${manager} dry-run should print its coexistence snippets`,
+          );
+          assertFilesUnchanged(ownedFiles, `${manager} dry-run`);
+
+          const [initCommand, initArgs] = execBin([
+            "init",
+            `--integration=${manager}`,
+          ]);
+          run(initCommand, initArgs, repoDir);
+          const integratedPackage = readJson(
+            path.join(repoDir, "package.json"),
+          );
+          assertLifecycle(
+            integratedPackage.scripts?.prepare ===
+              `${EXISTING_PREPARE} && commitment-issues doctor --quiet --integration=${manager}`,
+            `${manager} coexistence should compose owner-specific prepare verification`,
+          );
+          for (const name of Object.keys(HOOK_SUBCOMMANDS)) {
+            assertLifecycle(
+              !fs.existsSync(hookPath(repoDir, name)),
+              `${manager} coexistence should not write native ${name}`,
+            );
+          }
+          assertFilesUnchanged(ownedFiles, `${manager} init`);
+
+          const packageAfterIntegration = fs.readFileSync(
+            path.join(repoDir, "package.json"),
+            "utf8",
+          );
+          run(initCommand, initArgs, repoDir);
+          assertLifecycle(
+            fs.readFileSync(path.join(repoDir, "package.json"), "utf8") ===
+              packageAfterIntegration,
+            `${manager} coexistence init should be idempotent`,
+          );
+          assertFilesUnchanged(ownedFiles, `${manager} repeated init`);
+
+          const [doctorCommand, doctorArgs] = execBin([
+            "doctor",
+            `--integration=${manager}`,
+          ]);
+          run(doctorCommand, doctorArgs, repoDir);
+          assertFilesUnchanged(ownedFiles, `${manager} doctor`);
+          executeManagerRunners(manager, hooksPath);
+          executeConfiguredManagerEntries(manager, hooksPath);
+          executeManagerBypasses(manager, hooksPath);
+
+          const [integrationUninstallCommand, integrationUninstallArgs] =
+            execBin(["uninstall"]);
+          const integrationUninstall = runForOutput(
+            integrationUninstallCommand,
+            integrationUninstallArgs,
+            repoDir,
+          );
+          for (const detectedManager of ["husky", "lefthook", "pre-commit"]) {
+            assertLifecycle(
+              integrationUninstall.includes(
+                `${detectedManager} configuration is user-owned`,
+              ),
+              `uninstall should report manual ${detectedManager} cleanup`,
+            );
+          }
+          assertFilesUnchanged(ownedFiles, `${manager} uninstall`);
+          assertGeneratedSetupRemoved(repoDir);
+
+          // Restore the pristine consumer files before the next isolated
+          // manager scenario. The manager-owned files remain in place so the
+          // next explicit selection still proves safe ambiguity handling.
+          writeFile(
+            path.join(repoDir, "package.json"),
+            packageBeforeIntegration,
+          );
+          writeFile(
+            path.join(repoDir, ".commitmentrc.json"),
+            standaloneBeforeIntegration,
+          );
+        }
+
+        // Remove only the fixture-owned manager artifacts, then continue
+        // through the native real-commit/push/clone/worktree lifecycle in the
+        // same packed installation.
+        fs.rmSync(path.join(repoDir, ".husky"), { recursive: true });
+        fs.rmSync(path.join(repoDir, ".lifecycle-hooks"), { recursive: true });
+        fs.rmSync(path.join(repoDir, "lefthook.yml"));
+        fs.rmSync(path.join(repoDir, ".pre-commit-config.yaml"));
+        for (const relativePath of Object.keys(probeFiles)) {
+          fs.rmSync(path.join(repoDir, relativePath));
+        }
+        fs.rmSync(cliTracePath);
+        run("git", ["config", "--unset", "core.hooksPath"], repoDir);
       },
     },
     {

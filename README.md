@@ -102,6 +102,35 @@ npx --no-install commitment-issues init
 Want to see the advisory workflow without touching an existing project? Follow
 the [five-minute disposable-repository tutorial](docs/try-it-safely.md).
 
+Already using Husky, Lefthook, or the Python `pre-commit` framework? Keep it:
+
+```bash
+npx --no-install commitment-issues init --dry-run --integration=husky
+npx --no-install commitment-issues init --integration=husky
+npx --no-install commitment-issues doctor --integration=husky
+```
+
+Replace `husky` with `lefthook` or `pre-commit`. The initializer updates only
+Commitment Issues' package settings and package-owned `.gitignore` defaults,
+then prints exact manager-native snippets; it never writes, reorders, or
+deletes the manager's hooks/config. Bare
+`--integration` auto-detects only when exactly one owner is evident. See the
+[coexistence contracts](docs/migration.md#keep-an-existing-hook-manager).
+Doctor validates both the manager entry and Git's effective installed wrapper;
+configuration alone is not reported as active. Lefthook entries stay static:
+pre-push uses its stdin stream and optional commit-msg path resolution happens
+inside Commitment Issues rather than in manager shell configuration.
+
+Verification is deliberately conservative. Lefthook inspection supports only
+the six main YAML names documented in the migration guide; local, JSON, JSONC,
+TOML, extended, overridden, advanced-YAML, or global-option configurations
+require manual review. The installed dispatcher must also match Husky
+8.0.1–8.0.3 or 9.0.2–9.1.7, Lefthook 2.1.10, or the supported pre-commit
+template, and its filesystem/PATH runtime must have the expected Lefthook or
+Python identity. The selected YAML document is validated as a whole, including
+unrelated hooks and nested jobs. Customized or newer wrapper/config shapes are
+preserved and reported instead of being guessed healthy.
+
 Then commit and push normally:
 
 ```bash
@@ -144,7 +173,8 @@ manager's install command; the hook does not ask `npx` to download it.
 - **Related push tests:** runs tests associated with the files being pushed.
 - **Debug-junk advisory:** optionally catches common temporary instrumentation
   only on newly staged lines.
-- **Native hook ownership:** no Husky, lint-staged, or separate hook manager.
+- **Native by default, composable by choice:** use owned native hooks or keep
+  Husky, Lefthook, or pre-commit through read-only coexistence mode.
 - **Self-repair:** `doctor` restores missing generated hooks after install or
   clone without overwriting custom hooks.
 - **Local and reversible:** no account or telemetry; preview setup and removal
@@ -177,11 +207,17 @@ validation, exemptions, and every option.
   <img alt="commitment-issues project flowchart showing setup, Git hook wiring, code and guard checks before commit, safe fix paths, and pre-push tests" src="assets/project-flowchart-light.svg">
 </picture>
 
-`init` writes native `.git/hooks/pre-commit` and `.git/hooks/pre-push` files.
+By default, `init` writes native `.git/hooks/pre-commit` and
+`.git/hooks/pre-push` files.
 When commit-message linting is enabled, it also owns `.git/hooks/commit-msg`.
 The hooks invoke the installed binary; package source is not copied into the
 repository. Existing custom hooks and foreign `core.hooksPath` values are
 preserved and reported for manual composition.
+
+With `--integration=<manager>`, it writes no native or manager-owned hook
+files. It prints static project-local snippets, configures install-time doctor
+to verify the selected manager without repairing native hooks, and preserves
+the manager's ordering, skip controls, and unrelated commands.
 
 [Read the complete lifecycle and safety model](docs/how-it-works.md).
 
@@ -195,7 +231,7 @@ preserved and reported for manual composition.
 | Package managers        | Local npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 |
 | Yarn Plug'n'Play        | Unsupported because the hooks require the project-local `node_modules/.bin` tree                            |
 | Monorepos               | Root-owned workspaces and linked Git worktrees                                                              |
-| Existing hooks          | Preserved; compose the command manually                                                                     |
+| Existing hooks          | Preserved; explicit Husky, Lefthook, and pre-commit coexistence is verified read-only                       |
 | Commit messages         | Optional project-local commitlint and rules                                                                 |
 | CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0`                                      |
 
@@ -260,6 +296,8 @@ npm remove commitment-issues
 
 Removal deletes only exact generated setup. Customized scripts/hooks and shared
 dependencies, ignores, and lockfiles are preserved.
+Husky, Lefthook, and pre-commit files are always user-owned; uninstall reports
+matching entries for manual removal and leaves their bytes unchanged.
 
 ## Documentation
 

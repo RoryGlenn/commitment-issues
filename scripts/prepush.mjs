@@ -45,6 +45,11 @@ import {
 } from "./lib/json-output.mjs";
 import { firstPushBase } from "./lib/push-base.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
+import { hooksDisabled } from "./lib/hooks.mjs";
+
+if (hooksDisabled()) {
+  process.exit(0);
+}
 
 // Force literal, unquoted paths (as the pre-commit/fix flows already do) so
 // pushed files with spaces or non-ASCII names still match their associated
@@ -66,6 +71,8 @@ if (outputArgs.error) {
   process.exit(1);
 }
 const jsonMode = outputArgs.enabled;
+const remoteName =
+  outputArgs.positionals[0] || process.env.PRE_COMMIT_REMOTE_NAME || undefined;
 
 const config = loadPrecommitConfig();
 const hookOutput = resolveHookOutput(config);
@@ -339,7 +346,7 @@ function readStdin() {
 
 async function readPushRefs() {
   const raw = await readStdin();
-  return raw
+  const stdinRefs = raw
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
@@ -352,6 +359,51 @@ async function readPushRefs() {
       remoteSha,
     }))
     .filter((ref) => ref.localSha && !isZeroObjectId(ref.localSha));
+  if (stdinRefs.length > 0) {
+    return stdinRefs;
+  }
+
+  // The Python pre-commit framework consumes Git's stdin itself and exposes
+  // the same push range through documented PRE_COMMIT_* variables. Accept the
+  // environment only when every range field is present; a partial environment
+  // is ambiguous and must fall back to the normal manual-run behavior.
+  const preCommitRef = {
+    localRef: process.env.PRE_COMMIT_LOCAL_BRANCH,
+    localSha: process.env.PRE_COMMIT_TO_REF,
+    remoteRef: process.env.PRE_COMMIT_REMOTE_BRANCH,
+    remoteSha: process.env.PRE_COMMIT_FROM_REF,
+  };
+  if (
+    Object.values(preCommitRef).every(
+      (value) => typeof value === "string" && value.length > 0,
+    ) &&
+    !isZeroObjectId(preCommitRef.localSha)
+  ) {
+    return [preCommitRef];
+  }
+
+  // For a first push that includes the repository's root commit, pre-commit
+  // intentionally selects all files and omits FROM_REF/TO_REF. It still
+  // publishes both branch names and the remote, which are enough to recover
+  // the same conservative first-push range without access to Git's consumed
+  // stdin. Keep a partially populated range fail-closed instead of mistaking
+  // it for this documented all-files case.
+  const allFilesFirstPush =
+    !preCommitRef.localSha &&
+    !preCommitRef.remoteSha &&
+    [preCommitRef.localRef, preCommitRef.remoteRef, remoteName].every(
+      (value) => typeof value === "string" && value.length > 0,
+    );
+  return allFilesFirstPush
+    ? [
+        {
+          localRef: preCommitRef.localRef,
+          localSha: preCommitRef.localRef,
+          remoteRef: preCommitRef.remoteRef,
+          remoteSha: "",
+        },
+      ]
+    : [];
 }
 
 function diffFiles(base, head) {
@@ -411,7 +463,7 @@ function getPushedFiles() {
           : firstPushBase({
               localRef,
               localSha,
-              remoteName: process.argv[2],
+              remoteName,
               run,
             });
       collect(diffFiles(base, localSha));

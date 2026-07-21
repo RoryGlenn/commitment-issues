@@ -8,13 +8,16 @@ import pc from "picocolors";
 import { infoBox, successBox, warningBox, errorBox } from "./lib/ui.mjs";
 import {
   BIN,
+  HOOK_MANAGERS,
   HOOK_NAMES,
   classifyHook,
+  detectHookManagers,
   effectiveHooksDir,
   gitWorkTreeState,
   gitHooksDir,
   hooksPathConfigState,
   isHuskyHooksPath,
+  inspectHookManager,
   legacyHuskyDirectoryState,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
@@ -107,14 +110,25 @@ if (standalone.error) {
 }
 
 const managedScripts = {
-  prepare: [`${BIN} doctor --quiet`, "node scripts/doctor.mjs --quiet"],
+  prepare: [
+    `${BIN} doctor --quiet`,
+    ...HOOK_MANAGERS.map(
+      (manager) => `${BIN} doctor --quiet --integration=${manager}`,
+    ),
+    "node scripts/doctor.mjs --quiet",
+  ],
   postprepare: [`${BIN} doctor --quiet`, "node scripts/doctor.mjs --quiet"],
   "commit:fix": [`${BIN} commit-fix`, "node scripts/commit-fix.mjs"],
   "fix:staged": [`${BIN} fix-staged`, "node scripts/fix-staged.mjs"],
   "test:precommit": [`${BIN} precommit`, "node scripts/precommit-unified.mjs"],
   doctor: [`${BIN} doctor`, "node scripts/doctor.mjs"],
 };
-const repairSuffix = ` && ${BIN} doctor --quiet`;
+const repairSuffixes = [
+  ` && ${BIN} doctor --quiet`,
+  ...HOOK_MANAGERS.map(
+    (manager) => ` && ${BIN} doctor --quiet --integration=${manager}`,
+  ),
+];
 
 const plannedPackageChanges = [];
 for (const [name, values] of Object.entries(managedScripts)) {
@@ -123,9 +137,12 @@ for (const [name, values] of Object.entries(managedScripts)) {
     plannedPackageChanges.push(`package.json script ${name}`);
   }
 }
-if (pkg.scripts?.prepare?.endsWith(repairSuffix)) {
-  pkg.scripts.prepare = pkg.scripts.prepare.slice(0, -repairSuffix.length);
-  plannedPackageChanges.push("package.json prepare repair");
+for (const repairSuffix of repairSuffixes) {
+  if (pkg.scripts?.prepare?.endsWith(repairSuffix)) {
+    pkg.scripts.prepare = pkg.scripts.prepare.slice(0, -repairSuffix.length);
+    plannedPackageChanges.push("package.json prepare repair");
+    break;
+  }
 }
 
 if (pkg.scripts && Object.keys(pkg.scripts).length === 0) {
@@ -149,7 +166,7 @@ function displayPath(filePath) {
     : filePath.replace(/\\/g, "/");
 }
 
-function inspectHookDirectory(directory) {
+function inspectHookDirectory(directory, { preserveOwnedBy = null } = {}) {
   for (const name of HOOK_NAMES) {
     const hookPath = path.resolve(directory, name);
     // Removal is an ownership/content decision, not a health decision. An
@@ -159,9 +176,16 @@ function inspectHookDirectory(directory) {
     // uninspectable state, so cleanup remains non-destructive.
     const status = classifyHook(directory, name, {
       requireExecutable: false,
+      recognizeLegacyCommand: true,
     });
     if (status === "wired" || status === "stale-wired") {
-      hookCandidates.push(hookPath);
+      if (preserveOwnedBy) {
+        manualCleanup.push(
+          `${displayPath(hookPath)} is ${preserveOwnedBy}-owned; remove its ${BIN} command manually.`,
+        );
+      } else {
+        hookCandidates.push(hookPath);
+      }
     } else if (status === "custom-with-command") {
       manualCleanup.push(
         `${displayPath(hookPath)} is customized; remove its ${BIN} command manually.`,
@@ -194,7 +218,7 @@ if (isGitRepo) {
     }
 
     const configuredHooksPath = hooksPathState.value;
-    if (configuredHooksPath) {
+    if (hooksPathState.present) {
       const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
       const legacyHuskyState = huskyEraHooksPath
         ? legacyHuskyDirectoryState()
@@ -211,7 +235,9 @@ if (isGitRepo) {
             : "Git could not resolve the configured hooks directory, so those hooks were left unchanged.",
         );
       } else if (!inspected.has(configuredDir)) {
-        inspectHookDirectory(configuredDir);
+        inspectHookDirectory(configuredDir, {
+          preserveOwnedBy: huskyEraHooksPath ? "Husky" : null,
+        });
       }
     }
   }
@@ -221,6 +247,23 @@ if (isGitRepo) {
       ? "This is a bare git repository, so local commit and push hooks were not inspected."
       : "This is not a git repository, so local hook files could not be inspected.",
   );
+}
+
+const managerDetection = detectHookManagers(process.cwd(), pkg);
+for (const manager of managerDetection.managers) {
+  const report = inspectHookManager(manager, HOOK_NAMES);
+  const wired = report.hooks
+    .filter(({ status }) => status === "wired")
+    .map(({ name }) => name);
+  if (wired.length > 0) {
+    manualCleanup.push(
+      `${manager} configuration is user-owned; remove the Commitment Issues ${wired.join(", ")} ${wired.length === 1 ? "entry" : "entries"} manually.`,
+    );
+  } else if (report.status === "uninspectable") {
+    manualCleanup.push(
+      `${manager} configuration could not be inspected safely and was left unchanged.`,
+    );
+  }
 }
 
 const planned = [

@@ -293,6 +293,20 @@ production-readiness workstream #130 is consolidated in the
   descriptor and identity checks protect the final write boundary. Unit/fixture:
   `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
   `test/init.test.mjs`.
+- **INIT-034** — Husky, Lefthook, and pre-commit coexistence prints exact
+  manager snippets, keeps Lefthook commands free of positional templates,
+  targets either supported pre-commit YAML destination (including the `.yml`
+  install command),
+  writes no manager/native hooks, preserves manager files byte-for-byte,
+  composes owner-specific prepare verification, and is idempotent in normal
+  and dry-run modes. Unit/fixture:
+  `test/hooks.test.mjs`, `test/init.test.mjs`.
+- **INIT-035** — automatic integration selection accepts exactly one detected
+  owner and refuses zero/multiple owners before writes; explicit selection does
+  not override unsafe, duplicate, or unsupported selected config; lint-staged
+  names and package YAML keys are reported only as separate, non-executed
+  composition evidence. Unit/fixture: `test/hooks.test.mjs`,
+  `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -317,6 +331,10 @@ production-readiness workstream #130 is consolidated in the
   standalone-configuration paths before project or hook cleanup; configuration
   deletion rechecks the inspected file identity. Unit/fixture:
   `test/lib-files.test.mjs`, `test/uninstall.test.mjs`.
+- **UNINST-019** — uninstall and dry-run remove exact owner-specific prepare
+  repair while preserving recognized Husky, Lefthook, and pre-commit content
+  byte-for-byte and reporting manual cleanup. Fixture:
+  `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -379,6 +397,12 @@ production-readiness workstream #130 is consolidated in the
 - **CMSG-004** — missing local CLI, missing consumer config, unreadable message files, and successful runs have distinct outcomes; no built-in rules are substituted. Fixture: `test/commit-msg.test.mjs`.
 - **CMSG-005** — generated hooks block when configured and Git `--no-verify` bypasses without invoking commitlint. Real-Git fixture: `test/commit-msg.test.mjs`.
 - **CMSG-006** — standard and fun tones preserve severity/exit behavior. Unit: `test/message.test.mjs`; fixture: `test/commit-msg.test.mjs`.
+- **CMSG-007** — Lefthook's static `--git-path` mode selects
+  `COMMIT_EDITMSG` for ordinary commits and manually completed merges,
+  `MERGE_MSG` for direct automatic merges, preserves linked-worktree and
+  whitespace-bearing paths, and fails through the configured policy when Git
+  or filesystem probes are unsafe. Real-Git/subprocess fixture:
+  `test/commit-msg.test.mjs`.
 
 ### Commit fix (amend)
 
@@ -427,6 +451,36 @@ production-readiness workstream #130 is consolidated in the
 - **HOOK-017** — failed `core.hooksPath` probes fail safely instead of being mistaken for an unset value. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **HOOK-018** — directory, unreadable, and otherwise uninspectable hook paths are preserved and reported without raw exceptions. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **HOOK-019** — configured hook paths use Git's effective path resolution, including tilde expansion. Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`, `test/uninstall.test.mjs`.
+- **HOOK-020** — doctor verifies Husky, Lefthook, and pre-commit manager wiring
+  read-only, requires Husky's active hooksPath and valid explicitly sourced
+  runtime, Lefthook stdin plus effective `"$@"` forwarding, and a real
+  executable Lefthook/pre-commit dispatch in Git's effective hooks directory;
+  binds supported pre-commit 3.2+, Lefthook 2.1.10, Husky 8.0.1–8.0.3, and
+  Husky 9.0.2–9.1.7 wrapper/runtime templates to the selected config/hook;
+  rejects incomplete, nested-example, duplicate, conditional,
+  argument-altering, commented, ambiguous, non-executable, linked-runtime, or
+  uninspectable state; and keeps quiet install-time failures exit-zero.
+  Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **HOOK-021** — manager-composed pre-commit, pre-push, and commit-msg entry
+  points retain `COMMITMENT_ISSUES=0` and legacy `HUSKY=0`; Husky snippets
+  preserve nonzero blocking exits before later custom commands. Unit/fixture:
+  `test/hooks.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`,
+  `test/commit-msg.test.mjs`.
+- **HOOK-022** — hook-path probes require exactly one NUL-delimited config
+  record, preserve configured whitespace, empty values, POSIX backslashes,
+  CRLF, and unterminated resolved Git paths, and reject malformed config output;
+  init, doctor, uninstall, and Husky recognition distinguish present-empty from
+  unset and apply Git-compatible Windows separator rules without changing POSIX
+  ownership. Unit/fixture:
+  `test/hooks.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`,
+  `test/uninstall.test.mjs`.
+- **HOOK-023** — manager health validates the whole selected YAML document,
+  including nested Lefthook siblings and every supported pre-commit root,
+  local, meta, and remote field; PATH/runtime inspection matches shell ordering,
+  effective execute access, special-node and symlink-loop behavior, platform
+  separators, resolved executable identity, and supported Unicode/Python
+  names without executing a repository-controlled probe. Unit/real-shell
+  fixtures: `test/hooks.test.mjs`.
 
 ### Pre-push modes
 
@@ -442,8 +496,14 @@ production-readiness workstream #130 is consolidated in the
 - **PUSH-010** — JSON mode preserves Git's pre-push positional arguments, keeps subprocess output off stdout, and reports advisory, clean, and blocking outcomes. Fixture: `test/json-output.test.mjs`.
 - **PUSH-011** — the first push of a based branch uses its closest safe remote merge base; orphan histories fall back to the empty tree, and multiple pushed refs are evaluated independently. Fixture: `test/prepush.test.mjs`.
 - **PUSH-012** — same-basename sources in separate packages select only their own package-relative tests; a root basename fallback cannot steal the match. Fixture: `test/prepush.test.mjs`.
-- **PUSH-013** — pushed test selection passes leading/trailing whitespace, tabs, newlines, and Unicode pathnames exactly. Fixture: `test/prepush.test.mjs`.
-- **PUSH-014** — missing remotes fail safely, one remote can be inferred, and multiple remotes are never guessed when selecting a first-push base. Unit: `test/push-base.test.mjs`.
+- **PUSH-013** — a complete pre-commit framework `PRE_COMMIT_*` environment
+  reconstructs the pushed range and remote identity after the framework
+  consumes Git stdin; an all-files first push recovers from the documented
+  branch and remote identity when the framework omits `FROM_REF`/`TO_REF`,
+  while any other partial range is ignored rather than guessed.
+  Fixture: `test/prepush.test.mjs`.
+- **PUSH-014** — pushed test selection passes leading/trailing whitespace, tabs, newlines, and Unicode pathnames exactly. Fixture: `test/prepush.test.mjs`.
+- **PUSH-015** — missing remotes fail safely, one remote can be inferred, and multiple remotes are never guessed when selecting a first-push base. Unit: `test/push-base.test.mjs`.
 
 ### Advisory message and tone
 
@@ -499,6 +559,14 @@ production-readiness workstream #130 is consolidated in the
   `test/lib-files.test.mjs`, `test/cli.test.mjs`, `test/doctor.test.mjs`,
   `test/fix-staged.test.mjs`, `test/commit-guards-integration.test.mjs`,
   `test/prepush.test.mjs`, `test/json-output.test.mjs`.
+- **SEC-020** — hook-manager detection and health checks use lstat-based regular
+  file/directory boundaries, never follow linked config or Husky runtime
+  directories, never interpolate checkout or Git-provided paths into snippets,
+  and treat duplicate owner configs, Lefthook local/non-YAML/extended/overridden
+  forms, advanced YAML, unsupported sibling schema, and masked linked
+  dispatchers as uninspectable before init writes project files.
+  Unit/subprocess: `test/hooks.test.mjs`, `test/init.test.mjs`,
+  `test/doctor.test.mjs`.
 
 ### Performance
 

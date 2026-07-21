@@ -120,7 +120,7 @@ again against an open descriptor immediately before truncation or writing;
 missing paths use exclusive creation, and removal rechecks the inspected
 identity. Hook activation uses the same shared classifier in `init` and
 `doctor`: only executable command lines count, and POSIX hooks must have an
-executable mode bit.
+effective executable-access check; mode bits alone are not treated as proof.
 
 ### Fail-safe defaults
 
@@ -203,6 +203,20 @@ so file paths are passed as arguments rather than shell code. An option
 separator protects discovered Node test paths, including repository filenames
 that begin with `-`. The generated commit-msg hook quotes Git's `$1`, and the
 entrypoint resolves it to one absolute argv value before invoking commitlint.
+Lefthook configuration contains no Git-provided argument template: pre-push
+uses stdin, while the explicit commit-msg `--git-path` mode asks Git for
+the active `MERGE_MSG` or `COMMIT_EDITMSG` path inside the Node process. The
+merge-only selection requires Git's `GITHEAD_<object-id>` environment signal
+and a regular, non-linked `MERGE_HEAD`; probe, non-regular entries, and unsafe
+filesystem failures fail closed into the configured advisory/blocking policy.
+
+Hook-path discovery also treats Git output as a protocol record rather than
+free-form text. `core.hooksPath` must be exactly one terminal-NUL-delimited
+record; missing or additional delimiters fail closed. Valid values retain
+whitespace and distinguish present-empty from unset, while resolved Git paths
+lose at most one LF or CRLF terminator. POSIX backslashes are literal path
+bytes, not alternate separators, so hostile near-matches cannot acquire Husky
+ownership semantics.
 
 ### Terminal output injection
 

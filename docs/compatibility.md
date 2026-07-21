@@ -57,25 +57,45 @@ entry is gone; they never fall through to a global binary.
 
 ## Install and lifecycle modes
 
-| Mode                                      | Boundary and evidence                                                                                                                                                                                                    |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Clean local install                       | Supported from the packed tarball with each manager above                                                                                                                                                                |
-| Manager-native CLI                        | Verified through `npx --no-install`, `pnpm exec`, `yarn run`, or `bunx --no-install`                                                                                                                                     |
-| Normal fresh-clone reinstall              | npm, pnpm, Yarn Classic, and Bun run the consumer-owned `prepare` repair added by `init`; Yarn Berry requires explicit local `doctor` repair because it does not support `prepare` and disables `postinstall` by default |
-| Install with lifecycle scripts disabled   | Installs the CLI but intentionally does not repair clone-local hooks; run the local `doctor` command or reinstall with scripts enabled                                                                                   |
-| Re-initialization and same-version repair | Supported and idempotent                                                                                                                                                                                                 |
-| Forward cross-version upgrade             | Supported from pinned immutable v2.5.1, v3.2.0, and v3.3.2 fixtures when the new version's `init` is run                                                                                                                 |
-| In-place downgrade                        | Unsupported; older versions do not perform reverse migrations                                                                                                                                                            |
-| Manual rollback                           | Documented cleanup-and-reinstall path using current `uninstall`, a pinned target manifest/lockfile and peers, then target `init`/`doctor`                                                                                |
-| Uninstall                                 | The CLI removes exact owned setup, then the selected manager removes the package while preserving the lockfile                                                                                                           |
-| Root-owned workspaces                     | Supported for the default npm, pnpm, Yarn Classic, Yarn Berry `node-modules`, and Bun layouts in the [monorepo guide](monorepo.md)                                                                                       |
-| Global install                            | Unsupported; the product contract is project-local                                                                                                                                                                       |
+| Mode                                      | Boundary and evidence                                                                                                                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Clean local install                       | Supported from the packed tarball with each manager above                                                                                                                                                                            |
+| Manager-native CLI                        | Verified through `npx --no-install`, `pnpm exec`, `yarn run`, or `bunx --no-install`                                                                                                                                                 |
+| Normal fresh-clone reinstall              | npm, pnpm, Yarn Classic, and Bun run the consumer-owned `prepare` repair added by `init`; Yarn Berry requires explicit local `doctor` repair because it does not support `prepare` and disables `postinstall` by default             |
+| Install with lifecycle scripts disabled   | Installs the CLI but intentionally does not repair clone-local hooks; run the local `doctor` command or reinstall with scripts enabled                                                                                               |
+| Re-initialization and same-version repair | Supported and idempotent                                                                                                                                                                                                             |
+| Existing hook-manager coexistence         | Husky, Lefthook, and pre-commit configs plus effective executable dispatchers are inspected read-only through explicit `--integration=<manager>`; Lefthook commands remain static; lint-staged remains a separate project-owned task |
+| Forward cross-version upgrade             | Supported from pinned immutable v2.5.1, v3.2.0, and v3.3.2 fixtures when the new version's `init` is run                                                                                                                             |
+| In-place downgrade                        | Unsupported; older versions do not perform reverse migrations                                                                                                                                                                        |
+| Manual rollback                           | Documented cleanup-and-reinstall path using current `uninstall`, a pinned target manifest/lockfile and peers, then target `init`/`doctor`                                                                                            |
+| Uninstall                                 | The CLI removes exact owned setup, then the selected manager removes the package while preserving the lockfile                                                                                                                       |
+| Root-owned workspaces                     | Supported for the default npm, pnpm, Yarn Classic, Yarn Berry `node-modules`, and Bun layouts in the [monorepo guide](monorepo.md)                                                                                                   |
+| Global install                            | Unsupported; the product contract is project-local                                                                                                                                                                                   |
 
 The package itself declares no dependency install lifecycle script. `init`
 adds or composes `commitment-issues doctor --quiet` in the consuming project's
 `prepare` script so normal installs can repair that repository's clone-local
 hooks. Projects that disable scripts retain an explicit, local recovery path
 without executing package code during dependency installation.
+
+Coexistence setup instead composes
+`commitment-issues doctor --quiet --integration=<manager>`. The install-time
+check never edits manager files and still exits zero when it must warn. All
+manager snippets use the project-relative local bin, so the existing supported
+spaces, Unicode, worktree, shell, and `node-modules` workspace boundaries apply.
+
+The verified manager boundary is exact rather than forward-compatible by
+assumption: Husky 8.0.1–8.0.3 and 9.0.2–9.1.7 dispatcher/runtime shapes,
+Lefthook's canonical 2.1.10 wrapper with one of the six documented main YAML
+names, and the supported pre-commit 3.2+ wrapper with either
+`.pre-commit-config.yaml` or `.yml`. Husky 8.0.0/9.0.1, customized or newer
+wrappers, and Lefthook local, JSON/JSONC/TOML, extended/remote,
+overridden, advanced-YAML, or top-level global-option configs require manual
+review. The hook environment must still make `node` available. Lefthook and
+pre-commit must also resolve a reviewed-identity manager runtime; Husky uses its
+inspected repository-local dispatcher. The project-local bin path does not
+replace those runtime requirements. See the
+[full coexistence contract](migration.md#keep-an-existing-hook-manager).
 
 Cross-version evidence downloads only immutable release artifacts whose
 SHA-256 values are pinned in the
@@ -111,8 +131,8 @@ compiler target: TypeScript support means file discovery followed by the
 consumer's TypeScript-aware ESLint configuration.
 
 The production package is native ESM JavaScript with no transpilation. Its
-three runtime dependencies (`boxen`, `cross-spawn`, and `picocolors`) all have
-Node requirements below this package's declared floor.
+four runtime dependencies (`boxen`, `cross-spawn`, `js-yaml`, and `picocolors`)
+all have Node requirements below this package's declared floor.
 
 ## Operating systems, shells, and Git clients
 

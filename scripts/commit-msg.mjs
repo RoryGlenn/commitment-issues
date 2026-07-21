@@ -18,8 +18,13 @@ import {
   interruptedToolOutcome,
   localToolInvocation,
 } from "./lib/local-tool.mjs";
-import { spawnAsync } from "./lib/process.mjs";
+import { run, spawnAsync } from "./lib/process.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
+import { hooksDisabled } from "./lib/hooks.mjs";
+
+if (hooksDisabled()) {
+  process.exit(0);
+}
 
 const config = loadPrecommitConfig();
 const hookOutput = resolveHookOutput(config);
@@ -44,7 +49,66 @@ function finish(outcome, detail = []) {
   process.exit(commitMessage.blockOnFailure ? 1 : 0);
 }
 
-const messageFile = process.argv[2];
+const messageArgument = process.argv[2];
+let messageFile = messageArgument;
+if (messageArgument === "--git-path") {
+  const stripPathRecordTerminator = (output) =>
+    output.endsWith("\r\n")
+      ? output.slice(0, -2)
+      : output.endsWith("\n")
+        ? output.slice(0, -1)
+        : output;
+  const resolveGitPath = (name) => {
+    const result = run("git", ["rev-parse", "--git-path", name]);
+    const resolved =
+      result.status === 0
+        ? stripPathRecordTerminator(String(result.stdout || ""))
+        : "";
+    return { resolved, succeeded: result.status === 0 && Boolean(resolved) };
+  };
+  const hasMergeHeadEnvironment = Object.keys(process.env).some((name) =>
+    /^GITHEAD_(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(name),
+  );
+  let directMerge = false;
+  if (hasMergeHeadEnvironment) {
+    const mergeHead = resolveGitPath("MERGE_HEAD");
+    if (!mergeHead.succeeded) {
+      finish("unreadable", [
+        "Git could not verify its MERGE_HEAD path for this merge.",
+      ]);
+    }
+    try {
+      // A direct `git merge` exports GITHEAD_<object-id> and invokes the hook
+      // with MERGE_MSG. A later `git commit` can still have MERGE_HEAD on disk,
+      // but it does not export GITHEAD_* and invokes the hook with
+      // COMMIT_EDITMSG. Require both signals so stale files or environment
+      // variables cannot select the wrong message.
+      if (!fs.lstatSync(path.resolve(mergeHead.resolved)).isFile()) {
+        finish("unreadable", ["Git's MERGE_HEAD path is not a regular file."]);
+      }
+      directMerge = true;
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        directMerge = false;
+      } else {
+        finish("unreadable", [
+          "Git's MERGE_HEAD path could not be inspected safely.",
+        ]);
+      }
+    }
+  }
+  const messagePathName = directMerge ? "MERGE_MSG" : "COMMIT_EDITMSG";
+  // Git prints one pathname record followed by LF (or CRLF on some hosts).
+  // Remove only that record terminator: trim() would corrupt a valid path that
+  // itself begins or ends with whitespace or a newline.
+  const resolvedMessagePath = resolveGitPath(messagePathName);
+  messageFile = resolvedMessagePath.resolved;
+  if (!resolvedMessagePath.succeeded) {
+    finish("unreadable", [
+      `Git could not resolve its ${messagePathName} path for this worktree.`,
+    ]);
+  }
+}
 let absoluteMessageFile;
 try {
   absoluteMessageFile = path.resolve(messageFile);

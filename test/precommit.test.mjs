@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
@@ -25,6 +26,25 @@ function runHook(tempDir, options = {}) {
     options,
   );
 }
+
+test("manager-composed pre-commit honors the project-wide skip switch", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writeFile(path.join(tempDir, "src", "broken.js"), "const value=1\n");
+  run("git", ["add", "src/broken.js"], tempDir);
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(tempDir, "scripts", "precommit.mjs")],
+    {
+      cwd: tempDir,
+      encoding: "utf8",
+      env: { ...process.env, COMMITMENT_ISSUES: "0" },
+    },
+  );
+  assert.equal(result.status, 0);
+  assert.equal(`${result.stdout}${result.stderr}`, "");
+});
 
 test("shows commit:fix for fully auto-fixable warnings", (t) => {
   const tempDir = createTempRepo();
