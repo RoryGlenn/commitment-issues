@@ -104,7 +104,7 @@ claim-to-scenario map remains in
 | `scripts/lib/config.mjs`          | package/standalone precedence, validation, defaults, and diagnostics                   | `test/config.test.mjs`                                                                 |
 | `scripts/lib/debug-artifacts.mjs` | opt-in staged debug rules, false-positive policy, exemptions, and aggregate findings   | `test/debug-artifacts.test.mjs`, `test/debug-artifacts-integration.test.mjs`           |
 | `scripts/lib/files.mjs`           | NUL-safe Git paths, ownership, stable project-file writes, workspace roots, and paths  | `test/lib-files.test.mjs`, `test/path-normalization.test.mjs`, `test/property.test.js` |
-| `scripts/lib/hooks.mjs`           | hook classification, resolution, ownership, and safe writes                            | `test/hooks.test.mjs`                                                                  |
+| `scripts/lib/hooks.mjs`           | native/manager hook classification, resolution, snippets, ownership, and safe writes   | `test/hooks.test.mjs`                                                                  |
 | `scripts/lib/json-output.mjs`     | stable machine-readable schema and status mapping                                      | `test/json-output.test.mjs`                                                            |
 | `scripts/lib/local-tool.mjs`      | project-local executable discovery without global/network fallback                     | `test/local-tool.test.mjs`                                                             |
 | `scripts/lib/logo.mjs`            | exact branded header and fresh return values                                           | `test/logo.test.mjs`                                                                   |

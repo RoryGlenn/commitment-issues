@@ -15,11 +15,20 @@ import {
   cleanupTempRepo,
   createTempRepo,
   fakeGitEnv,
+  fsFailurePreload,
+  readFile,
   repoRoot,
   run,
   setPrecommitConfig,
+  writeCrossPlatformShim,
   writeFile,
 } from "./helpers/temp-repo.mjs";
+import {
+  HUSKY_V9_RUNTIME,
+  lefthookRunner,
+  preCommitRunner,
+} from "./helpers/hook-manager-fixtures.mjs";
+import { hookInvocation, hookManagerSnippets } from "../scripts/lib/hooks.mjs";
 
 function runDoctor(tempDir, args = [], options = {}) {
   return run(
@@ -42,6 +51,38 @@ function gitHook(tempDir, name) {
   return path.join(tempDir, ".git", "hooks", name);
 }
 
+function aliasedRepoPath(t, tempDir, prefix) {
+  const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const repoAlias = path.join(aliasRoot, "repo");
+  fs.symlinkSync(
+    tempDir,
+    repoAlias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  t.after(() => fs.rmSync(aliasRoot, { recursive: true, force: true }));
+  return repoAlias;
+}
+
+function isolatedManagerBinDir(tempDir) {
+  const nodeModules = path.join(tempDir, "node_modules");
+  if (fs.lstatSync(nodeModules).isSymbolicLink()) {
+    fs.unlinkSync(nodeModules);
+  }
+  fs.mkdirSync(nodeModules, { recursive: true });
+  for (const packageName of ["eslint", "prettier"]) {
+    const source = path.join(repoRoot, "node_modules", packageName);
+    const destination = path.join(nodeModules, packageName);
+    fs.symlinkSync(
+      source,
+      destination,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  }
+  const binDir = path.join(nodeModules, ".bin");
+  fs.mkdirSync(binDir, { recursive: true });
+  return binDir;
+}
+
 test("doctor rejects unknown options before repairing hooks", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -56,6 +97,655 @@ test("doctor rejects unknown options before repairing hooks", (t) => {
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
 });
 
+function managerFixture(tempDir, manager) {
+  if (manager === "husky") {
+    run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+    fs.mkdirSync(path.join(tempDir, ".husky", "_"), { recursive: true });
+    const files = {
+      ".husky/_/h": HUSKY_V9_RUNTIME,
+      ".husky/_/pre-commit": '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n',
+      ".husky/_/pre-push": '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n',
+      ".husky/pre-commit": `${hookInvocation("pre-commit")}\necho custom\n`,
+      ".husky/pre-push": `${hookInvocation("pre-push")}\necho still-custom\n`,
+    };
+    for (const [filePath, content] of Object.entries(files)) {
+      writeFile(path.join(tempDir, filePath), content);
+      if (filePath.startsWith(".husky/_/") && filePath !== ".husky/_/h") {
+        fs.chmodSync(path.join(tempDir, filePath), 0o755);
+      }
+    }
+    return files;
+  }
+  if (manager === "lefthook") {
+    const content = hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
+      .map(({ content: snippet }) => snippet)
+      .join("")
+      .replace(
+        "  commands:\n",
+        "  commands:\n    existing:\n      run: echo existing\n",
+      );
+    writeFile(path.join(tempDir, "lefthook.yml"), content);
+    const binDir = isolatedManagerBinDir(tempDir);
+    writeCrossPlatformShim(
+      binDir,
+      process.platform === "win32" ? "lefthook.exe" : "lefthook",
+      'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
+    );
+    const files = { "lefthook.yml": content };
+    for (const name of ["pre-commit", "pre-push"]) {
+      const runner = lefthookRunner(name);
+      const relativePath = `.git/hooks/${name}`;
+      writeFile(path.join(tempDir, relativePath), runner);
+      fs.chmodSync(path.join(tempDir, relativePath), 0o755);
+      files[relativePath] = runner;
+    }
+    return files;
+  }
+  const content = [
+    "repos:",
+    "  - repo: local",
+    "    hooks:",
+    "      - id: existing-hook",
+    "        name: existing hook",
+    "        entry: echo existing",
+    "        language: system",
+    ...hookManagerSnippets("pre-commit", ["pre-commit", "pre-push"])
+      .map(({ content: snippet }) => snippet.trimEnd().split("\n"))
+      .flat(),
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".pre-commit-config.yaml"), content);
+  const binDir = isolatedManagerBinDir(tempDir);
+  writeCrossPlatformShim(binDir, "python3", "process.exit(0);\n");
+  const files = { ".pre-commit-config.yaml": content };
+  for (const name of ["pre-commit", "pre-push"]) {
+    const runner = preCommitRunner(name, {
+      installPython: "node_modules/.bin/python3",
+    });
+    const relativePath = `.git/hooks/${name}`;
+    writeFile(path.join(tempDir, relativePath), runner);
+    fs.chmodSync(path.join(tempDir, relativePath), 0o755);
+    files[relativePath] = runner;
+  }
+  return files;
+}
+
+for (const manager of ["husky", "lefthook", "pre-commit"]) {
+  test(`doctor verifies healthy ${manager} coexistence without mutation`, (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const managerFiles = managerFixture(tempDir, manager);
+
+    const result = runDoctor(tempDir, [`--integration=${manager}`]);
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0);
+    assert.match(output, new RegExp(`${manager} integration is healthy`, "i"));
+    assert.match(output, /Manager-owned files were inspected but not changed/);
+    for (const [filePath, content] of Object.entries(managerFiles)) {
+      assert.equal(
+        fs.readFileSync(path.join(tempDir, filePath), "utf8"),
+        content,
+      );
+    }
+    assert.equal(
+      fs.existsSync(gitHook(tempDir, "pre-commit")),
+      manager !== "husky",
+    );
+
+    const quiet = runDoctor(tempDir, ["--quiet", `--integration=${manager}`]);
+    assert.equal(quiet.status, 0);
+    assert.equal(`${quiet.stdout}${quiet.stderr}`.trim(), "");
+  });
+}
+
+test("doctor recognizes healthy Husky v8 direct hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  run("git", ["config", "core.hooksPath", ".husky"], tempDir);
+  const hooksDir = path.join(tempDir, ".husky");
+  fs.mkdirSync(hooksDir, { recursive: true });
+  const hooks = {
+    "pre-commit": `#!/usr/bin/env sh\n${hookInvocation("pre-commit")}\n`,
+    "pre-push": `#!/usr/bin/env sh\n${hookInvocation("pre-push")}\n`,
+  };
+  for (const [name, content] of Object.entries(hooks)) {
+    writeFile(path.join(hooksDir, name), content);
+    fs.chmodSync(path.join(hooksDir, name), 0o755);
+  }
+
+  const result = runDoctor(tempDir, ["--integration=husky"]);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /husky integration is healthy/i);
+  assert.doesNotMatch(output, /missing-runtime|install or prepare command/i);
+  for (const [name, content] of Object.entries(hooks)) {
+    assert.equal(readFile(tempDir, `.husky/${name}`), content);
+  }
+});
+
+test("doctor reports coexistence advisories without changing a healthy manager", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const managerFiles = managerFixture(tempDir, "lefthook");
+  fs.mkdirSync(path.join(tempDir, ".husky"));
+  writeFile(path.join(tempDir, ".lintstagedrc"), '{"*.js":"eslint"}\n');
+  fs.mkdirSync(path.join(tempDir, ".pre-commit-config.yaml"));
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Multiple hook-manager owners were detected/);
+  assert.match(output, /Also detected: husky/);
+  assert.match(output, /lint-staged composition was detected/);
+  assert.match(output, /Some manager paths need manual review/);
+  for (const [filePath, content] of Object.entries(managerFiles)) {
+    assert.equal(
+      fs.readFileSync(path.join(tempDir, filePath), "utf8"),
+      content,
+    );
+  }
+  assert.equal(readFile(tempDir, ".lintstagedrc"), '{"*.js":"eslint"}\n');
+  assert.equal(
+    fs.statSync(path.join(tempDir, ".pre-commit-config.yaml")).isDirectory(),
+    true,
+  );
+});
+
+test("doctor distinguishes configured manager entries from installed wrappers", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const files = managerFixture(tempDir, "lefthook");
+  fs.rmSync(gitHook(tempDir, "pre-push"));
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 1);
+  assert.match(output, /effective hooks do not dispatch to lefthook: pre-push/);
+  assert.match(output, /lefthook install/);
+  assert.doesNotMatch(output, /Merge the missing entries/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, "lefthook.yml"), "utf8"),
+    files["lefthook.yml"],
+  );
+
+  const quiet = runDoctor(tempDir, ["--quiet", "--integration=lefthook"]);
+  assert.equal(quiet.status, 0);
+  assert.match(`${quiet.stdout}${quiet.stderr}`, /integration is incomplete/);
+});
+
+test("doctor preserves foreign manager wrappers for manual review", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "lefthook");
+  const wrapper = "#!/bin/sh\necho custom-manager-wrapper\n";
+  writeFile(gitHook(tempDir, "pre-push"), wrapper);
+  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = `${result.stdout}${result.stderr}`;
+  const compactOutput = compactTerminalBoxText(output);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    compactOutput,
+    /wrappers are customized or unsupported:\s*pre-push/i,
+  );
+  assert.match(compactOutput, /review .* wrappers manually/i);
+  assert.match(compactOutput, /do not run a manager install command/i);
+  assert.doesNotMatch(output, /lefthook install/i);
+  assert.equal(readFile(tempDir, ".git/hooks/pre-push"), wrapper);
+});
+
+test("doctor rejects manager wrappers that do not execute or forward hook arguments", (t) => {
+  const lefthookDir = createTempRepo();
+  const preCommitDir = createTempRepo();
+  t.after(() => cleanupTempRepo(lefthookDir));
+  t.after(() => cleanupTempRepo(preCommitDir));
+
+  managerFixture(lefthookDir, "lefthook");
+  writeFile(
+    gitHook(lefthookDir, "pre-push"),
+    '#!/bin/sh\ncall_lefthook run "pre-push"\n',
+  );
+  fs.chmodSync(gitHook(lefthookDir, "pre-push"), 0o755);
+  const lefthookResult = runDoctor(lefthookDir, ["--integration=lefthook"]);
+  assert.equal(lefthookResult.status, 1);
+  assert.match(
+    compactTerminalBoxText(`${lefthookResult.stdout}${lefthookResult.stderr}`),
+    /lefthook hook wrappers are customized or unsupported:\s*pre-push/i,
+  );
+  assert.doesNotMatch(
+    `${lefthookResult.stdout}${lefthookResult.stderr}`,
+    /lefthook install/i,
+  );
+
+  managerFixture(preCommitDir, "pre-commit");
+  writeFile(
+    gitHook(preCommitDir, "pre-push"),
+    [
+      "#!/usr/bin/env bash",
+      "# File generated by pre-commit: https://pre-commit.com",
+      "ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=pre-push)",
+      'exec pre-commit "${ARGS[@]}"',
+      "",
+    ].join("\n"),
+  );
+  fs.chmodSync(gitHook(preCommitDir, "pre-push"), 0o755);
+  const preCommitResult = runDoctor(preCommitDir, ["--integration=pre-commit"]);
+  assert.equal(preCommitResult.status, 1);
+  assert.match(
+    compactTerminalBoxText(
+      `${preCommitResult.stdout}${preCommitResult.stderr}`,
+    ),
+    /pre-commit hook wrappers are customized or unsupported:\s*pre-push/i,
+  );
+  assert.doesNotMatch(
+    `${preCommitResult.stdout}${preCommitResult.stderr}`,
+    /pre-commit install/i,
+  );
+});
+
+test("doctor reports exact missing manager snippets but never installs them", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const config = hookManagerSnippets("lefthook", ["pre-push"])[0].content;
+  writeFile(path.join(tempDir, "lefthook.yml"), config);
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 1);
+  assert.match(output, /lefthook integration needs attention/i);
+  assert.match(output, /missing hook entries: pre-commit/);
+  assert.match(
+    output,
+    /run: for commitment_issues_bin[\s\S]*COMMITMENT_ISSUES_LEFTHOOK_FILE=\{files\}[\s\S]*hook precommit/,
+  );
+  assert.doesNotMatch(
+    output,
+    /node_modules\/\.bin\/commitment-issues hook prepush/,
+  );
+  assert.match(output, /Manager-owned files were left unchanged/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, "lefthook.yml"), "utf8"),
+    config,
+  );
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+
+  const quiet = runDoctor(tempDir, ["--quiet", "--integration=lefthook"]);
+  assert.equal(quiet.status, 0);
+  assert.match(`${quiet.stdout}${quiet.stderr}`, /integration is incomplete/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, "lefthook.yml"), "utf8"),
+    config,
+  );
+});
+
+test("doctor gives guarded-entry guidance for missing Husky manager hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "husky");
+  fs.rmSync(path.join(tempDir, ".husky", "pre-commit"));
+
+  const result = runDoctor(tempDir, ["--integration=husky"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /missing hook entries: pre-commit/i);
+  assert.match(
+    output,
+    /Place each missing guarded entry before unrelated substantive commands/i,
+  );
+  assert.match(output, /commitment_issues_bin" hook precommit \|\| exit \$\?/);
+  assert.doesNotMatch(output, /integration is healthy/i);
+  assert.equal(
+    fs.existsSync(path.join(tempDir, ".husky", "pre-commit")),
+    false,
+  );
+});
+
+test("doctor refuses ambiguous automatic manager selection", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "husky");
+  managerFixture(tempDir, "lefthook");
+  const huskyBefore = fs.readFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "utf8",
+  );
+  const lefthookBefore = fs.readFileSync(
+    path.join(tempDir, "lefthook.yml"),
+    "utf8",
+  );
+  const runnerBefore = fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8");
+
+  const result = runDoctor(tempDir, ["--integration"]);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 1);
+  assert.match(output, /Could not choose a hook-manager owner safely/);
+  assert.match(output, /multiple hook managers were detected/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
+    huskyBefore,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, "lefthook.yml"), "utf8"),
+    lefthookBefore,
+  );
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
+    runnerBefore,
+  );
+
+  const quiet = runDoctor(tempDir, ["--quiet", "--integration"]);
+  assert.equal(quiet.status, 0);
+  assert.match(`${quiet.stdout}${quiet.stderr}`, /multiple hook managers/);
+});
+
+test("doctor refuses duplicate configuration files for one manager", (t) => {
+  for (const [manager, alternate, expectedPaths] of [
+    ["lefthook", ".lefthook.yml", ["lefthook.yml", ".lefthook.yml"]],
+    [
+      "pre-commit",
+      ".pre-commit-config.yml",
+      [".pre-commit-config.yaml", ".pre-commit-config.yml"],
+    ],
+  ]) {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const managerFiles = managerFixture(tempDir, manager);
+    writeFile(path.join(tempDir, alternate), "pre-commit: {}\n");
+
+    for (const args of [["--integration"], [`--integration=${manager}`]]) {
+      const result = runDoctor(tempDir, args);
+      const output = `${result.stdout}${result.stderr}`;
+      assert.equal(result.status, 1, `${manager}: ${args.join(" ")}`);
+      assert.match(output, /Could not choose .* configuration safely/u);
+      for (const expectedPath of expectedPaths) {
+        assert.match(
+          output,
+          new RegExp(expectedPath.replaceAll(".", "\\."), "u"),
+        );
+      }
+      assert.doesNotMatch(output, /integration is healthy|Merge the missing/u);
+      for (const [relativePath, content] of Object.entries(managerFiles)) {
+        assert.equal(readFile(tempDir, relativePath), content);
+      }
+
+      const quiet = runDoctor(tempDir, ["--quiet", ...args]);
+      assert.equal(quiet.status, 0);
+      assert.match(
+        `${quiet.stdout}${quiet.stderr}`,
+        /multiple recognized .* configuration files/u,
+      );
+    }
+  }
+});
+
+test("doctor rejects one unsupported Lefthook configuration format", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const config = '{"pre-commit": {}}\n';
+  writeFile(path.join(tempDir, "lefthook.json"), config);
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /configuration format requires manual review/i);
+  assert.match(output, /lefthook\.json/);
+  assert.match(output, /use one supported YAML main/i);
+  assert.doesNotMatch(output, /coexistence snippets|lefthook install/i);
+  assert.equal(readFile(tempDir, "lefthook.json"), config);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("doctor withholds snippets and install commands for unsafe manager content", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const config = "min_version: 999.0.0\npre-commit: {}\n";
+  writeFile(path.join(tempDir, "lefthook.yml"), config);
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /manager configuration could not be inspected safely/i);
+  assert.match(output, /Review the uninspectable configuration/i);
+  assert.doesNotMatch(
+    output,
+    /node_modules\/.bin\/commitment-issues|lefthook install/i,
+  );
+  assert.equal(readFile(tempDir, "lefthook.yml"), config);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("doctor automatic integration requires and selects exactly one owner", (t) => {
+  const noOwnerDir = createTempRepo();
+  const oneOwnerDir = createTempRepo();
+  t.after(() => cleanupTempRepo(noOwnerDir));
+  t.after(() => cleanupTempRepo(oneOwnerDir));
+
+  const noOwner = runDoctor(noOwnerDir, ["--integration"]);
+  assert.equal(noOwner.status, 1);
+  assert.match(
+    `${noOwner.stdout}${noOwner.stderr}`,
+    /no hook manager was detected/,
+  );
+  assert.equal(fs.existsSync(gitHook(noOwnerDir, "pre-commit")), false);
+
+  const quiet = runDoctor(noOwnerDir, ["--quiet", "--integration"]);
+  assert.equal(quiet.status, 0);
+  assert.match(
+    `${quiet.stdout}${quiet.stderr}`,
+    /no hook manager was detected/,
+  );
+
+  const managerFiles = managerFixture(oneOwnerDir, "lefthook");
+  const oneOwner = runDoctor(oneOwnerDir, ["--integration"]);
+  assert.equal(oneOwner.status, 0);
+  assert.match(
+    `${oneOwner.stdout}${oneOwner.stderr}`,
+    /lefthook integration is healthy/i,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(oneOwnerDir, "lefthook.yml"), "utf8"),
+    managerFiles["lefthook.yml"],
+  );
+  assert.equal(fs.existsSync(gitHook(oneOwnerDir, "pre-commit")), true);
+});
+
+test("doctor does not call a Husky hook healthy while its hooksPath is inactive", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const files = managerFixture(tempDir, "husky");
+  run("git", ["config", "--unset", "core.hooksPath"], tempDir);
+
+  const result = runDoctor(tempDir, ["--integration=husky"]);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 1);
+  assert.match(output, /Husky's \.husky\/_ path is not active/);
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
+    files[".husky/pre-commit"],
+  );
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("doctor never trims a whitespace-bearing hooksPath into Husky's path", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const files = managerFixture(tempDir, "husky");
+
+  for (const configured of [" .husky", ".husky ", ".husky\n"]) {
+    const set = run("git", ["config", "core.hooksPath", configured], tempDir);
+    assert.equal(set.status, 0, `${set.stdout}${set.stderr}`);
+    const result = runDoctor(tempDir, ["--integration=husky"]);
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 1);
+    assert.match(output, /Husky's \.husky\/_ path is not active/);
+    assert.doesNotMatch(output, /Husky integration is healthy/i);
+  }
+
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, ".husky", "pre-commit"), "utf8"),
+    files[".husky/pre-commit"],
+  );
+});
+
+for (const scenario of ["missing", "foreign"]) {
+  test(`doctor fails closed when a Husky effective wrapper is ${scenario}`, (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const files = managerFixture(tempDir, "husky");
+    const wrapper = path.join(tempDir, ".husky", "_", "pre-push");
+    if (scenario === "missing") {
+      fs.rmSync(wrapper);
+    } else {
+      fs.writeFileSync(wrapper, "#!/bin/sh\necho foreign-wrapper\n", {
+        mode: 0o755,
+      });
+    }
+
+    const result = runDoctor(tempDir, ["--integration=husky"]);
+    const output = `${result.stdout}${result.stderr}`;
+    const compactOutput = compactTerminalBoxText(output);
+    assert.equal(result.status, 1);
+    if (scenario === "missing") {
+      assert.match(
+        compactOutput,
+        /effective hooks do not dispatch to husky: pre-push/i,
+      );
+      assert.match(output, /Husky install or prepare command/);
+    } else {
+      assert.match(
+        compactOutput,
+        /husky hook wrappers are customized or unsupported:\s*pre-push/i,
+      );
+      assert.match(compactOutput, /review .* wrappers manually/i);
+      assert.doesNotMatch(output, /Husky install or prepare command/);
+    }
+    assert.doesNotMatch(output, /integration is healthy/i);
+    assert.equal(
+      fs.readFileSync(path.join(tempDir, ".husky", "pre-push"), "utf8"),
+      files[".husky/pre-push"],
+    );
+    assert.equal(
+      fs.existsSync(wrapper),
+      scenario === "foreign",
+      "doctor must not create or replace Husky's wrapper",
+    );
+  });
+}
+
+test(
+  "doctor fails closed when a Husky effective wrapper is non-executable",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    managerFixture(tempDir, "husky");
+    const wrapper = path.join(tempDir, ".husky", "_", "pre-push");
+    fs.chmodSync(wrapper, 0o644);
+
+    const result = runDoctor(tempDir, ["--integration=husky"]);
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 1);
+    assert.match(output, /effective hooks do not dispatch to husky: pre-push/i);
+    assert.doesNotMatch(output, /integration is healthy/i);
+    assert.equal(fs.statSync(wrapper).mode & 0o111, 0);
+  },
+);
+
+test("doctor explains every manager activation failure without writing", (t) => {
+  const dirs = Array.from({ length: 6 }, () => createTempRepo());
+  const outside = fs.mkdtempSync(
+    path.join(os.tmpdir(), "doctor-manager-runner-"),
+  );
+  t.after(() => {
+    dirs.forEach(cleanupTempRepo);
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
+
+  managerFixture(dirs[0], "husky");
+  run("git", ["config", "core.hooksPath", "custom-hooks"], dirs[0]);
+  assert.match(
+    `${runDoctor(dirs[0], ["--integration=husky"]).stdout}`,
+    /core\.hooksPath is set to custom-hooks/,
+  );
+
+  managerFixture(dirs[1], "lefthook");
+  fs.rmSync(path.join(dirs[1], "lefthook.yml"));
+  fs.writeFileSync(path.join(outside, "lefthook.yml"), "pre-commit: {}\n");
+  fs.symlinkSync(
+    path.join(outside, "lefthook.yml"),
+    path.join(dirs[1], "lefthook.yml"),
+  );
+  assert.match(
+    `${runDoctor(dirs[1], ["--integration=lefthook"]).stdout}`,
+    /manager configuration could not be inspected safely/,
+  );
+
+  assert.match(
+    `${runDoctor(dirs[2], ["--integration=pre-commit"]).stdout}`,
+    /no active pre-commit configuration was detected/,
+  );
+
+  managerFixture(dirs[3], "lefthook");
+  fs.rmSync(gitHook(dirs[3], "pre-push"));
+  fs.writeFileSync(path.join(outside, "pre-push"), "foreign\n");
+  fs.symlinkSync(path.join(outside, "pre-push"), gitHook(dirs[3], "pre-push"));
+  assert.match(
+    `${runDoctor(dirs[3], ["--integration=lefthook"]).stdout}`,
+    /effective lefthook hook wrappers could not be inspected safely/i,
+  );
+
+  managerFixture(dirs[4], "pre-commit");
+  fs.rmSync(gitHook(dirs[4], "pre-push"));
+  assert.match(
+    `${runDoctor(dirs[4], ["--integration=pre-commit"]).stdout}`,
+    /pre-commit install --hook-type pre-commit --hook-type pre-push/,
+  );
+
+  const files = managerFixture(dirs[5], "lefthook");
+  const preCommitRunLine = hookManagerSnippets("lefthook", [
+    "pre-commit",
+  ])[0].content.match(/^\s*run: .+$/mu)?.[0];
+  assert.ok(preCommitRunLine);
+  writeFile(
+    path.join(dirs[5], "lefthook.yml"),
+    files["lefthook.yml"].replace(preCommitRunLine, "      run: echo other"),
+  );
+  const configOnly = `${runDoctor(dirs[5], ["--integration=lefthook"]).stdout}`;
+  assert.match(configOnly, /missing hook entries: pre-commit/);
+  assert.doesNotMatch(
+    configOnly,
+    /Install or refresh the manager's Git hook wrappers/,
+  );
+});
+
+test("doctor validates integration option cardinality", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  const unsupported = runDoctor(tempDir, ["--integration=unknown"]);
+  assert.equal(unsupported.status, 1);
+  assert.match(
+    `${unsupported.stdout}${unsupported.stderr}`,
+    /Unknown doctor option: --integration=unknown/,
+  );
+  const duplicate = runDoctor(tempDir, [
+    "--integration=husky",
+    "--integration=lefthook",
+  ]);
+  assert.equal(duplicate.status, 1);
+  assert.match(
+    `${duplicate.stdout}${duplicate.stderr}`,
+    /may be supplied only once/,
+  );
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
 // Simulate the wiring a pre-3.0 (husky-era) setup leaves behind: hooksPath
 // pointing at husky's shim dir plus our generated `.husky` hook files. With
 // `live: true` a husky package stub is installed (the "user deliberately
@@ -67,11 +757,15 @@ function wireHuskyEra(tempDir, { live = false } = {}) {
   fs.writeFileSync(path.join(tempDir, ".husky", "_", "h"), "# husky shim\n");
   fs.writeFileSync(
     path.join(tempDir, ".husky", "pre-commit"),
-    "commitment-issues precommit\n",
+    live
+      ? "node_modules/.bin/commitment-issues precommit || exit $?\n"
+      : "commitment-issues precommit\n",
   );
   fs.writeFileSync(
     path.join(tempDir, ".husky", "pre-push"),
-    "commitment-issues prepush\n",
+    live
+      ? 'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n'
+      : "commitment-issues prepush\n",
   );
   fs.chmodSync(path.join(tempDir, ".husky", "pre-commit"), 0o755);
   fs.chmodSync(path.join(tempDir, ".husky", "pre-push"), 0o755);
@@ -153,7 +847,10 @@ test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t
   const unwiredOutput = `${unwired.stdout}${unwired.stderr}`;
   assert.equal(unwired.status, 1);
   assert.match(unwiredOutput, /commit-msg/);
-  assert.match(unwiredOutput, /commitment-issues commit-msg "\$1"/);
+  assert.match(
+    compactTerminalBoxText(unwiredOutput),
+    /commitment_issues_bin"\s*hook\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
+  );
   assert.equal(
     fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
     "echo custom message hook\n",
@@ -161,7 +858,7 @@ test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t
 
   fs.writeFileSync(
     gitHook(tempDir, "commit-msg"),
-    'echo custom\ncommitment-issues commit-msg "$1"\n',
+    `${hookInvocation("commit-msg")}\necho custom\n`,
   );
   const safe = runDoctor(tempDir);
   assert.equal(safe.status, 0);
@@ -241,7 +938,7 @@ commitment-issues prepush "$@"
   assert.equal(fs.readFileSync(hookPath, "utf8"), current);
 });
 
-test("doctor preserves a customized pre-push hook without forwarded args", (t) => {
+test("doctor reports and preserves a customized pre-push hook without forwarded args", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -252,11 +949,12 @@ test("doctor preserves a customized pre-push hook without forwarded args", (t) =
 
   const result = runDoctor(tempDir);
 
-  assert.equal(result.status, 0);
+  assert.equal(result.status, 1);
+  assert.match(`${result.stdout}${result.stderr}`, /does not invoke/);
   assert.equal(fs.readFileSync(hookPath, "utf8"), custom);
 });
 
-test("doctor respects live husky-era wiring and only nudges", (t) => {
+test("doctor requires live husky-era wiring to adopt managed bypasses", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -265,13 +963,36 @@ test("doctor respects live husky-era wiring and only nudges", (t) => {
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
-  // The user may be keeping husky deliberately; a working setup is healthy.
-  assert.equal(result.status, 0);
-  assert.match(output, /Git hooks are healthy/);
-  assert.match(output, /husky-era wiring/);
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(output, /Git hooks are healthy/);
+  assert.match(output, /core\.hooksPath points somewhere else/);
   assert.match(output, /commitment-issues init/);
   assert.equal(hooksPath(tempDir), ".husky/_");
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
+});
+
+test("doctor recognizes managed live husky-era wiring", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  wireHuskyEra(tempDir, { live: true });
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    `${hookInvocation("pre-commit")}\n`,
+  );
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-push"),
+    `${hookInvocation("pre-push")}\n`,
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+  assert.match(output, /This is husky-era wiring/);
+  assert.match(output, /npx commitment-issues init/);
+  assert.equal(hooksPath(tempDir), ".husky/_");
 });
 
 test("doctor reports live husky-era hooks that never invoke commitment-issues", (t) => {
@@ -357,22 +1078,26 @@ test("doctor --quiet warns in one line about stranded .husky hooks", (t) => {
   assert.match(output, /\.husky\/commit-msg no longer run/);
 });
 
-test("doctor accepts a custom hook that still invokes commitment-issues", (t) => {
+test("doctor rejects legacy unguarded or direct custom hooks", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring + exact hook bodies
-  // A user adds their own line but keeps our subcommand — still healthy.
+  // A direct public command still runs, but it cannot honor the managed
+  // fail-open and hook-only-bypass contract.
   fs.writeFileSync(
     gitHook(tempDir, "pre-commit"),
-    "echo running my own lint step\ncommitment-issues precommit\n",
+    "node_modules/.bin/commitment-issues precommit || exit $?\necho running my own lint step\n",
   );
 
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
-  assert.equal(result.status, 0);
-  assert.match(output, /Git hooks are healthy/);
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(output, /Git hooks are healthy/);
+  assert.match(output, /outdated unguarded or direct wiring/i);
+  assert.match(output, /package removal fails open/i);
+  assert.match(compactTerminalBoxText(output), /hook\s*precommit/);
 });
 
 test("doctor rejects inert command mentions without changing custom hooks", (t) => {
@@ -572,11 +1297,11 @@ test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
   fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
   fs.writeFileSync(
     path.join(tempDir, "githooks", "pre-commit"),
-    "commitment-issues precommit\n",
+    `${hookInvocation("pre-commit")}\n`,
   );
   fs.writeFileSync(
     path.join(tempDir, "githooks", "pre-push"),
-    "commitment-issues prepush\n",
+    `${hookInvocation("pre-push")}\n`,
   );
   fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
   fs.chmodSync(path.join(tempDir, "githooks", "pre-push"), 0o755);
@@ -599,11 +1324,11 @@ test("doctor resolves a tilde-based core.hooksPath through Git", (t) => {
   t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
 
   const hooksDir = path.join(homeDir, "shared hooks");
-  for (const [name, command] of [
-    ["pre-commit", "commitment-issues precommit"],
-    ["pre-push", "commitment-issues prepush"],
-  ]) {
-    writeFile(path.join(hooksDir, name), `#!/bin/sh\n${command}\n`);
+  for (const name of ["pre-commit", "pre-push"]) {
+    writeFile(
+      path.join(hooksDir, name),
+      `#!/bin/sh\n${hookInvocation(name)}\n`,
+    );
     fs.chmodSync(path.join(hooksDir, name), 0o755);
   }
   run("git", ["config", "core.hooksPath", "~/shared hooks"], tempDir);
@@ -635,9 +1360,30 @@ test("doctor reports an unwired foreign core.hooksPath without touching it", (t)
 
   assert.equal(result.status, 1);
   assert.match(output, /core\.hooksPath points somewhere else/);
-  assert.match(output, /commitment-issues precommit/);
+  assert.match(output, /commitment_issues_bin" hook precommit/);
   assert.equal(hooksPath(tempDir), "githooks");
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("doctor treats a configured empty hooksPath as the repository root", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const set = run("git", ["config", "core.hooksPath", ""], tempDir);
+  assert.equal(set.status, 0, `${set.stdout}${set.stderr}`);
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /core\.hooksPath points somewhere else/);
+  assert.match(output, /core\.hooksPath is set to ""/);
+  assert.doesNotMatch(output, /Git hooks are healthy/);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(path.join(tempDir, "pre-commit")), false);
+  assert.equal(
+    run("git", ["config", "--get", "core.hooksPath"], tempDir).status,
+    0,
+  );
 });
 
 test("doctor --quiet warns but exits 0 for an unwired foreign core.hooksPath", (t) => {
@@ -804,7 +1550,7 @@ test("doctor fails safely when core.hooksPath cannot be inspected", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  const env = fakeGitEnv(tempDir, "config --get core.hooksPath", 128);
+  const env = fakeGitEnv(tempDir, "--get core.hooksPath", 128);
   const interactive = runDoctor(tempDir, [], { env });
   const quiet = runDoctor(tempDir, ["--quiet"], { env });
 
@@ -920,6 +1666,43 @@ test(
   },
 );
 
+test(
+  "doctor never recommends installing an unsafe Husky owner",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const outside = fs.mkdtempSync(
+      path.join(os.tmpdir(), "doctor-husky-root-"),
+    );
+    t.after(() => cleanupTempRepo(tempDir));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+    writeFile(path.join(outside, "keep"), "outside\n");
+    fs.symlinkSync(outside, path.join(tempDir, ".husky"), "dir");
+
+    for (const args of [["--integration=husky"], ["--integration"]]) {
+      const result = runDoctor(tempDir, args);
+      const output = `${result.stdout}${result.stderr}`;
+      assert.equal(result.status, 1);
+      assert.match(output, /could not choose a husky configuration safely/i);
+      assert.doesNotMatch(output, /install or prepare command/i);
+      assert.equal(readFile(outside, "keep"), "outside\n");
+    }
+  },
+);
+
+test("doctor rejects LEFTHOOK_CONFIG without an install hint", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writeFile(path.join(tempDir, "lefthook.yml"), "pre-commit: {}\n");
+  const result = runDoctor(tempDir, ["--integration=lefthook"], {
+    env: { ...process.env, LEFTHOOK_CONFIG: "custom.toml" },
+  });
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 1);
+  assert.match(output, /could not choose a lefthook configuration safely/i);
+  assert.doesNotMatch(output, /lefthook install/i);
+});
+
 test("doctor errors (interactive) when there is no package.json", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "doctor-nopkg-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -989,15 +1772,27 @@ test("doctor reports when the wiring is still broken after repair", (t) => {
 test("doctor reports failure when the hook files cannot be written", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
-
-  // A file squatting on .git/hooks makes the hooks dir uncreatable.
-  fs.rmSync(path.join(tempDir, ".git", "hooks"), {
-    recursive: true,
-    force: true,
-  });
-  fs.writeFileSync(path.join(tempDir, ".git", "hooks"), "not a directory\n");
-
-  const result = runDoctor(tempDir);
+  const repoAlias = aliasedRepoPath(t, tempDir, "doctor-write-alias-");
+  const preload = fsFailurePreload(tempDir);
+  const result = run(
+    "node",
+    ["--import", preload, path.join(tempDir, "scripts", "doctor.mjs")],
+    tempDir,
+    {
+      env: {
+        ...process.env,
+        TEST_FS_FAILURE_METHOD: "writeFileSync",
+        // Match a not-yet-created hook through a different spelling of the
+        // repository, like macOS' /var/folders -> /private/var/folders alias.
+        TEST_FS_FAILURE_PATH: path.join(
+          repoAlias,
+          ".git",
+          "hooks",
+          "pre-commit",
+        ),
+      },
+    },
+  );
 
   assert.equal(result.status, 1);
   assert.match(

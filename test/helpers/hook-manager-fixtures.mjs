@@ -1,0 +1,347 @@
+// Copyright (c) 2026 RoryGlenn and commitment-issues contributors
+// SPDX-License-Identifier: MIT
+
+export const HUSKY_V9_RUNTIME = `#!/usr/bin/env sh
+[ "$HUSKY" = "2" ] && set -x
+n=$(basename "$0")
+s=$(dirname "$(dirname "$0")")/$n
+
+[ ! -f "$s" ] && exit 0
+
+if [ -f "$HOME/.huskyrc" ]; then
+	echo "husky - '~/.huskyrc' is DEPRECATED, please move your code to ~/.config/husky/init.sh"
+fi
+i="\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh"
+[ -f "$i" ] && . "$i"
+
+[ "\${HUSKY-}" = "0" ] && exit 0
+
+export PATH="node_modules/.bin:$PATH"
+sh -e "$s" "$@"
+c=$?
+
+[ $c != 0 ] && echo "husky - $n script failed (code $c)"
+[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+exit $c
+`;
+
+export const HUSKY_V9_RUNTIME_VARIANTS = [
+  `#!/usr/bin/env sh
+[ "$HUSKY" = "2" ] && set -x
+h="\${0##*/}"
+s="\${0%/*/*}/$h"
+
+[ ! -f "$s" ] && exit 0
+
+for f in "\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh" "$HOME/.huskyrc.sh"; do
+	# shellcheck disable=SC1090
+	[ -f "$f" ] && . "$f"
+done
+
+[ "$HUSKY" = "0" ] && exit 0
+
+sh -e "$s" "$@"
+c=$?
+
+[ $c != 0 ] && echo "husky - $h script failed (code $c)"
+[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+exit $c`,
+  `#!/usr/bin/env sh
+H="$HUSKY"
+[ "$H" = "2" ] && set -x
+h="\${0##*/}"
+s="\${0%/*/*}/$h"
+
+[ ! -f "$s" ] && exit 0
+
+for f in "\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh" "$HOME/.huskyrc.sh"; do
+	# shellcheck disable=SC1090
+	[ -f "$f" ] && . "$f"
+done
+
+[ "$H" = "0" ] && exit 0
+
+sh -e "$s" "$@"
+c=$?
+
+[ $c != 0 ] && echo "husky - $h script failed (code $c)"
+[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+exit $c`,
+  `#!/usr/bin/env sh
+H="$HUSKY"
+[ "$H" = "2" ] && set -x
+h="\${0##*/}"
+s="\${0%/*/*}/$h"
+
+[ ! -f "$s" ] && exit 0
+
+for f in "\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh" "$HOME/.huskyrc"; do
+	# shellcheck disable=SC1090
+	[ -f "$f" ] && . "$f"
+done
+
+[ "$H" = "0" ] && exit 0
+
+sh -e "$s" "$@"
+c=$?
+
+[ $c != 0 ] && echo "husky - $h script failed (code $c)"
+[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+exit $c`,
+  `#!/usr/bin/env sh
+[ "$HUSKY" = "2" ] && set -x
+h="\${0##*/}"
+s="\${0%/*/*}/$h"
+
+[ ! -f "$s" ] && exit 0
+
+for f in "\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh" "$HOME/.huskyrc"; do
+	# shellcheck disable=SC1090
+	[ -f "$f" ] && . "$f"
+done
+
+[ "\${HUSKY-}" = "0" ] && exit 0
+
+sh -e "$s" "$@"
+c=$?
+
+[ $c != 0 ] && echo "husky - $h script failed (code $c)"
+[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+exit $c`,
+  `#!/usr/bin/env sh
+# shellcheck disable=SC1090
+[ "$HUSKY" = "2" ] && set -x
+n=$(basename "$0")
+s=$(dirname "$(dirname "$0")")/$n
+
+[ ! -f "$s" ] && exit 0
+
+if [ -f "$HOME/.huskyrc" ]; then
+	echo "husky - '~/.huskyrc' is DEPRECATED, please move your code to ~/.config/husky/init.sh"
+fi
+i="\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh"
+[ -f "$i" ] && . "$i"
+
+[ "\${HUSKY-}" = "0" ] && exit 0
+
+c=0
+h() {
+	[ $c = 0 ] && return
+	[ $c != 0 ] && echo "husky - $n script failed (code $c)"
+	[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+	exit 1
+}
+trap 'c=$?; h' EXIT
+set -e
+PATH=node_modules/.bin:$PATH
+. "$s"`,
+  `#!/usr/bin/env sh
+[ "$HUSKY" = "2" ] && set -x
+n=$(basename "$0")
+s=$(dirname "$(dirname "$0")")/$n
+
+[ ! -f "$s" ] && exit 0
+
+if [ -f "$HOME/.huskyrc" ]; then
+	echo "husky - '~/.huskyrc' is DEPRECATED, please move your code to ~/.config/husky/init.sh"
+fi
+i="\${XDG_CONFIG_HOME:-$HOME/.config}/husky/init.sh"
+[ -f "$i" ] && . "$i"
+
+[ "\${HUSKY-}" = "0" ] && exit 0
+
+export PATH=node_modules/.bin:$PATH
+sh -e "$s" "$@"
+c=$?
+
+[ $c != 0 ] && echo "husky - $n script failed (code $c)"
+[ $c = 127 ] && echo "husky - command not found in PATH=$PATH"
+exit $c`,
+  HUSKY_V9_RUNTIME,
+];
+
+export const HUSKY_V8_RUNTIME = `#!/usr/bin/env sh
+if [ -z "$husky_skip_init" ]; then
+  debug () {
+    if [ "$HUSKY_DEBUG" = "1" ]; then
+      echo "husky (debug) - $1"
+    fi
+  }
+
+  readonly hook_name="$(basename -- "$0")"
+  debug "starting $hook_name..."
+
+  if [ "$HUSKY" = "0" ]; then
+    debug "HUSKY env variable is set to 0, skipping hook"
+    exit 0
+  fi
+
+  if [ -f ~/.huskyrc ]; then
+    debug "sourcing ~/.huskyrc"
+    . ~/.huskyrc
+  fi
+
+  readonly husky_skip_init=1
+  export husky_skip_init
+  sh -e "$0" "$@"
+  exitCode="$?"
+
+  if [ $exitCode != 0 ]; then
+    echo "husky - $hook_name hook exited with code $exitCode (error)"
+  fi
+
+  if [ $exitCode = 127 ]; then
+    echo "husky - command not found in PATH=$PATH"
+  fi
+
+  exit $exitCode
+fi
+`;
+
+export function preCommitRunner(
+  name,
+  {
+    config = ".pre-commit-config.yaml",
+    installPython = "/usr/bin/python3",
+    skipOnMissingConfig = false,
+    windowsLauncher = false,
+  } = {},
+) {
+  const args = [
+    "hook-impl",
+    `--config=${config}`,
+    `--hook-type=${name}`,
+    ...(skipOnMissingConfig ? ["--skip-on-missing-config"] : []),
+  ];
+  return `${windowsLauncher ? "#!/bin/sh\n" : ""}#!/usr/bin/env bash
+# File generated by pre-commit: https://pre-commit.com
+# ID: 138fd403232d2ddd5efb44317e38bf03
+
+# start templated
+INSTALL_PYTHON=${installPython}
+ARGS=(${args.join(" ")})
+# end templated
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ARGS+=(--hook-dir "$HERE" -- "$@")
+
+if [ -x "$INSTALL_PYTHON" ]; then
+    exec "$INSTALL_PYTHON" -mpre_commit "\${ARGS[@]}"
+elif command -v pre-commit > /dev/null; then
+    exec pre-commit "\${ARGS[@]}"
+else
+    echo '\`pre-commit\` not found.  Did you forget to activate your virtualenv?' 1>&2
+    exit 1
+fi
+`;
+}
+
+export function lefthookRunner(
+  name,
+  {
+    embeddedExecutable,
+    roots = [],
+    windows = process.platform === "win32",
+  } = {},
+) {
+  const extension = windows ? ".exe" : "";
+  const currentExecutable =
+    embeddedExecutable ?? `node_modules/.bin/lefthook${extension}`;
+  const batFallback = windows
+    ? `  elif lefthook.bat -h >/dev/null 2>&1
+  then
+    lefthook.bat "$@"
+`
+    : "";
+  const rootFallbacks = roots
+    .map(
+      (
+        root,
+      ) => `    elif test -f "$dir/${root}/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}"
+    then
+      "$dir/${root}/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/${root}/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}"
+    then
+      "$dir/${root}/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}" "$@"
+    elif test -f "$dir/${root}/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}"
+    then
+      "$dir/${root}/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/${root}/node_modules/lefthook/bin/index.js"
+    then
+      "$dir/${root}/node_modules/lefthook/bin/index.js" "$@"
+`,
+    )
+    .join("");
+  return `#!/bin/sh
+
+if [ "$LEFTHOOK_VERBOSE" = "1" -o "$LEFTHOOK_VERBOSE" = "true" ]; then
+  set -x
+fi
+
+if [ "$LEFTHOOK" = "0" ]; then
+  exit 0
+fi
+
+call_lefthook()
+{
+  if test -n "$LEFTHOOK_BIN"
+  then
+    "$LEFTHOOK_BIN" "$@"
+  elif lefthook${extension} -h >/dev/null 2>&1
+  then
+    lefthook${extension} "$@"
+${batFallback}  elif ${currentExecutable} -h >/dev/null 2>&1
+  then
+    ${currentExecutable} "$@"
+  else
+    dir="$(git rev-parse --show-toplevel)"
+    osArch=$(uname | tr '[:upper:]' '[:lower:]')
+    cpuArch=$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')
+    if test -f "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}"
+    then
+      "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}"
+    then
+      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}"
+    then
+      "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/node_modules/lefthook/bin/index.js"
+    then
+      "$dir/node_modules/lefthook/bin/index.js" "$@"
+${rootFallbacks}    elif go tool lefthook -h >/dev/null 2>&1
+    then
+      go tool lefthook "$@"
+    elif bundle exec lefthook -h >/dev/null 2>&1
+    then
+      bundle exec lefthook "$@"
+    elif yarn lefthook -h >/dev/null 2>&1
+    then
+      yarn lefthook "$@"
+    elif pnpm lefthook -h >/dev/null 2>&1
+    then
+      pnpm lefthook "$@"
+    elif swift package lefthook >/dev/null 2>&1
+    then
+      swift package --build-path .build/lefthook --disable-sandbox lefthook "$@"
+    elif command -v mint >/dev/null 2>&1
+    then
+      mint run csjones/lefthook-plugin "$@"
+    elif uv run lefthook -h >/dev/null 2>&1
+    then
+      uv run lefthook "$@"
+    elif mise exec -- lefthook -h >/dev/null 2>&1
+    then
+      mise exec -- lefthook "$@"
+    elif devbox run lefthook -h >/dev/null 2>&1
+    then
+      devbox run lefthook "$@"
+    else
+      echo "Can't find lefthook in PATH"
+    fi
+  fi
+}
+
+call_lefthook run "${name}" "$@"
+`;
+}

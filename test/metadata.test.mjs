@@ -247,9 +247,23 @@ test("public Yarn support keeps Classic and Berry evidence distinct", () => {
 
 test("the hook contract documents local-only missing-bin behavior", () => {
   const contract = readText("docs/external-interface.md");
+  const configuration = readText("docs/configuration.md");
   assert.match(contract, /node_modules\/\.bin\/commitment-issues precommit/);
   assert.match(contract, /skip notice to stderr and exit 0/);
+  assert.match(contract, /ordered project-local launcher/u);
+  assert.match(contract, /\.exe.*\.cmd.*\.bat/u);
+  assert.match(contract, /never\s+consults `PATH`/u);
+  assert.match(contract, /selected launcher's nonzero result/u);
   assert.doesNotMatch(contract, /exit silently/);
+  assert.match(
+    configuration,
+    /health verifier accepts only the exact generated candidate-selector line/u,
+  );
+  assert.match(
+    configuration,
+    /terminal `exec` forms, remain recognizable only for cleanup and remediation/u,
+  );
+  assert.doesNotMatch(configuration, /verifier also accepts/u);
 });
 
 test("bootstrap dependency ranges stay inside the verified Node and tool matrix", () => {

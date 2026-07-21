@@ -610,7 +610,11 @@ test("lifecycle runners validate and forward an explicit tarball without a shell
     /shouldEnforcePosixPackageModes/,
     "bin, shebang, and version checks must remain unconditional on Windows",
   );
-  assert.match(fixture, /delete env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(
+    fixture,
+    /"COMMITMENT_ISSUES_LIFECYCLE_TARBALL"[\s\S]*?isolatedKeys\.has\(key\.toLowerCase\(\)\)\) delete env\[key\]/,
+    "the fixture must strip inherited tarball routing across environment-key casing",
+  );
   assert.match(
     fixture,
     /if \(suppliedTarball\) \{[\s\S]*?SUPPLIED_TARBALL_DIGEST_PREFIX[\s\S]*?initialTarballHash/,

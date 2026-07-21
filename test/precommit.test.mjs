@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { countTerminalBoxes } from "./helpers/output.mjs";
 import {
   cleanupTempRepo,
@@ -25,6 +26,46 @@ function runHook(tempDir, options = {}) {
     options,
   );
 }
+
+test("manager-composed pre-commit honors the project-wide skip switch", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writeFile(path.join(tempDir, "src", "broken.js"), "const value=1\n");
+  run("git", ["add", "src/broken.js"], tempDir);
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(tempDir, "scripts", "cli.mjs"), "hook", "precommit"],
+    {
+      cwd: tempDir,
+      encoding: "utf8",
+      env: { ...process.env, COMMITMENT_ISSUES: "0" },
+    },
+  );
+  assert.equal(result.status, 0);
+  assert.equal(`${result.stdout}${result.stderr}`, "");
+});
+
+test("explicit precommit still runs when hook-only skips are configured", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { requireTests: false });
+  writeFile(path.join(tempDir, "src", "broken.json"), '{"value":1}\n');
+  run("git", ["add", "src/broken.json"], tempDir);
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(tempDir, "scripts", "cli.mjs"), "precommit", "--json"],
+    {
+      cwd: tempDir,
+      encoding: "utf8",
+      env: { ...process.env, COMMITMENT_ISSUES: "0", HUSKY: "0" },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).command, "precommit");
+});
 
 test("shows commit:fix for fully auto-fixable warnings", (t) => {
   const tempDir = createTempRepo();

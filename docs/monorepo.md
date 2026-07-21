@@ -15,15 +15,23 @@ npm install -D commitment-issues eslint@^9 prettier@^3
 npx --no-install commitment-issues init
 ```
 
+If the root already owns hooks through Husky, Lefthook, or pre-commit, use
+`init --integration=<manager>` at that same root. The printed commands remain
+root-relative and the manager config stays untouched. Do not initialize or add
+manager entries separately inside workspaces.
+
 ## How it works in a monorepo today
 
 `commitment-issues` treats the repository as a single unit rooted at the Git
 root:
 
-- **Hooks belong to the Git repository.** `init` writes `pre-commit` and
+- **Hooks belong to the Git repository.** Native `init` writes `pre-commit` and
   `pre-push` in Git's common hooks directory, plus the optional `commit-msg`
   hook when enabled, so they run once for the whole repository. A linked Git
   worktree shares those hooks with the primary checkout.
+- **A retained manager stays the sole hook owner.** Coexistence mode verifies
+  the root manager config and never writes the shared native hook directory or
+  a worktree-specific manager file.
 - **Staged files are checked across all packages.** The pre-commit check reads
   staged paths with `git diff --cached` relative to the repo root, so changes in
   any workspace package are included together.

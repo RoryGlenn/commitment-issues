@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { withoutGitLocalEnvironment } from "../../scripts/lib/process.mjs";
 
@@ -42,6 +42,51 @@ export function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content);
 }
 
+export function fsFailurePreload(tempDir) {
+  const preloadPath = path.join(tempDir, "fs-failure-preload.mjs");
+  writeFile(
+    preloadPath,
+    [
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      "function canonical(filePath) {",
+      "  const resolved = path.resolve(filePath);",
+      "  let current = resolved;",
+      "  const missingSegments = [];",
+      "  let canonicalPath = resolved;",
+      "  for (;;) {",
+      "    try {",
+      "      canonicalPath = path.join(",
+      "        fs.realpathSync.native(current),",
+      "        ...missingSegments,",
+      "      );",
+      "      break;",
+      "    } catch {",
+      "      const parent = path.dirname(current);",
+      "      if (parent === current) break;",
+      "      missingSegments.unshift(path.basename(current));",
+      "      current = parent;",
+      "    }",
+      "  }",
+      '  return process.platform === "win32"',
+      "    ? canonicalPath.toLowerCase()",
+      "    : canonicalPath;",
+      "}",
+      "const method = process.env.TEST_FS_FAILURE_METHOD;",
+      "const target = canonical(process.env.TEST_FS_FAILURE_PATH);",
+      "const original = fs[method].bind(fs);",
+      "fs[method] = (filePath, ...args) => {",
+      '  if (typeof filePath === "string" && canonical(filePath) === target) {',
+      '    throw Object.assign(new Error("injected filesystem failure"), { code: "EACCES" });',
+      "  }",
+      "  return original(filePath, ...args);",
+      "};",
+      "",
+    ].join("\n"),
+  );
+  return pathToFileURL(preloadPath).href;
+}
+
 export function readFile(tempDir, relativePath) {
   return fs.readFileSync(path.join(tempDir, relativePath), "utf8");
 }
@@ -55,6 +100,10 @@ export function createTempRepo({ commit = true, suppressWelcome = true } = {}) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "precommit-checks-"));
 
   run("git", ["init"], tempDir);
+  // Keep byte-for-byte filesystem assertions isolated from Git's detached
+  // automatic maintenance, whose transient lock can outlive the command that
+  // created the fixture repository.
+  run("git", ["config", "maintenance.auto", "false"], tempDir);
   run("git", ["config", "user.name", "test"], tempDir);
   run("git", ["config", "user.email", "test@example.com"], tempDir);
 
@@ -148,11 +197,17 @@ export function writeCrossPlatformShim(binDir, name, shimBody) {
   const shimPath = path.join(binDir, `${name}-shim.mjs`);
   fs.writeFileSync(shimPath, shimBody);
   const unix = path.join(binDir, name);
-  fs.writeFileSync(unix, `#!/bin/sh\nexec node "${shimPath}" "$@"\n`);
+  fs.writeFileSync(unix, '#!/bin/sh\nexec node "${0}-shim.mjs" "$@"\n');
   fs.chmodSync(unix, 0o755);
   fs.writeFileSync(
     path.join(binDir, `${name}.cmd`),
-    `@node "${shimPath}" %*\r\n`,
+    [
+      "@echo off",
+      "setlocal DisableDelayedExpansion",
+      'node "%~dpn0-shim.mjs" %*',
+      "exit /b %ERRORLEVEL%",
+      "",
+    ].join("\r\n"),
   );
 }
 

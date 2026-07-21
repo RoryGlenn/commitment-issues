@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { enforceSupportedNodeVersion } from "./lib/runtime.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
+import { hooksDisabled } from "./lib/hooks.mjs";
 
 // Single entry point for the `commitment-issues` bin. It dispatches a
 // subcommand to the matching script that lives alongside it inside the
@@ -20,12 +21,17 @@ const COMMANDS = {
     group: "Setup",
     order: 0,
     summary: "Install Git hooks in this repository",
-    usage: "init [--dry-run | -n]",
+    usage: "init [--dry-run | -n] [--integration[=husky|lefthook|pre-commit]]",
     options: [
       {
         label: "-n, --dry-run",
         flags: ["-n", "--dry-run"],
         summary: "Preview changes without modifying files or hooks",
+      },
+      {
+        label: "--integration[=<manager>]",
+        flags: ["--integration"],
+        summary: "Print safe coexistence snippets for an existing manager",
       },
     ],
   },
@@ -50,12 +56,17 @@ const COMMANDS = {
     group: "Setup",
     order: 1,
     summary: "Check and repair the installation",
-    usage: "doctor [--quiet]",
+    usage: "doctor [--quiet] [--integration[=husky|lefthook|pre-commit]]",
     options: [
       {
         label: "--quiet",
         flags: ["--quiet"],
         summary: "Stay silent when the installation is healthy",
+      },
+      {
+        label: "--integration[=<manager>]",
+        flags: ["--integration"],
+        summary: "Verify user-owned hook-manager wiring without changing it",
       },
     ],
   },
@@ -65,9 +76,17 @@ const COMMANDS = {
     group: "Integration",
     order: 0,
     summary: "Check a commit message when invoked automatically by Git",
-    usage: "commit-msg <message-file>",
-    options: [],
+    usage: "commit-msg <message-file> | --git-path",
+    options: [
+      {
+        label: "--git-path",
+        flags: ["--git-path"],
+        summary:
+          "Resolve Git's active commit-message path for manager integration",
+      },
+    ],
   },
+  hook: { file: null, visibility: "hidden", options: [] },
   precommit: {
     file: "precommit.mjs",
     visibility: "primary",
@@ -149,6 +168,11 @@ const COMMANDS = {
 
 const HELP_GROUPS = ["Setup", "Checks", "Fixes", "Integration"];
 const DOCUMENTATION_URL = "https://github.com/RoryGlenn/commitment-issues";
+const HOOK_FILES = new Map([
+  ["precommit", "precommit.mjs"],
+  ["prepush", "prepush.mjs"],
+  ["commit-msg", "commit-msg.mjs"],
+]);
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = path.join(path.dirname(scriptsDir), "package.json");
@@ -283,7 +307,9 @@ if (subcommand === "help") {
 }
 
 const commandName = subcommand === "help" ? rest[0] : subcommand;
-const command = COMMANDS[commandName];
+const command = Object.hasOwn(COMMANDS, commandName)
+  ? COMMANDS[commandName]
+  : undefined;
 if (!command || (subcommand === "help" && command.visibility === "hidden")) {
   const suggestion = closestCommand(commandName);
   const hint = suggestion ? ` Did you mean '${suggestion}'?` : "";
@@ -304,6 +330,42 @@ if (
 }
 
 const commandArgs = rest;
+
+function validateCommitMsgArgs(args) {
+  if (args.length > 1) {
+    console.error(
+      `commitment-issues commit-msg: expected one message-file argument or --git-path; received ${args.length}`,
+    );
+    process.exit(1);
+  }
+  if (args[0]?.startsWith("--") && args[0] !== "--git-path") {
+    console.error(
+      escapeTerminalText(
+        `commitment-issues commit-msg: unknown option '${args[0]}'`,
+      ),
+    );
+    process.exit(1);
+  }
+}
+
+if (commandName === "hook") {
+  const [hookName, ...hookArgs] = commandArgs;
+  const hookFile = HOOK_FILES.get(hookName);
+  if (!hookFile) {
+    console.error(
+      escapeTerminalText(
+        `commitment-issues hook: expected precommit, prepush, or commit-msg; received '${hookName ?? ""}'`,
+      ),
+    );
+    process.exit(1);
+  }
+  if (hooksDisabled()) process.exit(0);
+  if (hookName === "commit-msg") validateCommitMsgArgs(hookArgs);
+  const hookTarget = path.join(scriptsDir, hookFile);
+  process.argv = [process.argv[0], hookTarget, ...hookArgs];
+  await import(pathToFileURL(hookTarget).href);
+  process.exit(0);
+}
 
 if (
   commandArgs.some((arg) => arg === "--json" || /^--json=/.test(arg)) &&
@@ -329,12 +391,7 @@ if (noArgumentCommands.has(commandName) && commandArgs.length > 0) {
   );
   process.exit(1);
 }
-if (commandName === "commit-msg" && commandArgs.length > 1) {
-  console.error(
-    `commitment-issues commit-msg: expected one message-file argument; received ${commandArgs.length}`,
-  );
-  process.exit(1);
-}
+if (commandName === "commit-msg") validateCommitMsgArgs(commandArgs);
 
 // Run the target script in this same process: rewrite argv so it sees only its
 // own arguments, then import it. The scripts call process.exit themselves, which

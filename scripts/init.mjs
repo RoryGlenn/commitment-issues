@@ -7,12 +7,18 @@ import pc from "picocolors";
 import { errorBox, infoBox, printBox, warningBox } from "./lib/ui.mjs";
 import {
   BIN,
+  HOOK_MANAGERS,
   classifyHook,
+  detectHookManagers,
   gitWorkTreeState,
   gitHooksDir,
   hookInvocation,
+  hookManagerInstallCommand,
+  hookManagerSnippets,
   hookNamesForConfig,
   hooksPathConfigState,
+  inspectHookManager,
+  inspectHookManagerRunner,
   isHuskyHooksPath,
   legacyHuskyDirectoryState,
   leftoverHuskyHooks,
@@ -52,19 +58,44 @@ if (packageFileState.status === "missing") {
 }
 
 const args = process.argv.slice(2);
-const unknownOption = args.find(
-  (argument) => !["--dry-run", "-n"].includes(argument),
+const integrationOptions = args.filter(
+  (argument) =>
+    argument === "--integration" || argument.startsWith("--integration="),
 );
+const unknownOption = args.find((argument) => {
+  if (["--dry-run", "-n", "--integration"].includes(argument)) {
+    return false;
+  }
+  if (argument.startsWith("--integration=")) {
+    return !HOOK_MANAGERS.includes(argument.slice("--integration=".length));
+  }
+  return true;
+});
 if (unknownOption) {
   errorBox([
     pc.bold(`Unknown init option: ${escapeTerminalText(unknownOption)}`),
     "",
-    pc.dim("Supported options: --dry-run, -n."),
+    pc.dim(
+      "Supported options: --dry-run, -n, --integration[=husky|lefthook|pre-commit].",
+    ),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
+if (integrationOptions.length > 1) {
+  errorBox([
+    pc.bold("The --integration option may be supplied only once."),
+    "",
     pc.dim("No files or hooks were changed."),
   ]);
   process.exit(1);
 }
 const dryRun = args.includes("--dry-run") || args.includes("-n");
+const requestedIntegration = integrationOptions[0]
+  ? integrationOptions[0] === "--integration"
+    ? "auto"
+    : integrationOptions[0].slice("--integration=".length)
+  : null;
 
 const projectFileStates = new Map([
   ["package.json", packageFileState],
@@ -128,6 +159,61 @@ for (const property of ["scripts", "precommitChecks"]) {
   }
 }
 
+const managerDetection = detectHookManagers(process.cwd(), pkg);
+let integrationManager = requestedIntegration;
+if (requestedIntegration === "auto") {
+  if (managerDetection.managers.length !== 1) {
+    errorBox([
+      pc.bold(
+        managerDetection.managers.length === 0
+          ? "No hook manager could be identified."
+          : "Multiple hook managers were detected.",
+      ),
+      "",
+      pc.dim(
+        managerDetection.managers.length === 0
+          ? "Choose explicitly with --integration=husky, --integration=lefthook, or --integration=pre-commit."
+          : `Detected: ${managerDetection.managers.join(", ")}. Choose one explicitly with --integration=<manager>.`,
+      ),
+      pc.dim("No files or hooks were changed."),
+    ]);
+    process.exit(1);
+  }
+  [integrationManager] = managerDetection.managers;
+}
+
+const selectedManagerConfig = integrationManager
+  ? managerDetection.configFiles[integrationManager]
+  : null;
+if (selectedManagerConfig?.status === "uninspectable") {
+  const candidates = [
+    ...selectedManagerConfig.present,
+    ...selectedManagerConfig.unsafe,
+  ];
+  errorBox([
+    pc.bold(`Could not choose a ${integrationManager} configuration safely.`),
+    "",
+    pc.dim(
+      selectedManagerConfig.present.length > 1
+        ? "Multiple recognized configuration files were detected."
+        : selectedManagerConfig.unsafe.length > 0
+          ? "A recognized configuration path could not be inspected safely."
+          : "The recognized configuration format is not supported by the read-only inspector.",
+    ),
+    ...candidates.map((filePath) =>
+      pc.dim(`• ${escapeTerminalText(filePath)}`),
+    ),
+    pc.dim(
+      selectedManagerConfig.present.length === 1 &&
+        selectedManagerConfig.unsafe.length === 0
+        ? "Review that configuration manually or use one supported YAML main configuration."
+        : "Keep one regular manager configuration, then run init again.",
+    ),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
+
 // Explicit setup must not write around a malformed higher-precedence config.
 // Hook-time readers only warn and fall back because commits/pushes are
 // advisory boundaries; init can stop safely before it mutates anything.
@@ -150,7 +236,9 @@ pkg.scripts ??= {};
 // reinstall. Compose it after a project-owned `prepare` command because Yarn
 // Classic does not run `postprepare`. The exact suffix is idempotent and can be
 // removed safely by uninstall without disturbing the project command.
-const desiredRepair = `${BIN} doctor --quiet`;
+const desiredRepair = `${BIN} doctor --quiet${
+  integrationManager ? ` --integration=${integrationManager}` : ""
+}`;
 const repairSuffix = ` && ${desiredRepair}`;
 const legacyPrepare = [
   "husky",
@@ -158,13 +246,40 @@ const legacyPrepare = [
   "husky install",
   "node scripts/doctor.mjs --quiet",
 ];
-if (legacyPrepare.includes(pkg.scripts.prepare)) {
+const ownedRepairCommands = [
+  `${BIN} doctor --quiet`,
+  ...HOOK_MANAGERS.map(
+    (manager) => `${BIN} doctor --quiet --integration=${manager}`,
+  ),
+];
+const ownedRepairSuffixes = ownedRepairCommands.map(
+  (command) => ` && ${command}`,
+);
+const currentRepairSuffix = ownedRepairSuffixes.find((suffix) =>
+  pkg.scripts.prepare?.endsWith(suffix),
+);
+const currentRepairPrefix = currentRepairSuffix
+  ? pkg.scripts.prepare.slice(0, -currentRepairSuffix.length)
+  : null;
+const retiringLegacyPrepare =
+  !integrationManager &&
+  (legacyPrepare.includes(pkg.scripts.prepare) ||
+    legacyPrepare.includes(currentRepairPrefix));
+if (retiringLegacyPrepare) {
   pkg.scripts.prepare = desiredRepair;
   created.push("script prepare");
+} else if (ownedRepairCommands.includes(pkg.scripts.prepare)) {
+  if (pkg.scripts.prepare !== desiredRepair) {
+    pkg.scripts.prepare = desiredRepair;
+    created.push("script prepare integration");
+  }
 } else if (pkg.scripts.prepare !== desiredRepair) {
   if (!pkg.scripts.prepare) {
     pkg.scripts.prepare = desiredRepair;
     created.push("script prepare");
+  } else if (currentRepairSuffix && currentRepairSuffix !== repairSuffix) {
+    pkg.scripts.prepare = `${pkg.scripts.prepare.slice(0, -currentRepairSuffix.length)}${repairSuffix}`;
+    created.push("script prepare integration");
   } else if (!pkg.scripts.prepare.endsWith(repairSuffix)) {
     pkg.scripts.prepare += repairSuffix;
     created.push("script prepare repair");
@@ -230,6 +345,53 @@ const effectiveConfig = resolvePrecommitConfigSources(
 );
 const hookNames = hookNamesForConfig(effectiveConfig);
 const configWarnings = precommitConfigWarningMessages(effectiveConfig);
+
+// A supported filename is not sufficient evidence that the selected manager
+// configuration is safe to compose with. Validate its content before the
+// first package/.gitignore write so advanced, malformed, or globally
+// execution-altering manager settings cannot leave a partial setup behind.
+if (integrationManager) {
+  const managerConfigReport = inspectHookManager(
+    integrationManager,
+    hookNames,
+    process.cwd(),
+  );
+  if (managerConfigReport.status === "uninspectable") {
+    errorBox([
+      pc.bold(
+        `Could not inspect the selected ${integrationManager} configuration safely.`,
+      ),
+      "",
+      pc.dim(
+        "Review the manager configuration manually or reduce it to the documented inspection contract.",
+      ),
+      pc.dim("No files or hooks were changed."),
+    ]);
+    process.exit(1);
+  }
+  const managerRunnerReport = inspectHookManagerRunner(
+    integrationManager,
+    hookNames,
+    process.cwd(),
+  );
+  if (["uninspectable", "foreign"].includes(managerRunnerReport.status)) {
+    errorBox([
+      pc.bold(
+        managerRunnerReport.status === "foreign"
+          ? `The selected ${integrationManager} dispatcher is customized or unsupported.`
+          : `Could not inspect the selected ${integrationManager} dispatcher safely.`,
+      ),
+      "",
+      pc.dim(
+        managerRunnerReport.status === "foreign"
+          ? "Review the manager-owned wrapper manually; it was left unchanged."
+          : "Fix the effective Git hooks path or manager wrapper, then run init again.",
+      ),
+      pc.dim("No files or hooks were changed."),
+    ]);
+    process.exit(1);
+  }
+}
 
 let gitignore;
 try {
@@ -316,18 +478,131 @@ const gitState = gitWorkTreeState();
 const isGitRepo = gitState.inside;
 const hooksPathState = isGitRepo
   ? hooksPathConfigState()
-  : { value: "", error: null };
+  : { value: "", present: false, error: null };
 const configuredHooksPath = hooksPathState.value;
+const configuredHooksPathLabel =
+  configuredHooksPath === "" ? '""' : configuredHooksPath;
 const hooksPathInspectionFailed = hooksPathState.error !== null;
-const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
-const foreignHooksPath = configuredHooksPath && !huskyEraHooksPath;
+const huskyEraHooksPath =
+  hooksPathState.present && isHuskyHooksPath(configuredHooksPath);
+const foreignHooksPath = hooksPathState.present && !huskyEraHooksPath;
 let hooksActive = false;
+let integrationReport = null;
+let integrationRunnerReport = null;
+let integrationSnippets = [];
+
+if (integrationManager) {
+  integrationReport = inspectHookManager(
+    integrationManager,
+    hookNames,
+    process.cwd(),
+  );
+  const inactive = integrationReport.hooks.filter(
+    ({ status }) => status !== "wired",
+  );
+  integrationSnippets =
+    integrationReport.status === "uninspectable"
+      ? []
+      : hookManagerSnippets(
+          integrationManager,
+          inactive.map(({ name }) => name),
+          integrationReport.destination,
+        );
+  integrationRunnerReport = inspectHookManagerRunner(
+    integrationManager,
+    hookNames,
+    process.cwd(),
+  );
+  const managerRunnerActive =
+    (integrationManager !== "husky" || huskyEraHooksPath) &&
+    integrationRunnerReport.status === "wired";
+  hooksActive =
+    isGitRepo &&
+    !hooksPathInspectionFailed &&
+    integrationReport.status === "wired" &&
+    managerRunnerActive;
+
+  const selectedEvidence = managerDetection.evidence[integrationManager];
+  if (selectedEvidence.length === 0) {
+    warnings.push(
+      `No active ${integrationManager} configuration was detected.`,
+      "Create or enable that manager first, then merge the snippets below.",
+    );
+  }
+  const otherManagers = managerDetection.managers.filter(
+    (manager) => manager !== integrationManager,
+  );
+  if (otherManagers.length > 0) {
+    warnings.push(
+      `Other hook-manager evidence was also detected: ${otherManagers.join(", ")}.`,
+      `The explicit ${integrationManager} selection was honored; no owner was modified.`,
+    );
+  }
+  if (managerDetection.unsafePaths.length > 0) {
+    warnings.push(
+      "Some possible manager paths could not be safely inspected and were left unchanged:",
+      ...managerDetection.unsafePaths.map((filePath) => `  ${filePath}`),
+    );
+  }
+  if (inactive.length > 0) {
+    warnings.push(
+      `${integrationManager} does not yet have every active Commitment Issues hook.`,
+      ...inactive.map(
+        ({ name, status }) =>
+          `  ${name}: ${status === "uninspectable" ? "could not be inspected" : "snippet not found"}`,
+      ),
+    );
+  }
+  if (
+    integrationManager === "husky" &&
+    !hooksPathInspectionFailed &&
+    integrationReport.status !== "uninspectable" &&
+    integrationRunnerReport.status !== "uninspectable" &&
+    !huskyEraHooksPath
+  ) {
+    warnings.push(
+      "Husky's hook path is not active in Git.",
+      `core.hooksPath is ${hooksPathState.present ? `set to ${configuredHooksPathLabel}` : "unset"}; run Husky's install command without replacing its hooks.`,
+    );
+  }
+  if (integrationRunnerReport.status !== "wired") {
+    const canRecommendInstall =
+      !hooksPathInspectionFailed &&
+      integrationReport.status !== "uninspectable" &&
+      !["uninspectable", "foreign"].includes(integrationRunnerReport.status);
+    warnings.push(
+      `Git's effective hooks do not dispatch every active hook to ${integrationManager}.`,
+      ...integrationRunnerReport.hooks
+        .filter(({ status }) => status !== "wired")
+        .map(({ name, status }) => `  ${name}: ${status}`),
+      canRecommendInstall
+        ? `Install the manager wrappers without replacing project configuration: ${hookManagerInstallCommand(
+            integrationManager,
+            hookNames,
+            integrationReport.destination,
+          )}`
+        : "Review and replace the uninspectable configuration or hooks directory before running any manager install command.",
+    );
+  }
+  if (hooksPathInspectionFailed) {
+    warnings.push(
+      "Git could not determine core.hooksPath, so manager activation could not be verified.",
+      "Fix the Git configuration error, then run doctor again.",
+    );
+  }
+  if (managerDetection.lintStaged) {
+    warnings.push(
+      "lint-staged was detected and remains unchanged.",
+      "Keep lint-staged in its existing pre-commit flow; add Commitment Issues as a separate manager command.",
+    );
+  }
+}
 
 // Pre-3.0 setups pointed core.hooksPath at husky's shim dir; while that is
 // set, git ignores `.git/hooks` entirely. Unset it (it is our own wiring, not
 // the user's) so the native hooks below actually run.
-let hooksPathRetired = !hooksPathInspectionFailed && !huskyEraHooksPath;
-if (huskyEraHooksPath) {
+let hooksPathRetired = !hooksPathInspectionFailed && !hooksPathState.present;
+if (!integrationManager && huskyEraHooksPath) {
   if (!dryRun) {
     const unset = run("git", ["config", "--unset", "core.hooksPath"]);
     if (!unset.error && (unset.status || 0) === 0) {
@@ -337,7 +612,7 @@ if (huskyEraHooksPath) {
       // Without the unset, git keeps ignoring .git/hooks — say so instead of
       // printing a success box over dead hooks.
       warnings.push(
-        `core.hooksPath is still set to ${configuredHooksPath}, so the hooks`,
+        `core.hooksPath is still set to ${configuredHooksPathLabel}, so the hooks`,
         "written to .git/hooks will not run. Unset it manually:",
         "  git config --unset core.hooksPath",
       );
@@ -350,16 +625,16 @@ if (huskyEraHooksPath) {
 
 // A foreign core.hooksPath belongs to another hook manager or the user's own
 // setup — never unset it or write hooks it would shadow. Explain instead.
-if (foreignHooksPath) {
+if (!integrationManager && foreignHooksPath) {
   warnings.push(
-    `core.hooksPath is set to ${configuredHooksPath}, so git ignores .git/hooks.`,
+    `core.hooksPath is set to ${configuredHooksPathLabel}, so git ignores .git/hooks.`,
     "Add these commands to the matching hooks in that directory:",
     ...hookNames.map((name) => `  ${name}: ${hookInvocation(name)}`),
     "Or unset it: git config --unset core.hooksPath",
   );
 }
 
-if (hooksPathInspectionFailed) {
+if (!integrationManager && hooksPathInspectionFailed) {
   warnings.push(
     "Git could not determine core.hooksPath, so no hooks were written.",
     "Fix the Git configuration error, then run:",
@@ -381,9 +656,15 @@ if (!isGitRepo) {
   }
 }
 
-if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
+if (
+  !integrationManager &&
+  isGitRepo &&
+  !foreignHooksPath &&
+  !hooksPathInspectionFailed
+) {
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
+  const legacyHooks = [];
   const nonExecutableHooks = [];
   const uninspectableHooks = [];
   const failedHooks = [];
@@ -419,6 +700,8 @@ if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
         }
       } else if (status === "custom-without-command") {
         unwiredHooks.push(name);
+      } else if (status === "custom-with-legacy-command") {
+        legacyHooks.push(name);
       } else if (status === "non-executable") {
         nonExecutableHooks.push(name);
       } else if (status === "uninspectable") {
@@ -430,8 +713,18 @@ if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
   if (unwiredHooks.length > 0) {
     warnings.push(
       "Existing git hooks were left unchanged but do not run commitment-issues.",
-      "Add each command without removing your existing hook logic:",
+      "Make each guarded command the first substantive line; keep later hook logic:",
       ...unwiredHooks.map(
+        (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
+      ),
+    );
+  }
+
+  if (legacyHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks use unguarded or direct commands outside the current managed hook contract.",
+      "Replace each first substantive command so package removal fails open and hook-only skip variables stay effective:",
+      ...legacyHooks.map(
         (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
       ),
     );
@@ -469,6 +762,7 @@ if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
     hooksDir !== null &&
     hooksPathRetired &&
     unwiredHooks.length === 0 &&
+    legacyHooks.length === 0 &&
     nonExecutableHooks.length === 0 &&
     uninspectableHooks.length === 0 &&
     failedHooks.length === 0;
@@ -573,6 +867,40 @@ const warningSections = [
     : []),
 ];
 
+const integrationSections =
+  integrationSnippets.length > 0
+    ? [
+        "",
+        pc.bold(`${integrationManager} coexistence snippets.`),
+        "",
+        pc.dim(
+          "Manager-owned files were not changed. Merge each entry without replacing or reordering existing commands.",
+        ),
+        ...(integrationManager === "pre-commit"
+          ? [
+              pc.dim(
+                "Place these entries under a local repo's hooks list; keep any existing repos and hooks.",
+              ),
+            ]
+          : integrationManager === "lefthook"
+            ? [
+                pc.dim(
+                  "Merge each command under the matching top-level hook; do not duplicate an existing hook key.",
+                ),
+              ]
+            : [
+                pc.dim(
+                  "Place each guarded line before unrelated substantive commands; an exact Husky v8 source may precede it.",
+                ),
+              ]),
+        ...integrationSnippets.flatMap(({ name, destination, content }) => [
+          "",
+          pc.dim(`${destination} (${name}):`),
+          ...content.trimEnd().split("\n"),
+        ]),
+      ]
+    : [];
+
 const body = [
   ...logoLines(),
   "",
@@ -587,6 +915,7 @@ const body = [
   ...setupSummary,
   "",
   ...footer,
+  ...integrationSections,
   ...warningSections,
 ];
 

@@ -8,6 +8,7 @@ import path from "node:path";
 import {
   cleanupTempRepo,
   createTempRepo,
+  fsFailurePreload,
   readFile,
   run,
   writeFile,
@@ -75,42 +76,38 @@ test("init fails before mutation when .gitignore cannot be inspected", (t) => {
   );
 });
 
-test(
-  "init reports a regular .gitignore that cannot be read",
-  { skip: process.platform === "win32" },
-  (t) => {
-    const tempDir = createTempRepo();
-    const gitignorePath = path.join(tempDir, ".gitignore");
-    t.after(() => {
-      fs.chmodSync(gitignorePath, 0o600);
-      cleanupTempRepo(tempDir);
-    });
-    const packageBefore = readFile(tempDir, "package.json");
-    fs.chmodSync(gitignorePath, 0o000);
+test("init reports a regular .gitignore that cannot be read", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const gitignorePath = path.join(tempDir, ".gitignore");
+  const packageBefore = readFile(tempDir, "package.json");
+  const preload = fsFailurePreload(tempDir);
 
-    try {
-      fs.accessSync(gitignorePath, fs.constants.R_OK);
-      t.skip("this platform does not enforce the unreadable mode bit");
-      return;
-    } catch {
-      // Expected on platforms with POSIX-style read permissions.
-    }
+  const result = run(
+    "node",
+    ["--import", preload, path.join(tempDir, "scripts", "init.mjs")],
+    tempDir,
+    {
+      env: {
+        ...process.env,
+        TEST_FS_FAILURE_METHOD: "readFileSync",
+        TEST_FS_FAILURE_PATH: gitignorePath,
+      },
+    },
+  );
+  const output = `${result.stdout}${result.stderr}`;
 
-    const result = runInit(tempDir);
-    const output = `${result.stdout}${result.stderr}`;
-
-    assert.equal(result.status, 1);
-    assert.match(output, /Could not inspect \.gitignore/);
-    assert.match(output, /No files or hooks were changed/);
-    assert.doesNotMatch(output, /node:fs|EACCES|\s+at .*init\.mjs/);
-    assert.equal(readFile(tempDir, "package.json"), packageBefore);
-    assert.equal(
-      fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-commit")),
-      false,
-    );
-    assert.equal(
-      fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-push")),
-      false,
-    );
-  },
-);
+  assert.equal(result.status, 1);
+  assert.match(output, /Could not inspect \.gitignore/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.doesNotMatch(output, /node:fs|EACCES|\s+at .*init\.mjs/);
+  assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(
+    fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-commit")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(tempDir, ".git", "hooks", "pre-push")),
+    false,
+  );
+});

@@ -18,7 +18,8 @@ flags:
 - `precommit`
 - `prepush`
 - `panic`
-- `commit-msg <message-file>` (normally invoked by Git)
+- `commit-msg <message-file>` or `commit-msg --git-path` (normally invoked by
+  Git or a hook manager)
 - `commit-fix`
 - `fix-staged`
 - `fix-staged-js`
@@ -31,8 +32,8 @@ automatically:
 - Setup: `init`, `doctor`, and `uninstall`
 - Checks: `precommit`, `prepush`, and the read-only `panic` guide
 - Fixes: `fix-staged` and `commit-fix`
-- Integration: `commit-msg <message-file>` (normally invoked automatically by
-  Git)
+- Integration: `commit-msg <message-file> | --git-path` (normally invoked
+  automatically by Git or a hook manager)
 
 `fix-staged-js [files...]` remains a callable public compatibility interface
 for package wiring, but it is omitted from primary help so low-level mutation
@@ -47,12 +48,15 @@ Examples:
 npx --no-install commitment-issues --help
 npx --no-install commitment-issues help init
 npx --no-install commitment-issues init
+npx --no-install commitment-issues init --dry-run --integration=husky
 npx --no-install commitment-issues uninstall --dry-run
 npx --no-install commitment-issues doctor
+npx --no-install commitment-issues doctor --integration=husky
 npx --no-install commitment-issues precommit --json
 npx --no-install commitment-issues prepush --json
 npx --no-install commitment-issues panic
 npx --no-install commitment-issues commit-msg .git/COMMIT_EDITMSG
+npx --no-install commitment-issues commit-msg --git-path
 npx --no-install commitment-issues --version
 ```
 
@@ -60,17 +64,18 @@ npx --no-install commitment-issues --version
 
 The public argument contract is deliberately small:
 
-| Command                    | Accepted arguments                                                    |
-| -------------------------- | --------------------------------------------------------------------- |
-| global                     | `--help`/`-h`, `--version`/`-v`                                       |
-| `init`, `uninstall`        | optional `--dry-run` or `-n`                                          |
-| `doctor`                   | optional `--quiet`                                                    |
-| `precommit`                | optional `--json`                                                     |
-| `prepush`                  | up to the remote name and URL supplied by Git, plus optional `--json` |
-| `panic`                    | no arguments                                                          |
-| `commit-msg`               | the message-file path supplied by Git                                 |
-| `commit-fix`, `fix-staged` | no arguments                                                          |
-| `fix-staged-js`            | zero or more explicit file paths                                      |
+| Command                    | Accepted arguments                                                          |
+| -------------------------- | --------------------------------------------------------------------------- |
+| global                     | `--help`/`-h`, `--version`/`-v`                                             |
+| `init`                     | optional `--dry-run`/`-n`; optional `--integration[=<manager>]`             |
+| `uninstall`                | optional `--dry-run` or `-n`                                                |
+| `doctor`                   | optional `--quiet`; optional `--integration[=<manager>]`                    |
+| `precommit`                | optional `--json`                                                           |
+| `prepush`                  | up to the remote name and URL supplied by Git, plus optional `--json`       |
+| `panic`                    | no arguments                                                                |
+| `commit-msg`               | one message-file path, or `--git-path` to resolve Git's active message file |
+| `commit-fix`, `fix-staged` | no arguments                                                                |
+| `fix-staged-js`            | zero or more explicit file paths                                            |
 
 The global `--help`/`-h` output shows the installed package version. A command's
 `--help` flag and the equivalent `help <command>` form take the safe help path
@@ -79,6 +84,9 @@ before command dispatch.
 Unknown options and excess positional arguments exit nonzero. Setup, removal,
 and doctor validate their arguments before changing project files or hooks, so
 a misspelled `--dry-run` or `--quiet` cannot silently perform another action.
+Supported integration values are exactly `husky`, `lefthook`, and
+`pre-commit`. A value is required when automatic detection finds zero or more
+than one owner. Repeating the integration option is an error.
 
 Setup and hook-health commands expect the project root of a non-bare Git
 working tree. Bare repositories do not run this package's local commit or push
@@ -121,6 +129,16 @@ Customized hooks and scripts are preserved and reported. Shared `.gitignore`
 entries, ESLint/Prettier dependencies, the package dependency, and lockfiles
 remain owned by the consuming project.
 
+Hook-manager configuration is always project-owned. Even when an exact
+coexistence entry is recognized, uninstall reports its manager/hook names for
+manual cleanup and does not delete or edit `.husky/*`, Lefthook YAML,
+`.pre-commit-config.yaml`, `.pre-commit-config.yml`, or lint-staged
+configuration. For cleanup reporting only, it also recognizes the exact direct
+manager entries used before the hidden hook dispatcher; `init` and `doctor`
+still require the dispatcher form. It removes an exact
+`doctor --quiet --integration=<manager>` prepare command or suffix because that
+package script is generated package state.
+
 Hook ownership checks do not follow symbolic links. A hook-file symlink,
 dangling symlink, or symlink used as the hooks directory is preserved as
 uninspectable; `init` and `doctor` report it instead of repairing through it.
@@ -149,6 +167,93 @@ skip. When the local binary is no longer installed, they print one bounded
 skip notice to stderr and exit 0. The pre-push hook forwards Git's remote name
 and URL for remote-specific first-push base selection. Package source is not
 copied into the consumer repository.
+
+### Hook-manager coexistence interface
+
+`init --integration=<manager>` emits deterministic snippets only for inactive
+or missing entries and never writes manager files; fully wired entries are not
+reprinted. `doctor --integration=<manager>` follows the same missing-only
+remediation rule and recognizes only active exact entries in the manager's real
+hook section plus executable manager dispatchers in Git's effective hooks
+directory. Comments, printed examples, nested example blocks, duplicate
+Lefthook hook/command keys, duplicate pre-commit IDs, partial entries, wrong
+stages, pre-commit `args`, a missing fixed Lefthook `files:` producer or
+`use_stdin: true`, dynamic command templates, wrappers that omit `"$@"`,
+pre-commit wrappers without an executable dispatch, duplicate candidate config
+files, and linked, non-regular, or non-executable paths are not healthy.
+Selecting a manager explicitly resolves owner ambiguity only; it never
+overrides an unsafe, duplicate, or unsupported selected configuration.
+
+The inspectable configuration and dispatcher set is deliberately bounded:
+
+- Lefthook accepts exactly one of `lefthook.yml`, `lefthook.yaml`,
+  `.lefthook.yml`, `.lefthook.yaml`, `.config/lefthook.yml`, or
+  `.config/lefthook.yaml`. JSON, JSONC, TOML, local configs,
+  `extends`/`remotes`, advanced YAML constructs, all top-level global options,
+  and a non-empty `LEFTHOOK_CONFIG` override require manual review. The
+  installed dispatcher must match the canonical Lefthook 2.1.10 wrapper or the
+  narrow documented direct form, and every selected runtime candidate must
+  have a reviewed Lefthook executable identity.
+- pre-commit accepts exactly one `.pre-commit-config.yaml` or
+  `.pre-commit-config.yml`. Each Commitment Issues local hook must match the
+  generated snippet exactly, `always_run` must be `true`, and `args` is
+  rejected; every unrelated local/meta/remote hook and supported top-level
+  option is schema-checked before health is reported. That check uses the
+  pre-commit 3.2 language set, the minimum `identify` 1.0 type-tag set, and
+  PyYAML SafeLoader-compatible implicit scalar typing. The installed dispatcher
+  must match the supported pre-commit 3.2+ canonical template
+  and be bound to the selected config and hook type. Its primary executable
+  must exist, be executable, and have a reviewed Python identity; when it is
+  absent or non-executable, the literal `pre-commit` PATH fallback must resolve
+  instead. Remediation for the `.yml` destination includes
+  `--config .pre-commit-config.yml`.
+- Husky validates an exact guarded command as the first substantive user
+  command (after the exact v8 runtime source only for direct `.husky` v8
+  hooks), an active exact `.husky`/`.husky/_` hook path, and a Husky
+  8.0.1–8.0.3 or 9.0.2–9.1.7 dispatcher/runtime shape. Husky 8.0.0/9.0.1 and
+  customized, partial, or newer templates require manual review.
+
+Conditions, ordering, and skip behavior on unrelated manager entries remain
+project-owned. The selected Commitment Issues hook and command must be
+unconditional so a configuration cannot be reported healthy while silently
+skipping the CI entry. The static project-local command still requires `node`
+in a restricted hook or GUI `PATH`; Lefthook and pre-commit must additionally
+resolve their reviewed manager runtimes, while Husky uses its inspected
+repository-local dispatcher.
+
+lint-staged remains composition evidence rather than a hook owner. Detection
+covers its package/dependency keys, the supported `.lintstagedrc*` and
+`lint-staged.config.*` names, and a top-level `lint-staged` key in
+`package.yaml` or `package.yml`; the configuration is never executed or
+interpreted.
+
+`core.hooksPath` is byte-preserving and presence-aware: an empty configured
+value is not treated as unset, and whitespace or POSIX backslashes are never
+trimmed or rewritten into a recognized Husky path. Windows backslashes retain
+their Git-native separator meaning.
+
+The manager entrypoints preserve these inputs:
+
+| Manager    | pre-push input                                       | commit-msg input                                            |
+| ---------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| Husky      | quoted `"$@"`                                        | quoted `"$1"`                                               |
+| Lefthook   | ref stream through `use_stdin: true`                 | static `--git-path` resolution of Git's active message file |
+| pre-commit | complete documented `PRE_COMMIT_*` range environment | filename supplied by the framework                          |
+
+Manager-native skip and bypass behavior stays authoritative. The entry scripts
+use the package's hidden `hook` dispatcher so `COMMITMENT_ISSUES=0` and legacy
+`HUSKY=0` apply to automatic manager calls without suppressing an explicit
+human invocation of `precommit`, `prepush`, or `commit-msg`. Advisory outcomes
+exit 0; configured blocking outcomes retain their normal nonzero status.
+Every emitted manager entry examines only the ordered project-local launcher
+candidates `node_modules/.bin/commitment-issues`, `.exe`, `.cmd`, and `.bat`,
+then invokes the same first regular executable path it inspected. If no
+candidate is usable, the entry exits successfully and silently; it never
+consults `PATH`, a global install, `npx`, or the network. Husky preserves the
+selected launcher's nonzero result before later custom commands. Lefthook keeps
+its fixed file-sentinel assignment attached to the selected invocation, and
+pre-commit's fixed `sh -c` entry forwards framework filenames as literal
+`"$@"` argv.
 
 The first eligible clean or informational human-readable pre-commit invocation
 shows a default-on contributor welcome, then records

@@ -10,11 +10,19 @@ explains the words used on this page.
 
 ## Is this a replacement for Husky or lint-staged?
 
-Yes, for the workflow it covers. `commitment-issues` owns native Git hook wiring
-and staged ESLint/Prettier fixes without a separate hook manager. It adds
+It can be, but does not have to be. Native setup lets `commitment-issues` own
+Git hook wiring and staged ESLint/Prettier fixes without a separate manager. It adds
 advisory-first checks, safe fix helpers, related push-time tests, and `doctor`
 repair. Versions before 3.0 used Husky and lint-staged; `init` recognizes and
 migrates the exact legacy wiring it owns.
+
+If Husky, Lefthook, or the Python pre-commit framework still runs other project
+logic, keep it with `init --integration=<manager>`. That mode prints exact
+snippets and verifies them read-only; it never edits the manager's config.
+lint-staged can remain as a separate command in the same manager hook. Its
+known config names and package YAML key are detection evidence only; Commitment
+Issues never executes or interprets its tasks. See
+[Keep an existing hook manager](migration.md#keep-an-existing-hook-manager).
 
 ## What happens by default, and when can it block?
 
@@ -78,20 +86,36 @@ left alone, and unrecognized project-owned content is preserved.
 
 ## How do I repair or coexist with custom hooks?
 
-Run `npm run doctor`. It repairs generated wiring it owns and reports custom or
-foreign hooks that require manual integration.
+Run `npm run doctor` for native wiring. It repairs generated files it owns and
+reports custom or foreign hooks that require manual integration.
 
-To compose manually, add the corresponding executable command line to the
-custom hook:
+For a supported manager, use an explicit read-only contract instead:
 
-```sh
-commitment-issues precommit
-commitment-issues prepush "$@"
-commitment-issues commit-msg "$1"
+```bash
+npx --no-install commitment-issues init --dry-run --integration=lefthook
+npx --no-install commitment-issues init --integration=lefthook
+npx --no-install commitment-issues doctor --integration=lefthook
 ```
 
-Comments, printed examples, and non-executable POSIX hooks do not count as active
-wiring.
+Replace the value with `husky` or `pre-commit`. Do not omit the value when more
+than one manager is present; automatic mode refuses to guess. Explicit
+selection does not bypass a duplicate, unsafe, or unsupported selected config.
+The conservative inspector reports customized/newer wrappers and Lefthook
+local, non-YAML, extended, overridden, or advanced-YAML configuration for
+manual review. Uninstall also leaves those manager files unchanged and
+identifies matching entries for you to remove manually.
+
+To compose manually, use the exact one-line guarded entry printed by
+`init --dry-run --integration=<manager>` as the custom hook's first substantive
+command. Only a direct `.husky` v8 hook may put the exact Husky v8 runtime
+source line first. Leave unrelated commands after it. The generated entry
+checks only the project-local extensionless, `.exe`, `.cmd`, and `.bat`
+launchers, runs the first regular executable candidate, and silently succeeds
+when none is usable; it never falls back through `PATH`.
+
+This ordering lets the verifier prove the hook reaches Commitment Issues and
+preserves a blocking exit. Comments, printed examples, arbitrary command
+preludes, and non-executable POSIX hooks do not count as active wiring.
 
 ## Will it change code or commits automatically?
 

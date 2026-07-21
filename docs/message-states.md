@@ -104,6 +104,18 @@ gitignore state.
 documented command contract. The command exits before changing project files or
 hooks. Other CLI commands report the same invalid-argument decision as a plain
 stderr line or, when `--json` was requested, a structured JSON diagnostic.
+`The --integration option may be supplied only once.` is the corresponding
+owner-selection cardinality error.
+
+### Hook-manager owner selection
+
+`Could not choose a hook-manager owner safely.` is shown by doctor when bare
+`--integration` finds no owner or more than one. Init uses `No hook manager
+could be identified.` or `Multiple hook managers were detected.` for the same
+fail-before-write decision. An explicit `--integration=<manager>` resolves the
+owner ambiguity without editing any owner. It does not override an unsafe,
+duplicate, or unsupported selected configuration; those states still exit
+before package, ignore, config, or hook changes.
 
 ### Project files unavailable
 
@@ -795,6 +807,35 @@ these diagnostics, missing-tool notices, stranded-hook findings, and the final
 hook-health result into one box.
 `doctor --quiet` prints the same diagnostics as plain one-line warnings and
 still exits successfully so an install is never broken.
+
+### Hook-manager integration health
+
+`<manager> integration is healthy.` confirms that every enabled manager entry
+and its executable Git dispatcher are active; manager files were inspected but
+not changed. `<manager> integration needs attention.` lists exact missing
+snippets or the manager wrapper-install command and exits nonzero interactively.
+Quiet mode emits one line and exits zero.
+
+The health state requires an exact unconditional Commitment Issues entry:
+duplicate Lefthook hook/command keys, duplicate pre-commit IDs, wrong or
+repeated required fields, and any pre-commit `args` property on a Commitment
+Issues entry are rejected. The complete selected document is schema-checked,
+so an unsupported nested Lefthook job or unrelated pre-commit hook/root option
+also requires manual review. Conditions and skip rules on supported unrelated
+manager entries remain untouched.
+
+`Multiple hook-manager owners were detected.` reports additional evidence when
+the caller made an explicit choice. `lint-staged composition was detected.`
+confirms that its separate task flow remains untouched.
+
+### Some manager paths need manual review.
+
+This advisory names linked, duplicate, non-regular, or otherwise uninspectable
+candidates without treating them as healthy. Lefthook's JSON, JSONC, TOML,
+local, extended/remote, advanced-YAML, and `LEFTHOOK_CONFIG`-overridden forms
+also require manual review. A customized or newer Husky, Lefthook, or
+pre-commit generated wrapper is preserved and reported rather than matched
+approximately.
 
 ### Already healthy
 

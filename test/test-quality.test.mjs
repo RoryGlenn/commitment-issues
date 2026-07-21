@@ -18,6 +18,7 @@ const runtimeTestOwners = {
   "scripts/fix-staged-js.mjs": ["test/fix-staged-js.test.mjs"],
   "scripts/fix-staged.mjs": ["test/fix-staged.test.mjs"],
   "scripts/init.mjs": ["test/init.test.mjs"],
+  "scripts/lefthook-files.mjs": ["test/hooks.test.mjs"],
   "scripts/lib/checks.mjs": ["test/checks.test.mjs"],
   "scripts/lib/commit-guards.mjs": ["test/commit-guards.test.mjs"],
   "scripts/lib/config.mjs": ["test/config.test.mjs"],

@@ -21,17 +21,103 @@ output examples, see the repository's
 
 Nothing is copied into your repo from the package source. The hooks are plain `.git/hooks` files that call the installed `commitment-issues` bin — no hook manager is involved.
 
+### Existing hook-manager mode
+
+`init --integration=husky`, `--integration=lefthook`, and
+`--integration=pre-commit` switch hook ownership from native generation to
+snippet-first coexistence. In this mode init still manages the package scripts,
+advisory push default, and ignore entries above, but it:
+
+- does not write `.git/hooks` or manager files;
+- does not unset or replace `core.hooksPath`;
+- prints static project-local entries for pre-commit, pre-push, and the optional
+  commit-msg hook;
+- composes `doctor --quiet --integration=<manager>` into `prepare`, so a later
+  install verifies the same owner instead of running native repair; and
+- reports lint-staged as composition evidence without changing its tasks.
+
+Bare `--integration` selects automatically only when exactly one supported
+owner is evident. No or multiple owners fail before writes. An explicit owner
+is honored while other manager evidence is reported, but it does not override
+an unsafe selected configuration. Config-file symlinks, duplicate or
+unsupported selected configs, directories where files are expected, and
+unreadable paths stop init before it changes package files or hooks.
+
+The read-only inspection boundary is intentionally narrow:
+
+| Manager    | Configuration and installed-wrapper boundary                                                                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Husky      | A regular `.husky` directory, its exact active `.husky`/`.husky/_` hook path, exact unconditional entry lines, and a Husky 8.0.1–8.0.3 or 9.0.2–9.1.7 dispatcher/runtime shape                                        |
+| Lefthook   | Exactly one main YAML file named `lefthook.yml`, `lefthook.yaml`, `.lefthook.yml`, `.lefthook.yaml`, `.config/lefthook.yml`, or `.config/lefthook.yaml`, plus a canonical Lefthook 2.1.10 or narrow direct dispatcher |
+| pre-commit | Exactly one `.pre-commit-config.yaml` or `.pre-commit-config.yml`, plus the supported pre-commit 3.2+ generated dispatcher bound to that same config and hook type                                                    |
+
+Lefthook JSON, JSONC, TOML, local configuration, `extends`/`remotes`, advanced
+YAML constructs, unreviewed top-level options (including `min_version`, `rc`,
+custom runtime/source settings, and presentation globals), and
+`LEFTHOOK_CONFIG` overrides require manual review. So do customized or newer
+manager wrapper templates. A restricted hook `PATH` must still provide `node`;
+Lefthook and pre-commit must also resolve reviewed Lefthook and Python runtime
+identities. Husky uses its inspected repository-local dispatcher rather than a
+`husky` executable from `PATH`. Inspection never executes a
+repository-controlled probe.
+
+Entry validation is exact. Duplicate Lefthook hook/command keys and duplicate
+pre-commit IDs are not healthy. The selected Commitment Issues hook and command
+must be unconditional; unrelated manager skip and conditional rules remain
+untouched. pre-commit entries must retain the documented `entry`, `language`,
+`pass_filenames`, `always_run`, and `stages` values and must not add `args`.
+Inspection validates the complete selected document before reporting health:
+every Lefthook hook and nested command/script/job must use the audited schema,
+and every pre-commit local/meta/remote repo plus supported top-level option must
+have an audited language, type-tag, stage, version, and regex form. Unknown or
+newer fields remain user-owned but require manual review.
+Lefthook snippets remain static: pre-push receives Git's ref stream through
+`use_stdin: true`, and the optional commit-msg entry uses `--git-path` to
+resolve Git's active message file inside Commitment Issues instead of
+interpolating a manager template.
+
+lint-staged detection is composition evidence only. It recognizes package
+keys, the documented `.lintstagedrc*` and `lint-staged.config.*` names, and a
+top-level `lint-staged` key in `package.yaml` or `package.yml`; it never loads,
+executes, or interprets those task configurations.
+
+`core.hooksPath` is read as exactly one NUL-delimited Git record and preserved
+exactly; missing or malformed framing fails closed. An explicitly configured
+empty value is therefore different from an unset key, and leading or trailing
+whitespace remains part of the effective path. POSIX backslashes stay literal;
+on Windows only, they are separators just as they are for Git. Only exact
+`.husky` or `.husky/_` paths, apart from platform separators at those same
+positions and trailing separators, count as Husky-owned paths.
+
+`doctor --integration=<manager>` performs no repairs. It validates both the
+manager configuration entry and the executable wrapper in Git's effective
+hooks directory; a pasted entry is not called active before the manager has
+installed its wrapper. Interactive missing wiring exits 1 and prints either
+the exact config snippet or manager install command. For
+`.pre-commit-config.yml`, that command includes
+`--config .pre-commit-config.yml` before the enabled `--hook-type` values.
+Quiet install-time verification warns and exits 0. The complete snippets,
+forwarding rules, manager bypass behavior, and uninstall boundary are in
+[Keep an existing hook manager](migration.md#keep-an-existing-hook-manager).
+
 Before changing any file, `init` validates that the `package.json` root and any
 existing `scripts` and `precommitChecks` values are JSON objects (not `null`,
 arrays, or primitive values). An invalid shape exits with the exact property to
 fix and leaves `package.json` unchanged.
 
-Existing custom hooks are considered active only when an executable command
-line invokes the expected `commitment-issues` subcommand. Comments,
-echo/printf-only messages, assignments, and quoted examples do not count. On
-POSIX, the hook file must also have an executable mode bit. `init` and `doctor`
-never alter these user-owned hooks; they report the command or `chmod +x`
-remediation instead.
+Existing custom hooks are considered active only when the guarded
+project-local command is their first substantive command, so earlier control
+flow cannot skip it and later commands cannot swallow a blocking exit. The
+health verifier accepts only the exact generated candidate-selector line.
+Older unguarded hidden-dispatch or public-check lines, including `command` and
+terminal `exec` forms, remain recognizable only for cleanup and remediation;
+they are not reported as active. Only a direct `.husky` v8 hook may place the
+exact Husky v8 runtime source before its entry.
+Comments, printed examples, assignments, conditions, and quoted examples do
+not count. On POSIX, the current process must also have effective execute
+access to the hook file; mode bits alone are not treated as proof.
+`init` and `doctor` never alter these user-owned hooks; they report the exact
+command or `chmod +x` remediation instead.
 
 ## Configuration files and precedence
 
@@ -441,8 +527,15 @@ Conventional Commits ruleset.
 The generated `.git/hooks/commit-msg` body invokes
 `commitment-issues commit-msg "$1"`, preserving the message-file path as one
 literal argument. If a custom commit-msg hook already exists, `init` and
-`doctor` leave it unchanged and show that exact command for manual composition.
+`doctor` leave it unchanged and show the bypass-aware guarded command
+for manual composition. That exact one-line command selects only the first
+regular executable project-local extensionless, `.exe`, `.cmd`, or `.bat`
+launcher, forwards `"$1"` literally, and never falls back through `PATH`.
 Git's `git commit --no-verify` bypasses the hook in the standard way.
+Lefthook coexistence uses the separate static `commit-msg --git-path` form;
+Commitment Issues then resolves this worktree's `MERGE_MSG` during a direct
+automatic merge and `COMMIT_EDITMSG` otherwise before passing one absolute argv
+value to commitlint.
 
 Resolution is intentionally local-only: the runner walks upward for
 `node_modules/.bin/commitlint`, passes its absolute path and literal argv through

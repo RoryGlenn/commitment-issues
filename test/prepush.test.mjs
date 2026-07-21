@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { countTerminalBoxes, stripAnsi } from "./helpers/output.mjs";
 import {
   addBareRemote,
@@ -32,6 +33,47 @@ function runPrePushManual(tempDir) {
     env: { ...process.env, COMMITMENT_ISSUES_ASSUME_TTY: "1" },
   });
 }
+
+test("manager-composed pre-push honors the legacy Husky skip switch", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const result = spawnSync(
+    process.execPath,
+    [path.join(tempDir, "scripts", "cli.mjs"), "hook", "prepush"],
+    {
+      cwd: tempDir,
+      encoding: "utf8",
+      input: "",
+      env: { ...process.env, HUSKY: "0" },
+    },
+  );
+  assert.equal(result.status, 0);
+  assert.equal(`${result.stdout}${result.stderr}`, "");
+});
+
+test("explicit pre-push runs under hook-only skip variables", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  for (const skippedBy of ["COMMITMENT_ISSUES", "HUSKY"]) {
+    const result = spawnSync(
+      process.execPath,
+      [path.join(tempDir, "scripts", "cli.mjs"), "prepush", "--json"],
+      {
+        cwd: tempDir,
+        encoding: "utf8",
+        input: "",
+        env: {
+          ...process.env,
+          COMMITMENT_ISSUES: skippedBy === "COMMITMENT_ISSUES" ? "0" : "1",
+          HUSKY: skippedBy === "HUSKY" ? "0" : "1",
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).command, "prepush");
+  }
+});
 
 function setConfig(tempDir, precommitChecks) {
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
@@ -68,6 +110,21 @@ function pushInput(tempDir) {
   const head = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
   const base = run("git", ["rev-parse", "HEAD~1"], tempDir).stdout.trim();
   return `refs/heads/main ${head} refs/heads/main ${base}\n`;
+}
+
+function preCommitPushEnv(tempDir, overrides = {}) {
+  const head = run("git", ["rev-parse", "HEAD"], tempDir).stdout.trim();
+  const base = run("git", ["rev-parse", "HEAD~1"], tempDir).stdout.trim();
+  return {
+    ...process.env,
+    PRE_COMMIT_LOCAL_BRANCH: "refs/heads/main",
+    PRE_COMMIT_TO_REF: head,
+    PRE_COMMIT_REMOTE_BRANCH: "refs/heads/main",
+    PRE_COMMIT_FROM_REF: base,
+    PRE_COMMIT_REMOTE_NAME: "origin",
+    PRE_COMMIT_REMOTE_URL: "example.invalid/repo.git",
+    ...overrides,
+  };
 }
 
 function commitWidget(tempDir, expected) {
@@ -117,6 +174,72 @@ test("allows the push when pushed files have no associated tests", (t) => {
   assert.match(output, /No tests to run before push/);
   assert.match(output, /Push allowed with 1 warning/);
   assert.equal(countTerminalBoxes(output), 1);
+});
+
+test("uses pre-commit framework push-range environment when stdin is consumed", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  const result = runPrePush(tempDir, "", {
+    env: preCommitPushEnv(tempDir),
+  });
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /All tests passed/);
+  assert.match(output, /widget\.test\.mjs/);
+});
+
+test("recovers pre-commit framework all-files first pushes without range variables", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    blockProtectedBranches: true,
+    protectedBranches: ["main"],
+  });
+  commitWidget(tempDir, 2);
+  const environment = preCommitPushEnv(tempDir);
+  environment.PRE_COMMIT_LOCAL_BRANCH = run(
+    "git",
+    ["symbolic-ref", "HEAD"],
+    tempDir,
+  ).stdout.trim();
+  delete environment.PRE_COMMIT_FROM_REF;
+  delete environment.PRE_COMMIT_TO_REF;
+
+  const protectedResult = runPrePush(tempDir, "", { env: environment });
+  assert.equal(protectedResult.status, 1);
+  assert.match(
+    `${protectedResult.stdout}${protectedResult.stderr}`,
+    /Push blocked: protected branch/,
+  );
+
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  const testResult = runPrePush(tempDir, "", { env: environment });
+  const output = `${testResult.stdout}${testResult.stderr}`;
+  assert.equal(testResult.status, 1);
+  assert.match(output, /tests failed/i);
+  assert.match(output, /widget\.test\.mjs/);
+});
+
+test("ignores a partial pre-commit push environment", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 2);
+  const environment = preCommitPushEnv(tempDir);
+  delete environment.PRE_COMMIT_REMOTE_BRANCH;
+
+  const result = runPrePush(tempDir, "", { env: environment });
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.equal(output.trim(), "");
+  assert.doesNotMatch(output, /widget\.test\.mjs/);
 });
 
 test("problems-only suppresses a no-tests info box without changing exit", (t) => {

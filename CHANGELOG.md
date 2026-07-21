@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   check, subtype, and rule identifiers without changing the strict schema-v1
   finding shape. Unavailable or malformed diffs warn and still allow the
   commit.
+- Added non-destructive `init`/`doctor --integration[=<manager>]`
+  coexistence for Husky, Lefthook, and the Python pre-commit framework. Setup
+  prints exact project-local snippets, automatic detection refuses ambiguous
+  ownership, install-time verification requires the manager's executable Git
+  dispatcher without rewriting it, and uninstall preserves every
+  project-owned manager entry. lint-staged remains an explicitly separate
+  command in the existing hook flow.
 - Added a tested, fail-closed pull-request change classifier. Pure
   documentation and metadata changes retain DCO, static quality, formatting,
   dependency audit, and focused documentation, schema, link, asset, release,
@@ -62,10 +69,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Made Husky, Lefthook, and pre-commit coexistence entries select only the
+  first regular executable project-local launcher from the exact extensionless,
+  `.exe`, `.cmd`, and `.bat` candidates. Missing, pruned, wrong-kind, or
+  non-executable launchers now fail open silently without a PATH/global
+  fallback, while literal hook argv and real blocking exits still propagate.
+- Hardened hook-manager coexistence verification: Lefthook snippets are static
+  and resolve the active commit-message path inside Commitment Issues,
+  effective Lefthook wrappers must forward hook arguments, pre-commit wrappers
+  must contain a real dispatch, and linked Husky roots/runtime directories are
+  rejected without reading through them. Custom executable Husky v8 hooks
+  remain valid unless they explicitly source an invalid `_/husky.sh` runtime.
+  Init and doctor now print remediation snippets only for inactive hook
+  entries, so fully wired integrations are not told to add duplicates.
+  Uninstall cleanup guidance also recognizes exact pre-dispatch direct manager
+  entries without treating them as healthy or changing manager-owned files.
+  Lefthook's fixed package-owned file producer keeps empty commits and pushes
+  inside the policy path, while canonical POSIX/Windows and workspace-root
+  wrappers are inspected without executing repository-controlled manager code.
 - The staged large-file guard now gives its fixed-argv, NUL-safe whole-index
   probe an explicit bounded output buffer instead of inheriting Node's roughly
   1 MiB default. Large indexes no longer silently disable oversized-file
   findings, and genuine Git or buffer failures remain advisory but visible.
+- Pre-push now accepts the documented complete `PRE_COMMIT_*` range environment
+  when the pre-commit framework has consumed Git's stdin. Manager-composed hook
+  entrypoints honor `COMMITMENT_ISSUES=0` and legacy `HUSKY=0`, and Husky
+  snippets preserve nonzero blocking exits before later custom commands.
 - Pre-commit lint, format, and staged-test checks plus configured pre-push tests
   now partition path arguments by one shared platform-aware byte/unit budget
   instead of passing an unbounded argv. Non-zero batches continue so every
@@ -156,6 +185,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a bounded linear-time scan, preventing adversarial repository configuration
   from stalling `init`, `doctor`, or `uninstall` through regular-expression
   backtracking.
+- Hook-path probes now preserve every configured byte through Git's NUL-delimited
+  output and distinguish an unset `core.hooksPath` from a present empty value.
+  Whitespace is no longer normalized into a Husky path; backslashes remain
+  literal on POSIX and act as separators only on Windows, matching Git's path
+  rules, so setup, diagnosis, and uninstall inspect the path Git activates.
 - Required and scheduled Yarn Classic jobs now resolve exact version `1.22.22`
   from the reviewed npm lockfile instead of installing a second global copy
   outside the repository's integrity-pinned dependency graph.
