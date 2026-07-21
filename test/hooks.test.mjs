@@ -3973,10 +3973,12 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
   const hooksDir = path.join(dir, ".git", "hooks");
   const names = ["pre-commit", "pre-push", "commit-msg"];
   const binDir = path.join(dir, "node_modules", ".bin");
+  const lefthookExecutable =
+    process.platform === "win32" ? "lefthook.exe" : "lefthook";
   fs.mkdirSync(binDir, { recursive: true });
   writeCrossPlatformShim(
     binDir,
-    "lefthook",
+    lefthookExecutable,
     'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
   );
   writeCrossPlatformShim(binDir, "python3", "process.exit(0);\n");
@@ -4013,7 +4015,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
   const runtimeMarker = path.join(dir, "lefthook-runtime-executed");
   writeCrossPlatformShim(
     binDir,
-    "lefthook",
+    lefthookExecutable,
     `import fs from "node:fs";\nfs.writeFileSync(${JSON.stringify(runtimeMarker)}, "executed");\nprocess.exit(0);\n`,
   );
   assert.equal(
@@ -4051,8 +4053,8 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     );
   }
 
-  fs.rmSync(path.join(binDir, "lefthook"));
-  fs.rmSync(path.join(binDir, "lefthook.cmd"));
+  fs.rmSync(path.join(binDir, lefthookExecutable));
+  fs.rmSync(path.join(binDir, `${lefthookExecutable}.cmd`));
   assert.deepEqual(
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).hooks,
     [{ name: "pre-commit", status: "missing-runtime" }],
@@ -4149,7 +4151,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
   });
   writeCrossPlatformShim(
     binDir,
-    "lefthook",
+    lefthookExecutable,
     'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
   );
 
@@ -4166,12 +4168,12 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     [{ name: "pre-commit", status: "foreign" }],
   );
 
-  writeCrossPlatformShim(outside, "lefthook", "process.exit(0);\n");
+  writeCrossPlatformShim(outside, lefthookExecutable, "process.exit(0);\n");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
     lefthookRunner("pre-commit", {
       embeddedExecutable: path
-        .relative(dir, path.join(outside, "lefthook"))
+        .relative(dir, path.join(outside, lefthookExecutable))
         .replaceAll("\\", "/"),
     }),
     { mode: 0o755 },
@@ -4183,9 +4185,13 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
 
   const unicodeRuntimeDir = path.join(outside, "unicodé-runtime");
   fs.mkdirSync(unicodeRuntimeDir);
-  writeCrossPlatformShim(unicodeRuntimeDir, "lefthook", "process.exit(0);\n");
+  writeCrossPlatformShim(
+    unicodeRuntimeDir,
+    lefthookExecutable,
+    "process.exit(0);\n",
+  );
   const unicodeRuntime = path
-    .relative(dir, path.join(unicodeRuntimeDir, "lefthook"))
+    .relative(dir, path.join(unicodeRuntimeDir, lefthookExecutable))
     .replaceAll("\\", "/");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
@@ -4269,7 +4275,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).hooks,
     [{ name: "pre-commit", status: "missing-runtime" }],
   );
-  process.env.LEFTHOOK_BIN = path.join(outside, "lefthook");
+  process.env.LEFTHOOK_BIN = path.join(outside, lefthookExecutable);
   assert.equal(
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
     "wired",

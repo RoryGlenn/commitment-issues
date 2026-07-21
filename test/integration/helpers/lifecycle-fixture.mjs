@@ -383,6 +383,31 @@ function managerLifecycleEnv(repoDir, competingManagerBin) {
   return env;
 }
 
+function withoutLefthookRuntimeCandidates(env, cwd) {
+  const isolated = { ...env };
+  for (const key of Object.keys(isolated)) {
+    if (key.toLowerCase() === "lefthook_bin") delete isolated[key];
+  }
+  const pathKey = Object.keys(isolated).find(
+    (key) => key.toLowerCase() === "path",
+  );
+  if (!pathKey) return isolated;
+  const candidateNames =
+    process.platform === "win32"
+      ? ["lefthook.exe", "lefthook.bat"]
+      : ["lefthook"];
+  isolated[pathKey] = isolated[pathKey]
+    .split(path.delimiter)
+    .filter((entry) => {
+      const directory = entry === "" ? cwd : path.resolve(cwd, entry);
+      return !candidateNames.some((name) =>
+        fs.existsSync(path.join(directory, name)),
+      );
+    })
+    .join(path.delimiter);
+  return isolated;
+}
+
 function run(command, args, cwd, env = lifecycleEnv()) {
   const result = crossSpawn.sync(command, args, {
     cwd,
@@ -1157,6 +1182,12 @@ export function createLifecycleIntegration() {
           ".lifecycle-manager-bin/lefthook": managerDispatchHarness,
           ".lifecycle-manager-bin/lefthook.bat": '@node "%~dp0lefthook" %*\r\n',
           ".lifecycle-manager-bin/python3": managerDispatchHarness,
+          "node_modules/lefthook/bin/index.js": [
+            "#!/bin/sh",
+            'printf "index.js\\n" > "$COMMITMENT_ISSUES_LIFECYCLE_LEFTHOOK_FALLBACK_LOG"',
+            'exec .lifecycle-manager-bin/lefthook "$@"',
+            "",
+          ].join("\n"),
         };
         const cliTracePath = path.join(repoDir, ".lifecycle-cli-trace.mjs");
         const cliTraceSource = [
@@ -1316,6 +1347,71 @@ export function createLifecycleIntegration() {
             .trim()
             .split("\n")
             .map((line) => JSON.parse(line));
+
+        const executeDiscoveredLefthookRuntime = (hooksPath) => {
+          const embeddedRuntime = path.join(
+            repoDir,
+            "node_modules",
+            ".bin",
+            process.platform === "win32" ? "lefthook.exe" : "lefthook",
+          );
+          assertLifecycle(
+            !fs.existsSync(embeddedRuntime),
+            "the Lefthook discovery probe should not use the embedded launcher",
+          );
+          const wrapperPath = path.join(repoDir, hooksPath, "pre-commit");
+          const logPath = path.join(
+            repoDir,
+            ".lifecycle-lefthook-discovery.jsonl",
+          );
+          const fallbackLogPath = path.join(
+            repoDir,
+            ".lifecycle-lefthook-fallback.log",
+          );
+          fs.rmSync(logPath, { force: true });
+          fs.rmSync(fallbackLogPath, { force: true });
+          const forwardedArgs = [
+            "runtime discovery argument",
+            "--sentinel=lefthook-discovery",
+          ];
+          const env = withoutLefthookRuntimeCandidates(
+            managerLifecycleEnv(repoDir, competingManagerBin),
+            repoDir,
+          );
+          const result = crossSpawn.sync(
+            "sh",
+            [wrapperPath, ...forwardedArgs],
+            {
+              cwd: repoDir,
+              encoding: "utf8",
+              env: {
+                ...env,
+                COMMITMENT_ISSUES: "0",
+                COMMITMENT_ISSUES_LIFECYCLE_HOOK_EXIT: "23",
+                COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG: logPath,
+                COMMITMENT_ISSUES_LIFECYCLE_HOOK_MODE: "probe",
+                COMMITMENT_ISSUES_LIFECYCLE_LEFTHOOK_FALLBACK_LOG:
+                  fallbackLogPath,
+              },
+            },
+          );
+          if (result.error) throw result.error;
+          assertLifecycle(
+            result.status === 23,
+            `Lefthook's discovered runtime should propagate exit 23, found ${result.status}: ${[result.stdout, result.stderr].filter(Boolean).join("\n")}`,
+          );
+          assertLifecycle(
+            fs.readFileSync(fallbackLogPath, "utf8") === "index.js\n",
+            "Lefthook should use its canonical repo-local index.js fallback",
+          );
+          assertLifecycle(
+            JSON.stringify(readJsonLines(logPath)) ===
+              JSON.stringify([["run", "pre-commit", ...forwardedArgs]]),
+            "Lefthook's discovered runtime should forward exact hook arguments",
+          );
+          fs.rmSync(logPath);
+          fs.rmSync(fallbackLogPath);
+        };
 
         const executeConfiguredManagerEntries = (manager, hooksPath) => {
           const configPath = path.join(repoDir, ".commitmentrc.json");
@@ -1722,14 +1818,19 @@ export function createLifecycleIntegration() {
             "doctor",
             `--integration=${manager}`,
           ]);
-          run(
-            doctorCommand,
-            doctorArgs,
-            repoDir,
-            managerLifecycleEnv(repoDir, competingManagerBin),
-          );
+          const doctorEnv =
+            manager === "lefthook"
+              ? withoutLefthookRuntimeCandidates(
+                  managerLifecycleEnv(repoDir, competingManagerBin),
+                  repoDir,
+                )
+              : managerLifecycleEnv(repoDir, competingManagerBin);
+          run(doctorCommand, doctorArgs, repoDir, doctorEnv);
           assertFilesUnchanged(ownedFiles, `${manager} doctor`);
           executeManagerRunners(manager, hooksPath);
+          if (manager === "lefthook") {
+            executeDiscoveredLefthookRuntime(hooksPath);
+          }
           executeConfiguredManagerEntries(manager, hooksPath);
           executeManagerBypasses(manager, hooksPath);
           executeMissingManagerBin(manager, hooksPath);
@@ -1774,6 +1875,9 @@ export function createLifecycleIntegration() {
         fs.rmSync(path.join(repoDir, "lefthook.yml"));
         fs.rmSync(path.join(repoDir, ".pre-commit-config.yaml"));
         fs.rmSync(path.join(repoDir, ".lifecycle-manager-bin"), {
+          recursive: true,
+        });
+        fs.rmSync(path.join(repoDir, "node_modules", "lefthook"), {
           recursive: true,
         });
         fs.rmSync(cliTracePath);

@@ -128,7 +128,7 @@ function managerFixture(tempDir, manager) {
     const binDir = isolatedManagerBinDir(tempDir);
     writeCrossPlatformShim(
       binDir,
-      "lefthook",
+      process.platform === "win32" ? "lefthook.exe" : "lefthook",
       'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
     );
     const files = { "lefthook.yml": content };
