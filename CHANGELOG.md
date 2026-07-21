@@ -80,10 +80,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   must contain a real dispatch, and linked Husky roots/runtime directories are
   rejected without reading through them. Custom executable Husky v8 hooks
   remain valid unless they explicitly source an invalid `_/husky.sh` runtime.
+  Active older direct, duplicate, and cross-stage Commitment Issues calls are
+  reported for targeted replacement, removal, or relocation instead of being
+  hidden by a healthy guarded entry.
   Init and doctor now print remediation snippets only for inactive hook
   entries, so fully wired integrations are not told to add duplicates.
-  Uninstall cleanup guidance also recognizes exact pre-dispatch direct manager
-  entries without treating them as healthy or changing manager-owned files.
+  Uninstall cleanup guidance also recognizes exact current and pre-dispatch
+  manager entries even after custom commands, without treating them as healthy
+  or changing manager-owned files.
   Lefthook's fixed package-owned file producer keeps empty commits and pushes
   inside the policy path, while canonical POSIX/Windows and workspace-root
   wrappers are inspected without executing repository-controlled manager code.

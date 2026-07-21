@@ -298,6 +298,111 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
   assert.equal(readFile(tempDir, ".husky/pre-push"), prePush);
 });
 
+test("init distinguishes legacy, duplicate, and cross-stage manager entries", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "manager-entry-status-project",
+    version: "1.0.0",
+    type: "module",
+    scripts: { prepare: "husky" },
+    devDependencies: { husky: "^9.0.0" },
+  });
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  fs.mkdirSync(path.join(tempDir, ".husky", "_"), { recursive: true });
+  writeFile(path.join(tempDir, ".husky", "_", "h"), HUSKY_V9_RUNTIME);
+  for (const name of ["pre-commit", "pre-push"]) {
+    const wrapper = path.join(tempDir, ".husky", "_", name);
+    writeFile(wrapper, '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n');
+    fs.chmodSync(wrapper, 0o755);
+  }
+  writeFile(
+    path.join(tempDir, ".husky", "pre-commit"),
+    `${hookInvocation("pre-commit")}\n`,
+  );
+  const legacyPrePush =
+    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n';
+  writeFile(path.join(tempDir, ".husky", "pre-push"), legacyPrePush);
+
+  const legacy = runInit(tempDir, ["--integration=husky"]);
+  const legacyOutput = `${legacy.stdout}${legacy.stderr}`;
+  assert.equal(legacy.status, 0);
+  assert.match(legacyOutput, /older direct entry must be replaced/i);
+  assert.match(legacyOutput, /pre-push; replace older entry/u);
+  assert.match(legacyOutput, /Replace each labelled older entry in place/u);
+  assert.match(legacyOutput, /hook-dispatch forms/u);
+  assert.doesNotMatch(legacyOutput, /hook precommit/u);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), legacyPrePush);
+
+  const duplicatePrePush = [
+    "echo prior",
+    legacyPrePush.trimEnd(),
+    hookInvocation("pre-push"),
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), duplicatePrePush);
+  const duplicate = runInit(tempDir, ["--integration=husky"]);
+  const duplicateOutput = compactTerminalBoxText(
+    `${duplicate.stdout}${duplicate.stderr}`,
+  );
+  assert.equal(duplicate.status, 0);
+  assert.match(duplicateOutput, /duplicate entries must be reduced to one/i);
+  assert.match(duplicateOutput, /remove duplicate Commitment Issues entries/i);
+  assert.match(duplicateOutput, /keep one exact hook-dispatch\s*entry/iu);
+  assert.doesNotMatch(duplicateOutput, /pre-push; replace older entry/i);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), duplicatePrePush);
+
+  const crossStagePrePush = [
+    hookInvocation("pre-push"),
+    "node_modules/.bin/commitment-issues precommit || exit $?",
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), crossStagePrePush);
+  const crossStage = runInit(tempDir, ["--integration=husky"]);
+  const crossOutput = compactTerminalBoxText(
+    `${crossStage.stdout}${crossStage.stderr}`,
+  );
+  assert.equal(crossStage.status, 0);
+  assert.match(crossOutput, /command targets another hook stage/i);
+  assert.match(crossOutput, /move each Commitment Issues entry/i);
+  assert.match(crossOutput, /older direct call.*insert `hook`/i);
+  assert.doesNotMatch(crossOutput, /could not be inspected|replace each path/i);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), crossStagePrePush);
+});
+
+test("init omits Husky-only ordering guidance for Lefthook duplicates", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "lefthook-duplicate-project",
+    version: "1.0.0",
+    type: "module",
+    devDependencies: { lefthook: "2" },
+  });
+  const config = hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
+    .map(({ content }) => content)
+    .join("")
+    .replace(
+      "    commitment-issues:\n",
+      [
+        "    commitment-issues-old:",
+        "      run: node_modules/.bin/commitment-issues precommit",
+        "    commitment-issues:",
+        "",
+      ].join("\n"),
+    );
+  writeFile(path.join(tempDir, "lefthook.yml"), config);
+
+  const result = runInit(tempDir, ["--integration=lefthook"]);
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 0);
+  assert.match(output, /duplicate entries must be reduced to one/i);
+  assert.match(output, /remove duplicate Commitment Issues entries/i);
+  assert.doesNotMatch(output, /first substantive command/i);
+  assert.equal(readFile(tempDir, "lefthook.yml"), config);
+});
+
 test("init integration dry run prints exact pre-commit entries without writes", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

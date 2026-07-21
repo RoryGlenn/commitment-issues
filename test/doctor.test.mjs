@@ -381,6 +381,100 @@ test("doctor reports exact missing manager snippets but never installs them", (t
   );
 });
 
+test("doctor tells users to replace older manager entries in place", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "husky");
+  const legacyPrePush =
+    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n';
+  writeFile(path.join(tempDir, ".husky", "pre-push"), legacyPrePush);
+
+  const result = runDoctor(tempDir, ["--integration=husky"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /older direct hook entries must be replaced: pre-push/i);
+  assert.match(output, /pre-push; replace older entry/i);
+  assert.match(output, /do not keep both forms/i);
+  assert.match(output, /hook prepush "\$@"/u);
+  assert.doesNotMatch(output, /hook precommit/u);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), legacyPrePush);
+});
+
+test("doctor removes only older duplicates from manager hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "husky");
+  const duplicatePrePush = [
+    "echo prior",
+    'node_modules/.bin/commitment-issues prepush "$@" || exit $?',
+    hookInvocation("pre-push"),
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), duplicatePrePush);
+
+  const result = runDoctor(tempDir, ["--integration=husky"]);
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    output,
+    /duplicate Commitment Issues entries must be reduced to one:.*pre-push/iu,
+  );
+  assert.match(output, /remove duplicate Commitment Issues entries/i);
+  assert.match(output, /keep one exact hook-dispatch\s*entry/iu);
+  assert.doesNotMatch(output, /pre-push; replace older entry/i);
+  assert.doesNotMatch(output, /pre-push; add missing entry/i);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), duplicatePrePush);
+});
+
+test("doctor omits Husky-only ordering guidance for Lefthook duplicates", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const files = managerFixture(tempDir, "lefthook");
+  const config = files["lefthook.yml"].replace(
+    "    commitment-issues:\n",
+    [
+      "    commitment-issues-old:",
+      "      run: node_modules/.bin/commitment-issues precommit",
+      "    commitment-issues:",
+      "",
+    ].join("\n"),
+  );
+  writeFile(path.join(tempDir, "lefthook.yml"), config);
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 1);
+  assert.match(output, /duplicate Commitment Issues entries/i);
+  assert.match(output, /remove duplicate Commitment Issues entries/i);
+  assert.doesNotMatch(output, /first substantive command/i);
+  assert.equal(readFile(tempDir, "lefthook.yml"), config);
+});
+
+test("doctor preserves cross-stage manager commands for in-place migration", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "husky");
+  const crossStage = [
+    hookInvocation("pre-push"),
+    "node_modules/.bin/commitment-issues precommit || exit $?",
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), crossStage);
+
+  const result = runDoctor(tempDir, ["--integration=husky"]);
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 1);
+  assert.match(output, /commands target the wrong hook stage/i);
+  assert.match(output, /move each Commitment Issues entry/i);
+  assert.match(output, /older direct call.*insert `hook`/i);
+  assert.doesNotMatch(output, /could not be inspected|replace each path/i);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), crossStage);
+});
+
 test("doctor gives guarded-entry guidance for missing Husky manager hooks", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

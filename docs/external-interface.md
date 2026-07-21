@@ -133,9 +133,10 @@ Hook-manager configuration is always project-owned. Even when an exact
 coexistence entry is recognized, uninstall reports its manager/hook names for
 manual cleanup and does not delete or edit `.husky/*`, Lefthook YAML,
 `.pre-commit-config.yaml`, `.pre-commit-config.yml`, or lint-staged
-configuration. For cleanup reporting only, it also recognizes the exact direct
-manager entries used before the hidden hook dispatcher; `init` and `doctor`
-still require the dispatcher form. It removes an exact
+configuration. For cleanup reporting only, it inventories exact current and
+pre-dispatch manager entries wherever they appear in executable hook content;
+their position does not make them healthy, and `init` and `doctor` still
+require the dispatcher form first. It removes an exact
 `doctor --quiet --integration=<manager>` prepare command or suffix because that
 package script is generated package state.
 
@@ -183,6 +184,12 @@ pre-commit wrappers without an executable dispatch, duplicate candidate config
 files, and linked, non-regular, or non-executable paths are not healthy.
 Selecting a manager explicitly resolves owner ambiguity only; it never
 overrides an unsafe, duplicate, or unsupported selected configuration.
+An older direct call is reported for replacement. When a guarded current entry
+and an older direct call coexist, doctor asks for removal of only the older
+duplicate and does not print another snippet. Repeated current entries likewise
+require removal until one exact entry remains. A Commitment Issues call under
+the wrong hook stage is reported for relocation to its matching stage; older
+direct calls also need the `hook` subcommand inserted during that move.
 
 The inspectable configuration and dispatcher set is deliberately bounded:
 

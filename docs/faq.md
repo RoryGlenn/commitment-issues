@@ -18,10 +18,8 @@ migrates the exact legacy wiring it owns.
 
 If Husky, Lefthook, or the Python pre-commit framework still runs other project
 logic, keep it with `init --integration=<manager>`. That mode prints exact
-snippets and verifies them read-only; it never edits the manager's config.
-lint-staged can remain as a separate command in the same manager hook. Its
-known config names and package YAML key are detection evidence only; Commitment
-Issues never executes or interprets its tasks. See
+snippets and verifies them read-only without editing manager files. lint-staged
+can remain a separate command; its config is never executed or interpreted. See
 [Keep an existing hook manager](migration.md#keep-an-existing-hook-manager).
 
 ## What happens by default, and when can it block?
@@ -98,24 +96,14 @@ npx --no-install commitment-issues doctor --integration=lefthook
 ```
 
 Replace the value with `husky` or `pre-commit`. Do not omit the value when more
-than one manager is present; automatic mode refuses to guess. Explicit
-selection does not bypass a duplicate, unsafe, or unsupported selected config.
-The conservative inspector reports customized/newer wrappers and Lefthook
-local, non-YAML, extended, overridden, or advanced-YAML configuration for
-manual review. Uninstall also leaves those manager files unchanged and
-identifies matching entries for you to remove manually.
-
-To compose manually, use the exact one-line guarded entry printed by
-`init --dry-run --integration=<manager>` as the custom hook's first substantive
-command. Only a direct `.husky` v8 hook may put the exact Husky v8 runtime
-source line first. Leave unrelated commands after it. The generated entry
-checks only the project-local extensionless, `.exe`, `.cmd`, and `.bat`
-launchers, runs the first regular executable candidate, and silently succeeds
-when none is usable; it never falls back through `PATH`.
-
-This ordering lets the verifier prove the hook reaches Commitment Issues and
-preserves a blocking exit. Comments, printed examples, arbitrary command
-preludes, and non-executable POSIX hooks do not count as active wiring.
+than one manager is present; automatic mode refuses to guess, and explicit
+selection cannot bypass unsafe or unsupported config. Use the exact printed
+entry as the first substantive manager command, leaving unrelated behavior
+after it. Doctor requires that entry plus an executable installed dispatcher;
+custom/newer layouts need manual review. Uninstall identifies recognized
+entries but leaves all manager files unchanged. The
+[coexistence contract](migration.md#keep-an-existing-hook-manager) lists the
+supported forms and remediation rules.
 
 ## Will it change code or commits automatically?
 

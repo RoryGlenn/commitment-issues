@@ -14,10 +14,8 @@ The short version: install `commitment-issues`, remove the old hook wiring, and 
 
 ## Keep an existing hook manager
 
-Coexistence is different from migration. Migration transfers hook ownership to
-Commitment Issues' generated `.git/hooks`; coexistence keeps the current
-manager as the only hook owner and adds Commitment Issues as a manager command.
-Choose coexistence when the manager still runs unrelated project logic.
+Migration transfers ownership to generated `.git/hooks`; coexistence keeps the
+current manager as sole owner and adds Commitment Issues as its command.
 
 Preview and apply package-owned setup with an explicit owner:
 
@@ -27,76 +25,43 @@ npx --no-install commitment-issues init --integration=husky
 npx --no-install commitment-issues doctor --integration=husky
 ```
 
-Use `lefthook` or `pre-commit` instead of `husky` as appropriate. Bare
-`--integration` auto-detects only when exactly one owner has active evidence.
-No evidence or multiple managers require an explicit choice. An explicit
-choice does not override an unsafe selected configuration: duplicate,
-unsupported, linked, non-regular, or unreadable selected config paths still
-stop before writes and require manual review. The tool does not guess.
+Use `lefthook` or `pre-commit` as appropriate. Bare `--integration` requires
+exactly one evident owner; otherwise select explicitly. Selection never
+overrides duplicate, unsupported, linked, non-regular, or unreadable selected
+config: init stops before writes.
 
-The normal run may update Commitment Issues' `package.json` scripts,
-configuration, `.gitignore` defaults, and its exact `prepare` suffix. It does
-not write native hooks, unset `core.hooksPath`, run a manager install command,
-or edit any manager-owned file. Dry-run writes nothing and prints the same
-reviewable snippets. Re-running is idempotent.
+Init may update Commitment Issues' package scripts/config, ignore defaults,
+and exact `prepare` suffix. It never writes native/manager hooks, changes
+`core.hooksPath`, or runs the manager installer. Dry-run writes nothing;
+re-running is idempotent. Use the normal local runner for your
+[package manager](compatibility.md#package-managers).
 
-Package-manager-native forms for the same command are:
-
-| Package manager | Local invocation                                                   |
-| --------------- | ------------------------------------------------------------------ |
-| npm             | `npx --no-install commitment-issues init --integration=<manager>`  |
-| pnpm            | `pnpm exec commitment-issues init --integration=<manager>`         |
-| Yarn            | `yarn run commitment-issues init --integration=<manager>`          |
-| Bun             | `bunx --no-install commitment-issues init --integration=<manager>` |
-
-All generated snippets use the static project-relative
-`node_modules/.bin/commitment-issues` path. No checkout path is interpolated,
-so spaces, Unicode, shell metacharacters, linked worktrees, and GUI-launched Git
-do not change the reviewed command. Yarn Plug'n'Play remains unsupported;
-Yarn Berry must use `nodeLinker: node-modules`.
-
-A restricted GUI or hook `PATH` must still provide `node`. Lefthook and
-pre-commit integrations must also resolve their reviewed manager runtimes;
-Husky uses its inspected repository-local dispatcher instead of a `husky`
-executable from `PATH`. The project-local Commitment Issues path prevents a
-global package fallback; it does not bundle those runtimes.
+Snippets use static `node_modules/.bin/commitment-issues`, so checkout spelling
+is never shell-interpolated and no global package fallback exists. Yarn Berry
+requires `nodeLinker: node-modules`; Plug'n'Play is unsupported. Hook/GUI
+`PATH` must provide `node`; Lefthook/pre-commit also need their reviewed
+runtime, while Husky uses its inspected local dispatcher.
 
 ### Husky contract
 
-Place the guarded line before every unrelated substantive command in the
-corresponding existing file; do not replace those later commands. When Git uses
-the direct `.husky` path for Husky v8, an exact `_/husky.sh` source line may
-precede it:
-
-Generate the exact one-line entries for the enabled hooks instead of
-hand-writing a platform-specific launcher:
+Generate each guarded line rather than hand-writing a platform-specific
+launcher:
 
 ```sh
 npx --no-install commitment-issues init --dry-run --integration=husky
 ```
 
-Each emitted line inspects only the ordered project-local extensionless,
-`.exe`, `.cmd`, and `.bat` launchers, invokes the same first regular executable
-candidate, and completes successfully when none is usable. It never consults
-`PATH` or a global install.
+Put it before unrelated substantive commands; only an exact Husky v8
+`_/husky.sh` source may precede it. The line selects the first regular,
+executable project-local extensionless/`.exe`/`.cmd`/`.bat` launcher, succeeds
+when none is usable, and never consults `PATH`. Quoted Git arguments and `||
+exit $?` preserve argv and blocking status; `--no-verify`, `HUSKY=0`, and
+`COMMITMENT_ISSUES=0` remain bypasses.
 
-The quoted arguments preserve Git's remote and message-file values. `|| exit
-$?` preserves a configured blocking result even when custom commands follow;
-success continues into the remaining Husky script. Git's `--no-verify`,
-Husky's `HUSKY=0`, and `COMMITMENT_ISSUES=0` retain their normal bypass
-behavior. `doctor` also requires Husky's `.husky/_` (or compatible `.husky`)
-`core.hooksPath` to be active before reporting healthy.
-
-Wrapper recognition is intentionally version-shaped. Doctor recognizes exact
-stable Husky 8.0.1–8.0.3 and 9.0.2–9.1.7 dispatcher/runtime bodies. A direct v8
-hook that does not source `_/husky.sh` needs no separate runtime; when it does
-source that file, the runtime must match. Husky 8.0.0 is outside the supported
-POSIX shape, and 9.0.1 is rejected because its published shared runtime ends
-with an unconditional failure. A customized runtime, partial wrapper, or newer
-generated shape is preserved and reported for manual review rather than
-treated as healthy. Every effective wrapper is inspected before a
-missing/foreign shared runtime is classified, so the runtime cannot hide a
-linked or customized hook from init's pre-write safety check.
+Doctor also requires the active `.husky`/`.husky/_` hook path and exact Husky
+8.0.1–8.0.3 or 9.0.2–9.1.7 wrapper/runtime. A direct v8 hook needs the runtime
+only when it sources it. Husky 8.0.0/9.0.1 and customized, partial, linked, or
+newer shapes remain user-owned and require manual review.
 
 ### Lefthook contract
 
@@ -109,16 +74,10 @@ Read-only inspection supports exactly one of these main YAML files:
 - `.config/lefthook.yml`
 - `.config/lefthook.yaml`
 
-Lefthook JSON, JSONC, TOML, `*-local` configuration, multiple candidate files,
-`extends`/`remotes`, advanced YAML constructs, unreviewed top-level options
-(including all global settings), and a non-empty `LEFTHOOK_CONFIG` override are
-detected but require manual review. This boundary avoids making a health claim
-without evaluating Lefthook's complete schema, merge, runtime, and precedence
-behavior.
-
-Merge each `commitment-issues` command below into the matching existing
-top-level hook and `commands` mapping. Do not duplicate a hook key or the
-`commitment-issues` command key:
+JSON/JSONC/TOML, `*-local`, multiple candidates, `extends`/`remotes`, advanced
+YAML, global options, or `LEFTHOOK_CONFIG` require manual review. Merge the
+printed command into its existing top-level hook/`commands` map without
+duplicating either key:
 
 Print the exact static YAML entries for the enabled hooks, then merge only
 those blocks:
@@ -127,45 +86,24 @@ those blocks:
 npx --no-install commitment-issues init --dry-run --integration=lefthook
 ```
 
-These commands are static. The exact `files` producer and `{files}` environment
-assignment give Lefthook one package-owned, always-installed sentinel so it
-cannot skip pre-commit or pre-push policies on an empty commit or push.
-Commit-message hooks already run without file selection. The placeholder never
-enters CLI arguments and cannot expand to a Git-provided filename. Other
-`files` commands or placeholders require manual review. `use_stdin: true`
-passes the pushed ref list to the pre-push entrypoint. For commit-msg,
-`--git-path` resolves Git's active message file at runtime with
-`git rev-parse --git-path`, including in linked worktrees. Direct automatic
-merges use `MERGE_MSG`; ordinary commits and a later `git commit` that completes
-a pending merge use `COMMIT_EDITMSG`. Lefthook can pass stdin to only one
-command, so if another pre-push command also consumes it, keep a project-owned
-wrapper that reads once and fans the input out. Lefthook's installed pre-push
-and commit-msg wrappers must forward `"$@"` to the manager. Lefthook retains
-command ordering, parallelism, skip rules, and failure aggregation. Commitment
-Issues' advisory modes exit zero; explicitly enabled blocking modes return
-nonzero for Lefthook to enforce.
+The static `files` producer/`{files}` assignment supplies an installed sentinel
+so empty commits/pushes still run policy; other producers/placeholders require
+review. `use_stdin: true` forwards push refs. Commit-msg's `--git-path`
+resolves the worktree message (`MERGE_MSG` for direct automatic merges,
+otherwise `COMMIT_EDITMSG`). If another command needs pre-push stdin, use one
+project wrapper to read and fan it out. Installed pre-push/commit-msg wrappers
+must forward `"$@"`. Existing ordering, parallelism, skips, aggregation, and
+advisory/blocking exits remain Lefthook's.
 
-Conditions and skip rules on unrelated hooks and commands remain untouched.
-The Commitment Issues hook and its command must be unconditional: hook-level
-`skip`, `only`, or `exclude_tags`, and command-level path, tag, environment,
-root, `skip`, or `only` filters prevent doctor from reporting the entry as
-healthy. The installed dispatcher is checked separately. Doctor recognizes
-the canonical Lefthook 2.1.10 generated wrapper and a narrow direct-wrapper
-form; customized or newer templates need manual review. Without executing a
-repository-controlled probe, the verifier also requires the selected runtime
-candidate to exist and have a reviewed Lefthook executable identity.
-The direct form is exactly a `#!/bin/sh` line plus one `lefthook run <hook>` or
-`node_modules/.bin/lefthook run <hook>` line, optionally prefixed by `exec` or
-`command`; the hook name may be double-quoted, and pre-push/commit-msg must end
-with `"$@"`.
-Before that claim, the entire selected YAML document is schema-checked: every
-top-level Git hook and each nested setup, command, script, job, and group must
-use a reviewed Lefthook 2.1.10 form. A malformed sibling therefore makes the
-configuration uninspectable even when the Commitment Issues command itself is
-exact. Runtime resolution follows shell PATH ordering and effective execute
-access; `test -f` packaged candidates separately skip directories and special
-nodes exactly as the generated wrapper does. The static verifier never runs a
-repository-controlled executable.
+Unrelated conditions stay untouched, but the Commitment Issues hook/command
+must be unconditional. Doctor separately checks the canonical Lefthook 2.1.10
+wrapper or a direct `#!/bin/sh` plus one optional-`exec`/`command`
+`[node_modules/.bin/]lefthook run <hook>` line; pre-push/commit-msg end in
+`"$@"`. It schema-checks every hook and nested setup/command/script/job/group,
+so malformed siblings are uninspectable. Runtime resolution honors literal
+PATH order and execute access; packaged `test -f` candidates exclude
+non-files. Verification requires a reviewed executable identity but never runs
+repository-controlled code.
 
 ### pre-commit framework contract
 
@@ -205,23 +143,14 @@ pre-commit install --config .pre-commit-config.yml --hook-type pre-commit --hook
 
 Add `--hook-type commit-msg` when commit-message linting is enabled.
 
-The whole pre-commit document is validated before health is reported, not just
-the three local entries. Supported root options and every local, meta, and
-remote hook must use audited keys, Git stages, languages, type tags, and a
-conservative Python/JavaScript-compatible regex subset. Language validation
-uses the intersection supported across pre-commit 3.2 and current releases;
-version-specific languages require manual review because the identical wrapper
-cannot prove the installed framework version. The
-`default_language_version` map excludes the renamed `system`/`script` aliases
-because current releases do not migrate those option keys. Type validation
-likewise uses
-the tags available in pre-commit's minimum `identify` 1.0 dependency rather
-than accepting tags added by newer resolver releases. Plain YAML scalars are
-interpreted with PyYAML SafeLoader's YAML 1.1 typing so quoted strings cannot be
-confused with booleans, dates, or legacy numeric forms. For the same reason,
-`minimum_pre_commit_version` may require at most the documented 3.2 floor.
-Higher requirements, future type tags, advanced regex syntax, and unknown
-fields remain untouched but require manual review.
+Before reporting health, inspection validates root options and every
+local/meta/remote hook against audited keys, stages, regexes, the shared
+pre-commit 3.2+ language set, and minimum `identify` 1.0 tags.
+`default_language_version` excludes renamed `system`/`script` aliases; YAML
+scalars use PyYAML SafeLoader 1.1 typing, and
+`minimum_pre_commit_version` cannot exceed 3.2. Version-specific languages,
+newer tags, advanced regexes, higher requirements, and unknown fields require
+manual review.
 
 The canonical dispatcher parser supports an empty, missing, or non-executable
 primary (which selects PATH) and a slash-qualified executable with a reviewed

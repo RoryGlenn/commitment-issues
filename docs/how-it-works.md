@@ -48,59 +48,22 @@ The hook files call the package binary from `node_modules/.bin`, so the behavior
 
 ### Existing-manager path
 
-With `init --integration=<manager>`, the same three entrypoints run inside
-Husky, Lefthook, or pre-commit instead. Init and doctor share one conservative
-inspector: comments/examples do not count as wiring, manager config symlinks
-are uninspectable, multiple owners are never auto-selected, and every manager
-file stays byte-for-byte user-owned. Health also requires an executable
-manager-generated dispatcher in Git's effective hooks directory, so a config
-entry is not confused with an installed integration. Explicit owner selection
-does not bypass an unsafe, duplicate, or unsupported selected configuration.
+With `init --integration=<manager>`, those entrypoints run inside Husky,
+Lefthook, or pre-commit. Init prints project-local snippets; it never edits the
+manager's files. Doctor then checks the exact config entry and executable
+dispatcher in Git's effective hooks directory. Ambiguous, linked,
+duplicate/cross-stage, conditional, unsupported, or customized layouts are
+preserved for explicit remediation instead of guessed healthy.
 
-The recognized forms are intentionally conservative. Lefthook inspection is
-limited to one of six main YAML names (`lefthook.yml`, `lefthook.yaml`, their
-leading-dot forms, or either extension below `.config/`); JSON, JSONC, TOML,
-local, extended/remote, overridden, and advanced-YAML configurations require
-manual review. pre-commit accepts either `.pre-commit-config.yaml` or `.yml`.
-Installed wrappers must match Husky 8.0.1–8.0.3 or 9.0.2–9.1.7, the canonical
-Lefthook 2.1.10 shape (or its narrow direct form), or the supported pre-commit
-3.2+ shape. Customized or newer templates are preserved and reported.
-
-Hook-directory discovery preserves Git's path bytes, removing only the single
-line terminator emitted by `git rev-parse --git-path hooks`. The separate
-NUL-delimited `core.hooksPath` probe distinguishes an unset key from a present
-empty value and never trims whitespace. Husky ownership keeps backslashes
-literal on POSIX and treats them as separators only on Windows, matching Git's
-platform path rules.
-
-Husky receives Git's `$@`/`$1` directly and uses `|| exit $?` to retain an
-enforced result before later custom lines. Lefthook uses static commands,
-forwards pre-push stdin through `use_stdin: true`, and invokes commit-msg with
-`--git-path` so the Node entrypoint resolves Git's worktree-specific
-message path itself. The pre-commit framework supplies commit-msg's filename
-and publishes its consumed pre-push range through `PRE_COMMIT_*`
-variables. All paths reach the same Node
-entrypoints, advisory/blocking configuration, local-tool resolution, and
-project-wide skip switch.
-
-Only the Commitment Issues entry is required to be unconditional; other
-manager commands retain their own ordering, conditions, and skip behavior.
-Duplicate Lefthook hook/command keys and duplicate pre-commit IDs are rejected.
-pre-commit's exact entry fields are validated, and `args` is not accepted
-because it could alter the reviewed invocation. lint-staged is detected only as
-separate composition evidence; its config is never loaded or interpreted.
-The same structural pass validates all sibling Lefthook hooks and nested jobs,
-and all pre-commit repos/hooks plus supported root options; an invalid unrelated
-entry cannot be hidden behind a healthy Commitment Issues entry.
-
-Install-time repair is owner-specific. Native setup composes `doctor --quiet`;
-coexistence composes `doctor --quiet --integration=<manager>`, which verifies
-and warns but never modifies manager configuration or breaks an install.
-
-Project-relative commands avoid global package lookup, but a restricted hook
-or GUI `PATH` must still contain `node`. Lefthook and pre-commit must also
-resolve their reviewed manager runtimes; Husky uses its inspected local
-dispatcher.
+The generated forms forward Git arguments, stdin, and blocking exits to the
+same Node entrypoints while preserving unrelated manager behavior.
+Install-time verification uses `doctor --quiet --integration=<manager>` and
+warns without modifying manager files or failing an install. Runtime lookup
+remains project-local; hook/GUI environments must provide `node` and any
+manager runtime. See the
+[coexistence guide](migration.md#keep-an-existing-hook-manager) for exact
+snippets, supported config/wrapper versions, structural checks, path rules,
+bypasses, and uninstall behavior.
 
 ESLint and Prettier are also resolved directly from the project's
 `node_modules`; a missing peer is reported with an install hint and never

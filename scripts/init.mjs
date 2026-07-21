@@ -505,7 +505,12 @@ if (integrationManager) {
       ? []
       : hookManagerSnippets(
           integrationManager,
-          inactive.map(({ name }) => name),
+          inactive
+            .filter(
+              ({ status }) =>
+                status !== "duplicate" && status !== "cross-stage",
+            )
+            .map(({ name }) => name),
           integrationReport.destination,
         );
   integrationRunnerReport = inspectHookManagerRunner(
@@ -544,13 +549,43 @@ if (integrationManager) {
       ...managerDetection.unsafePaths.map((filePath) => `  ${filePath}`),
     );
   }
+  const duplicates = inactive.filter(({ status }) => status === "duplicate");
+  const crossStage = inactive.filter(({ status }) => status === "cross-stage");
   if (inactive.length > 0) {
     warnings.push(
       `${integrationManager} does not yet have every active Commitment Issues hook.`,
       ...inactive.map(
         ({ name, status }) =>
-          `  ${name}: ${status === "uninspectable" ? "could not be inspected" : "snippet not found"}`,
+          `  ${name}: ${
+            status === "uninspectable"
+              ? "could not be inspected"
+              : status === "duplicate"
+                ? "duplicate entries must be reduced to one"
+                : status === "cross-stage"
+                  ? "a Commitment Issues command targets another hook stage"
+                  : status === "legacy"
+                    ? "older direct entry must be replaced"
+                    : "snippet not found"
+          }`,
       ),
+    );
+  }
+  if (duplicates.length > 0) {
+    warnings.push(
+      "Remove duplicate Commitment Issues entries; keep one exact hook-dispatch entry for each hook:",
+      ...duplicates.map(({ name }) => `  ${name}`),
+      ...(integrationManager === "husky"
+        ? [
+            "Make each retained hook-dispatch entry the first substantive command.",
+          ]
+        : []),
+    );
+  }
+  if (crossStage.length > 0) {
+    warnings.push(
+      "Preserve unrelated commands and move each Commitment Issues entry to its matching hook stage:",
+      ...crossStage.map(({ name }) => `  ${name}`),
+      "For an older direct call, also insert `hook` before its subcommand; keep its arguments and relative ordering.",
     );
   }
   if (
@@ -874,30 +909,50 @@ const integrationSections =
         pc.bold(`${integrationManager} coexistence snippets.`),
         "",
         pc.dim(
-          "Manager-owned files were not changed. Merge each entry without replacing or reordering existing commands.",
+          "Manager-owned files were not changed. Apply each entry using its add or replace label without reordering unrelated commands.",
         ),
-        ...(integrationManager === "pre-commit"
+        ...(integrationReport.hooks.some(({ status }) => status === "legacy")
+          ? [
+              pc.dim(
+                "Replace each labelled older entry in place; do not keep both the direct and hook-dispatch forms.",
+              ),
+            ]
+          : []),
+        ...(integrationReport.hooks.some(
+          ({ status }) => status === "missing",
+        ) && integrationManager === "pre-commit"
           ? [
               pc.dim(
                 "Place these entries under a local repo's hooks list; keep any existing repos and hooks.",
               ),
             ]
-          : integrationManager === "lefthook"
+          : integrationReport.hooks.some(
+                ({ status }) => status === "missing",
+              ) && integrationManager === "lefthook"
             ? [
                 pc.dim(
                   "Merge each command under the matching top-level hook; do not duplicate an existing hook key.",
                 ),
               ]
-            : [
-                pc.dim(
-                  "Place each guarded line before unrelated substantive commands; an exact Husky v8 source may precede it.",
-                ),
-              ]),
-        ...integrationSnippets.flatMap(({ name, destination, content }) => [
-          "",
-          pc.dim(`${destination} (${name}):`),
-          ...content.trimEnd().split("\n"),
-        ]),
+            : integrationReport.hooks.some(({ status }) => status === "missing")
+              ? [
+                  pc.dim(
+                    "Place each missing guarded line before unrelated substantive commands; an exact Husky v8 source may precede it.",
+                  ),
+                ]
+              : []),
+        ...integrationSnippets.flatMap(({ name, destination, content }) => {
+          const status = integrationReport.hooks.find(
+            (hook) => hook.name === name,
+          )?.status;
+          return [
+            "",
+            pc.dim(
+              `${destination} (${name}; ${status === "legacy" ? "replace older entry" : "add missing entry"}):`,
+            ),
+            ...content.trimEnd().split("\n"),
+          ];
+        }),
       ]
     : [];
 

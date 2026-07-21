@@ -23,82 +23,40 @@ Nothing is copied into your repo from the package source. The hooks are plain `.
 
 ### Existing hook-manager mode
 
-`init --integration=husky`, `--integration=lefthook`, and
-`--integration=pre-commit` switch hook ownership from native generation to
-snippet-first coexistence. In this mode init still manages the package scripts,
-advisory push default, and ignore entries above, but it:
+`init --integration=<manager>` keeps Husky, Lefthook, or pre-commit as hook
+owner. Init still manages Commitment Issues' package settings and ignores, but
+does not write native/manager hooks or replace `core.hooksPath`; it prints
+project-local snippets and composes
+`doctor --quiet --integration=<manager>` into `prepare`. lint-staged remains a
+separate, user-owned command.
 
-- does not write `.git/hooks` or manager files;
-- does not unset or replace `core.hooksPath`;
-- prints static project-local entries for pre-commit, pre-push, and the optional
-  commit-msg hook;
-- composes `doctor --quiet --integration=<manager>` into `prepare`, so a later
-  install verifies the same owner instead of running native repair; and
-- reports lint-staged as composition evidence without changing its tasks.
+Bare `--integration` requires exactly one evident owner. Explicit selection
+resolves owner ambiguity, not unsafe selected files: linked, non-regular,
+unreadable, duplicate, or unsupported configs stop before writes. Health
+requires an exact unconditional entry and executable installed dispatcher,
+with these conservative version/config boundaries:
 
-Bare `--integration` selects automatically only when exactly one supported
-owner is evident. No or multiple owners fail before writes. An explicit owner
-is honored while other manager evidence is reported, but it does not override
-an unsafe selected configuration. Config-file symlinks, duplicate or
-unsupported selected configs, directories where files are expected, and
-unreadable paths stop init before it changes package files or hooks.
+| Manager    | Inspected boundary                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| Husky      | Active `.husky`/`.husky/_`; Husky 8.0.1–8.0.3 or 9.0.2–9.1.7 wrapper/runtime                  |
+| Lefthook   | One documented main YAML file; canonical 2.1.10 or narrow direct wrapper                      |
+| pre-commit | One `.pre-commit-config.yaml`/`.yml`; supported 3.2+ wrapper bound to that file and hook type |
 
-The read-only inspection boundary is intentionally narrow:
+Customized/newer wrappers and Lefthook local, JSON/JSONC/TOML, extended,
+overridden, advanced-YAML, or global-option configs require manual review.
+Complete Lefthook and pre-commit documents are schema-checked, including
+sibling hooks; duplicate keys/IDs, conditional Commitment Issues entries,
+pre-commit `args`, or altered required fields are not healthy. Inspection
+never executes repository-controlled code. The exact supported names,
+schemas, runtime identities, static Lefthook stdin/message behavior, skip and
+argument forwarding, path rules, and uninstall contract are documented under
+[Keep an existing hook manager](migration.md#keep-an-existing-hook-manager)
+and in the
+[hook-manager coexistence interface](external-interface.md#hook-manager-coexistence-interface).
 
-| Manager    | Configuration and installed-wrapper boundary                                                                                                                                                                          |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Husky      | A regular `.husky` directory, its exact active `.husky`/`.husky/_` hook path, exact unconditional entry lines, and a Husky 8.0.1–8.0.3 or 9.0.2–9.1.7 dispatcher/runtime shape                                        |
-| Lefthook   | Exactly one main YAML file named `lefthook.yml`, `lefthook.yaml`, `.lefthook.yml`, `.lefthook.yaml`, `.config/lefthook.yml`, or `.config/lefthook.yaml`, plus a canonical Lefthook 2.1.10 or narrow direct dispatcher |
-| pre-commit | Exactly one `.pre-commit-config.yaml` or `.pre-commit-config.yml`, plus the supported pre-commit 3.2+ generated dispatcher bound to that same config and hook type                                                    |
-
-Lefthook JSON, JSONC, TOML, local configuration, `extends`/`remotes`, advanced
-YAML constructs, unreviewed top-level options (including `min_version`, `rc`,
-custom runtime/source settings, and presentation globals), and
-`LEFTHOOK_CONFIG` overrides require manual review. So do customized or newer
-manager wrapper templates. A restricted hook `PATH` must still provide `node`;
-Lefthook and pre-commit must also resolve reviewed Lefthook and Python runtime
-identities. Husky uses its inspected repository-local dispatcher rather than a
-`husky` executable from `PATH`. Inspection never executes a
-repository-controlled probe.
-
-Entry validation is exact. Duplicate Lefthook hook/command keys and duplicate
-pre-commit IDs are not healthy. The selected Commitment Issues hook and command
-must be unconditional; unrelated manager skip and conditional rules remain
-untouched. pre-commit entries must retain the documented `entry`, `language`,
-`pass_filenames`, `always_run`, and `stages` values and must not add `args`.
-Inspection validates the complete selected document before reporting health:
-every Lefthook hook and nested command/script/job must use the audited schema,
-and every pre-commit local/meta/remote repo plus supported top-level option must
-have an audited language, type-tag, stage, version, and regex form. Unknown or
-newer fields remain user-owned but require manual review.
-Lefthook snippets remain static: pre-push receives Git's ref stream through
-`use_stdin: true`, and the optional commit-msg entry uses `--git-path` to
-resolve Git's active message file inside Commitment Issues instead of
-interpolating a manager template.
-
-lint-staged detection is composition evidence only. It recognizes package
-keys, the documented `.lintstagedrc*` and `lint-staged.config.*` names, and a
-top-level `lint-staged` key in `package.yaml` or `package.yml`; it never loads,
-executes, or interprets those task configurations.
-
-`core.hooksPath` is read as exactly one NUL-delimited Git record and preserved
-exactly; missing or malformed framing fails closed. An explicitly configured
-empty value is therefore different from an unset key, and leading or trailing
-whitespace remains part of the effective path. POSIX backslashes stay literal;
-on Windows only, they are separators just as they are for Git. Only exact
-`.husky` or `.husky/_` paths, apart from platform separators at those same
-positions and trailing separators, count as Husky-owned paths.
-
-`doctor --integration=<manager>` performs no repairs. It validates both the
-manager configuration entry and the executable wrapper in Git's effective
-hooks directory; a pasted entry is not called active before the manager has
-installed its wrapper. Interactive missing wiring exits 1 and prints either
-the exact config snippet or manager install command. For
-`.pre-commit-config.yml`, that command includes
-`--config .pre-commit-config.yml` before the enabled `--hook-type` values.
-Quiet install-time verification warns and exits 0. The complete snippets,
-forwarding rules, manager bypass behavior, and uninstall boundary are in
-[Keep an existing hook manager](migration.md#keep-an-existing-hook-manager).
+`doctor --integration=<manager>` is verification-only. Interactive missing
+wiring exits 1 with the required snippet/install command; `--quiet` warns and
+exits 0. Manager files remain byte-for-byte user-owned.
 
 Before changing any file, `init` validates that the `package.json` root and any
 existing `scripts` and `precommitChecks` values are JSON objects (not `null`,

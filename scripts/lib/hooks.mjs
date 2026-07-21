@@ -116,6 +116,11 @@ const PRE_COMMIT_STAGES = new Set([
   "merge-commit",
   "push",
 ]);
+const PRE_COMMIT_STAGE_ALIASES = Object.freeze({
+  "pre-commit": ["pre-commit", "commit"],
+  "pre-push": ["pre-push", "push"],
+  "commit-msg": ["commit-msg"],
+});
 const PRE_COMMIT_INSTALL_HOOK_TYPES = new Set(
   [...PRE_COMMIT_STAGES].filter(
     (stage) => !["manual", "commit", "merge-commit", "push"].includes(stage),
@@ -1336,11 +1341,7 @@ function yamlKeyIndices(lines, key, indentation) {
     .filter((index) => index !== -1);
 }
 
-function hasLefthookCommand(
-  content,
-  name,
-  { recognizeLegacyCommand = false } = {},
-) {
+function hasLefthookCommand(content, name) {
   const lines = structuralYamlLines(content);
   const hookIndices = yamlKeyIndices(lines, name, 0);
   if (hookIndices.length !== 1) {
@@ -1375,7 +1376,6 @@ function hasLefthookCommand(
   }
   if (commandsBlock[commandIndices[0]].trim() !== `${BIN}:`) return false;
   const commandBlock = yamlBlock(commandsBlock, commandIndices[0]);
-  const command = lefthookCommand(name);
   const needsFileSentinel = name !== "commit-msg";
   const runLine = `run: ${lefthookInvocation(name)}`;
   const filesLine = `files: ${LEFTHOOK_FILES_COMMAND}`;
@@ -1405,42 +1405,12 @@ function hasLefthookCommand(
   const forwardsStdin =
     name !== "pre-push" ||
     (stdinProperties.length === 1 && stdinProperties[0].value === "true");
-  if (
-    hasCurrentPropertyShape &&
-    runsCommand &&
-    forcesEmptyHooks &&
-    forwardsStdin
-  ) {
-    return true;
-  }
-  if (!recognizeLegacyCommand) return false;
-
-  const legacyWithSentinel =
-    hasCurrentPropertyShape &&
-    runProperties.length === 1 &&
-    runProperties[0].value === lefthookInvocation(name, { guarded: false }) &&
-    forcesEmptyHooks &&
-    forwardsStdin;
-  const legacyCommands = [command, lefthookCommand(name, { legacy: true })];
-  const legacyAllowedProperties = new Set(
-    name === "pre-push" ? ["run", "use_stdin"] : ["run"],
-  );
   return (
-    legacyWithSentinel ||
-    (properties.length === legacyAllowedProperties.size &&
-      properties.every(({ key }) => legacyAllowedProperties.has(key)) &&
-      runProperties.length === 1 &&
-      legacyCommands.includes(runProperties[0].value) &&
-      forwardsStdin)
+    hasCurrentPropertyShape && runsCommand && forcesEmptyHooks && forwardsStdin
   );
 }
 
-function hasPreCommitCommand(
-  content,
-  name,
-  document,
-  { recognizeLegacyCommand = false } = {},
-) {
+function hasPreCommitCommand(content, name, document) {
   const lines = structuralYamlLines(content);
   const id = `${BIN}-${name}`;
   const matchingIds = document.repos.flatMap((repo) =>
@@ -1506,15 +1476,6 @@ function hasPreCommitCommand(
   }
   const properties = directYamlPropertyEntries(matchingBlocks[0]);
   const entries = [`entry: ${preCommitInvocation(name)}`];
-  if (recognizeLegacyCommand) {
-    entries.push(
-      `entry: ${preCommitInvocation(name, { guarded: false })}`,
-      `entry: ${preCommitInvocation(name, {
-        guarded: false,
-        legacy: true,
-      })}`,
-    );
-  }
   const required = [
     ["name", `name: ${BIN} ${name}`],
     ["entry", entries],
@@ -1539,6 +1500,105 @@ function hasPreCommitCommand(
       expectedValues.includes(`${key}: ${matchingProperties[0].value}`)
     );
   });
+}
+
+function isUnconditionallyDisabledLefthookEntry({ skip, only }) {
+  return (
+    skip === true ||
+    only === false ||
+    (Array.isArray(only) && only.length === 0)
+  );
+}
+
+function lefthookJobCommandCount(job, commands) {
+  if (isUnconditionallyDisabledLefthookEntry(job)) return 0;
+  return (
+    Number(commands.has(job.run)) +
+    Number(commands.has(job.runner)) +
+    (job.group?.jobs ?? []).reduce(
+      (count, nested) => count + lefthookJobCommandCount(nested, commands),
+      0,
+    )
+  );
+}
+
+function lefthookHookCommandCount(document, name, commands) {
+  const hook = document[name];
+  if (!isPlainObject(hook) || isUnconditionallyDisabledLefthookEntry(hook)) {
+    return 0;
+  }
+  return (
+    Object.values(hook.commands ?? {}).filter(
+      (entry) =>
+        !isUnconditionallyDisabledLefthookEntry(entry) &&
+        commands.has(entry.run),
+    ).length +
+    (hook.setup ?? []).filter(({ run }) => commands.has(run)).length +
+    Object.values(hook.scripts ?? {}).filter(
+      (entry) =>
+        !isUnconditionallyDisabledLefthookEntry(entry) &&
+        commands.has(entry.runner),
+    ).length +
+    (hook.jobs ?? []).reduce(
+      (count, job) => count + lefthookJobCommandCount(job, commands),
+      0,
+    )
+  );
+}
+
+function lefthookCommandInventory(document, name, directName = name) {
+  const current = new Set([lefthookInvocation(directName)]);
+  const legacy = new Set([
+    lefthookInvocation(directName, { guarded: false }),
+    lefthookCommand(directName),
+    lefthookCommand(directName, { legacy: true }),
+  ]);
+  return {
+    current: lefthookHookCommandCount(document, name, current),
+    legacy: lefthookHookCommandCount(document, name, legacy),
+  };
+}
+
+function preCommitHookRunsAtStage(document, repo, hook, name) {
+  const stages =
+    hook.stages?.length > 0
+      ? hook.stages
+      : repo.repo !== "local" && !Object.hasOwn(hook, "stages")
+        ? undefined
+        : document.default_stages;
+  return (
+    stages === undefined ||
+    PRE_COMMIT_STAGE_ALIASES[name].some((stage) => stages.includes(stage))
+  );
+}
+
+function preCommitCommandInventory(document, name, directName = name) {
+  const currentCommand = preCommitInvocation(directName);
+  const legacy = new Set([
+    preCommitInvocation(directName, { guarded: false }),
+    preCommitInvocation(directName, { guarded: false, legacy: true }),
+  ]);
+  let current = 0;
+  let legacyCount = 0;
+  for (const repo of document.repos) {
+    for (const hook of repo.hooks) {
+      if (
+        ["docker_image", "fail", "pygrep", "r"].includes(hook.language) ||
+        !preCommitHookRunsAtStage(document, repo, hook, name)
+      ) {
+        continue;
+      }
+      if (hook.entry === currentCommand) current += 1;
+      if (legacy.has(hook.entry)) legacyCount += 1;
+    }
+  }
+  return { current, legacy: legacyCount };
+}
+
+function yamlCommandInventory(manager, document, name, directName = name) {
+  return manager === "lefthook"
+    ? lefthookCommandInventory(document, name, directName)
+    : preCommitCommandInventory(document, name, directName);
 }
 
 function inspectYamlIntegration(
@@ -1607,18 +1667,48 @@ function inspectYamlIntegration(
       hooks: hookNames.map((name) => ({ name, status: "uninspectable" })),
     };
   }
-  const hooks = hookNames.map((name) => ({
-    name,
-    status: (
+  const hooks = hookNames.map((name) => {
+    const wired =
       manager === "lefthook"
-        ? hasLefthookCommand(file.content, name, { recognizeLegacyCommand })
-        : hasPreCommitCommand(file.content, name, document, {
-            recognizeLegacyCommand,
-          })
-    )
-      ? "wired"
-      : "missing",
-  }));
+        ? hasLefthookCommand(file.content, name)
+        : hasPreCommitCommand(file.content, name, document);
+    const inventory = yamlCommandInventory(manager, document, name);
+    if (recognizeLegacyCommand) {
+      const owned = HOOK_NAMES.some((directName) => {
+        const commands = yamlCommandInventory(
+          manager,
+          document,
+          name,
+          directName,
+        );
+        return commands.current || commands.legacy;
+      });
+      return { name, status: owned ? "wired" : "missing" };
+    }
+    const crossStage = HOOK_NAMES.some((directName) => {
+      if (directName === name) return false;
+      const commands = yamlCommandInventory(
+        manager,
+        document,
+        name,
+        directName,
+      );
+      return commands.current || commands.legacy;
+    });
+    return {
+      name,
+      status: crossStage
+        ? "cross-stage"
+        : inventory.current > 1 ||
+            (inventory.legacy > 0 && (wired || inventory.current > 0))
+          ? "duplicate"
+          : inventory.legacy > 0
+            ? "legacy"
+            : wired
+              ? "wired"
+              : "missing",
+    };
+  });
   return {
     manager,
     destination,
@@ -1673,25 +1763,50 @@ function inspectHookManagerState(
         status: file.status === "missing" ? "missing" : "uninspectable",
       };
     }
-    const invocations = [managerInvocation(name)];
+    const options = {
+      requireShebang,
+      allowedPreludeCommands: requireShebang ? HUSKY_V8_SOURCE_COMMANDS : [],
+    };
+    const wired = hasExecutableShellCommand(
+      file.content,
+      managerInvocation(name),
+      options,
+    );
+    const currentCount = activeManagerHookCommandCount(
+      file.content,
+      name,
+      options,
+    );
+    const legacy = hasActiveLegacyManagerHookCommand(
+      file.content,
+      name,
+      options,
+    );
     if (recognizeLegacyCommand) {
-      invocations.push(
-        `${localHookInvocation(name)} || exit $?`,
-        `${legacyLocalHookInvocation(name)} || exit $?`,
+      const owned = HOOK_NAMES.some(
+        (directName) =>
+          hasActiveManagerHookCommand(file.content, directName, options) ||
+          hasActiveLegacyManagerHookCommand(file.content, directName, options),
       );
+      return { name, status: owned ? "wired" : "missing" };
     }
+    const crossStage = HOOK_NAMES.some(
+      (directName) =>
+        directName !== name &&
+        (hasActiveManagerHookCommand(file.content, directName, options) ||
+          hasActiveLegacyManagerHookCommand(file.content, directName, options)),
+    );
     return {
       name,
-      status: invocations.some((invocation) =>
-        hasExecutableShellCommand(file.content, invocation, {
-          requireShebang,
-          allowedPreludeCommands: requireShebang
-            ? HUSKY_V8_SOURCE_COMMANDS
-            : [],
-        }),
-      )
-        ? "wired"
-        : "missing",
+      status: crossStage
+        ? "cross-stage"
+        : currentCount > 1 || (legacy && currentCount > 0)
+          ? "duplicate"
+          : legacy
+            ? "legacy"
+            : wired
+              ? "wired"
+              : "missing",
     };
   });
   return {
@@ -1728,6 +1843,40 @@ export function inspectHookManagerForCleanup(
   return inspectHookManagerState(manager, hookNames, cwd, {
     recognizeLegacyCommand: true,
   });
+}
+
+function legacyManagerHookCommandForms(name) {
+  return [
+    localHookInvocation(name),
+    legacyLocalHookInvocation(name),
+    legacyHookInvocation(name),
+  ].flatMap((invocation) => [
+    invocation,
+    `${invocation} || exit $?`,
+    `command ${invocation} || exit $?`,
+    `exec ${invocation}`,
+  ]);
+}
+
+function activeManagerHookCommandCount(content, name, options) {
+  return countExecutableShellCommands(
+    content,
+    managerInvocation(name),
+    options,
+  );
+}
+
+function hasActiveManagerHookCommand(content, name, options) {
+  return activeManagerHookCommandCount(content, name, options) > 0;
+}
+
+function hasActiveLegacyManagerHookCommand(content, name, options) {
+  return legacyManagerHookCommandForms(name).some((command) =>
+    hasExecutableShellCommand(content, command, {
+      ...options,
+      matchAnywhere: true,
+    }),
+  );
 }
 
 function isLefthookRunner(content, name, roots = []) {
@@ -2891,7 +3040,7 @@ export function classifyHook(
   }
   if (
     hasExecutableHookCommand(content, name) ||
-    (recognizeLegacyCommand && hasLegacyExecutableHookCommand(content, name))
+    (recognizeLegacyCommand && hasCleanupExecutableHookCommand(content))
   ) {
     return "custom-with-command";
   }
@@ -2913,14 +3062,17 @@ function hasLegacyLocalHookCommand(content, name) {
   );
 }
 
-function hasLegacyExecutableHookCommand(content, name) {
-  const invocation = legacyHookInvocation(name);
-  return [
-    `${invocation} || exit $?`,
-    `command ${invocation} || exit $?`,
-    `exec ${invocation}`,
-  ].some((command) =>
-    hasExecutableShellCommand(content, command, { requireShebang: true }),
+function hasCleanupExecutableHookCommand(content) {
+  return HOOK_NAMES.some((directName) =>
+    [
+      managerInvocation(directName),
+      ...legacyManagerHookCommandForms(directName),
+    ].some((invocation) =>
+      hasExecutableShellCommand(content, invocation, {
+        requireShebang: true,
+        matchAnywhere: true,
+      }),
+    ),
   );
 }
 
@@ -2940,10 +3092,27 @@ function hasExecutableHookCommand(content, name) {
   });
 }
 
+function countExecutableShellCommands(
+  content,
+  expectedCommand,
+  { requireShebang = false } = {},
+) {
+  if (!hasRunnableShellLineEndings(content)) return 0;
+  if (requireShebang && !hasApprovedShellShebang(content)) return 0;
+  if (!hasValidShellSyntax(content)) return 0;
+  return activeShellLineRecords(content.replace(/\r\n/gu, "\n")).filter(
+    ({ line }) => line.trim() === expectedCommand,
+  ).length;
+}
+
 function hasExecutableShellCommand(
   content,
   expectedCommand,
-  { requireShebang = false, allowedPreludeCommands = [] } = {},
+  {
+    requireShebang = false,
+    allowedPreludeCommands = [],
+    matchAnywhere = false,
+  } = {},
 ) {
   if (!hasRunnableShellLineEndings(content)) return false;
   if (requireShebang && !hasApprovedShellShebang(content)) return false;
@@ -2959,6 +3128,7 @@ function hasExecutableShellCommand(
     if ((!trimmed && !control) || trimmed.startsWith("#")) continue;
     if (trimmed === expectedCommand) return true;
     if (allowedPrelude.has(trimmed)) continue;
+    if (matchAnywhere) continue;
     return false;
   }
   return false;
