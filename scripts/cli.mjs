@@ -168,6 +168,11 @@ const COMMANDS = {
 
 const HELP_GROUPS = ["Setup", "Checks", "Fixes", "Integration"];
 const DOCUMENTATION_URL = "https://github.com/RoryGlenn/commitment-issues";
+const HOOK_FILES = new Map([
+  ["precommit", "precommit.mjs"],
+  ["prepush", "prepush.mjs"],
+  ["commit-msg", "commit-msg.mjs"],
+]);
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = path.join(path.dirname(scriptsDir), "package.json");
@@ -328,11 +333,7 @@ const commandArgs = rest;
 
 if (commandName === "hook") {
   const [hookName, ...hookArgs] = commandArgs;
-  const hookFile = new Map([
-    ["precommit", "precommit.mjs"],
-    ["prepush", "prepush.mjs"],
-    ["commit-msg", "commit-msg.mjs"],
-  ]).get(hookName);
+  const hookFile = HOOK_FILES.get(hookName);
   if (!hookFile) {
     console.error(
       escapeTerminalText(

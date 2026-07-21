@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   must contain a real dispatch, and linked Husky roots/runtime directories are
   rejected without reading through them. Custom executable Husky v8 hooks
   remain valid unless they explicitly source an invalid `_/husky.sh` runtime.
+  Init and doctor now print remediation snippets only for inactive hook
+  entries, so fully wired integrations are not told to add duplicates.
+  Uninstall cleanup guidance also recognizes exact pre-dispatch direct manager
+  entries without treating them as healthy or changing manager-owned files.
 - The staged large-file guard now gives its fixed-argv, NUL-safe whole-index
   probe an explicit bounded output buffer instead of inheriting Node's roughly
   1 MiB default. Large indexes no longer silently disable oversized-file

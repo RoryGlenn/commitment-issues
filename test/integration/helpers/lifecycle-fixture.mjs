@@ -1553,8 +1553,8 @@ export function createLifecycleIntegration() {
             managerLifecycleEnv(repoDir, competingManagerBin),
           );
           assertLifecycle(
-            preview.includes(`${manager} coexistence snippets`),
-            `${manager} dry-run should print its coexistence snippets`,
+            !preview.includes(`${manager} coexistence snippets`),
+            `${manager} dry-run should not reprint already-wired snippets`,
           );
           assertFilesUnchanged(ownedFiles, `${manager} dry-run`);
 

@@ -133,7 +133,9 @@ Hook-manager configuration is always project-owned. Even when an exact
 coexistence entry is recognized, uninstall reports its manager/hook names for
 manual cleanup and does not delete or edit `.husky/*`, Lefthook YAML,
 `.pre-commit-config.yaml`, `.pre-commit-config.yml`, or lint-staged
-configuration. It removes an exact
+configuration. For cleanup reporting only, it also recognizes the exact direct
+manager entries used before the hidden hook dispatcher; `init` and `doctor`
+still require the dispatcher form. It removes an exact
 `doctor --quiet --integration=<manager>` prepare command or suffix because that
 package script is generated package state.
 
@@ -168,17 +170,19 @@ copied into the consumer repository.
 
 ### Hook-manager coexistence interface
 
-`init --integration=<manager>` emits deterministic snippets and never writes
-manager files. `doctor --integration=<manager>` recognizes only active exact
-entries in the manager's real hook section plus executable manager dispatchers
-in Git's effective hooks directory. Comments, printed examples, nested example
-blocks, duplicate Lefthook hook/command keys, duplicate pre-commit IDs, partial
-entries, wrong stages, pre-commit `args`, missing Lefthook `use_stdin: true`,
-dynamic command templates, wrappers that omit `"$@"`, pre-commit wrappers
-without an executable dispatch, duplicate candidate config files, and linked,
-non-regular, or non-executable paths are not healthy. Selecting a manager
-explicitly resolves owner ambiguity only; it never overrides an unsafe,
-duplicate, or unsupported selected configuration.
+`init --integration=<manager>` emits deterministic snippets only for inactive
+or missing entries and never writes manager files; fully wired entries are not
+reprinted. `doctor --integration=<manager>` follows the same missing-only
+remediation rule and recognizes only active exact entries in the manager's real
+hook section plus executable manager dispatchers in Git's effective hooks
+directory. Comments, printed examples, nested example blocks, duplicate
+Lefthook hook/command keys, duplicate pre-commit IDs, partial entries, wrong
+stages, pre-commit `args`, missing Lefthook `use_stdin: true`, dynamic command
+templates, wrappers that omit `"$@"`, pre-commit wrappers without an executable
+dispatch, duplicate candidate config files, and linked, non-regular, or
+non-executable paths are not healthy. Selecting a manager explicitly resolves
+owner ambiguity only; it never overrides an unsafe, duplicate, or unsupported
+selected configuration.
 
 The inspectable configuration and dispatcher set is deliberately bounded:
 

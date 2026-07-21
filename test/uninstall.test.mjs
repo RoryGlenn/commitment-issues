@@ -741,6 +741,8 @@ const coexistenceFixtures = {
   husky: {
     file: ".husky/pre-commit",
     content: `#!/bin/sh\n${hookInvocation("pre-commit")}\necho custom\necho preserved\n`,
+    legacyContent:
+      "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\necho custom\necho preserved\n",
   },
   lefthook: {
     file: "lefthook.yml",
@@ -749,6 +751,18 @@ const coexistenceFixtures = {
       "  commands:",
       "    commitment-issues:",
       "      run: node_modules/.bin/commitment-issues hook precommit",
+      "pre-push:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues hook prepush",
+      "      use_stdin: true",
+      "",
+    ].join("\n"),
+    legacyContent: [
+      "pre-commit:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues precommit",
       "pre-push:",
       "  commands:",
       "    commitment-issues:",
@@ -766,6 +780,19 @@ const coexistenceFixtures = {
       "      - id: commitment-issues-pre-commit",
       "        name: commitment-issues pre-commit",
       "        entry: node_modules/.bin/commitment-issues hook precommit",
+      "        language: system",
+      "        pass_filenames: false",
+      "        always_run: true",
+      "        stages: [pre-commit]",
+      "",
+    ].join("\n"),
+    legacyContent: [
+      "repos:",
+      "  - repo: local",
+      "    hooks:",
+      "      - id: commitment-issues-pre-commit",
+      "        name: commitment-issues pre-commit",
+      "        entry: node_modules/.bin/commitment-issues precommit",
       "        language: system",
       "        pass_filenames: false",
       "        always_run: true",
@@ -819,6 +846,46 @@ for (const [manager, fixture] of Object.entries(coexistenceFixtures)) {
       prepare: "setup-manager",
     });
     assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  });
+
+  test(`uninstall reports pre-dispatch ${manager} entries without changing them`, (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    writePackage(tempDir, {
+      name: `${manager}-legacy-consumer`,
+      version: "1.0.0",
+      scripts: {
+        prepare: `setup-manager && commitment-issues doctor --quiet --integration=${manager}`,
+        doctor: "commitment-issues doctor",
+      },
+      precommitChecks: { advisePushTests: true },
+      devDependencies: { [manager === "pre-commit" ? "tool" : manager]: "1" },
+    });
+    if (manager === "husky") {
+      fs.mkdirSync(path.join(tempDir, ".husky"), { recursive: true });
+    }
+    writeFile(path.join(tempDir, fixture.file), fixture.legacyContent);
+
+    const preview = runScript(tempDir, "uninstall", ["--dry-run"]);
+    assert.equal(preview.status, 0);
+    assert.match(
+      `${preview.stdout}${preview.stderr}`,
+      new RegExp(`${manager} configuration is user-owned`, "i"),
+    );
+    assert.equal(readFile(tempDir, fixture.file), fixture.legacyContent);
+
+    const result = runScript(tempDir, "uninstall");
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0);
+    assert.match(output, /Manual cleanup still needed/);
+    assert.match(
+      output,
+      new RegExp(`${manager} configuration is user-owned`, "i"),
+    );
+    assert.equal(readFile(tempDir, fixture.file), fixture.legacyContent);
+    assert.deepEqual(readPackage(tempDir).scripts, {
+      prepare: "setup-manager",
+    });
   });
 }
 

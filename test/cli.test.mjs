@@ -336,21 +336,6 @@ test("hook dispatch is hidden, validated, and owns bypass handling", (t) => {
     /expected precommit, prepush, or commit-msg; received ''/,
   );
 
-  for (const invalidName of [
-    "bogus\nname",
-    "__proto__",
-    "constructor",
-    "toString",
-  ]) {
-    const invalid = cli(tempDir, ["hook", invalidName]);
-    assert.equal(invalid.status, 1);
-    assert.match(
-      combinedOutput(invalid),
-      /expected precommit, prepush, or commit-msg/,
-    );
-    assert.doesNotMatch(combinedOutput(invalid), /TypeError|at path\.join/);
-  }
-
   const env = { ...process.env, COMMITMENT_ISSUES: "0" };
   const invoke = (args) =>
     spawnSync(
@@ -358,6 +343,22 @@ test("hook dispatch is hidden, validated, and owns bypass handling", (t) => {
       [path.join(tempDir, "scripts", "cli.mjs"), ...args],
       { cwd: tempDir, encoding: "utf8", env },
     );
+  for (const name of ["bogus\nname", "__proto__", "constructor", "toString"]) {
+    const invalid = invoke(["hook", name]);
+    assert.equal(invalid.status, 1, name);
+    assert.match(
+      combinedOutput(invalid),
+      /expected precommit, prepush, or commit-msg/,
+    );
+    assert.doesNotMatch(
+      combinedOutput(invalid),
+      /TypeError|ERR_|at path\.join|\s+at /,
+    );
+  }
+  const controlOutput = combinedOutput(invoke(["hook", "bogus\nname"]));
+  assert.doesNotMatch(controlOutput, /bogus\nname/);
+  assert.match(controlOutput, /bogus\\nname/);
+
   const direct = invoke(["precommit", "--unknown"]);
   assert.equal(direct.status, 1);
   assert.match(combinedOutput(direct), /unknown option '--unknown'/);

@@ -497,12 +497,15 @@ if (integrationManager) {
     hookNames,
     process.cwd(),
   );
+  const inactive = integrationReport.hooks.filter(
+    ({ status }) => status !== "wired",
+  );
   integrationSnippets =
     integrationReport.status === "uninspectable"
       ? []
       : hookManagerSnippets(
           integrationManager,
-          hookNames,
+          inactive.map(({ name }) => name),
           integrationReport.destination,
         );
   integrationRunnerReport = inspectHookManagerRunner(
@@ -541,9 +544,6 @@ if (integrationManager) {
       ...managerDetection.unsafePaths.map((filePath) => `  ${filePath}`),
     );
   }
-  const inactive = integrationReport.hooks.filter(
-    ({ status }) => status !== "wired",
-  );
   if (inactive.length > 0) {
     warnings.push(
       `${integrationManager} does not yet have every active Commitment Issues hook.`,

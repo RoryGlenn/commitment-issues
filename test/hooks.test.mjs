@@ -24,6 +24,7 @@ import {
   isHuskyDirectHooksPath,
   isHuskyHooksPath,
   inspectHookManager,
+  inspectHookManagerForCleanup,
   inspectHookManagerRunner,
   legacyHuskyDirectoryState,
   legacyHuskyWiringPaths,
@@ -1787,6 +1788,88 @@ test("manager-composed hook entry points honor documented skip variables", () =>
   assert.equal(hooksDisabled({ COMMITMENT_ISSUES: "1", HUSKY: "1" }), false);
   assert.equal(hooksDisabled({ COMMITMENT_ISSUES: "0" }), true);
   assert.equal(hooksDisabled({ HUSKY: "0" }), true);
+});
+
+test("cleanup inspection recognizes pre-dispatch manager entries without treating them as healthy", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "manager-cleanup-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  fs.mkdirSync(path.join(dir, ".husky"));
+  fs.writeFileSync(
+    path.join(dir, ".husky", "pre-commit"),
+    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+  );
+  fs.writeFileSync(
+    path.join(dir, ".husky", "pre-push"),
+    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
+  );
+  fs.writeFileSync(
+    path.join(dir, ".husky", "commit-msg"),
+    'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?\n',
+  );
+  assert.equal(
+    inspectHookManager("husky", ["pre-commit", "pre-push", "commit-msg"], dir)
+      .status,
+    "missing",
+  );
+  assert.equal(
+    inspectHookManagerForCleanup(
+      "husky",
+      ["pre-commit", "pre-push", "commit-msg"],
+      dir,
+    ).status,
+    "wired",
+  );
+
+  fs.writeFileSync(
+    path.join(dir, "lefthook.yml"),
+    [
+      "pre-push:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues prepush",
+      "      use_stdin: true",
+      "commit-msg:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues commit-msg --git-path",
+      "",
+    ].join("\n"),
+  );
+  assert.equal(
+    inspectHookManager("lefthook", ["pre-push", "commit-msg"], dir).status,
+    "missing",
+  );
+  assert.equal(
+    inspectHookManagerForCleanup("lefthook", ["pre-push", "commit-msg"], dir)
+      .status,
+    "wired",
+  );
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    [
+      "repos:",
+      "  - repo: local",
+      "    hooks:",
+      "      - id: commitment-issues-commit-msg",
+      "        name: commitment-issues commit-msg",
+      "        entry: node_modules/.bin/commitment-issues commit-msg",
+      "        language: system",
+      "        pass_filenames: true",
+      "        always_run: true",
+      "        stages: [commit-msg]",
+      "",
+    ].join("\n"),
+  );
+  assert.equal(
+    inspectHookManager("pre-commit", ["commit-msg"], dir).status,
+    "missing",
+  );
+  assert.equal(
+    inspectHookManagerForCleanup("pre-commit", ["commit-msg"], dir).status,
+    "wired",
+  );
 });
 
 test("Husky integration inspection accepts only active exact invocations", (t) => {

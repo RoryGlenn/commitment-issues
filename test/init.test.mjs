@@ -19,9 +19,13 @@ import {
   readFile,
   repoRoot,
   run,
+  writeCrossPlatformShim,
   writeFile,
 } from "./helpers/temp-repo.mjs";
-import { HUSKY_V9_RUNTIME } from "./helpers/hook-manager-fixtures.mjs";
+import {
+  HUSKY_V9_RUNTIME,
+  lefthookRunner,
+} from "./helpers/hook-manager-fixtures.mjs";
 
 function runInit(tempDir, args = [], options = {}) {
   return run(
@@ -243,12 +247,9 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
   const first = runInit(tempDir, ["--integration=husky"]);
   const firstOutput = `${first.stdout}${first.stderr}`;
   assert.equal(first.status, 0);
-  assert.match(firstOutput, /husky coexistence snippets/i);
-  assert.match(firstOutput, /Manager-owned files were not changed/);
-  assert.match(
-    firstOutput,
-    /node_modules\/\.bin\/commitment-issues hook prepush "\$@"/,
-  );
+  assert.match(firstOutput, /Commitment Issues is set up/);
+  assert.doesNotMatch(firstOutput, /husky coexistence snippets/i);
+  assert.doesNotMatch(firstOutput, /Manager-owned files were not changed/);
   assert.equal(readFile(tempDir, ".husky/pre-commit"), preCommit);
   assert.equal(readFile(tempDir, ".husky/pre-push"), prePush);
   assert.equal(hooksPath(tempDir), hooksPathBefore);
@@ -260,8 +261,11 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
 
   const packageAfterFirst = readFile(tempDir, "package.json");
   const second = runInit(tempDir, ["--integration=husky"]);
+  const secondOutput = `${second.stdout}${second.stderr}`;
   assert.equal(second.status, 0);
-  assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
+  assert.match(secondOutput, /Commitment Issues is set up/);
+  assert.doesNotMatch(secondOutput, /hook wiring still needs attention/i);
+  assert.doesNotMatch(secondOutput, /husky coexistence snippets/i);
   assert.equal(readFile(tempDir, "package.json"), packageAfterFirst);
   assert.equal(readFile(tempDir, ".husky/pre-commit"), preCommit);
   assert.equal(readFile(tempDir, ".husky/pre-push"), prePush);
@@ -443,6 +447,79 @@ test("init automatic integration requires and selects exactly one owner", (t) =>
   );
   assert.equal(readFile(oneOwnerDir, "lefthook.yml"), managerConfig);
   assert.equal(fs.existsSync(gitHook(oneOwnerDir, "pre-commit")), false);
+});
+
+test("init recognizes fully active Lefthook integration", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "active-lefthook-project",
+    version: "1.0.0",
+    type: "module",
+    devDependencies: { lefthook: "2" },
+  });
+  writeFile(
+    path.join(tempDir, "lefthook.yml"),
+    [
+      "pre-commit:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
+      "pre-push:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues hook prepush",
+      "      use_stdin: true",
+      "",
+    ].join("\n"),
+  );
+  for (const name of ["pre-commit", "pre-push"]) {
+    writeFile(gitHook(tempDir, name), lefthookRunner(name));
+    fs.chmodSync(gitHook(tempDir, name), 0o755);
+  }
+  const managerBin = path.join(tempDir, "manager-bin");
+  fs.mkdirSync(managerBin);
+  writeCrossPlatformShim(managerBin, "lefthook", "process.exit(0);\n");
+
+  const result = runInit(tempDir, ["--integration=lefthook"], {
+    env: {
+      ...process.env,
+      PATH: `${managerBin}${path.delimiter}${process.env.PATH ?? ""}`,
+    },
+  });
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Commitment Issues is set up/);
+  assert.doesNotMatch(output, /hook wiring still needs attention/i);
+  assert.doesNotMatch(output, /coexistence snippets/i);
+
+  writeFile(
+    path.join(tempDir, "lefthook.yml"),
+    [
+      "pre-commit:",
+      "  commands:",
+      "    commitment-issues:",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
+      "",
+    ].join("\n"),
+  );
+  const partial = runInit(tempDir, ["--integration=lefthook"], {
+    env: {
+      ...process.env,
+      PATH: `${managerBin}${path.delimiter}${process.env.PATH ?? ""}`,
+    },
+  });
+  const partialOutput = `${partial.stdout}${partial.stderr}`;
+  assert.equal(partial.status, 0);
+  assert.match(
+    partialOutput,
+    /node_modules\/\.bin\/commitment-issues hook prepush/,
+  );
+  assert.doesNotMatch(
+    partialOutput,
+    /node_modules\/\.bin\/commitment-issues hook precommit/,
+  );
 });
 
 test("init preserves Lefthook and lint-staged composition", (t) => {

@@ -17,7 +17,7 @@ import {
   gitHooksDir,
   hooksPathConfigState,
   isHuskyHooksPath,
-  inspectHookManager,
+  inspectHookManagerForCleanup,
   legacyHuskyDirectoryState,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
@@ -254,7 +254,7 @@ if (isGitRepo) {
 
 const managerDetection = detectHookManagers(process.cwd(), pkg);
 for (const manager of managerDetection.managers) {
-  const report = inspectHookManager(manager, HOOK_NAMES);
+  const report = inspectHookManagerForCleanup(manager, HOOK_NAMES);
   const wired = report.hooks
     .filter(({ status }) => status === "wired")
     .map(({ name }) => name);

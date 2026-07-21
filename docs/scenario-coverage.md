@@ -332,8 +332,8 @@ production-readiness workstream #130 is consolidated in the
   deletion rechecks the inspected file identity. Unit/fixture:
   `test/lib-files.test.mjs`, `test/uninstall.test.mjs`.
 - **UNINST-019** — uninstall and dry-run remove exact owner-specific prepare
-  repair while preserving recognized Husky, Lefthook, and pre-commit content
-  byte-for-byte and reporting manual cleanup. Fixture:
+  repair while preserving recognized current and pre-dispatch Husky, Lefthook,
+  and pre-commit content byte-for-byte and reporting manual cleanup. Fixture:
   `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
@@ -462,7 +462,8 @@ production-readiness workstream #130 is consolidated in the
   uninspectable state; and keeps quiet install-time failures exit-zero.
   Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
 - **HOOK-021** — manager-composed pre-commit, pre-push, and commit-msg entry
-  points retain `COMMITMENT_ISSUES=0` and legacy `HUSKY=0`; Husky snippets
+  points retain `COMMITMENT_ISSUES=0` and legacy `HUSKY=0` through the hidden
+  hook dispatcher without suppressing explicit direct commands; Husky snippets
   preserve nonzero blocking exits before later custom commands. Unit/fixture:
   `test/hooks.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`,
   `test/commit-msg.test.mjs`.
