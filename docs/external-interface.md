@@ -9,29 +9,51 @@ For installation and quick usage, see the [README](../README.md).
 
 ## CLI commands
 
-`commitment-issues` exposes these public commands and version flags:
+The callable public compatibility surface includes these commands and version
+flags:
 
 - `init`
 - `uninstall`
 - `doctor`
 - `precommit`
 - `prepush`
+- `panic`
 - `commit-msg <message-file>` (normally invoked by Git)
 - `commit-fix`
 - `fix-staged`
 - `fix-staged-js`
 - `--version` and `-v`
 
+Primary `--help` output is organized around the developer actions normally run
+by hand. A separate group identifies the Git integration normally invoked
+automatically:
+
+- Setup: `init`, `doctor`, and `uninstall`
+- Checks: `precommit`, `prepush`, and the read-only `panic` guide
+- Fixes: `fix-staged` and `commit-fix`
+- Integration: `commit-msg <message-file>` (normally invoked automatically by
+  Git)
+
+`fix-staged-js [files...]` remains a callable public compatibility interface
+for package wiring, but it is omitted from primary help so low-level mutation
+plumbing does not compete with the safer `fix-staged` developer action.
+Every documented command supports both `commitment-issues help <command>` and
+`commitment-issues <command> --help`; these help paths exit 0 without invoking
+the target command or inspecting or changing a repository.
+
 Examples:
 
 ```bash
-npx commitment-issues init
-npx commitment-issues uninstall --dry-run
-npx commitment-issues doctor
-npx commitment-issues precommit --json
-npx commitment-issues prepush --json
-npx commitment-issues commit-msg .git/COMMIT_EDITMSG
-npx commitment-issues --version
+npx --no-install commitment-issues --help
+npx --no-install commitment-issues help init
+npx --no-install commitment-issues init
+npx --no-install commitment-issues uninstall --dry-run
+npx --no-install commitment-issues doctor
+npx --no-install commitment-issues precommit --json
+npx --no-install commitment-issues prepush --json
+npx --no-install commitment-issues panic
+npx --no-install commitment-issues commit-msg .git/COMMIT_EDITMSG
+npx --no-install commitment-issues --version
 ```
 
 ### Arguments and options
@@ -45,9 +67,14 @@ The public argument contract is deliberately small:
 | `doctor`                   | optional `--quiet`                                                    |
 | `precommit`                | optional `--json`                                                     |
 | `prepush`                  | up to the remote name and URL supplied by Git, plus optional `--json` |
+| `panic`                    | no arguments                                                          |
 | `commit-msg`               | the message-file path supplied by Git                                 |
 | `commit-fix`, `fix-staged` | no arguments                                                          |
 | `fix-staged-js`            | zero or more explicit file paths                                      |
+
+The global `--help`/`-h` output shows the installed package version. A command's
+`--help` flag and the equivalent `help <command>` form take the safe help path
+before command dispatch.
 
 Unknown options and excess positional arguments exit nonzero. Setup, removal,
 and doctor validate their arguments before changing project files or hooks, so
@@ -60,6 +87,16 @@ workflow and are not reported as having active hooks.
 Detached HEAD intentionally has no protected branch identity, so the
 protected-branch guard does not fire in that state. File, secret, size,
 generated-file, lint, format, and related-test checks continue normally.
+
+`panic` is a local, deterministic, non-interactive inspection guide. It starts
+with the current repository state and `git status`, then conditionally explains
+read-only commands for the observed state. It can label a content-preserving
+unstage command or a verified previous-branch switch as a reversible option,
+but suppresses those options while a merge, rebase, or cherry-pick is active,
+while conflicts remain, or when any required state probe is unavailable. It
+never executes a displayed command. Examples never interpolate repository
+paths, so shell-sensitive filenames cannot become command text. Commands that
+discard files or force ref/history changes are outside this interface.
 
 ## Scripts added by `init`
 
@@ -84,18 +121,49 @@ Customized hooks and scripts are preserved and reported. Shared `.gitignore`
 entries, ESLint/Prettier dependencies, the package dependency, and lockfiles
 remain owned by the consuming project.
 
+Hook ownership checks do not follow symbolic links. A hook-file symlink,
+dangling symlink, or symlink used as the hooks directory is preserved as
+uninspectable; `init` and `doctor` report it instead of repairing through it.
+
+Mutable project files follow the same repository boundary. Existing paths that
+a command can modify must be regular files: `init` checks `package.json`,
+`.gitignore`, and `.commitmentrc.json`, while `uninstall` checks `package.json`
+and `.commitmentrc.json`. Both commands refuse symbolic links, directories, and
+paths that cannot be inspected safely, including during `--dry-run`. Before a
+write, the open descriptor is matched to the originally inspected path and
+identity. Creating a missing file uses exclusive creation, and
+standalone-config removal rechecks the same identity immediately before
+deletion.
+
 ## Git hook interface
 
-`init` writes plain native hooks that call the installed binary:
+`init` writes plain native hooks that call only the project-local binary:
 
-- pre-commit → `commitment-issues precommit`
-- pre-push → `commitment-issues prepush "$@"`
-- commit-msg, when enabled → `commitment-issues commit-msg "$1"`
+- pre-commit → `node_modules/.bin/commitment-issues precommit`
+- pre-push → `node_modules/.bin/commitment-issues prepush "$@"`
+- commit-msg, when enabled →
+  `node_modules/.bin/commitment-issues commit-msg "$1"`
 
 The hooks honor `COMMITMENT_ISSUES=0` and the pre-3.0 `HUSKY=0` compatibility
-skip. They exit silently when the binary is no longer installed. The pre-push
-hook forwards Git's remote name and URL for remote-specific first-push base
-selection. Package source is not copied into the consumer repository.
+skip. When the local binary is no longer installed, they print one bounded
+skip notice to stderr and exit 0. The pre-push hook forwards Git's remote name
+and URL for remote-specific first-push base selection. Package source is not
+copied into the consumer repository.
+
+The first eligible clean or informational human-readable pre-commit invocation
+shows a default-on contributor welcome, then records
+`<git-common-dir>/commitment-issues/welcome-v1`. A warning or error takes
+priority without consuming the welcome. The versioned marker is clone-local,
+outside the working tree, and shared by linked worktrees.
+`showWelcomeOnFirstCommit: false` disables both display and marker creation.
+JSON mode and Git's standard hook bypasses do not consume it, and all marker
+failures fail open.
+
+Staged and pushed-file test commands inherit the developer's ordinary
+environment, but Git's repository-local routing variables are removed first.
+The command still discovers the current checkout from its working directory;
+nested Git fixtures therefore cannot be redirected into the hook caller by an
+inherited `GIT_DIR`, work tree, or index path.
 
 ## Configuration interface
 
@@ -112,15 +180,31 @@ and tests together.
 
 ## Output interface
 
-Human commands render at most one primary terminal box per invocation.
+Human commands render at most one outcome box per invocation. The one-time
+pre-commit onboarding box replaces an otherwise clean or informational result;
+warnings and errors take priority and defer onboarding.
 `precommit`, `prepush`, and `commit-msg` default to
 `hookOutput: "problems-only"`, which suppresses final success and informational
 boxes while retaining warnings and errors. `hookOutput: "normal"` restores
 success and informational states without changing execution or exit behavior.
+The once-per-clone welcome is intentionally independent of `hookOutput`; its
+dedicated configuration opt-out is `showWelcomeOnFirstCommit: false`.
 
-Operational commands (`init`, `uninstall`, `doctor`, and explicit fix commands)
-are outside the hook-output policy. Mixed findings use the strongest final
-severity.
+Operational commands (`init`, `uninstall`, `doctor`, `panic`, and explicit fix
+commands) are outside the hook-output policy. Mixed findings use the strongest
+final severity. A normal `panic` run emits exactly one box; help and argument
+errors take the CLI's normal single text response path before repository
+inspection.
+
+Product-owned human output treats repository, Git, configuration, process, and
+argument values as untrusted terminal text. Embedded carriage returns,
+newlines, and tabs are shown as `\\r`, `\\n`, and `\\t`; other C0/C1 controls
+use `\\xNN`, and ANSI CSI/OSC sequences are removed. Intentional layout still
+comes from separate message-model lines, so normal Unicode, spaces, and
+punctuation remain unchanged. Product-owned bold, dim, and severity styling is
+applied only around already escaped values, so normal colored output remains
+unchanged. Raw output from explicitly run project tools is relayed as that tool
+produced it and stays outside the product-owned message model.
 
 The public
 [message-state gallery](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/message-states.md)
@@ -131,17 +215,28 @@ package documentation.
 single versioned payload. Field semantics, stderr behavior, and examples are in
 [JSON output](json-output.md) and its
 [versioned schema](json-output.schema.json). Other commands do not support
-`--json`.
+`--json`. JSON strings retain their exact semantic values and rely on standard
+JSON escaping rather than the visible human-output notation above.
 
 ## Exit behavior
 
 - Commit and push checks are advisory by default.
 - Protected-branch, secret, push-test, and commit-message blocking require the
   corresponding explicit configuration.
+- With `blockOnSecrets: true`, a detected secret and an unavailable staged-patch
+  inspection both block. Git launch failures, nonzero results, and malformed
+  patches have a distinct unavailable-scan terminal/JSON result; advisory mode
+  warns and continues.
 - Fix commands return nonzero when safety checks fail or manual work remains.
+- `panic` exits 0 after a complete working-tree inspection and exits nonzero
+  outside a working tree, when Git state is unavailable, or for invalid
+  arguments. Its exit status never reflects a performed recovery operation,
+  because it performs none.
 - JSON mode reports the same exit code in `exitCode`; it does not change whether
   a result blocks.
 - Missing built-in peer tools are advisory in hooks and never invoke an implicit
   `npx` fallback; an explicit fix request fails when its required tool is absent.
-- Configured test commands execute verbatim as argument arrays, including an
-  explicitly selected `npx` executable.
+- Configured test executables and options remain argument arrays, including an
+  explicitly selected `npx` executable. Discovered paths are appended as data;
+  Node `--test` paths are placed after `--`, and leading-hyphen paths are made
+  absolute to prevent option interpretation.

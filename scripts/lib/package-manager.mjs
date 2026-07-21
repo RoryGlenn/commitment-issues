@@ -16,6 +16,48 @@ const LOCKFILES = {
 };
 
 const KNOWN = new Set(["npm", "pnpm", "yarn", "bun"]);
+const RECOMMENDED_DEV_SPECS = new Map([
+  ["eslint", "eslint@^9"],
+  ["prettier", "prettier@^3"],
+]);
+
+/**
+ * Whether package-manager mutations must explicitly target the workspace root.
+ * Malformed or absent project metadata stays fail-soft because this helper is
+ * used only to format recovery guidance after another check already failed.
+ * @param {string} [cwd] - Project root to inspect.
+ * @returns {boolean} Whether cwd declares a package-manager workspace.
+ */
+export function isWorkspaceRoot(cwd = process.cwd()) {
+  if (fs.existsSync(path.join(cwd, "pnpm-workspace.yaml"))) {
+    return true;
+  }
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
+    );
+    const workspaces = Array.isArray(pkg.workspaces)
+      ? pkg.workspaces
+      : pkg.workspaces?.packages;
+    return Array.isArray(workspaces) && workspaces.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the active Yarn project uses Yarn Berry rather than Yarn Classic.
+ * Supported Berry projects carry `.yarnrc.yml` for `nodeLinker: node-modules`;
+ * the user-agent check also keeps manager-invoked guidance accurate before a
+ * project configuration file is inspected.
+ * @param {string} [cwd] - Project root to inspect.
+ * @returns {boolean} Whether the project is using Yarn 2 or newer.
+ */
+export function isYarnBerry(cwd = process.cwd()) {
+  const agent = process.env.npm_config_user_agent || "";
+  const major = Number(/^yarn\/(\d+)/u.exec(agent)?.[1] ?? 0);
+  return major >= 2 || fs.existsSync(path.join(cwd, ".yarnrc.yml"));
+}
 
 /**
  * Detect the package manager driving a project.
@@ -67,19 +109,22 @@ export function installCommand(cwd) {
 
 /**
  * The command to add dev dependencies under the detected package manager, e.g.
- * "npm install -D a b" or "pnpm add -D a b". Mirrors the forms the lifecycle
- * smoke test installs with, so a suggestion always matches the real manager.
+ * "npm install -D a b" or "pnpm add -D a b". Baseline ESLint/Prettier hints
+ * stay on the majors verified at the exact minimum Node version.
  * @param {string[]} packages - Package names to install.
  * @param {string} [cwd] - Project root, forwarded to detectPackageManager.
  * @returns {string} e.g. "yarn add -D eslint prettier".
  */
 export function devInstallCommand(packages, cwd) {
-  const list = packages.join(" ");
+  const list = packages
+    .map((name) => RECOMMENDED_DEV_SPECS.get(name) ?? name)
+    .join(" ");
+  const workspaceRoot = isWorkspaceRoot(cwd);
   switch (detectPackageManager(cwd)) {
     case "pnpm":
-      return `pnpm add -D ${list}`;
+      return `pnpm add -D${workspaceRoot ? " --workspace-root" : ""} ${list}`;
     case "yarn":
-      return `yarn add -D ${list}`;
+      return `yarn add -D${workspaceRoot && !isYarnBerry(cwd) ? " --ignore-workspace-root-check" : ""} ${list}`;
     case "bun":
       return `bun add --dev ${list}`;
     default:
@@ -95,5 +140,13 @@ export function devInstallCommand(packages, cwd) {
  * @returns {string} e.g. "pnpm remove commitment-issues".
  */
 export function removeCommand(packages, cwd) {
-  return `${detectPackageManager(cwd)} remove ${packages.join(" ")}`;
+  const manager = detectPackageManager(cwd);
+  const workspaceRoot = isWorkspaceRoot(cwd);
+  const rootFlag =
+    workspaceRoot && manager === "pnpm"
+      ? " --workspace-root"
+      : workspaceRoot && manager === "yarn" && !isYarnBerry(cwd)
+        ? " --ignore-workspace-root-check"
+        : "";
+  return `${manager} remove${rootFlag} ${packages.join(" ")}`;
 }

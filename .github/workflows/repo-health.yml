@@ -26,8 +26,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
           cache: npm
@@ -35,24 +36,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Format check
-        run: npm run format:check
-
       - name: Unit tests
         run: npm test
 
       - name: npm lifecycle integration
         run: npm run test:lifecycle:npm
 
-      - name: Package dry run
-        run: npm pack --dry-run
-
-      - name: Security advisory report
+      - name: Security advisory gate
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Stale branch report
         shell: bash
@@ -87,3 +78,47 @@ jobs:
 
           echo
           echo "This job only reports stale branches. It does not delete anything."
+
+  migration-lifecycle:
+    name: Weekly ${{ matrix.pm }} migration lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        pm: [pnpm, yarn, bun]
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - if: matrix.pm == 'pnpm'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - if: matrix.pm == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - run: npm ci
+
+      - name: pnpm migration lifecycle
+        if: matrix.pm == 'pnpm'
+        run: node tools/run-migration-lifecycle-test.mjs pnpm
+
+      - name: Yarn migration lifecycle
+        if: matrix.pm == 'yarn'
+        run: npm run test:migration:yarn
+
+      - name: Bun migration lifecycle
+        if: matrix.pm == 'bun'
+        run: node tools/run-migration-lifecycle-test.mjs bun

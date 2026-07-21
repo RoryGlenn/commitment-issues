@@ -109,6 +109,39 @@ test("init wires up hooks, scripts, and config; is idempotent", (t) => {
   assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
 });
 
+test("init dry run suggests applying only when changes are pending", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, {
+    name: "x",
+    version: "1.0.0",
+    private: true,
+    type: "module",
+  });
+
+  const pending = runInit(tempDir, ["--dry-run"]);
+  const pendingOutput = `${pending.stdout}${pending.stderr}`;
+  assert.equal(pending.status, 0);
+  assert.match(pendingOutput, /Would add:/);
+  assert.match(
+    pendingOutput,
+    /Run again without --dry-run to apply these changes\./,
+  );
+
+  assert.equal(runInit(tempDir).status, 0);
+
+  const configured = runInit(tempDir, ["--dry-run"]);
+  const configuredOutput = `${configured.stdout}${configured.stderr}`;
+  assert.equal(configured.status, 0);
+  assert.match(configuredOutput, /Already configured — nothing to change\./);
+  assert.match(configuredOutput, /No files were written\./);
+  assert.doesNotMatch(
+    configuredOutput,
+    /Run again without --dry-run to apply these changes\./,
+  );
+});
+
 test("init rejects unknown options before changing project or hook state", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -162,6 +195,81 @@ test("init refuses unwritable project files before installing hooks", (t) => {
   assert.match(output, /Could not update package\.json/);
   assert.match(output, /No files or hooks were changed/);
   assert.equal(readFile(tempDir, "package.json"), packageBefore);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+});
+
+for (const fileName of ["package.json", ".gitignore", ".commitmentrc.json"]) {
+  test(`init refuses a linked ${fileName} before changing project or hook state`, (t) => {
+    const tempDir = createTempRepo();
+    const outsideDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "commitment-outside-project-"),
+    );
+    t.after(() => {
+      cleanupTempRepo(tempDir);
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    });
+
+    const packageBefore = readFile(tempDir, "package.json");
+    const gitignoreBefore = readFile(tempDir, ".gitignore");
+    const outsidePath = path.join(outsideDir, fileName.replace(/^\./, ""));
+    const outsideContent =
+      fileName === "package.json"
+        ? packageBefore
+        : fileName === ".gitignore"
+          ? "outside-only/\n"
+          : "{}\n";
+    writeFile(outsidePath, outsideContent);
+
+    const projectPath = path.join(tempDir, fileName);
+    fs.rmSync(projectPath, { force: true });
+    fs.symlinkSync(outsidePath, projectPath);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.ok(output.includes(`Unsafe project file: ${fileName}.`));
+    assert.match(output, /symbolic link/);
+    assert.match(output, /No files or hooks were changed/);
+    assert.equal(fs.readFileSync(outsidePath, "utf8"), outsideContent);
+    assert.equal(fs.lstatSync(projectPath).isSymbolicLink(), true);
+    if (fileName !== "package.json") {
+      assert.equal(readFile(tempDir, "package.json"), packageBefore);
+    }
+    if (fileName !== ".gitignore") {
+      assert.equal(readFile(tempDir, ".gitignore"), gitignoreBefore);
+    }
+    assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+    assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
+  });
+}
+
+test("init dry-run reports a linked project file without mutating it", (t) => {
+  const tempDir = createTempRepo();
+  const outsideDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-outside-project-"),
+  );
+  t.after(() => {
+    cleanupTempRepo(tempDir);
+    fs.rmSync(outsideDir, { recursive: true, force: true });
+  });
+
+  const packagePath = path.join(tempDir, "package.json");
+  const outsidePath = path.join(outsideDir, "package.json");
+  const outsideContent = readFile(tempDir, "package.json");
+  writeFile(outsidePath, outsideContent);
+  fs.rmSync(packagePath);
+  fs.symlinkSync(outsidePath, packagePath);
+
+  const result = runInit(tempDir, ["--dry-run"]);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Unsafe project file: package\.json/);
+  assert.match(output, /No files or hooks were changed/);
+  assert.equal(fs.readFileSync(outsidePath, "utf8"), outsideContent);
+  assert.equal(fs.lstatSync(packagePath).isSymbolicLink(), true);
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-push")), false);
 });
@@ -770,7 +878,7 @@ test("init distinguishes configured package settings from inactive hooks", (t) =
   assertHookClaimsWithheld(output);
 });
 
-test("init refreshes the exact older generated pre-push hook", (t) => {
+test("init refreshes the exact path-fallback generated pre-push hook", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -780,10 +888,18 @@ test("init refreshes the exact older generated pre-push hook", (t) => {
   const current = fs.readFileSync(hookPath, "utf8");
   fs.writeFileSync(
     hookPath,
-    current.replace(
-      'commitment-issues prepush "$@"',
-      "commitment-issues prepush",
-    ),
+    `#!/bin/sh
+# Installed by commitment-issues. Recreate anytime with: commitment-issues doctor
+if [ "$COMMITMENT_ISSUES" = "0" ] || [ "$HUSKY" = "0" ]; then
+  exit 0
+fi
+export PATH="node_modules/.bin:$PATH"
+if ! command -v commitment-issues >/dev/null 2>&1; then
+  echo "commitment-issues: command not found; skipping pre-push checks." >&2
+  exit 0
+fi
+commitment-issues prepush
+`,
   );
 
   const result = runInit(tempDir);
@@ -1133,3 +1249,38 @@ test("init --dry-run previews changes without writing files", (t) => {
   assert.equal(fs.existsSync(path.join(tempDir, ".gitignore")), false);
   assert.deepEqual(readPackage(tempDir), beforePackage);
 });
+
+test(
+  "init preserves a symbolic-link .husky directory and its external target",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "init-husky-link-"));
+    t.after(() => cleanupTempRepo(tempDir));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+
+    fs.mkdirSync(path.join(outside, "_"));
+    fs.writeFileSync(path.join(outside, "_", "keep"), "outside\n");
+    fs.writeFileSync(
+      path.join(outside, "pre-commit"),
+      "commitment-issues precommit\n",
+    );
+    fs.symlinkSync(outside, path.join(tempDir, ".husky"), "dir");
+    run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /symbolic link|could not be safely inspected/i);
+    assert.match(output, /left unchanged|manual/i);
+    assert.equal(
+      fs.readFileSync(path.join(outside, "_", "keep"), "utf8"),
+      "outside\n",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(outside, "pre-commit"), "utf8"),
+      "commitment-issues precommit\n",
+    );
+  },
+);

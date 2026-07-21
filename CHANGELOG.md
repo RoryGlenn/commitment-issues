@@ -7,8 +7,225 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added the beginner-friendly `panic` command: one deterministic, read-only
+  view of the current Git state with explained inspection steps and narrowly
+  gated, content-preserving unstage or previous-branch options. It covers
+  detached HEAD, active merge/rebase/cherry-pick conflicts, staged and deleted
+  changes, untracked files, and recent branch switches without executing a
+  recovery operation or displaying commands that discard work or force
+  history changes.
+- Added a tested, fail-closed pull-request change classifier. Pure
+  documentation and metadata changes retain DCO, static quality, formatting,
+  dependency audit, and focused documentation, schema, link, asset, release,
+  and workflow-policy tests while skipping the irrelevant compatibility
+  matrix; every deletion, rename, copy, other category, mixed change, unknown
+  path, ambiguous Git status, shallow history, diff failure, or classifier
+  failure runs the full required graph. The focused path also derives the
+  canonical 100% badge directly, so a README edit cannot falsify or stale it.
+  Pull requests execute the classifier from the immutable base commit rather
+  than trusting fork code. `CI Success` accepts skips only for the classifier's
+  exact, internally consistent documentation-only result.
+- Added a reusable before/after workflow graphic and social-ready 16:9 export,
+  pairing the existing 26-second terminal demo with consistent README, package
+  metadata, rationale, and launch messaging: catch mistakes while they are
+  still cheap to fix, get the exact safe command, and keep CI authoritative.
+- Added an upload-ready Product Hunt media pack with a square thumbnail and
+  four deterministic gallery cards showing the before/after story, two-command
+  setup, advisory warning, and safe fix flow.
+
+### Changed
+
+- Refactored the packed package-manager lifecycle from one monolithic smoke
+  script into named `node:test` phases over one shared disposable fixture.
+  Exact-tarball inspection, real Git hooks, workspace and worktree behavior,
+  clone repair, uninstall ownership, and the npm/pnpm/Yarn/Bun CI matrices
+  remain intact, while failures now identify the lifecycle phase directly.
+- Simplified the before/after graphic into a picture-first, jargon-free story:
+  send, wait, find a mistake, and redo versus spot it, fix it, and send once.
+- Redesigned CLI help around described setup, check, and fix actions, with the
+  installed version, examples, safe command-specific help, and a separate
+  integration section for `commit-msg`, normally invoked automatically by Git.
+  The low-level `fix-staged-js` package compatibility command remains callable
+  but no longer competes with the safer developer-facing fix action in primary
+  help.
+
 ### Fixed
 
+- The staged large-file guard now gives its fixed-argv, NUL-safe whole-index
+  probe an explicit bounded output buffer instead of inheriting Node's roughly
+  1 MiB default. Large indexes no longer silently disable oversized-file
+  findings, and genuine Git or buffer failures remain advisory but visible.
+- Pre-commit lint, format, and staged-test checks plus configured pre-push tests
+  now partition path arguments by one shared platform-aware byte/unit budget
+  instead of passing an unbounded argv. Non-zero batches continue so every
+  finding and test summary is aggregated, while one overall timeout still
+  stops interrupted work and cleans up its process tree. The staged large-file
+  guard now reads Git's NUL-delimited whole-index stage data and filters exact
+  staged paths locally, removing its unbounded pathspec argv without weakening
+  hostile-path handling.
+- Contributor onboarding now distinguishes first-time locked dependency setup
+  (`npm ci`) from the lighter hook verification and repair command
+  (`npm run doctor`). The once-per-clone welcome names that repair task
+  directly while retaining its detected package-manager command.
+- Release evidence now treats the hosted workflow's single accepted tarball as
+  the authoritative byte-level candidate and records each run's SHA-256,
+  source, tag, runner OS/image, and exact Node/npm versions together without
+  blessing a rejected rebuild. Local pre-release packs remain content and
+  behavior evidence without promising identical compressed bytes across
+  environments; Audit 9 now records both v3.4.0 artifacts accurately without
+  changing the immutable release.
+- Trusted npm publication now tolerates the registry's short metadata and
+  attestation propagation delay. Only exact-version and exact-attestation HTTP
+  404 responses receive bounded backoff inside a hard 60-second deadline;
+  malformed data, unexpected statuses, and any package, tarball, provenance,
+  source, or `latest` mismatch still fail immediately without republishing.
+- Corrected the once-per-clone welcome so it accurately describes Commitment
+  Issues in ordinary consumer repositories instead of claiming every project
+  uses its own product.
+- `init --dry-run` no longer tells an already-configured project to rerun and
+  apply changes when there are no changes to apply. Dry runs that preview real
+  setup work retain the apply instruction.
+
+## [3.4.0] - 2026-07-16
+
+### Added
+
+- Added bounded hook-performance benchmarks for smoke, 250-pair full-hook, and
+  1,000-pair argument-pressure repositories. The reproducible reports measure
+  discovery, commit/push latency, process-tree memory, fixture size, hostile
+  path handling, and conservative Windows argv limits without putting timing
+  assertions in ordinary pull-request CI.
+- Added required packed-artifact shell compatibility CI for Linux `/bin/sh`,
+  Bash, and Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command
+  Prompt. Every lane runs an offline commit/push/doctor/uninstall scenario from
+  a hostile path with stripped executable discovery. A separate manual
+  checklist defines VS Code, JetBrains, and GitHub Desktop UI validation;
+  v3.4.0's unavailable GUI lanes are explicitly unverified and deferred to
+  #231 rather than inferred from shell success.
+- Added a release metadata gate that requires `package.json`, both root
+  lockfile version records, the exact tag, one dated changelog section, and its
+  reviewed notes to agree before publication. GitHub Releases now use the
+  validated `vX.Y.Z` title and extracted changelog body; recovery checks the
+  same metadata, while a machine-readable ledger preserves the immutable
+  v3.3.0–v3.3.2 exceptions without weakening future releases.
+- Added a shipped compatibility matrix for package managers, Node versions,
+  operating systems, shells, Git clients, install modes, and explicit
+  unsupported boundaries. Required lifecycle CI now covers Bun 1.3.14, pnpm 10,
+  Yarn Classic 1.22.22, and Yarn Berry 4.17.0 with
+  `nodeLinker: node-modules` across Ubuntu, macOS, and Windows at Node 24, plus
+  exact-minimum-Node lanes on Ubuntu. Berry uses an independent
+  integrity-locked CLI fixture, manager-native workspace commands, and explicit
+  `doctor` repair after clones because it does not run npm's `prepare`
+  lifecycle; Plug'n'Play remains unsupported.
+- Added deterministic cross-version lifecycle coverage using pinned immutable
+  v2.5.1, v3.2.0, and v3.3.2 release fixtures. Required pull-request CI proves
+  npm upgrades on Ubuntu/Node 24, a read-only release-candidate job exercises
+  the exact tarball before its hash-checked handoff to the OIDC publish job, and
+  weekly health runs the migration through pnpm, Yarn, and Bun. The supported
+  forward path preserves project-owned `prepare` logic and custom hooks while
+  refreshing only exact generated state; in-place downgrades are explicitly
+  unsupported and have a documented manual rollback.
+- Pre-commit now shows a default-on Commit Owl welcome once per clone so
+  contributors know the repository uses `commitment-issues` and that confusing
+  guidance should be reported. A versioned marker below Git's common directory
+  is shared by linked worktrees; `showWelcomeOnFirstCommit: false` opts out,
+  JSON and hook bypasses do not consume it, and all marker failures fail open.
+
+### Fixed
+
+- Large machine-readable hook results now drain every partial or temporarily
+  blocked pipe write before immediate exit, preventing JSON above the first
+  roughly 64 KiB from being truncated.
+- Repository-controlled filenames, refs, configuration values, and captured
+  diagnostics can no longer inject carriage returns, line breaks, tabs, or
+  other terminal controls into product-owned human output. Unsafe bytes render
+  visibly, ANSI CSI/OSC sequences are stripped, intentional message layout and
+  Unicode remain intact, and JSON mode keeps the exact semantic values.
+- Husky-era `core.hooksPath` recognition now removes trailing separators with
+  a bounded linear-time scan, preventing adversarial repository configuration
+  from stalling `init`, `doctor`, or `uninstall` through regular-expression
+  backtracking.
+- Required and scheduled Yarn Classic jobs now resolve exact version `1.22.22`
+  from the reviewed npm lockfile instead of installing a second global copy
+  outside the repository's integrity-pinned dependency graph.
+- Legacy Husky migration and uninstall cleanup now refuse to follow a linked or
+  otherwise uninspectable `.husky` directory, preventing owned-artifact cleanup
+  from deleting files outside the repository.
+- Setup and removal now refuse linked or non-regular `package.json`,
+  `.gitignore`, and `.commitmentrc.json` paths. Descriptor and file-identity
+  checks prevent a repository-controlled replacement from redirecting project
+  writes outside the checkout.
+- Packed Markdown links are now checked against the exact npm tarball manifest
+  and again after installation. Links from shipped docs to repository-only
+  policies, plans, and audit evidence now use canonical GitHub URLs instead of
+  paths that break on npm or inside `node_modules`.
+- Public adoption, launch, OpenSSF, and security guidance now reflects the exact
+  supported package managers, v3.3.2's documented legacy empty release notes,
+  local secret-scanning boundary, and completed mainline-tag authorization
+  control instead of carrying forward broader or historical claims.
+- The npm tarball now uses a closed allowlist for the 28 installed runtime
+  scripts instead of publishing the entire `scripts/` tree. Six lifecycle and
+  coverage maintenance modules remain repository-only, while package-content
+  tests verify the public bin, complete relative-import closure, and exact
+  runtime/maintenance classification.
+- Release tags now fail before dependency installation, packing, or publication
+  unless their commit is reachable from the canonical `main` history, closing
+  the gap between the reviewed-mainline release policy and the publish
+  workflow.
+- The publish workflow now packs once and lifecycle-tests that exact tarball
+  before hashing, uploading, and publishing it. The integration verifies the
+  packed CLI bin, Node shebang, and reported version on every platform, plus
+  normalized executable and non-executable modes on the POSIX release producer.
+- Failed releases now use a tested, fail-closed recovery classification instead
+  of blindly repeating publication. Exact same-source and same-byte runs may
+  resume unfinished downstream work only while `latest` still names the
+  candidate. The final job cryptographically verifies its local SLSA bundle;
+  existing draft assets must be byte-identical, and a draft already containing
+  provenance requires a failed-job rerun that retains the original bundle.
+  Mismatches and published partial releases require a new patch. npm dist-tag
+  changes and deprecation remain manual owner actions, and destructive
+  unpublish is never a recovery step.
+- Generated hooks now invoke only the project-local
+  `node_modules/.bin/commitment-issues` entry. Missing local installs
+  self-neutralize instead of falling through to a same-named global binary,
+  and exact older generated hooks remain safely repairable by `doctor`.
+- The CLI now reports the required and detected Node versions before dispatch
+  when a lenient package manager launches it below Node 22.11.0.
+- pnpm and Yarn recovery/removal guidance now includes required workspace-root
+  flags. ESLint/Prettier install hints and quickstarts use major-bounded specs
+  that remain installable at the exact Node floor.
+- The package no longer ships its repository-only `prepare` command as a
+  dependency install script. Consumer hook repair remains composed explicitly
+  by `init` and works after normal clone installs.
+- First-run pre-commit warnings and errors now take priority over the Commit Owl
+  welcome instead of producing two boxes. The welcome remains unconsumed until
+  a later clean or informational run, preserving the one-box-per-invocation
+  contract under both hook-output policies.
+- Terminal boxes no longer crash when a launcher supplies a malformed,
+  impossibly narrow, or unreasonably large `COLUMNS` value; the shared renderer
+  falls back to the smallest valid rounded presentation.
+- `FORCE_COLOR=0` now removes both preformatted body escapes and Boxen border
+  color, matching the documented explicit color-disable contract.
+- Opt-in staged-secret enforcement now fails closed when Git cannot launch,
+  exits nonzero, or returns malformed patch structure. Advisory mode still
+  warns and continues, while terminal and JSON output distinguish an
+  unavailable scan from a detected secret. Git-quoted hostile paths and valid
+  binary, rename, deletion, missing-newline, and large patch shapes have
+  regression coverage.
+- Discovered Node test paths beginning with `-` are now passed after `--` and
+  made absolute when necessary, preventing the built-in test runner from
+  interpreting a repository filename as an option at commit or push time.
+- Hook classification and repair now refuse symbolic-link hook files and hook
+  directories, including dangling links, so setup cannot write through an
+  uninspectable hook path.
+- Pre-push Node test reports now live below a randomized private temporary
+  directory instead of a predictable process-ID filename.
+- Hook-launched test commands and the repository's disposable Git fixtures no
+  longer inherit Git's repository-local routing variables. Nested `git init`,
+  commit, and push commands now stay inside their intended fixture instead of
+  mutating the hook caller's repository or remote.
 - Restored post-merge DCO enforcement after one unsigned roadmap update by
   recording the narrow governance exception and synchronizing the operational
   audit baseline across both workflows, the checker, and maintainer guidance.
@@ -39,6 +256,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Packed lifecycle integration now uses each manager's local-only runner,
+  rejects inherited npm identity, exercises paths with spaces and Unicode,
+  verifies scripts-disabled recovery and normal reinstall, asserts
+  manager-specific hints, and removes the package dependency while preserving
+  the manager lockfile.
+- Machine-readable integration tests now validate every exercised `--json`
+  payload recursively against the published versioned schema. The live
+  message-state runner also commits its presentation-only fixture config so it
+  no longer invents a dirty-worktree warning or hides a safe `commit:fix`
+  recommendation.
+- Replaced the README's feature-heavy opening with the established
+  "For developers who overthink every commit" tagline and the plain-language
+  contrast between catching mistakes early and catching them after they become
+  expensive.
+- Completed the meaningful-coverage audit with an executable production-to-test
+  ownership map, locked-down coverage suppressions, repeatable generated-asset
+  evidence, direct logo assertions, and deleted/renamed pre-push regressions.
+  The aggregate `CI Success` gate now fails closed unless every required job
+  explicitly succeeds, including when a dependency is skipped or incomplete.
 - Consolidated documentation around canonical user references, a repository-only
   audience index, one maintainer operations guide, and preserved public trust
   evidence. The npm package now includes an explicit set of user guides and

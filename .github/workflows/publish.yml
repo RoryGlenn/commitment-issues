@@ -4,6 +4,15 @@ on:
   pull_request:
     paths:
       - ".github/workflows/publish.yml"
+      - ".github/release-history.json"
+      - "CHANGELOG.md"
+      - "package.json"
+      - "package-lock.json"
+      - "tools/run-migration-lifecycle-test.mjs"
+      - "tools/release-preflight.mjs"
+      - "tools/release-recovery.mjs"
+      - "tools/validate-release-metadata.mjs"
+      - "tools/verify-release-mainline.mjs"
   push:
     tags:
       - "v*"
@@ -11,23 +20,44 @@ on:
 permissions:
   contents: read
 
+# Never cancel a publication after it may have crossed an external boundary.
+# Tag runs share GitHub's maximum pending queue so they cannot replace one
+# another before starting. Pull-request validation uses its own per-PR group.
+concurrency:
+  group: publish-${{ github.event_name == 'push' && 'package' || github.ref }}
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   # Loading this workflow on pull requests makes GitHub validate the complete
   # reusable-workflow permission contract before a release tag can consume it.
   validate:
+    name: Validate release workflow
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - name: Confirm release workflow validation
-        run: echo "GitHub validated the release workflow and its reusable workflow contracts."
-
-  publish:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
-      id-token: write # npm trusted publishing (OIDC) + registry provenance
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Confirm release workflow validation
+        run: npm run release:validate
+
+  candidate:
+    name: Build and verify release candidate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
       tarball: ${{ steps.pack.outputs.tarball }}
@@ -36,20 +66,21 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
-      - name: Verify tag matches package.json version
-        run: |
-          pkg_version="v$(node -p "require('./package.json').version")"
-          if [ "$pkg_version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg_version"
-            exit 1
-          fi
+      - name: Verify release commit belongs to reviewed mainline
+        run: node tools/verify-release-mainline.mjs
+
+      - name: Validate release metadata and reviewed notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run release:validate -- --tag "$RELEASE_TAG"
 
       - name: Ensure npm supports trusted publishing
         # Trusted publishing (OIDC) needs npm >= 11.5.1. Node 24 bundles a
@@ -70,45 +101,153 @@ jobs:
       - run: npm run build --if-present
       - run: npm test
 
-      - name: Verify npm package lifecycle
-        # Publishing a tarball skips this package's prepublishOnly lifecycle.
-        # Run the packaging smoke before creating the exact release artifact.
-        run: npm run test:lifecycle:npm
-
       - name: Pack tarball
         id: pack
         run: |
           tarball="$(npm pack --silent | tail -n1)"
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
 
-      - name: Generate provenance subject
+      - name: Verify exact npm package lifecycle
+        # Publishing a tarball skips this package's prepublishOnly lifecycle.
+        # Exercise the exact artifact before it is hashed, uploaded, or published.
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm run test:lifecycle:npm -- --tarball "$TARBALL"
+
+      - name: Verify exact npm upgrade migration
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: node tools/run-migration-lifecycle-test.mjs npm --tarball "$TARBALL"
+
+      - name: Record hosted candidate identity
         id: hash
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
         run: |
-          hashes="$(sha256sum "${{ steps.pack.outputs.tarball }}" | base64 -w0)"
+          hash_line="$(sha256sum "$TARBALL")"
+          hashes="$(printf '%s\n' "$hash_line" | base64 -w0)"
+          sha256="${hash_line%% *}"
+          node_version="$(node --version)"
+          npm_version="$(npm --version)"
           echo "hashes=$hashes" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Hosted release candidate built by this run"
+            echo
+            echo "| Evidence | Value |"
+            echo "| --- | --- |"
+            printf "| Filename | \`%s\` |\n" "$TARBALL"
+            printf "| SHA-256 | \`%s\` |\n" "$sha256"
+            printf "| Release tag | \`%s\` |\n" "$GITHUB_REF_NAME"
+            printf "| Source commit | \`%s\` |\n" "$GITHUB_SHA"
+            printf "| Runner | \`%s %s; %s %s\` |\n" \
+              "$RUNNER_OS" "$RUNNER_ARCH" \
+              "${ImageOS:-unknown-image}" "${ImageVersion:-unknown-version}"
+            printf "| Node | \`%s\` |\n" "$node_version"
+            printf "| npm | \`%s\` |\n" "$npm_version"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate-tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 5
+
+  publish:
+    name: Publish npm package
+    needs: [candidate]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) + registry provenance
+    outputs:
+      hashes: ${{ needs.candidate.outputs.hashes }}
+      release_needed: ${{ steps.confirm_recovery.outputs.release_needed }}
+      state: ${{ steps.confirm_recovery.outputs.state }}
+      tarball: ${{ needs.candidate.outputs.tarball }}
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Ensure npm supports trusted publishing
+        run: |
+          node -e "
+            const { execSync } = require('node:child_process');
+            const version = execSync('npm --version', { encoding: 'utf8' }).trim();
+            const [major, minor, patch] = version.split('.').map(Number);
+            const ok = major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)));
+            if (!ok) { console.error('npm >= 11.5.1 required for trusted publishing, found ' + version); process.exit(1); }
+            console.log('npm ' + version + ' supports trusted publishing');
+          "
+
+      - name: Download verified release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate-tarball
+          path: .
+
+      - name: Verify release candidate handoff
+        env:
+          EXPECTED_HASHES: ${{ needs.candidate.outputs.hashes }}
+        run: echo "$EXPECTED_HASHES" | base64 --decode | sha256sum --check
+
+      - name: Classify release recovery state
+        id: recovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARBALL: ${{ needs.candidate.outputs.tarball }}
+        run: node tools/release-recovery.mjs --tarball "$TARBALL"
 
       - name: Upload tarball artifact
+        if: steps.recovery.outputs.release_needed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-tarball
-          path: ${{ steps.pack.outputs.tarball }}
+          path: ${{ needs.candidate.outputs.tarball }}
           if-no-files-found: error
+          # A full rerun is allowed only after the classifier proves that the
+          # rebuilt bytes exactly match every crossed public boundary.
+          overwrite: true
           retention-days: 5
 
       - name: Publish to npm
-        run: npm publish "./${{ steps.pack.outputs.tarball }}" --access public
+        if: steps.recovery.outputs.publish_npm == 'true'
+        env:
+          TARBALL: ${{ needs.candidate.outputs.tarball }}
+        run: npm publish "./$TARBALL" --access public
+
+      - name: Confirm npm publication boundary
+        id: confirm_recovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARBALL: ${{ needs.candidate.outputs.tarball }}
+        run: node tools/release-recovery.mjs --tarball "$TARBALL" --require-npm
 
   # SLSA3 provenance for the packed tarball. The reusable workflow MUST be
   # referenced by a semantic version tag (never a SHA) per SLSA's design so it
   # can verify its own release; Dependabot keeps the tag current.
   provenance:
+    name: Generate SLSA provenance
     needs: [publish]
+    if: needs.publish.outputs.release_needed == 'true'
     permissions:
       actions: read # detect the workflow path for provenance
       id-token: write # sign the provenance
-      # The reusable workflow declares a nested contents:write upload job.
-      # GitHub validates that contract even though upload-assets is false.
-      contents: write
+      # GitHub validates the reusable workflow's declared permission even though
+      # upload-assets is false.
+      contents: write # satisfy the nested provenance upload-job contract
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.publish.outputs.hashes }}
@@ -117,11 +256,24 @@ jobs:
       upload-assets: false
 
   publish-release:
+    name: Publish immutable GitHub Release
     needs: [publish, provenance]
+    if: needs.publish.outputs.release_needed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write # create the release and attach both immutable assets
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
       - name: Download tarball artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -134,14 +286,47 @@ jobs:
           name: ${{ needs.provenance.outputs.provenance-name }}
           path: release-assets
 
+      - name: Install SLSA verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
+
+      - name: Cryptographically verify signed provenance
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          slsa-verifier verify-artifact release-assets/*.tgz \
+            --provenance-path release-assets/*.intoto.jsonl \
+            --source-uri github.com/RoryGlenn/commitment-issues \
+            --source-tag "$RELEASE_TAG"
+
+      - name: Revalidate release draft and assets
+        id: final_recovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          node tools/release-recovery.mjs
+          --tarball release-assets/*.tgz
+          --provenance release-assets/*.intoto.jsonl
+          --require-npm
+
+      - name: Generate reviewed release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run release:validate -- --tag "$RELEASE_TAG" --notes-file release-notes.md
+
       - name: Publish immutable release with all assets
+        if: steps.final_recovery.outputs.state != 'complete'
         # v3 stages a standard release as a draft, uploads every file, and
         # publishes only after the uploads succeed. Published releases are
         # immutable in this repository, so no later job can add an asset.
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
           draft: false
+          # The classifier accepts only exact existing draft assets. Preserve
+          # those bytes and upload only the missing files before publication.
+          overwrite_files: false
           files: |
             release-assets/*.tgz
             release-assets/*.intoto.jsonl

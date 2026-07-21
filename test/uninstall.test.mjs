@@ -136,6 +136,56 @@ test("uninstall refuses an unwritable package before removing hooks", (t) => {
   assert.equal(fs.readFileSync(hookPath, "utf8"), hookBefore);
 });
 
+for (const fileName of ["package.json", ".commitmentrc.json"]) {
+  test(`uninstall refuses a linked ${fileName} before changing project or hook state`, (t) => {
+    const tempDir = createTempRepo();
+    const outsideDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "commitment-outside-project-"),
+    );
+    t.after(() => {
+      cleanupTempRepo(tempDir);
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    });
+
+    if (fileName === ".commitmentrc.json") {
+      writeFile(
+        path.join(tempDir, fileName),
+        '{\n  "advisePushTests": true\n}\n',
+      );
+    }
+    assert.equal(runScript(tempDir, "init").status, 0);
+
+    const packageBefore = readFile(tempDir, "package.json");
+    const hookPath = gitHook(tempDir, "pre-commit");
+    const hookBefore = fs.readFileSync(hookPath, "utf8");
+    const projectPath = path.join(tempDir, fileName);
+    const outsidePath = path.join(outsideDir, fileName.replace(/^\./, ""));
+    const outsideContent =
+      fileName === "package.json"
+        ? packageBefore
+        : fs.readFileSync(projectPath, "utf8");
+    writeFile(outsidePath, outsideContent);
+    fs.rmSync(projectPath);
+    fs.symlinkSync(outsidePath, projectPath);
+
+    for (const args of [["--dry-run"], []]) {
+      const result = runScript(tempDir, "uninstall", args);
+      const output = `${result.stdout}${result.stderr}`;
+
+      assert.equal(result.status, 1);
+      assert.ok(output.includes(`Unsafe project file: ${fileName}.`));
+      assert.match(output, /symbolic link/);
+      assert.match(output, /No files or hooks were changed/);
+      assert.equal(fs.readFileSync(outsidePath, "utf8"), outsideContent);
+      assert.equal(fs.lstatSync(projectPath).isSymbolicLink(), true);
+      if (fileName !== "package.json") {
+        assert.equal(readFile(tempDir, "package.json"), packageBefore);
+      }
+      assert.equal(fs.readFileSync(hookPath, "utf8"), hookBefore);
+    }
+  });
+}
+
 test("uninstall --dry-run previews the exact cleanup without writing", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -426,6 +476,34 @@ test("uninstall reports legacy commands in an active Husky directory", (t) => {
   );
   assert.match(output, /\.husky\/pre-commit is customized/);
 });
+
+test(
+  "uninstall preserves a symbolic-link .husky directory and its external target",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    const outside = fs.mkdtempSync(
+      path.join(os.tmpdir(), "uninstall-husky-link-"),
+    );
+    t.after(() => cleanupTempRepo(tempDir));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+
+    fs.writeFileSync(path.join(outside, "pre-commit"), hookBody("pre-commit"));
+    fs.symlinkSync(outside, path.join(tempDir, ".husky"), "dir");
+    run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+
+    const result = runScript(tempDir, "uninstall");
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /symbolic link|could not be safely inspected/i);
+    assert.match(output, /left unchanged|manual/i);
+    assert.equal(
+      fs.readFileSync(path.join(outside, "pre-commit"), "utf8"),
+      hookBody("pre-commit"),
+    );
+  },
+);
 
 test("uninstall does not inspect the native hooks directory twice", (t) => {
   const tempDir = createTempRepo();

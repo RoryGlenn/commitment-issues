@@ -66,3 +66,23 @@ test("message-state runner explicitly keeps success gallery states visible", () 
   assert.match(result.stdout, /All pre-commit checks passed/);
   assert.match(result.stdout, /success/);
 });
+
+test("message-state fixtures keep their presentation config out of the finding", () => {
+  const result = runRunner(["precommit/prettier-fixable"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /npm run commit:fix/);
+  assert.doesNotMatch(
+    result.stdout,
+    /Other tracked changes will still be present after commit/,
+  );
+});
+
+test("message-state runner exercises first-run finding precedence", () => {
+  const result = runRunner(["precommit/first-run-finding"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Pre-commit suggestions found/);
+  assert.doesNotMatch(result.stdout, /Commitment Issues is active here/);
+  assert.doesNotMatch(result.stdout, /expected at most 1 box/);
+});

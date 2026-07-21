@@ -1,7 +1,8 @@
 # Why Catch Problems Before CI?
 
-> **GitHub Actions catches mistakes after they become expensive. Commitment
-> Issues catches them while they are still cheap.**
+> **Catch mistakes while they're still cheap to fix.** Commitment Issues gives
+> you an immediate suggestion and, when a safe fix is available, the exact
+> command before the first push; CI stays authoritative.
 
 Continuous integration is the authoritative shared gate. It verifies code in a
 controlled environment after that code has been pushed. Commitment Issues does
@@ -11,6 +12,8 @@ and intent in mind.
 
 The result is not fewer standards. It is a shorter and less disruptive path to
 meeting the same standards.
+
+![Without Commitment Issues: send work, wait, find a mistake, and do it again. With Commitment Issues: spot and fix the mistake first, then send once.](https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg)
 
 ## One mistake, two timelines
 
@@ -25,8 +28,8 @@ is identified.
 4. CI reports the failure.
 5. The developer returns to the old task, reads the remote logs, and restores
    the relevant context.
-6. The developer fixes the problem, pushes again, and waits through another
-   workflow run.
+6. The developer fixes the problem, commits again, pushes again, and waits
+   through another workflow run.
 
 ### Earlier local feedback
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — advisory-first Git guardrails for JavaScript and TypeScript projects" width="100%" />
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/commitment-issues.png" alt="commitment-issues — for developers who overthink every commit" width="100%" />
 </p>
 
 # Commitment Issues
@@ -8,21 +8,31 @@
 [![npm weekly downloads](https://img.shields.io/npm/dw/commitment-issues.svg)](https://www.npmjs.com/package/commitment-issues)
 [![CI](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml/badge.svg)](https://github.com/RoryGlenn/commitment-issues/actions/workflows/ci.yml)
 [![Branch coverage: 100.0%](https://img.shields.io/badge/branch%20coverage-100.0%25-brightgreen.svg)](docs/branch-coverage.md)
-[![Node >=22.11.0](https://img.shields.io/badge/node-%3E%3D22.11.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Advisory-first Git guardrails for JavaScript and TypeScript projects.** Catch
-lint, formatting, missing-test, secret, branch, commit-shape, optional
-commit-message, and related-test problems before commits and pushes—without a
-separate hook manager or automatic rewrite.
+**Local Git hooks for developers who overthink every commit.**
 
-No telemetry · npm, pnpm, Yarn, and Bun · Node.js >=22.11.0
+**Catch mistakes while they're still cheap to fix.**
 
-[Quickstart](#quickstart) · [Why it is different](#why-it-is-different) ·
-[Configuration](docs/configuration.md) · [Migration](docs/migration.md) ·
-[FAQ](docs/faq.md)
+Commit normally. When a fixable problem appears, Commitment Issues gives you an
+immediate suggestion and the exact safe command to fix it before the first
+push. CI stays authoritative.
 
-## Commit normally. Fix safely. Push with confidence.
+## One small mistake. Two very different outcomes.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/before-after.svg" alt="Without Commitment Issues: send work, wait, find a mistake, and do it again. With Commitment Issues: spot and fix the mistake first, then send once." width="900" />
+</p>
+
+**Without:** commit → push → wait → CI fails → read logs → fix → commit again →
+push → wait again.
+
+**With:** commit → immediate suggestion → run the exact fix command → push
+once.
+
+[Why earlier feedback matters](docs/why-before-ci.md).
+
+### Watch the shorter path in 26 seconds
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/RoryGlenn/commitment-issues/main/assets/demo.gif" alt="commitment-issues setup followed by a non-blocking commit warning, a safe automatic amend, and passing related push-time tests" width="800" />
@@ -31,6 +41,12 @@ No telemetry · npm, pnpm, Yarn, and Bun · Node.js >=22.11.0
 Checks start advisory. Fixes run only when requested and when the repository
 state proves the operation safe. Teams can opt into individual blocking gates
 after they trust the signal.
+
+No telemetry · npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0, and Bun 1.3.14 · Node.js >=22.11.0
+
+[Quickstart](#quickstart) · [Why it is different](#why-it-is-different) ·
+[Configuration](docs/configuration.md) · [Migration](docs/migration.md) ·
+[FAQ](docs/faq.md)
 
 <details>
 <summary>See the main safety states</summary>
@@ -75,13 +91,16 @@ could have been identified immediately.
 
 ## Quickstart
 
-You need Git, Node.js >=22.11.0, ESLint 9+ with a flat config, and Prettier 3+.
+You need Git, Node.js >=22.11.0, ESLint 9 with a flat config, and Prettier 3.
 
 ```bash
-npm install -D commitment-issues eslint prettier
-npx commitment-issues init --dry-run
-npx commitment-issues init
+npm install -D commitment-issues eslint@^9 prettier@^3
+npx --no-install commitment-issues init --dry-run
+npx --no-install commitment-issues init
 ```
+
+Want to see the advisory workflow without touching an existing project? Follow
+the [five-minute disposable-repository tutorial](docs/try-it-safely.md).
 
 Then commit and push normally:
 
@@ -90,6 +109,21 @@ git add -A
 git commit -m "your message"
 git push
 ```
+
+### Think you made a Git mistake?
+
+Run the read-only recovery guide from inside the project:
+
+```bash
+npx --no-install commitment-issues panic
+```
+
+It starts with the repository's current state and `git status`, then explains
+only the inspection steps relevant to what Git reports. When Git can prove a
+content-preserving option is applicable, it may also show how to unstage work
+or return to the previously checked-out branch. The guide never runs a
+recovery operation, never guesses at missing state, and never includes commands
+that discard files or force history changes.
 
 When the tool reports a safe fix path:
 
@@ -150,19 +184,20 @@ preserved and reported for manual composition.
 
 ## Does it fit your project?
 
-| Requirement or boundary | Support                                                                |
-| ----------------------- | ---------------------------------------------------------------------- |
-| Primary ecosystem       | JavaScript and TypeScript                                              |
-| Runtime                 | Node.js >=22.11.0                                                      |
-| Linting and formatting  | ESLint >=9 flat config and Prettier >=3                                |
-| Package managers        | npm, pnpm, Yarn, and Bun                                               |
-| Yarn Berry              | Supported with `nodeLinker: node-modules`; Plug'n'Play unsupported     |
-| Monorepos               | Root-owned workspaces and linked Git worktrees                         |
-| Existing hooks          | Preserved; compose the command manually                                |
-| Commit messages         | Optional project-local commitlint and rules                            |
-| CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0` |
+| Requirement or boundary | Support                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Primary ecosystem       | JavaScript and TypeScript                                                                                   |
+| Runtime                 | Node.js >=22.11.0                                                                                           |
+| Linting and formatting  | ESLint 9 or 10 flat config and Prettier 3                                                                   |
+| Package managers        | Local npm, pnpm 10, Yarn Classic 1.22.22, Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 |
+| Yarn Plug'n'Play        | Unsupported because the hooks require the project-local `node_modules/.bin` tree                            |
+| Monorepos               | Root-owned workspaces and linked Git worktrees                                                              |
+| Existing hooks          | Preserved; compose the command manually                                                                     |
+| Commit messages         | Optional project-local commitlint and rules                                                                 |
+| CI                      | Keep CI authoritative; hooks may be skipped with `COMMITMENT_ISSUES=0`                                      |
 
-Setup details: [frameworks](docs/framework-recipes.md) ·
+Setup details: [compatibility](docs/compatibility.md) ·
+[frameworks](docs/framework-recipes.md) ·
 [monorepos](docs/monorepo.md) · [Yarn Berry](docs/yarn-berry.md) ·
 [CI providers](docs/ci-recipes.md)
 
@@ -201,19 +236,22 @@ observed its false-positive and failure behavior.
 - Configuration is validated JSON; project JavaScript is not imported.
 - Built-in tools use local executables and argument arrays without shell
   interpolation.
+- Test commands inherit the normal developer environment but not Git's
+  hook-local repository routing, so nested Git fixtures resolve from their own
+  working directory.
 - The package adds no telemetry, repository upload, account, or hosted service.
 - A configured `testCommand` remains repository-owned executable code and may
   have behavior of its own.
 
-See the [security policy](.github/SECURITY.md),
+See the [security policy](https://github.com/RoryGlenn/commitment-issues/blob/main/.github/SECURITY.md),
 [assurance case](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/security/assurance-case.md),
 and [release verification](docs/release-verification.md).
 
 ## Removal
 
 ```bash
-npx commitment-issues uninstall --dry-run
-npx commitment-issues uninstall
+npx --no-install commitment-issues uninstall --dry-run
+npx --no-install commitment-issues uninstall
 npm remove commitment-issues
 ```
 
@@ -223,15 +261,19 @@ dependencies, ignores, and lockfiles are preserved.
 ## Documentation
 
 - [Configuration and behavior](docs/configuration.md)
+- [Compatibility and installation support](docs/compatibility.md)
 - [FAQ and troubleshooting](docs/faq.md)
+- [Git terms in plain language](docs/faq.md#git-terms-used-in-this-project)
 - [Migration guide](docs/migration.md)
 - [External interface](docs/external-interface.md)
 - [JSON output](docs/json-output.md)
 - [Complete repository documentation index](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/index.md)
 
 Maintainer direction and contribution policy live in the
-[roadmap](ROADMAP.md), [governance](GOVERNANCE.md), and
-[contribution guide](.github/CONTRIBUTING.md).
+[roadmap](https://github.com/RoryGlenn/commitment-issues/blob/main/ROADMAP.md),
+[governance](https://github.com/RoryGlenn/commitment-issues/blob/main/GOVERNANCE.md),
+and the
+[contribution guide](https://github.com/RoryGlenn/commitment-issues/blob/main/.github/CONTRIBUTING.md).
 
 ## Project status and support
 

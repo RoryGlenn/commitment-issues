@@ -5,6 +5,9 @@ table lives in [Configuration and behavior](configuration.md), and public
 command/output compatibility lives in the
 [external interface](external-interface.md).
 
+New to Git? The [plain-language Git glossary](#git-terms-used-in-this-project)
+explains the words used on this page.
+
 ## Is this a replacement for Husky or lint-staged?
 
 Yes, for the workflow it covers. `commitment-issues` owns native Git hook wiring
@@ -39,7 +42,7 @@ working tree or commit.
 `prepare` command, native Git hooks, and common cache/dependency ignores. It
 preserves project-owned scripts, custom hooks, foreign `core.hooksPath`
 configurations, dependencies, source files, and lockfiles. Use
-`npx commitment-issues init --dry-run` for the exact proposed diff.
+`npx --no-install commitment-issues init --dry-run` for the exact proposed diff.
 
 The full ownership and precedence rules are documented under
 [What `init` changes](configuration.md#what-init-changes).
@@ -79,6 +82,25 @@ npm run commit:fix
 `commit:fix` refuses dirty tracked worktrees, pushed commits, and repository
 states it cannot inspect safely. Resolve the condition named in the refusal and
 retry; do not bypass a safety check merely to force an amend.
+
+## I think I made a Git mistake. Where should I start?
+
+Run the local, read-only guide from inside the project:
+
+```bash
+npx --no-install commitment-issues panic
+```
+
+It presents the observed state first, explains `git status`, and adds only
+context-supported inspection steps for detached HEAD, active
+merge/rebase/cherry-pick conflicts, staged or deleted changes, untracked files,
+and recent branch switches. Any suggested state-changing option preserves
+working-tree content and is labeled separately. The command itself is
+deterministic and non-interactive: it never performs recovery, and it withholds
+state-changing guidance whenever inspection is incomplete or a conflict is in
+progress. Back up important files and ask for help if the explanation does not
+match what you intended; the guide cannot promise that Git still contains
+missing data.
 
 ## How are related tests selected?
 
@@ -136,14 +158,17 @@ defines the complete trust boundary.
 ## What projects and package managers are supported?
 
 The supported v3 product targets JavaScript and TypeScript projects running
-Node.js >=22.11.0. npm, pnpm, Yarn, and Bun are supported. TypeScript file
-discovery is built in, while parsing and lint rules remain owned by the
-project's ESLint setup.
+Node.js >=22.11.0. Local installs through npm, pnpm 10, Yarn Classic 1.22.22,
+Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 are supported.
+TypeScript file discovery is built in, while parsing and lint rules remain
+owned by the project's ESLint setup.
 
-Yarn Berry requires `nodeLinker: node-modules`; Plug'n'Play is not supported.
-Install once at a monorepo root and use root-owned configuration/tools. See the
-[Yarn Berry](yarn-berry.md), [monorepo](monorepo.md), and
-[framework](framework-recipes.md) guides for the tested boundaries.
+Yarn Plug'n'Play is unsupported. Global installs are unsupported because
+hooks intentionally invoke the project-local bin. Install once at a monorepo
+root and use root-owned configuration/tools. See the
+[compatibility](compatibility.md), [Yarn Berry](yarn-berry.md),
+[monorepo](monorepo.md), and [framework](framework-recipes.md) guides for the
+tested boundaries.
 
 ## Which shells and GUI Git clients are supported?
 
@@ -151,10 +176,18 @@ The main matrix runs on Ubuntu, macOS, and Windows. Generated hooks are POSIX
 `sh`; Git for Windows uses its bundled shell. Node.js and the local binary must
 still be reachable in the environment inherited by Git.
 
-Dedicated coverage for every shell and GUI client is not complete. Until
-[#83](https://github.com/RoryGlenn/commitment-issues/issues/83) closes, the
-project does not claim blanket Bash, Zsh, Fish, PowerShell, Command Prompt, VS
-Code, JetBrains, or GitHub Desktop compatibility.
+Required CI launches the packed artifact through Linux `/bin/sh`, Bash, and
+Fish; macOS `/bin/sh` and Zsh; and Windows PowerShell and Command Prompt. Each
+lane performs a real commit and push with a stripped `PATH`; the hooks
+themselves continue to run under POSIX `sh` (Git's bundled `sh` on Windows).
+
+VS Code Source Control, one current IntelliJ IDEA or PyCharm version, and
+GitHub Desktop on macOS and Windows require separate UI validation. Those
+v3.4.0 lanes are currently unverified and tracked in
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231). An integrated
+terminal proves its selected shell, not the GUI client's inherited environment.
+See the [compatibility matrix](compatibility.md) and the
+[GUI checklist](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/git-client-release-checklist.md).
 
 ## Should I use this in CI?
 
@@ -182,8 +215,8 @@ SLSA provenance against the artifact digest and source tag.
 Run removal while the package is still installed:
 
 ```bash
-npx commitment-issues uninstall --dry-run
-npx commitment-issues uninstall
+npx --no-install commitment-issues uninstall --dry-run
+npx --no-install commitment-issues uninstall
 npm remove commitment-issues
 ```
 
@@ -196,3 +229,101 @@ the lockfile, and anything whose ownership cannot be proven.
 Node.js 22.11.0 is the first Node 22 LTS release and the minimum exercised by
 the CI matrix. Node 24 is tested as well. Older runtimes are outside the
 supported release contract.
+
+## Git terms used in this project
+
+Git uses short names for different versions of the same files. This glossary
+explains those names and why they matter to `commitment-issues`.
+
+### Working tree
+
+Your **working tree** is the checked-out copy of the project: the files as they
+currently exist on your computer. A file there can match what is staged,
+contain additional unstaged edits, or be unchanged. The safe-fix commands
+inspect the working tree so they do not overwrite work you still need.
+
+### Staged changes and the index
+
+**Staged changes** are the exact file versions selected for the next commit.
+Git keeps that selection in a hidden staging area, also called the **index**.
+
+For example, imagine you select `app.js` and then edit it again. The commit
+still gets the earlier, staged version unless you select the file again.
+`commitment-issues` checks the staged version because that is what the commit
+is about to save.
+
+### Unstaged changes
+
+**Unstaged changes** are edits to a tracked file that are not selected for the
+next commit. They stay on your computer after that commit. The explicit fix
+commands keep them separate and refuse a fix when they cannot do that safely.
+
+### Untracked file
+
+An **untracked file** exists in the project folder, but Git is not currently
+tracking it. For example, a new `notes.txt` file stays out of a commit until you
+choose to stage it. A commit check does not add an untracked file merely because
+it exists.
+
+### Partially staged file
+
+A **partially staged file** has one version selected for the next commit and
+more edits to that same file left unstaged. The next commit would contain the
+selected version, while the extra edits would stay on your computer.
+
+A formatter could accidentally mix those two versions. That is why
+`npm run fix:staged` refuses a partially staged file instead of guessing what
+you meant.
+
+### Git hook
+
+A **Git hook** is a small program that Git runs at a particular moment, such as
+before a commit or push. `commitment-issues init` connects the package to local
+hooks so it can check work at those moments. The hooks belong only to that
+clone, and their warnings do not block by default.
+
+### Upstream branch
+
+An **upstream branch** is the branch or other Git reference that a local branch
+is configured to follow. It is usually a remote-tracking branch such as
+`origin/main`, but it can be another local reference. For a remote-tracking
+upstream, fetching updates Git's last-seen version. Git can then tell whether
+your local branch is behind it. `commitment-issues` uses this information for
+its behind-upstream advice and can use it as a comparison point during a push.
+It does not fetch from the network for you.
+
+### Default branch and protected branch
+
+The **default branch** is the repository's usual starting and merging branch,
+often `main`. A **protected branch** is a branch name treated as needing extra
+care. A branch can be both, but the two terms do not mean the same thing.
+
+`commitment-issues` warns about direct commits and pushes to `main` and
+`master` by default. It blocks only when the repository explicitly enables
+that behavior. Rules enforced by a Git hosting service are separate.
+
+### Amend
+
+To **amend** is to replace the latest commit with a new version instead of
+adding another commit. The commit's identifier changes. `npm run commit:fix`
+amends only when the latest commit is unpushed and the tracked working tree is
+safe; otherwise it refuses.
+
+### Detached HEAD
+
+**HEAD** is Git's name for what you currently have checked out. A **detached
+HEAD** means HEAD points directly to a commit instead of to a branch name. You
+can inspect or test that commit, but a new commit is not automatically attached
+to your normal branch.
+
+Without a branch name, `commitment-issues` cannot apply its branch-name warning.
+Its non-branch checks still run.
+
+### Reflog
+
+The **reflog** is a private, local list of places where HEAD and branch names
+pointed recently. Git normally records the move caused by an amend, so the
+reflog can help you find the older commit identifier.
+
+The reflog is not shared when you push and is not a permanent backup.
+`commitment-issues` never treats it as permission to rewrite pushed history.

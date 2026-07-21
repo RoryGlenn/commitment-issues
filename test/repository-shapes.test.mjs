@@ -97,3 +97,35 @@ test("init uses the submodule's own Git common directory", (t) => {
     false,
   );
 });
+
+test("temporary Git fixtures ignore inherited hook repository routing", (t) => {
+  const caller = createTempRepo();
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "nested-git-fixture-"));
+  t.after(() => cleanupTempRepo(caller));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+
+  const callerHead = run("git", ["rev-parse", "HEAD"], caller).stdout.trim();
+  const callerGitDir = path.join(caller, ".git");
+  const initialized = run("git", ["init"], fixture, {
+    env: {
+      ...process.env,
+      GIT_DIR: callerGitDir,
+      GIT_WORK_TREE: caller,
+      GIT_INDEX_FILE: path.join(callerGitDir, "index"),
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "core.bare",
+      GIT_CONFIG_VALUE_0: "true",
+    },
+  });
+
+  assert.equal(initialized.status, 0, initialized.stderr);
+  assert.equal(fs.existsSync(path.join(fixture, ".git")), true);
+  assert.equal(
+    run("git", ["rev-parse", "HEAD"], caller).stdout.trim(),
+    callerHead,
+  );
+  assert.equal(
+    run("git", ["config", "--bool", "core.bare"], caller).stdout.trim(),
+    "false",
+  );
+});

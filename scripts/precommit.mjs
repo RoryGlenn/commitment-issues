@@ -3,7 +3,15 @@
 
 import pc from "picocolors";
 import { printHookBoxModel } from "./lib/ui.mjs";
-import { TOOL_TIMEOUT_MS, runTool, spawnAsync, run } from "./lib/process.mjs";
+import {
+  isNodeTestCommand,
+  nodeTestArgumentParts,
+  runBatchedCommand,
+  runToolBatches,
+  TOOL_TIMEOUT_MS,
+  run,
+  withoutGitLocalEnvironment,
+} from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigDiagnostics,
@@ -13,6 +21,7 @@ import {
 import {
   eslintManualIssues,
   formatEslintManualIssue,
+  parsePrettierList,
   summarizeEslintJson,
 } from "./lib/checks.mjs";
 import {
@@ -21,6 +30,7 @@ import {
   isProtectedBranch,
   largeCommitIssues,
   largeFileIssue,
+  largeFileInspectionIssue,
   parseBatchCheckSizes,
   parseNumstat,
   protectedBranchIssue,
@@ -30,8 +40,8 @@ import {
   envFileFindings,
   filterExemptFindings,
   findingLines,
+  inspectSecretDiffResult,
   resolveSecretScanConfig,
-  scanDiffForSecrets,
   secretsIssue,
 } from "./lib/secret-scan.mjs";
 import {
@@ -41,6 +51,8 @@ import {
   unavailableToolIssue,
 } from "./lib/message.mjs";
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
+import { showWelcomeOnFirstCommit } from "./lib/welcome.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 import {
   allowedStatus,
   createJsonOutput,
@@ -61,36 +73,35 @@ import {
 } from "./lib/files.mjs";
 
 const GIT_PATH_ARGS = ["-c", "core.quotePath=false"];
+// The whole-index probe keeps argv fixed-size for Windows while allowing far
+// more output than Node's roughly 1 MiB spawnSync default. The explicit ceiling
+// prevents an unexpectedly huge index from consuming unbounded hook memory.
+const GIT_GUARD_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 
 const outputArgs = parseJsonOutputArgs(process.argv.slice(2));
 if (outputArgs.error) {
   if (outputArgs.enabled) {
     emitJsonArgumentError("precommit", outputArgs.error);
   } else {
-    console.error(`commitment-issues precommit: ${outputArgs.error}`);
+    console.error(
+      escapeTerminalText(`commitment-issues precommit: ${outputArgs.error}`),
+    );
   }
   process.exit(1);
 }
 const jsonMode = outputArgs.enabled;
 
 function runEslint(files) {
-  return runTool(
+  return runToolBatches(
     "eslint",
-    [
-      "--cache",
-      "--cache-strategy",
-      "content",
-      "--format",
-      "json",
-      "--",
-      ...files,
-    ],
+    ["--cache", "--cache-strategy", "content", "--format", "json", "--"],
+    files,
     { stdio: ["pipe", "pipe", "pipe"] },
   );
 }
 
 function runPrettier(files) {
-  return runTool(
+  return runToolBatches(
     "prettier",
     [
       "--cache",
@@ -101,21 +112,30 @@ function runPrettier(files) {
       "--list-different",
       "--ignore-unknown",
       "--",
-      ...files,
     ],
+    files,
     { stdio: ["pipe", "pipe", "pipe"] },
   );
 }
 
 function runStagedTestCommand(testCommand, tests) {
-  // Avoid leaking this process's test-runner context into the spawned tests
-  // (e.g. when the hook itself is exercised under `node --test`).
-  const env = { ...process.env };
+  // Avoid leaking this process's test-runner context or Git's hook-local
+  // repository routing into the spawned tests. The suite can rediscover this
+  // checkout by cwd, while any nested Git fixtures remain isolated.
+  const env = withoutGitLocalEnvironment();
   delete env.NODE_TEST_CONTEXT;
-  return spawnAsync(testCommand[0], [...testCommand.slice(1), ...tests], {
-    env,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  const nodeParts = isNodeTestCommand(testCommand)
+    ? nodeTestArgumentParts(testCommand, tests)
+    : null;
+  return runBatchedCommand(
+    testCommand[0],
+    nodeParts?.fixedArgs ?? testCommand.slice(1),
+    nodeParts?.fileArgs ?? tests,
+    {
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
 }
 
 const config = loadPrecommitConfig();
@@ -154,11 +174,22 @@ if (jsonMode) {
   }
 } else {
   for (const message of configWarnings) {
-    console.warn(pc.yellow(`⚠ ${message}`));
+    console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
   }
 }
 
 function printHookMessage(severity, lines) {
+  // The one-time welcome is itself the final presentation for a clean or
+  // informational first run. Findings always take priority, and leaving the
+  // marker untouched lets onboarding happen on the next clean invocation.
+  // This preserves the one-box-per-command invariant in both hook-output
+  // modes without hiding a warning or error behind onboarding content.
+  if (
+    (severity === "info" || severity === "success") &&
+    showWelcomeOnFirstCommit({ config, jsonMode })
+  ) {
+    return;
+  }
   printHookBoxModel({ severity, lines }, hookOutput);
 }
 
@@ -209,7 +240,9 @@ if (
   printHookMessage("error", [
     pc.bold("Commit blocked: protected branch."),
     "",
-    pc.dim(`Committing to "${branch}" is blocked by blockProtectedBranches.`),
+    pc.dim(
+      `Committing to "${escapeTerminalText(branch)}" is blocked by blockProtectedBranches.`,
+    ),
     "",
     pc.dim("Create a branch: git switch -c <name>"),
     pc.dim("To bypass once: git commit --no-verify"),
@@ -313,11 +346,16 @@ jsonOutput.addCheck({
 const stagedFiles = rawStagedFiles.filter((file) => !isThirdPartyPath(file));
 
 // Staged-secrets scan: high-precision patterns against *added* lines only,
-// plus staged .env files. A failed diff probe skips the scan (fail-open, like
-// every commit-side guard) — blocking here is opt-in via blockOnSecrets.
+// plus staged .env files. Advisory mode warns and continues when the patch is
+// unavailable; explicit blocking mode fails closed.
 function collectSecretFindings() {
   if (!secretScanConfig.scanSecrets) {
-    return { findings: [], diffInspected: false };
+    return {
+      findings: [],
+      diffInspected: false,
+      inspectionOutcome: "disabled",
+      diffStatus: null,
+    };
   }
   const findings = [...envFileFindings(rawStagedFiles)];
   const diff = run("git", [
@@ -327,41 +365,93 @@ function collectSecretFindings() {
     "-U0",
     "--no-color",
   ]);
-  if (!diff.error && diff.status === 0) {
-    findings.push(...scanDiffForSecrets(diff.stdout));
-  }
+  const inspection = inspectSecretDiffResult(diff);
+  findings.push(...inspection.findings);
   return {
     findings: filterExemptFindings(findings, secretScanConfig.secretExempt),
-    diffInspected: !diff.error && diff.status === 0,
+    diffInspected: inspection.inspected,
+    inspectionOutcome: inspection.outcome,
+    diffStatus: diff.status,
   };
 }
 
-const { findings: secretFindings, diffInspected: secretDiffInspected } =
-  collectSecretFindings();
+const {
+  findings: secretFindings,
+  diffInspected: secretDiffInspected,
+  inspectionOutcome: secretInspectionOutcome,
+  diffStatus: secretDiffStatus,
+} = collectSecretFindings();
+
+function secretScanUnavailableIssue() {
+  const malformed = secretInspectionOutcome === "malformed";
+  return {
+    autoFixable: false,
+    type: "secrets",
+    message: "Staged secret scan unavailable",
+    detail: malformed
+      ? "Git returned a malformed staged patch; possible secrets could not be ruled out."
+      : "Git could not inspect the staged diff; possible secrets could not be ruled out.",
+  };
+}
+
+const secretScanUnavailable =
+  secretScanConfig.scanSecrets && !secretDiffInspected;
 
 jsonOutput.addCheck({
   id: "secrets",
   status: !secretScanConfig.scanSecrets
     ? "skipped"
-    : secretFindings.length > 0
+    : secretScanUnavailable
       ? secretScanConfig.blockOnSecrets
         ? "failed"
-        : "advisory"
-      : !secretDiffInspected
-        ? "skipped"
+        : secretFindings.length > 0
+          ? "advisory"
+          : "skipped"
+      : secretFindings.length > 0
+        ? secretScanConfig.blockOnSecrets
+          ? "failed"
+          : "advisory"
         : "passed",
   summary: !secretScanConfig.scanSecrets
     ? "Secret scanning is disabled"
-    : secretFindings.length > 0
-      ? `${secretFindings.length} possible ${plural(secretFindings.length, "secret")} found`
-      : !secretDiffInspected
-        ? "Secret diff could not be inspected"
+    : secretScanUnavailable
+      ? secretScanConfig.blockOnSecrets
+        ? "Blocking secret scan could not inspect staged diff"
+        : "Secret diff could not be inspected"
+      : secretFindings.length > 0
+        ? `${secretFindings.length} possible ${plural(secretFindings.length, "secret")} found`
         : "No possible secrets found",
   details: {
     findingCount: secretFindings.length,
     diffInspected: secretDiffInspected,
+    inspectionOutcome: secretInspectionOutcome,
+    status: secretDiffStatus,
   },
 });
+
+if (secretScanConfig.blockOnSecrets && secretScanUnavailable) {
+  const issue = secretScanUnavailableIssue();
+  if (jsonMode) {
+    emitJsonResult({
+      status: "blocked",
+      exitCode: 1,
+      summary: "Commit blocked because the secret scan was unavailable",
+      findings: [issueToJsonFinding(issue, "error")],
+    });
+  }
+  const reason =
+    secretInspectionOutcome === "malformed"
+      ? "Git returned a malformed staged patch, so possible secrets could not be ruled out."
+      : "Git could not inspect the staged diff, so possible secrets could not be ruled out.";
+  printHookMessage("error", [
+    pc.bold("Commit blocked: staged secret scan unavailable."),
+    "",
+    pc.dim(reason),
+    pc.dim("Retry after restoring Git access or a valid index."),
+    pc.dim("To bypass once: git commit --no-verify"),
+  ]);
+  process.exit(1);
+}
 
 if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
   const issue = secretsIssue(secretFindings);
@@ -376,7 +466,9 @@ if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
   printHookMessage("error", [
     pc.bold("Commit blocked: possible secret staged."),
     "",
-    ...findingLines(secretFindings).map((line) => pc.dim(line)),
+    ...findingLines(secretFindings).map((line) =>
+      pc.dim(escapeTerminalText(line)),
+    ),
     "",
     pc.dim("Remove the secret and rotate anything already exposed."),
     pc.dim("To bypass once: git commit --no-verify"),
@@ -385,10 +477,15 @@ if (secretScanConfig.blockOnSecrets && secretFindings.length > 0) {
 }
 
 // Advisory guards: instant git-only facts about the commit itself (branch,
-// shape, oversized or generated files, behind-upstream). Any git hiccup here
-// skips that guard — guards must never block or fail a commit.
+// shape, oversized or generated files, behind-upstream). Guards never block a
+// commit; an unavailable file-size probe becomes a visible advisory instead of
+// silently claiming that no oversized staged blob exists.
 function collectGuardIssues() {
   const guardIssues = [];
+
+  if (secretScanUnavailable) {
+    guardIssues.push(secretScanUnavailableIssue());
+  }
 
   const secretIssue = secretsIssue(secretFindings);
   if (secretIssue) {
@@ -435,16 +532,13 @@ function collectGuardIssues() {
   }
 
   if (guardConfig.maxFileSizeMb > 0) {
-    const index = run("git", [
-      ...GIT_PATH_ARGS,
-      "ls-files",
-      "--stage",
-      "-z",
-      "--",
-      ...rawStagedFiles,
-    ]);
+    const index = run("git", [...GIT_PATH_ARGS, "ls-files", "--stage", "-z"], {
+      maxBuffer: GIT_GUARD_MAX_BUFFER_BYTES,
+    });
     const indexEntries = parseLsFilesStage(index.stdout);
-    if (!index.error && index.status === 0 && indexEntries !== null) {
+    if (index.error || index.status !== 0 || indexEntries === null) {
+      guardIssues.push(largeFileInspectionIssue(index.error));
+    } else {
       const objectByFile = new Map(
         indexEntries
           .filter((entry) => entry.stage === 0)
@@ -455,6 +549,7 @@ function collectGuardIssues() {
         .map((file) => ({ file, object: objectByFile.get(file) }));
       const batch = run("git", ["cat-file", "--batch-check"], {
         input: stagedBlobs.map(({ object }) => object).join("\n"),
+        maxBuffer: GIT_GUARD_MAX_BUFFER_BYTES,
       });
       if (!batch.error && batch.status === 0) {
         const sizeIssue = largeFileIssue(
@@ -467,6 +562,8 @@ function collectGuardIssues() {
         if (sizeIssue) {
           guardIssues.push(sizeIssue);
         }
+      } else {
+        guardIssues.push(largeFileInspectionIssue(batch.error));
       }
     }
   }
@@ -557,7 +654,7 @@ if (config.requireTests !== false && stagedJsFiles.length > 0) {
       autoFixable: false,
       type: "tests",
       message: `${missingTests.length} staged source file${missingTests.length === 1 ? "" : "s"} missing unit tests`,
-      detail: missingTests.join("\n"),
+      detail: missingTests,
     });
   }
 }
@@ -611,6 +708,10 @@ const prettierOutcome = normalizeProcessOutcome(prettierResult);
 const stagedTestOutcome = testRun ? normalizeProcessOutcome(testRun) : null;
 const processDidNotComplete = (outcome) =>
   ["timeout", "spawn-error", "signal", "missing-tool"].includes(outcome);
+const completedBatchResults = (result) =>
+  result.batchResults.filter(
+    (batch) => !processDidNotComplete(normalizeProcessOutcome(batch)),
+  );
 
 if (eslintResult) {
   if (processDidNotComplete(eslintOutcome)) {
@@ -624,39 +725,50 @@ if (eslintResult) {
         timeoutSeconds: TOOL_TIMEOUT_MS / 1000,
       }),
     );
-  } else {
-    const { issueCount: eslintIssueCount, fixableCount: eslintFixableCount } =
-      summarizeEslintJson(eslintResult.stdout);
-    const eslintManualCount = eslintIssueCount - eslintFixableCount;
+  }
 
-    if (eslintFixableCount > 0) {
-      issues.push({
-        autoFixable: true,
-        type: "lint",
-        message: `${eslintFixableCount} auto-fixable ESLint issue${eslintFixableCount === 1 ? "" : "s"} found`,
-      });
-    }
+  let eslintIssueCount = 0;
+  let eslintFixableCount = 0;
+  let eslintFailedWithoutIssues = false;
+  const eslintManualDetail = [];
+  for (const batch of completedBatchResults(eslintResult)) {
+    const batchSummary = summarizeEslintJson(batch.stdout);
+    eslintIssueCount += batchSummary.issueCount;
+    eslintFixableCount += batchSummary.fixableCount;
+    eslintManualDetail.push(
+      ...eslintManualIssues(batch.stdout).map((issue) =>
+        formatEslintManualIssue(issue, process.cwd()),
+      ),
+    );
+    eslintFailedWithoutIssues ||=
+      batchSummary.issueCount === 0 && batch.status > 1;
+  }
+  const eslintManualCount = eslintIssueCount - eslintFixableCount;
 
-    if (eslintManualCount > 0) {
-      const manualDetail = eslintManualIssues(eslintResult.stdout)
-        .map((issue) => formatEslintManualIssue(issue, process.cwd()))
-        .join("\n");
-      issues.push({
-        autoFixable: false,
-        type: "lint",
-        message: `${eslintManualCount} ESLint issue${eslintManualCount === 1 ? "" : "s"} needing manual fixes`,
-        detail: manualDetail,
-      });
-    }
+  if (eslintFixableCount > 0) {
+    issues.push({
+      autoFixable: true,
+      type: "lint",
+      message: `${eslintFixableCount} auto-fixable ESLint issue${eslintFixableCount === 1 ? "" : "s"} found`,
+    });
+  }
 
-    if (eslintIssueCount === 0 && (eslintResult.status || 0) > 1) {
-      issues.push({
-        autoFixable: false,
-        type: "lint",
-        message: "ESLint failed before reporting any file issues",
-        detail: "Check ESLint install and project config",
-      });
-    }
+  if (eslintManualCount > 0) {
+    issues.push({
+      autoFixable: false,
+      type: "lint",
+      message: `${eslintManualCount} ESLint issue${eslintManualCount === 1 ? "" : "s"} needing manual fixes`,
+      detail: eslintManualDetail,
+    });
+  }
+
+  if (eslintFailedWithoutIssues) {
+    issues.push({
+      autoFixable: false,
+      type: "lint",
+      message: "ESLint failed before reporting any file issues",
+      detail: "Check ESLint install and project config",
+    });
   }
 }
 
@@ -680,6 +792,11 @@ jsonOutput.addCheck({
     status: eslintResult?.status ?? null,
     signal: eslintResult?.signal ?? null,
     outcome: eslintOutcome,
+    batchCount: eslintResult?.batchCount ?? 0,
+    plannedBatchCount: eslintResult?.plannedBatchCount ?? 0,
+    batchOutcomes: (eslintResult?.batchResults ?? []).map(
+      ({ outcome, status, signal }) => ({ outcome, status, signal }),
+    ),
   },
 });
 
@@ -694,32 +811,31 @@ if (processDidNotComplete(prettierOutcome)) {
       timeoutSeconds: TOOL_TIMEOUT_MS / 1000,
     }),
   );
-} else {
-  const failed = prettierResult.status !== 0 && prettierResult.status !== 1;
-  const files =
-    prettierResult.status === 1
-      ? prettierResult.stdout
-          .split("\n")
-          .map((file) => file.trim())
-          .filter(Boolean)
-      : [];
-  if (failed) {
-    // A crash (parse error, broken install) is not a formatting issue:
-    // commit:fix cannot resolve it, so never present it as auto-fixable.
-    issues.push({
-      autoFixable: false,
-      type: "format",
-      message: "Prettier failed to complete",
-      detail: "Check Prettier install and project config",
-    });
-  } else if (files.length > 0) {
-    issues.push({
-      autoFixable: true,
-      type: "format",
-      message: `${files.length} file${files.length === 1 ? "" : "s"} need Prettier formatting`,
-      detail: files.join("\n"),
-    });
-  }
+}
+
+let prettierFailed = false;
+const prettierFiles = [];
+for (const batch of completedBatchResults(prettierResult)) {
+  const parsed = parsePrettierList(batch.status, batch.stdout);
+  prettierFailed ||= parsed.failed;
+  prettierFiles.push(...parsed.files);
+}
+if (prettierFailed) {
+  // A crash (parse error, broken install) is not a formatting issue:
+  // commit:fix cannot resolve it, so never present it as auto-fixable.
+  issues.push({
+    autoFixable: false,
+    type: "format",
+    message: "Prettier failed to complete",
+    detail: "Check Prettier install and project config",
+  });
+} else if (prettierFiles.length > 0) {
+  issues.push({
+    autoFixable: true,
+    type: "format",
+    message: `${prettierFiles.length} file${prettierFiles.length === 1 ? "" : "s"} need Prettier formatting`,
+    detail: prettierFiles,
+  });
 }
 
 const formatIssues = issues.filter((issue) => issue.type === "format");
@@ -732,6 +848,11 @@ jsonOutput.addCheck({
     status: prettierResult.status,
     signal: prettierResult.signal,
     outcome: prettierOutcome,
+    batchCount: prettierResult.batchCount,
+    plannedBatchCount: prettierResult.plannedBatchCount,
+    batchOutcomes: prettierResult.batchResults.map(
+      ({ outcome, status, signal }) => ({ outcome, status, signal }),
+    ),
   },
 });
 
@@ -752,7 +873,7 @@ if (testRun) {
       autoFixable: false,
       type: "tests",
       message: `${stagedTests.length} staged test file${stagedTests.length === 1 ? "" : "s"} failing`,
-      detail: stagedTests.join("\n"),
+      detail: stagedTests,
     });
   }
 }
@@ -781,6 +902,11 @@ jsonOutput.addCheck({
     status: testRun?.status ?? null,
     signal: testRun?.signal ?? null,
     outcome: stagedTestOutcome,
+    batchCount: testRun?.batchCount ?? 0,
+    plannedBatchCount: testRun?.plannedBatchCount ?? 0,
+    batchOutcomes: (testRun?.batchResults ?? []).map(
+      ({ outcome, status, signal }) => ({ outcome, status, signal }),
+    ),
   },
 });
 

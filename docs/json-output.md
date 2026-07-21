@@ -3,8 +3,8 @@
 `precommit` and `prepush` support an opt-in, machine-readable result:
 
 ```bash
-npx commitment-issues precommit --json
-npx commitment-issues prepush --json
+npx --no-install commitment-issues precommit --json
+npx --no-install commitment-issues prepush --json
 ```
 
 These are the only commands with a JSON contract. Without `--json`, every
@@ -17,7 +17,14 @@ JSON mode writes exactly one JSON document followed by a newline to stdout. It
 does not render terminal boxes or progress lines there. Pre-push test-runner
 output can be arbitrarily large and tool-specific, so it is relayed to stderr
 and summarized in the payload instead. Configuration warnings become entries
-in `diagnostics`.
+in `diagnostics`. A pre-commit JSON run also leaves the once-per-clone welcome
+unconsumed; the next eligible human-readable run can still display it.
+
+Repository-controlled strings remain semantically exact. `JSON.stringify`
+applies standard JSON escaping to control characters, but parsing the payload
+restores the original filename, ref, configuration value, or diagnostic. The
+visible `\\r`, `\\n`, `\\t`, and `\\xNN` notation used by human terminal output
+is not written into these fields.
 
 The normative version 1 definition is
 [`json-output.schema.json`](json-output.schema.json). Every payload contains:

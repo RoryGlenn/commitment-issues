@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { countTerminalBoxes } from "./helpers/output.mjs";
+import { countTerminalBoxes, stripAnsi } from "./helpers/output.mjs";
 import {
   addBareRemote,
   cleanupTempRepo,
@@ -17,9 +17,10 @@ import {
   writeFile,
 } from "./helpers/temp-repo.mjs";
 
-function runPrePush(tempDir, input = "") {
+function runPrePush(tempDir, input = "", options = {}) {
   return run("node", [path.join(tempDir, "scripts", "prepush.mjs")], tempDir, {
     input,
+    ...options,
   });
 }
 
@@ -208,6 +209,37 @@ test("runs a test left behind by a renamed source file", (t) => {
   assert.match(output, /ERR_MODULE_NOT_FOUND|Cannot find module/);
 });
 
+test("runs a failing test when its source and test are renamed together", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+  run("git", ["mv", "src/widget.mjs", "src/renamed-widget.mjs"], tempDir);
+  run(
+    "git",
+    ["mv", "src/widget.test.mjs", "src/renamed-widget.test.mjs"],
+    tempDir,
+  );
+  writeFile(
+    path.join(tempDir, "src", "renamed-widget.test.mjs"),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'import { widget } from "./renamed-widget.mjs";\n' +
+      'test("renamed widget", () => assert.equal(widget(), 2));\n',
+  );
+  run("git", ["add", "src"], tempDir);
+  run("git", ["commit", "-m", "rename widget and test"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /renamed-widget\.test\.mjs/);
+  assert.match(output, /1 !== 2|Expected values to be strictly equal/);
+});
+
 test("runs only the pushed files' tests and blocks on failure", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -243,6 +275,72 @@ test("allows the push and shows a summary when associated tests pass", (t) => {
   assert.match(output, /Push allowed with 1 warning/);
   assert.match(output, /protected branch "main"/);
   assert.equal(countTerminalBoxes(output), 1);
+});
+
+test("pre-push does not reuse or delete a predictable TAP path", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+  commitWidget(tempDir, 1);
+
+  const recordPath = path.join(tempDir, "tap-collision-path.txt");
+  const preloadPath = path.join(tempDir, "tap-collision-preload.cjs");
+  writeFile(
+    preloadPath,
+    `const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+if (String(process.argv[1] || "").endsWith("prepush.mjs")) {
+  const collision = path.join(os.tmpdir(), "prepush-tap-" + process.pid + ".tap");
+  fs.writeFileSync(collision, "do not touch\\n");
+  fs.writeFileSync(process.env.TAP_COLLISION_RECORD, collision);
+}
+`,
+  );
+
+  const result = runPrePush(tempDir, pushInput(tempDir), {
+    env: {
+      ...process.env,
+      NODE_OPTIONS: `--require=${preloadPath}`,
+      TAP_COLLISION_RECORD: recordPath,
+    },
+  });
+  assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  const collisionPath = fs.readFileSync(recordPath, "utf8");
+  t.after(() => fs.rmSync(collisionPath, { force: true }));
+
+  assert.equal(fs.readFileSync(collisionPath, "utf8"), "do not touch\n");
+});
+
+test("default pushed Node tests treat option-like paths as files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setConfig(tempDir, {
+    blockPushOnTestFailure: true,
+    protectedBranches: [],
+  });
+
+  const sourceFile = "--test-name-pattern=never.mjs";
+  const testFile = "--test-name-pattern=never.test.mjs";
+  writeFile(path.join(tempDir, sourceFile), "export const value = 1;\n");
+  writeFile(
+    path.join(tempDir, testFile),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'test("option-like path executes", () => assert.fail("sentinel"));\n',
+  );
+  run("git", ["add", "--", sourceFile, testFile], tempDir);
+  run("git", ["commit", "-m", "add option-like test path"], tempDir);
+
+  const result = runPrePush(tempDir, pushInput(tempDir));
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 1);
+  assert.match(output, /Push blocked: tests failed/);
+  assert.match(output, /option-like path executes/);
 });
 
 test("problems-only suppresses a successful final box after tests run", (t) => {
@@ -594,6 +692,30 @@ test("blocks the push when the pushed-files diff cannot be computed", (t) => {
 
   assert.equal(result.status, 1);
   assert.match(output, /Push blocked: could not inspect pushed files/);
+});
+
+test("escapes controls in captured Git diagnostics", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setConfig(tempDir, { blockPushOnTestFailure: true });
+  commitWidget(tempDir, 1);
+
+  const diagnostic = "git failed\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m";
+  const env = fakeGitEnv(tempDir, "--name-status -z", 1, "", diagnostic);
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "prepush.mjs")],
+    tempDir,
+    { input: pushInput(tempDir), env },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+  const visibleOutput = stripAnsi(output);
+
+  assert.equal(result.status, 1);
+  assert.match(visibleOutput, /git failed\\rFAKE SUCCESS\\n\\t\\x08RED/);
+  assert.doesNotMatch(visibleOutput, /\r|\t|\x08|\u001b/);
+  assert.doesNotMatch(output, /FAKE SUCCESS.*\u001b\[31mRED/s);
 });
 
 test("blocks the push when Git returns malformed name-status output", (t) => {

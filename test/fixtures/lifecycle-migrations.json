@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "package": {
+    "name": "commitment-issues",
+    "bin": "scripts/cli.mjs"
+  },
+  "fixtures": [
+    {
+      "id": "husky-era",
+      "version": "2.5.1",
+      "url": "https://github.com/RoryGlenn/commitment-issues/releases/download/v2.5.1/commitment-issues-2.5.1.tgz",
+      "filename": "commitment-issues-2.5.1.tgz",
+      "size": 1442533,
+      "sha256": "8e05556ce9cc4952596636eb46bb6f739253d70174ff70c27bda274eb014ad4f",
+      "kind": "husky"
+    },
+    {
+      "id": "previous-minor",
+      "version": "3.2.0",
+      "url": "https://github.com/RoryGlenn/commitment-issues/releases/download/v3.2.0/commitment-issues-3.2.0.tgz",
+      "filename": "commitment-issues-3.2.0.tgz",
+      "size": 1492441,
+      "sha256": "51ca6491be160098c7a152c6e6a8c76dcdd01f7bbcead06c938f06e513fa4134",
+      "kind": "native"
+    },
+    {
+      "id": "latest-published",
+      "version": "3.3.2",
+      "url": "https://github.com/RoryGlenn/commitment-issues/releases/download/v3.3.2/commitment-issues-3.3.2.tgz",
+      "filename": "commitment-issues-3.3.2.tgz",
+      "size": 168731,
+      "sha256": "01cbf76a27b0bc82d4334021a067fcd34ad7a62aa0ec9c6044efe78c5932551e",
+      "kind": "native"
+    }
+  ]
+}

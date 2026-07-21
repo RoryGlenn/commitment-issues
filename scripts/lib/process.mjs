@@ -15,6 +15,133 @@ export const TOOL_TIMEOUT_MS =
     ? configuredTimeout
     : 120000;
 
+// Keep argv comfortably below the launchers supported by the project. Windows
+// uses UTF-16 command-line units and must leave room for cross-spawn's `.cmd`
+// wrapper; POSIX uses UTF-8 bytes and leaves ample room for the environment
+// below the supported hosts' execve limits. These are argument budgets, not
+// file-count limits: path length and configured options determine batch size.
+export const WINDOWS_ARGUMENT_BUDGET_UNITS = 6_000;
+export const POSIX_ARGUMENT_BUDGET_BYTES = 24_000;
+
+/**
+ * Conservative argument budget for one supported-platform process launch.
+ * @param {NodeJS.Platform} [platform] - Platform whose launcher is targeted.
+ * @returns {number} UTF-16 units on Windows, UTF-8 bytes elsewhere.
+ */
+export function processArgumentBudget(platform = process.platform) {
+  return platform === "win32"
+    ? WINDOWS_ARGUMENT_BUDGET_UNITS
+    : POSIX_ARGUMENT_BUDGET_BYTES;
+}
+
+/**
+ * Estimate one no-shell command's argument pressure in platform-native units.
+ * Windows doubles content as a safety allowance for quotes, backslashes, and
+ * cross-spawn metacharacter escaping. POSIX counts each UTF-8 argv string and
+ * its terminating NUL.
+ * @param {string} command - Executable path/name.
+ * @param {string[]} args - Arguments passed to the executable.
+ * @param {NodeJS.Platform} [platform] - Platform whose launcher is targeted.
+ * @returns {number} Conservative command units.
+ */
+export function estimatedProcessArgumentUnits(
+  command,
+  args,
+  platform = process.platform,
+) {
+  const values = [command, ...args];
+  if (platform === "win32") {
+    return values.reduce(
+      (total, value, index) =>
+        total + String(value).length * 2 + 2 + (index === 0 ? 0 : 1),
+      0,
+    );
+  }
+  return values.reduce(
+    (total, value) => total + Buffer.byteLength(String(value), "utf8") + 1,
+    0,
+  );
+}
+
+/**
+ * Partition variable argument items without exceeding one platform budget.
+ * Fixed arguments are present in every batch; one item may expand to multiple
+ * argv entries through `itemArguments`.
+ * @template T
+ * @param {string} command - Executable path/name.
+ * @param {string[]} fixedArgs - Arguments repeated for every batch.
+ * @param {T[]} items - Variable items to partition.
+ * @param {object} [options] - Platform, budget, and item mapping.
+ * @param {NodeJS.Platform} [options.platform] - Target platform.
+ * @param {number} [options.budget] - Override used by deterministic tests.
+ * @param {(item: T) => string[]} [options.itemArguments] - Item-to-argv mapping.
+ * @returns {Array<{args: string[], items: T[], estimatedUnits: number}>} Batches.
+ */
+export function batchProcessArguments(
+  command,
+  fixedArgs,
+  items,
+  {
+    platform = process.platform,
+    budget = processArgumentBudget(platform),
+    itemArguments = (item) => [String(item)],
+  } = {},
+) {
+  const fixedUnits = estimatedProcessArgumentUnits(
+    command,
+    fixedArgs,
+    platform,
+  );
+  if (!Number.isFinite(budget) || budget <= 0 || fixedUnits > budget) {
+    const error = new RangeError(
+      `Fixed process arguments require ${fixedUnits} units but the budget is ${budget}`,
+    );
+    error.code = "ERR_ARGUMENT_BUDGET";
+    throw error;
+  }
+
+  const batches = [];
+  let batchArgs = [...fixedArgs];
+  let batchItems = [];
+  let batchUnits = fixedUnits;
+
+  for (const item of items) {
+    const variableArgs = itemArguments(item).map(String);
+    const itemUnits =
+      estimatedProcessArgumentUnits(command, variableArgs, platform) -
+      estimatedProcessArgumentUnits(command, [], platform);
+    if (fixedUnits + itemUnits > budget) {
+      const error = new RangeError(
+        `One process argument item requires ${fixedUnits + itemUnits} units but the budget is ${budget}`,
+      );
+      error.code = "ERR_ARGUMENT_BUDGET";
+      throw error;
+    }
+    if (batchItems.length > 0 && batchUnits + itemUnits > budget) {
+      batches.push({
+        args: batchArgs,
+        items: batchItems,
+        estimatedUnits: batchUnits,
+      });
+      batchArgs = [...fixedArgs];
+      batchItems = [];
+      batchUnits = fixedUnits;
+    }
+    batchArgs.push(...variableArgs);
+    batchItems.push(item);
+    batchUnits += itemUnits;
+  }
+
+  if (batchItems.length > 0) {
+    batches.push({
+      args: batchArgs,
+      items: batchItems,
+      estimatedUnits: batchUnits,
+    });
+  }
+  return batches;
+}
+
 /**
  * @typedef {"success" | "nonzero" | "signal" | "timeout" | "spawn-error" | "missing-tool"} ProcessOutcome
  */
@@ -73,6 +200,50 @@ export function run(command, args, options = {}) {
       ...options,
     }),
   );
+}
+
+// Repository-local variables reported by `git rev-parse --local-env-vars`.
+// Git exports these to hooks so Git subprocesses keep targeting the caller's
+// repository even after changing cwd. That is useful for hook plumbing but
+// unsafe for project test suites that create disposable repositories.
+const GIT_LOCAL_ENVIRONMENT_VARIABLES = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+];
+
+/**
+ * Copy an environment without Git's repository-local routing variables.
+ * Commands launched from the repository root can rediscover the same checkout
+ * by cwd, while nested Git fixtures remain isolated from the hook's caller.
+ * @param {NodeJS.ProcessEnv} [environment] - Source environment.
+ * @returns {NodeJS.ProcessEnv} Sanitized copy.
+ */
+export function withoutGitLocalEnvironment(environment = process.env) {
+  const sanitized = { ...environment };
+  for (const variable of GIT_LOCAL_ENVIRONMENT_VARIABLES) {
+    delete sanitized[variable];
+  }
+  // GIT_CONFIG_COUNT is accompanied by a numbered key/value pair for each
+  // entry. Git does not list those generated names individually.
+  for (const variable of Object.keys(sanitized)) {
+    if (/^GIT_CONFIG_(?:KEY|VALUE)_\d+$/.test(variable)) {
+      delete sanitized[variable];
+    }
+  }
+  return sanitized;
 }
 
 /**
@@ -156,6 +327,63 @@ export function isPackageInstalled(name, cwd = process.cwd()) {
  */
 export function isToolInstalled(name, cwd = process.cwd()) {
   return resolveTool(name, cwd) !== null;
+}
+
+/**
+ * Whether a configured command invokes Node's built-in test runner.
+ * @param {string[]} command - Executable plus configured arguments.
+ * @returns {boolean} True for node/node.exe commands containing --test.
+ */
+export function isNodeTestCommand(command) {
+  return (
+    Array.isArray(command) &&
+    /(^|[/\\])node(\.exe)?$/i.test(command[0] || "") &&
+    command.includes("--test")
+  );
+}
+
+/**
+ * Split Node test-runner arguments into the fixed options repeated per batch
+ * and the configured/discovered positional arguments that may be partitioned.
+ * Discovered paths beginning with `-` become absolute because Node can still
+ * interpret a leading-hyphen relative pathname after `--` as an option.
+ * @param {string[]} command - Node executable plus configured arguments.
+ * @param {string[]} files - Discovered test paths.
+ * @param {string[]} [injectedOptions] - Additional Node options.
+ * @returns {{fixedArgs: string[], fileArgs: string[]}} Batchable arguments.
+ */
+export function nodeTestArgumentParts(command, files, injectedOptions = []) {
+  const configured = command.slice(1);
+  const separator = configured.indexOf("--");
+  const options =
+    separator === -1 ? configured : configured.slice(0, separator);
+  const positionals = separator === -1 ? [] : configured.slice(separator + 1);
+  // Node's test runner can still mis-handle a leading-hyphen relative pathname
+  // after `--`; an absolute path is unambiguously positional on every platform.
+  const safeFiles = files.map((file) =>
+    file.startsWith("-") ? path.resolve(file) : file,
+  );
+  return {
+    fixedArgs: [...options, ...injectedOptions, "--"],
+    fileArgs: [...positionals, ...safeFiles],
+  };
+}
+
+/**
+ * Build Node test-runner arguments with discovered paths behind `--`. An
+ * existing separator is normalized so injected options remain before it.
+ * @param {string[]} command - Node executable plus configured arguments.
+ * @param {string[]} files - Discovered test paths.
+ * @param {string[]} [injectedOptions] - Additional Node options.
+ * @returns {string[]} Arguments excluding the Node executable.
+ */
+export function nodeTestArguments(command, files, injectedOptions = []) {
+  const { fixedArgs, fileArgs } = nodeTestArgumentParts(
+    command,
+    files,
+    injectedOptions,
+  );
+  return [...fixedArgs, ...fileArgs];
 }
 
 /**
@@ -331,6 +559,139 @@ export function spawnAsync(command, args, options = {}) {
   });
 }
 
+const PROCESS_INTERRUPTION_OUTCOMES = new Set([
+  "timeout",
+  "spawn-error",
+  "signal",
+  "missing-tool",
+]);
+
+function aggregateBatchResults(batchResults, plannedBatchCount) {
+  const interruption = batchResults.find((result) =>
+    PROCESS_INTERRUPTION_OUTCOMES.has(result.outcome),
+  );
+  const nonzero = batchResults.find((result) => result.outcome === "nonzero");
+  const representative =
+    interruption ||
+    nonzero ||
+    batchResults.at(-1) ||
+    withOutcome({
+      error: undefined,
+      status: 0,
+      signal: null,
+      stdout: "",
+      stderr: "",
+    });
+  return {
+    ...representative,
+    stdout: batchResults.map((result) => result.stdout || "").join(""),
+    stderr: batchResults.map((result) => result.stderr || "").join(""),
+    batchResults,
+    batchCount: batchResults.length,
+    plannedBatchCount,
+  };
+}
+
+/**
+ * Run pre-planned argument batches sequentially under one overall deadline.
+ * Non-zero batches do not hide later findings; launch interruptions stop the
+ * sequence. Optional callbacks support per-batch reporter setup/collection and
+ * are included in the same deadline.
+ * @param {string} command - Executable path/name.
+ * @param {Array<{args: string[]}>} batches - Planned argument batches.
+ * @param {object} [options] - spawn options plus batch callbacks.
+ * @param {(batch: {args: string[]}, index: number) => void|Promise<void>} [options.beforeBatch] - Pre-spawn callback.
+ * @param {(result: object, batch: {args: string[]}, index: number) => void|Promise<void>} [options.afterBatch] - Post-spawn callback.
+ * @returns {Promise<object & {outcome: ProcessOutcome, batchResults: object[], batchCount: number, plannedBatchCount: number}>} Aggregate result.
+ */
+export async function spawnArgumentBatches(command, batches, options = {}) {
+  const {
+    beforeBatch,
+    afterBatch,
+    timeoutMs = TOOL_TIMEOUT_MS,
+    ...spawnOptions
+  } = options;
+  const startedAt = Date.now();
+  const batchResults = [];
+
+  for (let index = 0; index < batches.length; index += 1) {
+    const batch = batches[index];
+    if (beforeBatch) {
+      await beforeBatch(batch, index);
+    }
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    let result;
+    if (remainingMs <= 0) {
+      result = withOutcome({
+        error: undefined,
+        status: null,
+        signal: null,
+        stdout: "",
+        stderr: "",
+        timedOut: true,
+      });
+    } else {
+      result = await spawnAsync(command, batch.args, {
+        ...spawnOptions,
+        timeoutMs: remainingMs,
+      });
+    }
+    batchResults.push(result);
+    if (afterBatch) {
+      await afterBatch(result, batch, index);
+    }
+    if (PROCESS_INTERRUPTION_OUTCOMES.has(result.outcome)) {
+      break;
+    }
+  }
+
+  return aggregateBatchResults(batchResults, batches.length);
+}
+
+/**
+ * Plan and run a no-shell command's variable arguments in bounded batches.
+ * Planning failures become structured spawn errors so hooks can retain their
+ * configured blocking/advisory posture instead of crashing.
+ * @template T
+ * @param {string} command - Executable path/name.
+ * @param {string[]} fixedArgs - Arguments repeated for every batch.
+ * @param {T[]} items - Variable items to partition.
+ * @param {object} [options] - Batch policy, callbacks, and spawn options.
+ * @returns {Promise<object & {outcome: ProcessOutcome}>} Aggregate result.
+ */
+export function runBatchedCommand(command, fixedArgs, items, options = {}) {
+  const {
+    platform = process.platform,
+    budget = processArgumentBudget(platform),
+    itemArguments,
+    ...spawnOptions
+  } = options;
+  let batches;
+  try {
+    batches = batchProcessArguments(command, fixedArgs, items, {
+      platform,
+      budget,
+      ...(itemArguments ? { itemArguments } : {}),
+    });
+  } catch (error) {
+    return Promise.resolve(
+      aggregateBatchResults(
+        [
+          withOutcome({
+            error,
+            status: null,
+            signal: null,
+            stdout: "",
+            stderr: "",
+          }),
+        ],
+        0,
+      ),
+    );
+  }
+  return spawnArgumentBatches(command, batches, spawnOptions);
+}
+
 /**
  * Run a project-local peer tool with the standard timeout and structured result.
  * Missing tools return immediately; they are never delegated to npx.
@@ -354,4 +715,40 @@ export function runTool(name, args, options = {}) {
     );
   }
   return spawnAsync(invocation.command, invocation.args, options);
+}
+
+/**
+ * Run a project-local peer tool over bounded batches of variable arguments.
+ * The resolved Node executable and tool-bin path both count against the budget.
+ * @template T
+ * @param {string} name - Package/bin name.
+ * @param {string[]} fixedArgs - Tool arguments repeated for every batch.
+ * @param {T[]} items - Variable items to partition.
+ * @param {object} [options] - Batch policy and spawn options.
+ * @returns {Promise<object & {outcome: ProcessOutcome}>} Aggregate result.
+ */
+export function runToolBatches(name, fixedArgs, items, options = {}) {
+  const invocation = toolInvocation(
+    name,
+    fixedArgs,
+    options.cwd ?? process.cwd(),
+  );
+  if (invocation.missingTool) {
+    return Promise.resolve(
+      aggregateBatchResults(
+        [
+          withOutcome({
+            missingTool: name,
+            error: undefined,
+            status: null,
+            signal: null,
+            stdout: "",
+            stderr: "",
+          }),
+        ],
+        0,
+      ),
+    );
+  }
+  return runBatchedCommand(invocation.command, invocation.args, items, options);
 }

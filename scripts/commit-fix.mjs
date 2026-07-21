@@ -5,6 +5,7 @@ import pc from "picocolors";
 import { errorBox, infoBox, successBox, warningBox } from "./lib/ui.mjs";
 import { run, runTool, spawnAsync } from "./lib/process.mjs";
 import { devInstallCommand } from "./lib/package-manager.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 import {
   codeFilePattern,
   formatFilePattern,
@@ -99,7 +100,7 @@ if (dirtyTrackedFiles.length > 0) {
     "",
     pc.dim("Commit, stash, or discard tracked changes first:"),
     "",
-    `  ${shortFileList(dirtyTrackedFiles)}`,
+    `  ${escapeTerminalText(shortFileList(dirtyTrackedFiles))}`,
   ]);
   process.exit(1);
 }
@@ -228,8 +229,10 @@ if (formatOnlyFiles.length > 0) {
 if (missingTools.size > 0) {
   const missingToolList = [...missingTools];
   console.error(
-    `commitment-issues: missing local tool(s): ${missingToolList.join(", ")} — ` +
-      `install with \`${devInstallCommand(missingToolList)}\`.`,
+    escapeTerminalText(
+      `commitment-issues: missing local tool(s): ${missingToolList.join(", ")} — ` +
+        `install with \`${devInstallCommand(missingToolList)}\`.`,
+    ),
   );
 }
 
@@ -290,7 +293,7 @@ if (changedFiles.length === 0) {
     pc.dim(
       `Checked ${fixableFiles.length} file${fixableFiles.length === 1 ? "" : "s"} from the latest commit.`,
     ),
-    pc.dim(shortFileList(fixableFiles)),
+    pc.dim(escapeTerminalText(shortFileList(fixableFiles))),
   ]);
   process.exit(0);
 }
@@ -351,7 +354,7 @@ if (hasRemainingIssues) {
     pc.bold("Latest commit amended with available fixes."),
     "",
     pc.dim("Some issues still need manual attention."),
-    pc.dim(`Updated files: ${shortFileList(changedFiles)}`),
+    pc.dim(`Updated files: ${escapeTerminalText(shortFileList(changedFiles))}`),
   ]);
   process.exit(1);
 }
@@ -362,7 +365,7 @@ successBox([
   pc.dim(
     `Updated ${changedFiles.length} file${changedFiles.length === 1 ? "" : "s"} from the latest commit.`,
   ),
-  pc.dim(shortFileList(changedFiles)),
+  pc.dim(escapeTerminalText(shortFileList(changedFiles))),
 ]);
 
 process.exit(0);

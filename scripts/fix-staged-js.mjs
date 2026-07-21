@@ -3,6 +3,7 @@
 
 import { runTool } from "./lib/process.mjs";
 import { devInstallCommand } from "./lib/package-manager.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 const files = process.argv.slice(2).filter(Boolean);
 
@@ -50,8 +51,10 @@ recordToolResult(prettierResult);
 
 if (missingTools.length > 0) {
   console.error(
-    `commitment-issues: missing local tool(s): ${missingTools.join(", ")} — ` +
-      `install with \`${devInstallCommand(missingTools)}\`.`,
+    escapeTerminalText(
+      `commitment-issues: missing local tool(s): ${missingTools.join(", ")} — ` +
+        `install with \`${devInstallCommand(missingTools)}\`.`,
+    ),
   );
 }
 

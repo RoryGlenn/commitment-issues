@@ -129,7 +129,10 @@ test("requireTests:false disables the missing-test check", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { requireTests: false };
+  pkg.precommitChecks = {
+    requireTests: false,
+    showWelcomeOnFirstCommit: false,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -403,7 +406,10 @@ test("honors package.json precommitChecks.testExempt globs", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { testExempt: ["src/legacy/**"] };
+  pkg.precommitChecks = {
+    showWelcomeOnFirstCommit: false,
+    testExempt: ["src/legacy/**"],
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -485,7 +491,10 @@ test("runs staged tests and warns when they fail (opt-in)", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { runStagedTests: true };
+  pkg.precommitChecks = {
+    runStagedTests: true,
+    showWelcomeOnFirstCommit: false,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -510,7 +519,10 @@ test("runs staged tests and stays clean when they pass (opt-in)", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
 
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = { runStagedTests: true };
+  pkg.precommitChecks = {
+    runStagedTests: true,
+    showWelcomeOnFirstCommit: false,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -526,6 +538,31 @@ test("runs staged tests and stays clean when they pass (opt-in)", (t) => {
   const output = `${result.stdout}${result.stderr}`;
 
   assert.doesNotMatch(output, /failing/);
+});
+
+test("default staged Node tests treat option-like paths as files", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    requireTests: false,
+    runStagedTests: true,
+    protectedBranches: [],
+  });
+  const testFile = "--test-name-pattern=never.test.mjs";
+  writeFile(
+    path.join(tempDir, testFile),
+    'import test from "node:test";\n' +
+      'import assert from "node:assert/strict";\n' +
+      'test("option-like path executes", () => assert.fail("sentinel"));\n',
+  );
+  run("git", ["add", "--", testFile], tempDir);
+
+  const result = runHook(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /1 staged test file failing/);
 });
 
 test("continues (exit 0) when staged files cannot be inspected", (t) => {
@@ -616,8 +653,8 @@ test("missing peer tools stay advisory and never fall back to npx", (t) => {
   assert.equal(result.status, 0);
   assert.match(output, /ESLint is not installed locally/);
   assert.match(output, /Prettier is not installed locally/);
-  assert.match(output, /pnpm add -D eslint/);
-  assert.match(output, /pnpm add -D prettier/);
+  assert.match(output, /pnpm add -D eslint@\^9/);
+  assert.match(output, /pnpm add -D prettier@\^3/);
   assert.doesNotMatch(output, /Unable to run (ESLint|Prettier)/);
   assert.equal(fs.existsSync(marker), false);
 });
@@ -895,6 +932,54 @@ test("pluralizes formatting issues across multiple files", (t) => {
     `${result.stdout}${result.stderr}`,
     /2 files with formatting issues/,
   );
+});
+
+test("aggregates ESLint and Prettier findings across argument batches", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    requireTests: false,
+    protectedBranches: [],
+  });
+  const fileCount = 240;
+  for (let index = 0; index < fileCount; index += 1) {
+    const name = `batch-${String(index).padStart(3, "0")}-${"x".repeat(105)}.js`;
+    writeFile(
+      path.join(tempDir, "src", "batched", name),
+      `const unused${index}=${index}\n`,
+    );
+  }
+  run("git", ["add", "src/batched"], tempDir);
+
+  const result = run(
+    "node",
+    [path.join(tempDir, "scripts", "precommit.mjs"), "--json"],
+    tempDir,
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  const eslint = payload.checks.find((check) => check.id === "eslint");
+  const prettier = payload.checks.find((check) => check.id === "prettier");
+
+  assert.ok(eslint.details.plannedBatchCount > 1);
+  assert.equal(eslint.details.batchCount, eslint.details.plannedBatchCount);
+  assert.equal(eslint.details.outcome, "nonzero");
+  assert.ok(
+    eslint.details.batchOutcomes.every(
+      (batch) => batch.outcome === "nonzero" && batch.status === 1,
+    ),
+  );
+  assert.ok(prettier.details.plannedBatchCount > 1);
+  assert.equal(prettier.details.batchCount, prettier.details.plannedBatchCount);
+  assert.equal(prettier.details.outcome, "nonzero");
+  assert.ok(
+    prettier.details.batchOutcomes.every(
+      (batch) => batch.outcome === "nonzero" && batch.status === 1,
+    ),
+  );
+  assert.match(JSON.stringify(payload.findings), /240 ESLint issues/u);
+  assert.match(JSON.stringify(payload.findings), /240 files need Prettier/u);
 });
 
 test(

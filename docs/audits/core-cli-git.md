@@ -57,7 +57,7 @@ color-aware, and absent from the public command list.
 | Empty and unborn repositories                       | First-commit protected-branch enforcement is covered by `test/commit-guards-integration.test.mjs`; missing-commit fix behavior is covered by `test/commit-fix.test.mjs`.                                                                            |
 | Detached HEAD                                       | Intentionally does not match a protected branch because no branch is named; every non-branch guard continues. Integration coverage: `test/commit-guards-integration.test.mjs`.                                                                      |
 | Bare repositories                                   | Setup and doctor never claim local commit/push hooks are active; uninstall avoids hook inspection. `test/init.test.mjs`, `test/doctor.test.mjs`, `test/uninstall.test.mjs`.                                                                         |
-| Linked worktrees                                    | Hooks resolve through Git's common directory and packed lifecycle repair works from the linked checkout. `test/hooks.test.mjs`, `test/doctor.test.mjs`, `scripts/ci-lifecycle-smoke.mjs`.                                                           |
+| Linked worktrees                                    | Hooks resolve through Git's common directory and packed lifecycle repair works from the linked checkout. `test/hooks.test.mjs`, `test/doctor.test.mjs`, `test/integration/helpers/lifecycle-fixture.mjs`.                                           |
 | Submodules                                          | Setup resolves and writes only the submodule's own Git common hook directory. `test/repository-shapes.test.mjs`.                                                                                                                                    |
 | Shallow clones                                      | Setup installs native hooks without requiring deep history. `test/repository-shapes.test.mjs`.                                                                                                                                                      |
 | Missing or multiple remotes                         | First-push base inference accepts only an unambiguous remote and falls back safely otherwise. `test/push-base.test.mjs`, `test/prepush.test.mjs`.                                                                                                   |
@@ -84,11 +84,12 @@ Every tracked file is assigned to one of these audit groups:
 - **Behavior presentation consumed by entrypoints:** `scripts/lib/message.mjs`,
   `ui.mjs`, `json-output.mjs`, and `logo.mjs`. Styling-specific review belongs
   to #133; this audit verifies their exit/severity integration only.
-- **Lifecycle harnesses:** `scripts/ci-lifecycle-smoke.mjs`,
-  `run-lifecycle-test.mjs`, and `test/integration/`.
+- **Lifecycle integration:** `test/integration/helpers/lifecycle-fixture.mjs`,
+  `scripts/run-lifecycle-test.mjs`, and `test/integration/`.
 - **Regression evidence:** every `test/*.test.mjs`, `test/*.test.js`, and
-  `test/helpers/` file is mapped in `docs/scenario-coverage.md`; security-depth
-  review continues in #131 and test-quality review continues in #132.
+  `test/helpers/` or `test/integration/helpers/` file is mapped in
+  `docs/scenario-coverage.md`; security-depth review continues in #131 and
+  test-quality review continues in #132.
 - **User-visible behavior documentation:** README, CHANGELOG, configuration,
   external-interface, how-it-works, message-state, migration, monorepo,
   security, troubleshooting/FAQ, and scenario-coverage documents.

@@ -9,18 +9,28 @@ This package uses the built-in Node test runner only — `node:test` + `node:ass
 
 ## Commands
 
-| Goal                          | Command                                                             |
-| ----------------------------- | ------------------------------------------------------------------- |
-| Run everything                | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)         |
-| Run one file                  | `node --test test/precommit.test.mjs`                               |
-| Runtime coverage gate         | `npm run test:coverage` (100% lines, branches, and functions)       |
-| Reproduce CI locally          | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below) |
-| Package lifecycle integration | `npm run test:lifecycle:npm` (also `:pnpm`, `:yarn`, `:bun`)        |
+| Goal                          | Command                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| Run everything                | `npm test` (= `node --test test/*.test.mjs test/*.test.js`)                 |
+| Run one file                  | `node --test test/precommit.test.mjs`                                       |
+| Runtime coverage gate         | `npm run test:coverage` (100% lines, branches, and functions)               |
+| Reproduce CI locally          | prefix any test command with `COMMITMENT_ISSUES=0` (see trap below)         |
+| Package lifecycle integration | `npm run test:lifecycle:npm` (also `:pnpm`, `:yarn`, `:yarn-berry`, `:bun`) |
+| Shell compatibility lifecycle | `npm run test:shell-compat -- sh` (also platform-native targets)            |
+| Bounded hook benchmark        | `npm run benchmark:hooks -- --tier large --enforce-budgets`                 |
 
-## The two kinds of code, and how each is tested
+The normal suite runs the benchmark's `smoke` tier for correctness without
+asserting time. Use the explicit `large` tier on a controlled host for changes
+to discovery, process execution, output size, or path argv construction, and
+the `argv-pressure` tier for Windows/batching work. Record machine details and
+results; do not add wall-clock assertions to normal CI. The tier definitions,
+budgets, and baseline live in [`docs/performance.md`](../../../docs/performance.md).
+
+## The three kinds of code, and how each is tested
 
 1. **Helper modules** (`scripts/lib/*.mjs`) are pure and side-effect-light. **Unit-test them in-process** with a direct `import`. Easy to cover.
-2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-msg`, `commit-fix`, `fix-staged`, `fix-staged-js`, `ci-lifecycle-smoke`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
+2. **Entry scripts** (`cli`, `init`, `doctor`, `precommit`, `prepush`, `commit-msg`, `commit-fix`, `fix-staged`, `fix-staged-js`) run top-level code and call `process.exit`. They **cannot** be imported cleanly, so they are tested by **spawning a subprocess** inside a temporary git repo via the helpers. Assert on `result.stdout`, `result.stderr`, and `result.status`.
+3. **Stateful package integration fixtures** live under `test/integration/helpers/` and are imported by nested `node:test` suites. Keep one shared disposable state when later behavior depends on earlier setup, but expose each meaningful phase as a named child test so a failure identifies install, init, commit, push, repair, worktree, or uninstall directly. Keep the exact packed tarball and real Git hooks; do not replace integration evidence with mocked unit assertions.
 
 Typical subprocess test shape:
 
@@ -81,6 +91,12 @@ The fix already lives in `run()` inside the helper: it deletes `HUSKY` and `COMM
 | `REAL_GIT`, `repoRoot`                    | The real git path captured before any PATH override, and the repo root.                                                                                                                                                                          |
 
 All shim helpers are cross-platform (POSIX launcher + `.cmd`), so keep tests free of shell-specific and hard-coded-separator assumptions — CI runs on Ubuntu, macOS, and Windows.
+
+## Shell compatibility lifecycle
+
+`npm run test:shell-compat -- <target>` exercises the exact packed artifact through install, init, advisory commit, push to a local bare remote, doctor, and uninstall. Supported targets are `sh`, `bash`, `fish`, `zsh`, `powershell`, and `cmd`; each target must run on its native platform. CI owns the authoritative matrix across Linux, macOS, and Windows. Use `SHELL_COMPAT_TARBALL=/absolute/path/to/package.tgz` to reuse a previously packed candidate while debugging locally.
+
+The scenario deliberately constrains `PATH` for Git-hook invocations and uses paths containing spaces, Unicode, and shell metacharacters. Do not replace the argument-array process spawning with `shell: true`, interpolate fixture paths into shell source, or introduce registry/network access into the consumer install.
 
 ## Driving specific branches (patterns that already exist here)
 

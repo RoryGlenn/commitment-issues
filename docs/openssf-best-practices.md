@@ -145,5 +145,9 @@ Additional change-control and security signals:
 
 - If bestpractices.dev still shows `?`, copy the exact URL evidence from this
   page into the corresponding questionnaire field.
+- Keep the owner-managed public project description aligned with the current
+  native-hook architecture. The 2026-07-16 owner-authenticated correction is
+  recorded in [#199](https://github.com/RoryGlenn/commitment-issues/issues/199);
+  its public JSON read-back retained the Passing badge.
 - Some criteria require platform settings or contributor count changes outside
   this repository; those cannot be fully satisfied with docs alone.

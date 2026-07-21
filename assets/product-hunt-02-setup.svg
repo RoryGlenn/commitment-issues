@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1270" height="760" viewBox="0 0 1270 760" role="img" aria-labelledby="title desc">
+  <title id="title">Set up Commitment Issues in two commands</title>
+  <desc id="desc">Install Commitment Issues and run its setup command once. The next commit then receives helpful local checks.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#060a18"/>
+      <stop offset="0.58" stop-color="#10132b"/>
+      <stop offset="1" stop-color="#17102b"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5555"/>
+      <stop offset="1" stop-color="#ff7a67"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#000" flood-opacity="0.36"/>
+    </filter>
+    <style>
+      .sans { font-family: "DejaVu Sans", sans-serif; }
+      .mono { font-family: "DejaVu Sans Mono", monospace; }
+    </style>
+  </defs>
+  <rect width="1270" height="760" fill="url(#background)"/>
+  <circle cx="1180" cy="20" r="245" fill="#4e2d80" opacity="0.12"/>
+  <circle cx="40" cy="760" r="260" fill="#0d9488" opacity="0.08"/>
+  <g class="sans">
+    <text x="68" y="58" fill="#b8bed6" font-size="16" font-weight="800" letter-spacing="2.4">COMMITMENT</text>
+    <text x="220" y="58" fill="url(#brand)" font-size="16" font-weight="900" letter-spacing="2.4">ISSUES</text>
+    <text x="68" y="137" fill="#f8fafc" font-size="52" font-weight="900" letter-spacing="-1.3">Two commands. Then just commit.</text>
+    <text x="68" y="182" fill="#abb4cc" font-size="25" font-weight="600">Add it to your project and run setup once.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="68" y="232" width="1134" height="126" rx="22" fill="#11172a" stroke="#3b4567" stroke-width="2"/>
+    <rect x="68" y="382" width="1134" height="126" rx="22" fill="#11172a" stroke="#3b4567" stroke-width="2"/>
+  </g>
+  <g class="sans" text-anchor="middle">
+    <circle cx="125" cy="295" r="30" fill="#2b2140" stroke="#c86cff" stroke-width="2"/>
+    <text x="125" y="306" fill="#e7c9ff" font-size="28" font-weight="900">1</text>
+    <circle cx="125" cy="445" r="30" fill="#173432" stroke="#45e0cf" stroke-width="2"/>
+    <text x="125" y="456" fill="#a3f8ee" font-size="28" font-weight="900">2</text>
+  </g>
+  <g class="mono" font-size="27" font-weight="700">
+    <text x="180" y="306" fill="#f1f5f9" xml:space="preserve"><tspan fill="#8b93a9">$ </tspan>npm install -D commitment-issues eslint@^9 prettier@^3</text>
+    <text x="180" y="456" fill="#f1f5f9" xml:space="preserve"><tspan fill="#8b93a9">$ </tspan>npx --no-install commitment-issues init</text>
+  </g>
+
+  <rect x="68" y="548" width="1134" height="132" rx="24" fill="#102d2b" stroke="#2d8c82" stroke-width="2"/>
+  <circle cx="137" cy="614" r="34" fill="#173f3a" stroke="#45e0cf" stroke-width="3"/>
+  <path d="M119 614 L132 627 156 598" fill="none" stroke="#7af2e5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <g class="sans">
+    <text x="196" y="607" fill="#7af2e5" font-size="28" font-weight="900">SET UP</text>
+    <text x="196" y="645" fill="#d9fdfa" font-size="24" font-weight="650">Your next commit gets helpful checks.</text>
+  </g>
+  <text x="1168" y="716" class="sans" fill="#8f99b3" font-size="16" font-weight="800" text-anchor="end" letter-spacing="2">02 / 04</text>
+</svg>

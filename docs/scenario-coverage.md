@@ -22,6 +22,55 @@ production-readiness workstream #130 is consolidated in the
 
 ## Covered
 
+### Test strategy and coverage enforcement
+
+- **TEST-001** — every published runtime module has an explicit, existing test
+  owner that references it, and the ownership set exactly matches the
+  fail-closed coverage denominator. Unit/invariant: `test/test-quality.test.mjs`;
+  map: `docs/branch-coverage.md`.
+- **TEST-002** — the only coverage suppressions are the two documented
+  post-preflight filesystem races; new or enlarged suppressions fail the
+  inventory. Unit/invariant: `test/test-quality.test.mjs`.
+- **TEST-003** — deleted tests are not executed, while a deleted source, a
+  source-only rename, and a combined source+test rename cannot evade blocking
+  related-test selection. Real-Git fixture: `test/prepush.test.mjs`.
+- **TEST-004** — all 64 generated message-state assets are gallery-owned and
+  exactly reproducible in a private temporary directory. Unit/subprocess:
+  `test/visual-assets.test.mjs`.
+- **TEST-005** — the aggregate branch-protection gate succeeds only when DCO,
+  the complete OS/Node test and npm lifecycle graph, and the non-npm
+  package-manager lifecycle matrix each report explicit success. Every
+  complementary Windows test shard and the parallel npm lifecycle matrix must
+  succeed; skipped or incomplete results fail closed. Unit/invariant:
+  `test/test-quality.test.mjs`; CI: `.github/workflows/ci.yml`.
+- **TEST-006** — exact logo content and fresh-value behavior are directly
+  asserted rather than credited through incidental coverage. Unit:
+  `test/logo.test.mjs`.
+- **TEST-007** — Windows assigns the same top-level test-file set to the exact
+  native Node shard pair `1/2` and `2/2` on Node 22.11.0 and Node 24. The union
+  executes every test file exactly once on each Node line. The packed npm
+  lifecycle remains separate, while authoritative Ubuntu coverage stays
+  complete and unsharded. No test or lifecycle assertion is removed by the
+  split. Workflow/invariant: `test/ci-policy.test.mjs`,
+  `test/release-integrity.test.mjs`; CI: `.github/workflows/ci.yml`.
+- **TEST-008** — the required-CI classifier reads the complete local
+  merge-base diff with NUL-delimited path records and classifies runtime/CLI,
+  package-manager, test/fixture, workflow/release, documentation/metadata,
+  demo/asset, and unknown changes. Only pure allowlisted documentation adds and
+  modifications take the small route. Deletes, renames, and copies retain all
+  paths but take the full graph; unusual names and large diffs are not
+  truncated; executable editor config, mixed/unknown changes, unsupported
+  statuses, shallow or missing history, malformed output, and Git failures
+  also take the full graph. The small route derives the canonical 100% badge.
+  Fork PRs execute classifier code from the immutable base commit, with a fixed
+  full-route bootstrap when it is unavailable. An always-running job summary
+  exposes the fixed route, flags, categories, and reason, using `unavailable`
+  when trusted outputs are absent. `CI Success` distinguishes the small route's
+  expected skips from missing or failed work. Hosted route evidence is recorded
+  in the [CI audit](audits/ci-cd-and-github-actions.md). Unit/real-Git fixture:
+  `test/ci-change-classifier.test.mjs`; workflow invariant:
+  `test/ci-policy.test.mjs`; CI: `.github/workflows/ci.yml`.
+
 ### Package publishing
 
 - **PKG-001** — package metadata stays consistent with lockfile. Unit: `test/metadata.test.mjs`.
@@ -34,17 +83,71 @@ production-readiness workstream #130 is consolidated in the
   user-documentation allowlist; repository-only galleries and maintainer
   evidence stay out of the tarball. Unit: `test/metadata.test.mjs` using
   `npm pack --dry-run --json`.
-- **PKG-009** — exact minimum supported Node version runs the full CI matrix. CI: `.github/workflows/ci.yml`.
+- **PKG-008** — the packed script set equals the complete runtime coverage set,
+  includes every relative runtime import and public bin target, and excludes
+  every lifecycle/coverage maintenance module. Unit:
+  `test/metadata.test.mjs`; full installed behavior: package-manager lifecycle
+  matrix.
+- **PKG-009** — exact minimum supported Node version runs the full npm test and
+  lifecycle matrix on Ubuntu, macOS, and Windows, plus every supported non-npm
+  lifecycle on Ubuntu. CI: `.github/workflows/ci.yml`.
 - **PKG-010** — package excludes promotional raster/video media and enforces compressed/unpacked size budgets. Unit: `test/metadata.test.mjs`.
-- **PKG-011** — the publish workflow sends the exact packed/hashed tarball to
-  npm, keeps SLSA generation separate, and uses one final immutable-release
-  uploader for the tarball and provenance. Unit: `test/release-integrity.test.mjs`.
+- **PKG-011** — the publish workflow packs once, lifecycle-tests the exact
+  tarball, confirms its CLI bin/shebang/version on every platform and normalized
+  0755/0644 file modes on POSIX/release producers, then hashes, uploads, and
+  publishes that unchanged artifact. The hosted pack becomes the authoritative
+  byte-level candidate only after the recovery/publication gates accept it, and
+  its run summary keeps the SHA-256, source, tag, runner OS/image, and exact
+  Node/npm toolchain together without blessing a rejected rebuild. Local packs
+  qualify tree contents and behavior without promising cross-toolchain
+  archive-byte identity. Windows lanes retain platform-relevant bin-shim,
+  installability, and digest checks. SLSA generation remains separate, and one
+  final immutable-release uploader owns the tarball and provenance.
+  Unit/invariant:
+  `test/release-integrity.test.mjs`; integration:
+  `test/integration/lifecycle-manager.test.mjs` and
+  `test/integration/helpers/lifecycle-fixture.mjs`; tracking: #182.
 - **PKG-012** — release preflight rejects local/remote tag, GitHub Release, and
   npm-version collisions and fails closed when a registry cannot be checked.
   Unit: `test/release-integrity.test.mjs`.
 - **PKG-013** — release verification uses supported npm signature/attestation
   surfaces rather than the absent `npm view ... provenance` field. Unit:
   `test/release-integrity.test.mjs`.
+- **PKG-014** — version tags fetch complete canonical history and fail before
+  release-capable work unless their commit is an ancestor of `origin/main`.
+  Repository tag rules remain the external release-authority boundary.
+  Unit/fixture: `test/release-integrity.test.mjs`; tracking: #94.
+- **PKG-015** — partial-publication recovery distinguishes `before-npm`,
+  `after-npm`, and `complete` states; inconsistent or unavailable evidence and
+  source/digest mismatches fail closed. Before-npm requires no GitHub draft or
+  release, and incomplete recovery requires `latest` to remain on the candidate.
+  Post-publication confirmation polls only exact-version and exact-attestation
+  HTTP 404 propagation with deterministic backoff inside a hard 60-second
+  deadline; other statuses, malformed data, and mismatches remain terminal.
+  The final job cryptographically verifies local SLSA provenance; every existing
+  draft asset must be byte-identical, so a draft containing provenance can
+  resume only through a failed-job rerun retaining the original bundle.
+  Published partial releases cannot resume. Registry metadata changes and
+  unpublish remain outside automation. Mocked unit: `test/release-recovery.test.mjs`;
+  workflow invariant:
+  `test/release-integrity.test.mjs`; classifier: `tools/release-recovery.mjs`;
+  tracking: #183 and #234.
+- **PKG-016** — release validation requires `package.json`, both root lockfile
+  version records, the exact `vX.Y.Z` tag, one dated changelog section, the
+  GitHub Release title, and its non-empty reviewed body to agree. The final
+  action publishes the extracted changelog section instead of generating or
+  maintaining separate notes. A schema-checked ledger preserves the exact
+  v3.3.0–v3.3.2 irregularities without allowing prospective empty-note
+  exceptions. Unit: `test/release-metadata.test.mjs` and
+  `test/release-recovery.test.mjs`; workflow invariant:
+  `test/release-integrity.test.mjs`; validator:
+  `tools/validate-release-metadata.mjs`; tracking: #184.
+- **PKG-017** — every relative link in shipped Markdown resolves inside the
+  exact `npm pack` manifest; repository-only targets use canonical GitHub URLs
+  instead of entering the package accidentally. Positive and negative unit:
+  `test/packed-markdown-links.test.mjs`; real manifest:
+  `test/metadata.test.mjs`; clean installed copy across package managers:
+  `test/integration/helpers/lifecycle-fixture.mjs`; tracking: #186.
 
 ### Path normalization
 
@@ -75,6 +178,13 @@ production-readiness workstream #130 is consolidated in the
   values, searches only the metadata-bounded frame offsets, accepts those
   differences, and rejects synthetic missing-scene, color, layout, and clipping
   regressions. Unit/integration: `test/demo-visual-comparison.test.mjs`.
+- **DEMO-003** — the reusable before/after SVG and 16:9 PNG preserve the
+  CI-only and immediate-local-feedback timelines, the exact fix command, and
+  the canonical value promise; README, next-release npm sources, rationale, and
+  launch surfaces link the story before feature detail. The real workflow GIF
+  remains between 20 and 30 seconds, while render CI requires the social PNG to
+  byte-match a fresh SVG render. Unit/CI: `test/visual-assets.test.mjs`,
+  `.github/workflows/render-demo.yml`.
 
 ### Config
 
@@ -113,6 +223,29 @@ production-readiness workstream #130 is consolidated in the
 - **CLI-019** — `--json` forwards to precommit/prepush and is rejected for unsupported subcommands. Subprocess: `test/json-output.test.mjs`.
 - **CLI-020** — the hidden `vows` command dispatches successfully, renders one deterministic color-aware box, wraps in narrow terminals, and leaves worktree, package, Git config, and hook state unchanged. Unit/subprocess: `test/vows.test.mjs`, `test/cli.test.mjs`.
 - **CLI-021** — every public command's option/positional boundary is documented; unsupported options and excess arguments fail before dispatch can mutate state. Subprocess: `test/cli.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`, `test/uninstall.test.mjs`.
+- **CLI-022** — `panic` is public in global and command help, dispatches through
+  the bin, accepts no arguments, and remains outside the versioned JSON surface.
+  Subprocess: `test/cli.test.mjs`, `test/panic.test.mjs`.
+
+### Panic recovery guide
+
+- **PANIC-001** — outside-repository, clean, detached-HEAD, and verified
+  previous-branch states start with the observed state and `git status`, render
+  one deterministic box, and explain every displayed command. Unit/real-Git
+  fixture: `test/panic.test.mjs`.
+- **PANIC-002** — merge, rebase, and cherry-pick conflicts show only inspection
+  guidance; no state-changing option is displayed until both the active
+  operation and unresolved paths are absent. Real-Git fixture:
+  `test/panic.test.mjs`.
+- **PANIC-003** — staged changes, staged and unstaged deletions, untracked files,
+  and an unborn HEAD receive context-supported guidance. Unstaging is offered
+  only with an existing HEAD and preserves working-tree content. Unit/real-Git
+  fixture: `test/panic.test.mjs`.
+- **PANIC-004** — the command uses only a fixed allowlist of optional-lock-free,
+  non-interactive Git probes, never executes a displayed recovery step, and
+  never interpolates hostile paths into shell examples. Repository bytes remain
+  unchanged, and commands that discard work or force history changes are absent.
+  Unit/real-Git fixture: `test/panic.test.mjs`.
 
 ### Init
 
@@ -143,7 +276,7 @@ production-readiness workstream #130 is consolidated in the
   package/standalone configuration; standalone-only enablement, disabled or
   invalid standalone precedence, dry-run, idempotence, and a packed mixed-source
   lifecycle are covered. Fixture: `test/init.test.mjs`; CI lifecycle integration:
-  `scripts/ci-lifecycle-smoke.mjs`.
+  `test/integration/helpers/lifecycle-fixture.mjs`.
 - **INIT-025** — bare repositories never receive or report active local commit/push hooks. Fixture: `test/init.test.mjs`.
 - **INIT-026** — failed `core.hooksPath` and common-directory probes withhold hook-health claims and do not write potentially shadowed hooks. Unit/fixture: `test/hooks.test.mjs`, `test/init.test.mjs`.
 - **INIT-027** — uninspectable and unwritable hook paths are preserved and reported without raw exceptions or false success. Fixture: `test/init.test.mjs`.
@@ -152,6 +285,11 @@ production-readiness workstream #130 is consolidated in the
 - **INIT-030** — rerunning setup repairs a deliberately interrupted/partial hook installation idempotently. Fixture: `test/init.test.mjs`.
 - **INIT-031** — uninspectable `.gitignore` and unwritable project files fail before hook installation with bounded diagnostics. Fixture: `test/init-gitignore.test.mjs`, `test/init.test.mjs`.
 - **INIT-032** — shallow clones and submodules install hooks in their own Git common directories without requiring full history. Fixture: `test/repository-shapes.test.mjs`.
+- **INIT-033** — setup and dry-run refuse linked or non-regular mutable project
+  files before package, configuration, gitignore, or hook changes; stable
+  descriptor and identity checks protect the final write boundary. Unit/fixture:
+  `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
+  `test/init.test.mjs`.
 
 ## Uninstall
 
@@ -172,6 +310,10 @@ production-readiness workstream #130 is consolidated in the
 - **UNINST-015** — a failed `core.hooksPath` probe leaves all hook files untouched while package cleanup remains available. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-016** — tilde-based active hook directories are resolved through Git and exact owned hooks are removed from the effective path. Fixture: `test/uninstall.test.mjs`.
 - **UNINST-017** — unknown options and an unwritable package fail before generated hooks or configuration are removed. Fixture: `test/uninstall.test.mjs`.
+- **UNINST-018** — removal and dry-run refuse linked or non-regular package and
+  standalone-configuration paths before project or hook cleanup; configuration
+  deletion rechecks the inspected file identity. Unit/fixture:
+  `test/lib-files.test.mjs`, `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
 
@@ -189,6 +331,9 @@ production-readiness workstream #130 is consolidated in the
 - **PRE-012** — JSON mode covers skipped, clean, advisory, and invalid-argument results without changing human output or exit codes. Fixture: `test/json-output.test.mjs`.
 - **PRE-013** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
 - **PRE-014** — detached HEAD intentionally skips only the branch-name guard while unrelated staged guards continue. Fixture: `test/commit-guards-integration.test.mjs`.
+- **PRE-015** — the default-on Commit Owl welcome appears once per clone as the sole final box for an eligible clean/informational result, uses a Git-common-directory marker shared by linked worktrees, stays readable at narrow widths, and supports an explicit opt-out. Unit/fixture: `test/welcome.test.mjs`.
+- **PRE-016** — JSON mode, `--no-verify`, `COMMITMENT_ISSUES=0`, and legacy `HUSKY=0` neither display nor consume the welcome; marker probe/write/render failures never block checks. Unit/real-Git fixture: `test/welcome.test.mjs`.
+- **PRE-017** — a first-run warning or error takes priority without rendering or consuming the welcome, preserving the one-box invariant in both hook-output modes. Unit/fixture: `test/welcome.test.mjs`.
 
 ### Commit-message linting
 
@@ -280,7 +425,7 @@ production-readiness workstream #130 is consolidated in the
 - **LIB-002** — Prettier list parsing and Node test-summary parsing (TAP/spec, pass-only/fail-only, unrecognized → null). Unit: `test/checks.test.mjs`.
 - **LIB-003** — test-exemption and glob logic: `isTestExemptFile`, `testExempt` globs, `globToRegExp`, and file classifiers. Unit: `test/lib-files.test.mjs`.
 - **LIB-004** — package-aware test discovery and strict NUL-delimited Git-path helpers: `findTestFile(s)`, `collectTestsForFiles`, `parseNulPaths`, `parseLsFilesStage`, `parseNameStatusPaths`, and `shortFileList`. Unit: `test/lib-files.test.mjs`.
-- **LIB-005** — box rendering: `printBox` and severity boxes color the whole border. Unit: `test/ui.test.mjs`.
+- **LIB-005** — shared box rendering colors the whole border, honors `NO_COLOR`/disabled color in captured CI output, preserves product-owned SGR styling while removing other terminal sequences, visibly escapes remaining C0/C1 controls, wraps long and Unicode content to the reported width, and recovers from malformed or impossibly narrow `COLUMNS` values. Unit/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`.
 - **LIB-006** — process outcomes distinguish missing tool, spawn failure, timeout, external signal, normal nonzero exit, and success. Unit: `test/process.test.mjs`.
 - **LIB-007** — Prettier classification is exit-status-first; `[error]` in a filename remains a formatting path. Unit: `test/checks.test.mjs`.
 - **LIB-008** — project-local optional-bin resolution walks ancestor `node_modules/.bin` directories while preserving argv and returning null instead of an implicit fallback. Unit: `test/local-tool.test.mjs`.
@@ -298,64 +443,191 @@ production-readiness workstream #130 is consolidated in the
 - **SEC-009** — pre-push diff uses NUL-delimited name/status output, so deletions, renames/copies, Unicode, whitespace, tabs, and newlines remain unambiguous for associated-test discovery. Unit/subprocess: `test/lib-files.test.mjs`, `test/prepush.test.mjs`.
 - **SEC-010** — staged-secret parsing distinguishes file headers from added hunk content, including source lines beginning with `++ `. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
 - **SEC-011** — missing ESLint/Prettier peers return an advisory and package-manager install hint without invoking `npx`; explicitly configured `npx` test commands remain verbatim. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`.
+- **SEC-012** — opt-in secret enforcement fails closed when the staged-diff process fails, exits nonzero, or returns malformed patch structure; advisory mode warns and continues, and JSON preserves the distinction. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`, `test/json-output.test.mjs`.
+- **SEC-013** — Git C-style quoted staged-patch paths preserve tabs, newlines, quotes, backticks, dollar signs, semicolons, spaces, and Unicode; binary, rename, deletion, missing-final-newline, malformed, and large patch shapes remain structurally distinguished. Unit/subprocess: `test/secret-scan.test.mjs`, `test/secret-scan-integration.test.mjs`.
+- **SEC-014** — discovered Node test paths beginning with `-` are positional files rather than runner options at commit and push time. Unit/subprocess: `test/process.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`.
+- **SEC-015** — hook repair does not follow hook-file, dangling, or hook-directory symbolic links. Unit/subprocess: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
+- **SEC-016** — pre-push Node reporter output uses a randomized private temporary directory and does not reuse or delete a predictable colliding path. Subprocess: `test/prepush.test.mjs`.
+- **SEC-017** — hook-launched test commands and temporary-repository helpers remove Git's repository-local environment routing; representative `GIT_DIR`, work-tree, index, and counted-config variables cannot redirect fixture initialization into the caller. Unit/subprocess: `test/process.test.mjs`, `test/repository-shapes.test.mjs`, pre-push hook reproduction.
+- **SEC-018** — mutable project-file writes reject symbolic links, non-regular
+  paths, identity replacement, descriptor mismatch, and occupied missing-file
+  paths instead of following repository-controlled links outside the checkout.
+  Unit/subprocess: `test/lib-files.test.mjs`, `test/init-gitignore.test.mjs`,
+  `test/init.test.mjs`, `test/uninstall.test.mjs`.
+- **SEC-019** — product-owned human output visibly escapes
+  repository-controlled C0/C1 bytes, strips injected CSI/OSC sequences from
+  paths, refs, configuration, argv, and captured Git diagnostics, preserves
+  intentional model lines and Unicode, and leaves raw child passthrough
+  unchanged; JSON round-trips the exact semantic filename.
+  Unit/real-Git/subprocess: `test/terminal.test.mjs`, `test/ui.test.mjs`,
+  `test/lib-files.test.mjs`, `test/cli.test.mjs`, `test/doctor.test.mjs`,
+  `test/fix-staged.test.mjs`, `test/commit-guards-integration.test.mjs`,
+  `test/prepush.test.mjs`, `test/json-output.test.mjs`.
 
 ### Performance
 
 - **PERF-001** — timeout is enforced and reported separately from signals/spawn failures. Fixture: precommit / prepush / process tests.
 - **PERF-002** — timeout cleanup terminates an attached grandchild on supported platforms. Fixture: `test/process.test.mjs`; CI matrix: Ubuntu, macOS, Windows.
+- **PERF-003** — bounded smoke, 250-pair full-hook, and 1,000-pair
+  argument-pressure tiers cover large staged sets, pushed diffs, discovered
+  tests, and long hostile paths without enforcing wall time in ordinary CI.
+  Harness: `tools/benchmark-hook-performance.mjs`; behavior regression:
+  `test/performance-benchmark.test.mjs`; results and budgets:
+  [Hook performance and scaling](performance.md).
+- **PERF-004** — conservative Windows direct-process and `cmd.exe` accounting
+  identifies bounded prefixes for Git, ESLint, Prettier, and configured tests;
+  the measured large tiers require future batching/pathspec transport tracked
+  in [#212](https://github.com/RoryGlenn/commitment-issues/issues/212). Harness
+  and unit: `tools/benchmark-hook-performance.mjs`,
+  `test/performance-benchmark.test.mjs`; boundary:
+  [Current path-count boundary](performance.md#current-path-count-boundary).
+- **PERF-005** — JSON hook output larger than a pipe's first write is delivered
+  completely before immediate exit, including partial-write and retryable pipe
+  states. Unit/subprocess: `test/json-output.test.mjs`; measured large-hook
+  evidence: [Measured baseline](performance.md#measured-baseline).
 
 ### User lifecycle
 
-- **LIFE-001** — user installs and immediately commits in a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
-- **LIFE-002** — user installs and immediately pushes to a bare remote from a fresh external repo. CI lifecycle integration: `.github/workflows/ci.yml` (`check` and `pm-lifecycle`); runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
+- **LIFE-001** — user installs and immediately commits in a fresh external
+  repo. Named lifecycle phase: `commit and defer the first-run welcome` in
+  `test/integration/helpers/lifecycle-fixture.mjs`; suite:
+  `test/integration/lifecycle-manager.test.mjs`; CI:
+  `.github/workflows/ci.yml` (`check` and `pm-lifecycle`).
+- **LIFE-002** — user installs and immediately pushes to a bare remote from a
+  fresh external repo. Named lifecycle phase:
+  `push through the real pre-push hook` in
+  `test/integration/helpers/lifecycle-fixture.mjs`; suite:
+  `test/integration/lifecycle-manager.test.mjs`; CI:
+  `.github/workflows/ci.yml` (`check` and `pm-lifecycle`).
 - **LIFE-003** — advisory-only forever. Fixture/docs: README + prepush tests.
 - **LIFE-004** — blocking on push. Fixture/docs: README + prepush tests.
-- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a fresh clone's normal install runs the composed repair and recreates both local hooks. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture: `test/integration/lifecycle-manager.test.mjs`.
+- **LIFE-006** — a project-owned `prepare` survives init; after commit/push, a
+  fresh clone's normal npm, pnpm, Yarn Classic, or Bun install runs the composed
+  repair and recreates the local hooks. Yarn Berry 4.17.0 does not support
+  `prepare` and disables `postinstall` by default, so its verified clone repair
+  is the explicit local `doctor` command. Named lifecycle phase:
+  `repair a fresh clone` in
+  `test/integration/helpers/lifecycle-fixture.mjs`; CI lifecycle matrix:
+  `.github/workflows/ci.yml`.
+- **LIFE-007** — pinned immutable v2.5.1, v3.2.0, and v3.3.2 release fixtures upgrade to the candidate tarball, refresh or remove only exact generated state, preserve project-owned `prepare` logic and custom hooks, and execute the migrated hooks during a real commit and push. Required PR evidence: npm on Ubuntu/Node 24; release evidence: the exact publish tarball; scheduled evidence: pnpm, Yarn Classic, and Bun. Fixture: `test/integration/lifecycle-migration.test.mjs`.
+- **LIFE-008** — installing an older release over newer configured state is explicitly unsupported. The documented rollback runs the current version's `uninstall`, restores a lockfile and manifest with the pinned target and peers, installs, and runs the target version's `init` and `doctor`; custom state remains subject to manual review. Contract: [Downgrades and manual rollback](migration.md#downgrades-and-manual-rollback); ownership fixture: `test/uninstall.test.mjs`.
 
 ### Package managers
 
 - **PM-001** — package-manager detection (npm/pnpm/yarn/bun) via `npm_config_user_agent` and lockfiles, plus package-manager-aware command hints in advisory, `fix:staged`, and `doctor` output. Unit: `test/package-manager.test.mjs`. Subprocess: `test/fix-staged.test.mjs`.
 - **PM-002** — uninstall prints a package-removal command for the detected manager. Unit: `test/package-manager.test.mjs`. Fixture: `test/uninstall.test.mjs`.
-- **PM-003** — pnpm end-to-end lifecycle integration (pack → install → init → commit → push). CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
-- **PM-004** — Yarn Classic end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
-- **PM-005** — bun end-to-end lifecycle integration. CI: `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner: `scripts/run-lifecycle-test.mjs`.
+- **PM-003** — pnpm 10 runs the complete named lifecycle phase sequence (pack →
+  install → init → commit → push → repair → worktree → uninstall → dependency
+  removal) on Ubuntu, macOS, and Windows at Node 24, plus the exact Node
+  22.11.0 floor on Ubuntu. CI: `.github/workflows/ci.yml` (`pm-lifecycle`
+  matrix); runner: `scripts/run-lifecycle-test.mjs`; phases:
+  `test/integration/helpers/lifecycle-fixture.mjs`.
+- **PM-004** — Yarn Classic 1.22.22 runs the same manager-native named phase
+  sequence and platform matrix without an npm-runner fallback. CI:
+  `.github/workflows/ci.yml` (`pm-lifecycle` matrix); runner:
+  `scripts/run-lifecycle-test.mjs`; phases:
+  `test/integration/helpers/lifecycle-fixture.mjs`.
+- **PM-005** — Bun 1.3.14 runs the same named phase sequence and platform matrix
+  through `bunx --no-install`. CI: `.github/workflows/ci.yml` (`pm-lifecycle`
+  matrix); runner: `scripts/run-lifecycle-test.mjs`; phases:
+  `test/integration/helpers/lifecycle-fixture.mjs`.
+- **PM-006** — Yarn Berry 4.17.0 is pinned in an integrity-locked CLI fixture and runs the packed package with `nodeLinker: node-modules` on Ubuntu, macOS, and Windows at Node 24 plus Ubuntu at the exact Node 22.11.0 floor. The fixture verifies manager-native CLI/bin resolution, root and nested workspaces, all three real Git hooks, clone/doctor repair, linked worktrees, and uninstall. It asserts a real `node_modules` tree and no `.pnp.cjs`; Plug'n'Play remains unsupported. CI: `.github/workflows/ci.yml`; runner: `scripts/run-lifecycle-test.mjs`; fixture pin: `test/fixtures/yarn-berry/package-lock.json`.
+- **PM-007** — installs with lifecycle scripts disabled leave clone-local hooks absent but keep the local CLI available; explicit `doctor` repair restores exact generated hooks for every manager. A later scripts-enabled reinstall also repairs npm, pnpm, Yarn Classic, and Bun; Berry's documented lifecycle boundary requires explicit `doctor`. CI lifecycle matrix: `.github/workflows/ci.yml`; runner: `test/integration/helpers/lifecycle-fixture.mjs`.
+- **PM-008** — package-manager guidance is workspace-aware, the lifecycle strips the outer npm user agent, and pre-commit/uninstall output must name the selected manager. Unit: `test/package-manager.test.mjs`; CI lifecycle matrix: `.github/workflows/ci.yml`.
 
 ### Monorepos and workspaces
 
-- **MONO-001** — workspace-root behavior across npm, pnpm, Yarn, and Bun. The real packed package is installed at the root, each manager's workspace selector runs both package test scripts, root config owns staged checks, and root-native hooks run for commits and pushes. CI lifecycle matrix: `.github/workflows/ci.yml`; script: `scripts/ci-lifecycle-smoke.mjs`.
-- **MONO-002** — shallow and nested workspace packages are checked together, including when `git commit` starts in the nested package. Package-local `precommitChecks` values remain untouched and do not override the root. CI lifecycle matrix: `.github/workflows/ci.yml`; guide: [Monorepo & workspaces](monorepo.md).
-- **MONO-003** — linked Git worktrees share hooks through Git's common directory, repair safely during a worktree-local install, and run the root checks from a nested package. CI lifecycle matrix: `.github/workflows/ci.yml`.
+- **MONO-001** — workspace-root behavior across npm, pnpm, Yarn Classic, Yarn
+  Berry `node-modules`, and Bun. The real packed package is installed at the
+  root, each manager's workspace selector runs both package test scripts, root
+  config owns staged checks, and root-native hooks run for commits and pushes.
+  Named lifecycle phases: `install the packed artifact and discover workspaces`,
+  commit, and push in `test/integration/helpers/lifecycle-fixture.mjs`; CI:
+  `.github/workflows/ci.yml`.
+- **MONO-002** — shallow and nested workspace packages are checked together,
+  including when `git commit` starts in the nested package. Package-local
+  `precommitChecks` values remain untouched and do not override the root. Named
+  lifecycle phase: `commit and defer the first-run welcome` in
+  `test/integration/helpers/lifecycle-fixture.mjs`; guide:
+  [Monorepo & workspaces](monorepo.md); CI: `.github/workflows/ci.yml`.
+- **MONO-003** — linked Git worktrees share hooks through Git's common
+  directory, repair safely during a worktree-local install, and run the root
+  checks from a nested package. Named lifecycle phase:
+  `exercise a linked worktree` in
+  `test/integration/helpers/lifecycle-fixture.mjs`; CI:
+  `.github/workflows/ci.yml`.
+
+### Shells and Git clients
+
+- **SHELL-001** — Linux `/bin/sh`, Bash, and Fish; macOS `/bin/sh` and Zsh;
+  and Windows PowerShell and Command Prompt each launch the same exact packed
+  artifact through `--version`, `init`, a real advisory commit, a tested push to
+  a local bare remote, `doctor`, and `uninstall`. The consumer install is forced
+  offline. Required CI: `.github/workflows/ci.yml` (`shell-compat`); runner:
+  `tools/run-shell-compat-test.mjs`.
+- **SHELL-002** — the shared scenario runs in a path containing spaces,
+  Unicode, `$`, and `&`; preserves a project-owned hook; verifies generated
+  `#!/bin/sh` bodies use LF and Unix executable bits; and performs commit, push,
+  doctor, and uninstall with a stripped `PATH`. Policy regression:
+  `test/shell-compat.test.mjs`; hosted behavior: the required shell matrix.
+
+### CI/CD and repository automation
+
+- **CI-001** — every tracked workflow has read-only defaults, an explicit
+  concurrency policy, bounded runnable jobs, non-persisted checkout credentials,
+  and an allowlisted job-permission surface. Unit: `test/ci-policy.test.mjs`;
+  semantic validation: actionlint in `.github/workflows/ci.yml`.
+- **CI-002** — the sole branch-protection context fails unless DCO, static
+  quality, dependency audit, every supported runtime/lifecycle/shell lane, and
+  CodeQL each report exact success. Unit: `test/ci-policy.test.mjs` and
+  `test/test-quality.test.mjs`; CI: `.github/workflows/ci.yml`.
+- **CI-003** — CodeQL is reusable by required CI while retaining scheduled and
+  manual analysis. Unit: `test/ci-policy.test.mjs`; workflow:
+  `.github/workflows/codeql.yml`.
+- **CI-004** — release tags serialize through GitHub's maximum 100-run pending
+  queue without cancelling in-flight or already-pending publications, generated
+  artifact names cross into shell through quoted environment variables, and
+  every ordinary action reference is immutable. Unit: `test/ci-policy.test.mjs`
+  and `test/release-integrity.test.mjs`.
+- **CI-005** — routine npm and Actions releases age for seven days, security
+  updates remain immediate, and both required CI and weekly health fail on
+  high-severity advisories. Unit: `test/ci-policy.test.mjs`; automation:
+  `.github/dependabot.yml` and `.github/workflows/repo-health.yml`.
 
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
-
-## Deferred
-
-- **PM-006** — Yarn Berry (Plug'n'Play) support. Hooks resolve the bin from `node_modules/.bin`, so Berry projects need `nodeLinker: node-modules`; PnP is not yet supported. Yarn Classic is covered by PM-004. A dedicated [Yarn Berry guide](yarn-berry.md) documents the `node-modules` setup and the PnP boundary.
-- **PERF-003** — many-files performance. Add only after the behavior matrix is stable.
 
 ## Manual and production validation
 
 - **PKG-008** — the published npm package installs and exposes the CLI bin.
   Recheck in a clean project before launch with
   `npm install -D commitment-issues@latest` and
-  `npx commitment-issues --help`.
+  `npx --no-install commitment-issues --help`.
 - **LIFE-005** — the complete clean-registry launch path (`init`, advisory
   commit warning, `commit:fix`, and related push-time tests) remains a launch
-  gate in issue #78.
+  gate in issue #240.
+- **CLIENT-001** — VS Code, JetBrains, and GitHub Desktop require manual UI
+  validation against an exact artifact before the release claims those clients
+  as verified. An unavailable lane must instead be classified as
+  unsupported/unverified, excluded from support claims, and assigned to a
+  follow-up issue; v3.4.0 uses #231. Evidence belongs on the tracking issue
+  rather than in committed machine-specific paths or logs. Checklist:
+  [GUI Git-client release checklist](git-client-release-checklist.md).
 - **REL-001** — the production v3.3.2 tag workflow published the exact npm
   tarball and both immutable GitHub Release assets. The npm/GitHub tarballs and
   SLSA subject share one SHA-256; independent npm signature and
   `slsa-verifier` checks passed. See the
   [release-verification baseline](release-verification.md#validated-release-baseline).
+- **REL-002** — live history anchors the recovery states without creating a
+  test publication: v3.3.0 is an npm-published but immutable zero-asset GitHub
+  Release that cannot resume, v3.3.1 failed before npm but required a workflow
+  edit, and v3.3.2 is complete. Evidence:
+  [release audit](audits/release-packaging-and-upgrades.md#historical-release-and-tag-evidence).
 
 ## Not covered yet
 
 ### Release and lifecycle
 
-- Registry-installed upgrade and downgrade behavior across published versions.
 - Corporate locked-down environment behavior.
-- Dedicated shell and GUI-client launch coverage tracked in
-  [#83](https://github.com/RoryGlenn/commitment-issues/issues/83).
 
 ## Next batches
 
@@ -364,6 +636,3 @@ Explicit non-goals are per-package configuration/tool versions, build-system dep
 - Yarn Berry Plug'n'Play.
 - Custom no-hoist or non-`node_modules` workspace layouts outside the tested
   package-manager defaults.
-- Registry-installed upgrade/downgrade fixtures.
-- The cross-shell and Git-client matrix in #83, coordinated with the proposed
-  v4 contract in #84.

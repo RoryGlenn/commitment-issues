@@ -23,7 +23,9 @@ block only when a repository explicitly opts in.
 
 Project authority, decision-making, review requirements, and maintainer roles
 are documented in [Governance](../GOVERNANCE.md) and
-[Project roles](../docs/project-roles.md).
+[Project roles](../docs/project-roles.md). Completion gates for changes,
+releases, promotion, and the future maintenance-only state are defined in the
+[Definition of Done](../docs/definition-of-done.md).
 
 ## Prerequisites
 
@@ -52,19 +54,33 @@ transpilation step.
    git fetch upstream
    ```
 
-3. Install the exact locked dependencies:
+3. **First-time setup: `npm ci`**
+
+   Install the exact dependency versions recorded in `package-lock.json`:
 
    ```bash
    npm ci
    ```
 
-   Installation runs the repository's `prepare` script. That quietly verifies
-   the local hook wiring with `doctor` without replacing unrelated custom hooks.
+   This repository intentionally runs no package-owned dependency install
+   lifecycle, so installing dependencies is separate from checking the local
+   Git hooks.
 
-4. Confirm the checkout is healthy:
+4. **Verify or repair the hooks anytime: `npm run doctor`**
 
    ```bash
    npm run doctor
+   ```
+
+   This lighter command checks and repairs the local hook wiring without
+   reinstalling dependencies or replacing unrelated custom hooks. On your
+   first commit in the clone, the Commit Owl welcome confirms that
+   `commitment-issues` is active. Keep the hooks enabled, and please report any
+   guidance that feels confusing—the hook experience is product feedback.
+
+5. Confirm the checkout is healthy:
+
+   ```bash
    npm run lint
    npm run format:check
    npm test
@@ -74,8 +90,8 @@ transpilation step.
 
 | Path                 | Purpose                                                     |
 | -------------------- | ----------------------------------------------------------- |
-| `scripts/`           | Published CLI commands and Git-hook entry points            |
-| `scripts/lib/`       | Shared runtime modules                                      |
+| `scripts/`           | Installed commands plus repository-only lifecycle tooling   |
+| `scripts/lib/`       | Shared runtime modules plus maintenance-policy helpers      |
 | `test/`              | Top-level `node:test` suites and test helpers               |
 | `test/integration/`  | Package lifecycle integration tests                         |
 | `tools/`             | Repository maintenance and documentation utilities          |
@@ -86,6 +102,14 @@ transpilation step.
 Entry scripts are tested through subprocesses in disposable Git repositories.
 Reusable setup helpers live in
 [`test/helpers/temp-repo.mjs`](../test/helpers/temp-repo.mjs).
+
+The complete `scripts/` inventory is classified as installed runtime or
+repository-only maintenance by the
+[runtime coverage policy](../docs/branch-coverage.md). `package.json` lists each
+runtime module explicitly; do not restore a directory-wide `scripts/`
+allowlist. A new runtime module must enter that allowlist and the packed import
+closure, while a new maintenance module must be added to the exact coverage
+exclusion list.
 
 Start documentation changes from the
 [documentation index](../docs/index.md). Update the canonical source for a
@@ -137,11 +161,17 @@ Use `npm run lint:fix` and `npm run format` to apply safe mechanical fixes.
 
 Also run the checks that match your change:
 
-| Change                                                             | Additional validation                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Published runtime code in `scripts/`                               | `npm run test:coverage`                                      |
-| Install, init, doctor, hook wiring, uninstall, or package behavior | `npm run test:lifecycle:npm`                                 |
-| Package contents or release tooling                                | `npm run test:lifecycle:npm` and the relevant release checks |
+| Change                                                             | Additional validation                                             |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Published runtime code in `scripts/`                               | `npm run test:coverage`                                           |
+| Install, init, doctor, hook wiring, uninstall, or package behavior | `npm run test:lifecycle:npm`                                      |
+| Shell launch, hook portability, or GUI-environment behavior        | `SHELL_COMPAT_TARGET=sh npm run test:shell-compat` plus hosted CI |
+| Package contents, shipped Markdown links, or release tooling       | `npm run test:lifecycle:npm` and the relevant release checks      |
+| Hook traversal, discovery, process argv, or output volume          | `npm run benchmark:hooks -- --tier large --enforce-budgets`       |
+
+Run the performance command on a controlled host and include its machine and
+report summary in the pull request. Timing budgets are intentionally excluded
+from ordinary CI; see [Hook performance and scaling](../docs/performance.md).
 
 The runtime coverage gate requires 100% line, branch, and function coverage.
 See the [Runtime Coverage Policy](../docs/branch-coverage.md) for the exact source
@@ -154,8 +184,38 @@ node --test test/<name>.test.mjs
 ```
 
 CI tests Ubuntu, macOS, and Windows on Node.js 22.11.0 and 24. It also exercises
-npm, pnpm, Yarn, and Bun package lifecycles. Keep changes cross-platform even if
-you develop on only one operating system.
+npm, pnpm, Yarn, and Bun package lifecycles plus packed launch scenarios for
+POSIX `sh`, Bash, Fish, Zsh, Windows PowerShell, and Command Prompt. Keep
+changes cross-platform even if you develop on only one operating system.
+
+On Windows, CI partitions the same top-level test-file set into Node's native
+`--test-shard=1/2` and `--test-shard=2/2` shards on both supported Node lines.
+Together, the two shards assign every test file exactly once; the local
+`npm test` command remains the complete unsharded suite. The packed npm
+lifecycle stays in separate parallel required jobs, while the Ubuntu coverage
+lanes remain complete and unsharded. The aggregate `CI Success` check requires
+every Windows shard and lifecycle result to report explicit success on the
+full route.
+
+Every pull request first classifies its complete merge-base diff. A pure,
+explicitly allowlisted documentation/metadata change keeps DCO and the static
+quality lane, whose focused test command covers documentation, metadata,
+schemas, links, assets, release integrity, formatting, and workflow policy.
+Pull requests execute the classifier stored at the immutable base commit, so a
+fork cannot edit the decision code used to classify itself; a missing trusted
+copy bootstraps to the full graph.
+The classifier job always summarizes its route, flags, categories, and reason;
+missing outputs display as unavailable so the decision remains visible even if
+a later job fails.
+Runtime, package, test, workflow/release, demo/asset, mixed, and unknown changes
+run the full compatibility graph. So do all deletions, renames, and copies,
+even when both paths are documentation. Shallow history, missing commits,
+malformed or failed diffs, unsupported Git statuses, executable editor
+configuration, and missing classifier outputs also fall back to the full graph.
+The focused metadata test derives the canonical 100% badge, preventing a
+README-only change from bypassing badge freshness. `CI Success` accepts skipped
+compatibility jobs only for the exact documentation-only classifier tuple; on
+every other route, all of them must report success.
 
 ## Coding style
 
@@ -267,6 +327,8 @@ CI checks the sign-off on each pull-request commit. See
 
 Before requesting review, confirm that:
 
+- the change satisfies the applicable
+  [Definition of Done](../docs/definition-of-done.md);
 - the pull request explains what changed and why;
 - related issues are linked with `Closes #<number>` when appropriate;
 - tests cover new behavior and practical bug regressions;

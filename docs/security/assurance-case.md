@@ -29,8 +29,13 @@ Relevant attackers or failure modes include:
 - a malicious or compromised dependency;
 - a malicious repository configuration value in `package.json` or
   `.commitmentrc.json`;
-- file paths containing spaces, shell metacharacters, or unusual Unicode;
-- generated or malformed Git output;
+- file paths containing spaces, tabs, newlines, quotes, shell metacharacters,
+  leading hyphens, or unusual Unicode;
+- generated, quoted, truncated, or malformed Git output;
+- symbolic links or non-file entries at mutable project or native hook paths;
+- collisions or link attacks in a shared temporary directory;
+- Git hook repository variables redirecting nested fixture operations into the
+  caller's repository;
 - a compromised GitHub Action or release workflow dependency;
 - accidental maintainer mistakes during releases;
 - accidental mutation of staged or unstaged work;
@@ -47,14 +52,34 @@ Out of scope:
 
 Important trust boundaries are:
 
-1. **User repository boundary** — project files, `package.json`, `.commitmentrc.json`, staged files, branch state, and test files are controlled by the repository and may be untrusted when running in an unfamiliar project.
-2. **Configuration boundary** — standalone and package-embedded configuration are user-controlled input and must be validated before use.
-3. **Git boundary** — Git output is external process output and must be parsed defensively.
-4. **Process boundary** — ESLint, Prettier, optional project-local commitlint, test runners, and package-manager commands are spawned as external tools.
-5. **Shell boundary** — file paths and command arguments must not be interpolated into a shell command.
-6. **CI/CD boundary** — GitHub Actions workflows operate on repository contents and pull request metadata.
-7. **Release boundary** — npm releases and GitHub release workflows must preserve package integrity and provenance.
-8. **Vulnerability-report boundary** — vulnerability reports may contain sensitive details and must be handled privately until disclosure is appropriate.
+1. **User repository boundary** — project files, staged content, filenames,
+   branch state, and test files are controlled by the repository and may be
+   untrusted when running in an unfamiliar project.
+2. **Configuration boundary** — `package.json` and `.commitmentrc.json` values
+   are user-controlled input and must be parsed and validated before use.
+3. **Git boundary** — Git commands can be unavailable or fail, and their
+   pathname lists, patches, remote refs, and other output must be parsed
+   defensively without treating malformed output as an empty result.
+4. **Process and environment boundary** — ESLint, Prettier, optional
+   project-local commitlint, repository-configured test runners, Git, and
+   package-manager commands are external tools. Built-in peers resolve locally;
+   explicit commands and Git intentionally inherit the developer's `PATH` and
+   environment, while hook-launched tests exclude Git's repository-local
+   routing variables.
+5. **Shell and option boundary** — file paths and command arguments must not be
+   interpolated into a shell command or allowed to become unintended command
+   options.
+6. **Filesystem and hook boundary** — existing hooks, configured hook roots,
+   symbolic links, permissions, temporary paths, and user-authored files must
+   be classified before writing or removal.
+7. **CI/CD boundary** — GitHub Actions workflows process untrusted pull-request
+   contents and metadata without exposing publication authority.
+8. **Release boundary** — tags, npm trusted-publishing credentials, tarballs,
+   provenance, and GitHub Releases must preserve package integrity and
+   authorization.
+9. **Vulnerability-report boundary** — vulnerability reports may contain
+   sensitive details and must be handled privately until disclosure is
+   appropriate.
 
 ## Security requirements
 
@@ -62,7 +87,8 @@ The project security requirements are:
 
 - do not transmit repository contents or telemetry;
 - do not expose a network service;
-- do not store or process authentication credentials as runtime data;
+- do not collect, persist, or transmit authentication credentials; inspect
+  staged additions only locally for likely secret patterns;
 - avoid shell injection when spawning tools;
 - validate user-controlled configuration;
 - preserve user working-tree safety;
@@ -88,13 +114,25 @@ precedence, and allowlisted by key and value before hooks or process helpers use
 it. Project JavaScript is never imported to discover configuration. Before
 `init` mutates a consumer repository, it also requires the
 `package.json` root, `scripts`, and `precommitChecks` containers to be JSON
-objects. Hook activation uses the same shared classifier in `init` and `doctor`:
-only executable command lines count, and POSIX hooks must have an executable
-mode bit.
+objects. Existing mutable project paths must be regular files rather than
+symbolic links or directories. Their device and inode identities are checked
+again against an open descriptor immediately before truncation or writing;
+missing paths use exclusive creation, and removal rechecks the inspected
+identity. Hook activation uses the same shared classifier in `init` and
+`doctor`: only executable command lines count, and POSIX hooks must have an
+executable mode bit.
 
 ### Fail-safe defaults
 
-Default commit-time behavior is advisory rather than destructive. Push-time and commit-message blocking are separate opt-ins. If the tool cannot safely inspect staged files, it warns rather than mutating work unexpectedly. Blocking pre-push mode fails closed when pushed files cannot be inspected; blocking commit-message mode likewise fails closed when its explicitly configured local tool or rules cannot run.
+Default commit-time behavior is advisory rather than destructive. Push-time,
+secret, protected-branch, and commit-message blocking are separate opt-ins. An
+advisory secret scan warns and continues when the staged patch is unavailable.
+With `blockOnSecrets: true`, a Git spawn failure, nonzero result, or malformed
+patch blocks because the absence of a secret has not been established.
+Blocking pre-push mode similarly fails closed when pushed files cannot be
+inspected; blocking commit-message mode fails closed when its explicitly
+configured local tool or rules cannot run. File mutation remains separately
+guarded by ownership and working-tree checks.
 
 ### Least astonishment
 
@@ -110,6 +148,8 @@ The project combines local validation, tests, linting, formatting, CI on multipl
 
 - Built-in and configured commands use argument vectors instead of shell
   interpolation for file paths.
+- Discovered paths for Node's built-in test runner follow `--`; a relative path
+  beginning with `-` is made absolute so it remains positional.
 - ESLint, Prettier, and optional commitlint resolve only project-local binaries;
   missing tools do not trigger an implicit `npx`, global lookup, registry
   request, or installation.
@@ -121,12 +161,25 @@ The project combines local validation, tests, linting, formatting, CI on multipl
 - `fix:staged` refuses partially staged files, and `commit:fix` refuses dirty
   tracked worktrees or pushed commits.
 - Path normalization and Git parsing cover POSIX and Windows-style separators,
-  spaces, Unicode, and diff content that resembles metadata.
+  spaces, tabs, newlines, quotes, shell metacharacters, leading hyphens,
+  Unicode, and diff content that resembles metadata.
+- The staged-secret parser validates patch file/hunk structure and Git C-style
+  pathname quoting before an enforced scan can succeed.
+- Native hook ownership uses `lstat`; hook-file and hook-directory symbolic
+  links are preserved as uninspectable instead of followed during repair.
+- Pre-push reporter output is written beneath a randomized private temporary
+  directory and cleanup is scoped to that owned directory.
+- Hook-launched tests and disposable Git-fixture helpers strip repository-local
+  Git environment variables before spawning. Tests rediscover the caller by
+  cwd, while nested repositories retain their own refs, config, index, and
+  remotes.
 
 ### Security automation and release evidence
 
 - CodeQL, OpenSSF Scorecard, Dependabot, pinned GitHub Actions, DCO, and the
   aggregate `CI Success` gate keep security-sensitive changes visible.
+- The live `main` ruleset separately blocks CodeQL tool-severity Errors and
+  High/Critical security alerts after the required analysis completes.
 - Trusted publishing publishes the exact tarball packed and hashed by the
   release job.
 - The release workflow attaches that tarball and matching signed SLSA
@@ -144,11 +197,42 @@ manual threat-model and workflow inspection recorded in dated security reviews.
 
 ### Command injection
 
-The project avoids shell interpolation for tool execution. Commands are spawned with argument vectors through Node.js process APIs and `cross-spawn`, so file paths are passed as arguments rather than shell code. The generated commit-msg hook quotes Git's `$1`, and the entrypoint resolves it to one absolute argv value before invoking commitlint.
+The project avoids shell interpolation for tool execution. Commands are
+spawned with argument vectors through Node.js process APIs and `cross-spawn`,
+so file paths are passed as arguments rather than shell code. An option
+separator protects discovered Node test paths, including repository filenames
+that begin with `-`. The generated commit-msg hook quotes Git's `$1`, and the
+entrypoint resolves it to one absolute argv value before invoking commitlint.
+
+### Terminal output injection
+
+Product-owned human presentation treats repository filenames, refs,
+configuration, Git/process diagnostics, and command-line arguments as
+untrusted. A dependency-free boundary helper strips complete ANSI CSI/OSC
+sequences and renders C0/C1 controls as visible `\\r`, `\\n`, `\\t`, or
+`\\xNN` text before product styling is applied. The styled box boundary retains
+only product-owned SGR sequences and removes other terminal sequences; raw
+repository values are escaped before they can reach those styles. Intentional
+layout is represented by separate message-model entries, so an embedded newline
+in a repository value cannot create a new product line. Unicode, spaces, normal
+punctuation, and established bold/dim/severity presentation are preserved.
+
+Captured data that enters a product summary uses array-backed detail fields so
+filenames containing newlines remain one semantic value. JSON serialization is
+separate from human rendering and preserves those exact values through JSON's
+own escaping. Raw child-process output remains a deliberate passthrough outside
+the product renderer; users should treat output from explicitly configured
+project tools according to that tool's own trust boundary.
 
 ### Path handling and path traversal
 
-The project treats Git file lists as data, normalizes paths where needed, and includes cross-platform path tests for spaces, Windows-style separators, and unusual path cases. The staged-secret parser tracks diff hunks separately from file headers so source lines that resemble diff metadata are still scanned.
+The project treats Git file lists as data, uses NUL delimiters for pathname
+queries, normalizes paths where needed, and includes cross-platform tests for
+control characters, shell metacharacters, leading hyphens, Windows-style
+separators, and Unicode. The staged-secret parser tracks validated diff hunks
+separately from file headers, decodes Git C-style quoted paths, and rejects
+malformed structure in blocking mode, so content that resembles metadata does
+not bypass inspection.
 
 ### Unsafe working-tree mutation
 
@@ -173,7 +257,12 @@ trusts both the tool and its executable configuration.
 
 ### CI/CD risks
 
-Workflows use explicit permissions and pinned actions where practical. CI runs DCO validation, linting, formatting, tests, coverage, npm package lifecycle integration, and the pnpm/Yarn/bun lifecycle matrix. The single strict `CI Success` context aggregates those required jobs.
+Workflows use explicit permissions and full-SHA action pins, except for the
+SLSA reusable-workflow version reference required by that upstream integration.
+Security, release, and rendering checkouts disable persisted credentials. CI
+runs DCO validation, linting, formatting, tests, coverage, npm package
+lifecycle integration, and the pnpm/Yarn/bun lifecycle matrix. The single
+strict `CI Success` context aggregates those required jobs.
 
 ### Release integrity risks
 
@@ -184,6 +273,14 @@ independent verification guidance. Release-workflow pull requests also force
 GitHub to validate the reusable-workflow permission contract before a tag can
 consume it.
 
+The workflow fetches complete canonical history and refuses publication unless
+the version-tag commit is reachable from `origin/main`. Live tag rules restrict
+new `v*` tags to repository admins and prohibit version-tag updates or deletion.
+[Issue #94](https://github.com/RoryGlenn/commitment-issues/issues/94) closed
+through PR #188, with the final control and residual trust boundary recorded in
+the [release audit](../audits/release-packaging-and-upgrades.md). Provenance
+complements that authorization check; it does not replace it.
+
 ### Vulnerability disclosure risks
 
 The security policy directs reporters to private vulnerability reporting. Public vulnerability history is maintained separately so disclosure can be coordinated.
@@ -192,6 +289,7 @@ The security policy directs reporters to private vulnerability reporting. Public
 
 Relevant evidence includes:
 
+- [Security, secrets, paths, and subprocesses audit](../audits/security-secrets-paths-subprocesses.md)
 - [Security review](../security-review-2026-07.md)
 - [Configuration reference](../configuration.md)
 - [Maintainer dependency and release operations](../maintainer-operations.md)

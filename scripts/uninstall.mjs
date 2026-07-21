@@ -15,13 +15,21 @@ import {
   gitHooksDir,
   hooksPathConfigState,
   isHuskyHooksPath,
+  legacyHuskyDirectoryState,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
-import { removeOwnedPath } from "./lib/files.mjs";
+import {
+  inspectMutableProjectFile,
+  preflightMutableProjectFile,
+  removeMutableProjectFile,
+  removeOwnedPath,
+  writeMutableProjectFile,
+} from "./lib/files.mjs";
 import {
   readStandalonePrecommitConfig,
   STANDALONE_CONFIG_FILE,
 } from "./lib/config.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // Remove only setup that commitment-issues can identify as its own. Exact
 // generated scripts and hook bodies are safe to delete; customized scripts,
@@ -34,7 +42,7 @@ const unknownOption = args.find(
 );
 if (unknownOption) {
   errorBox([
-    pc.bold(`Unknown uninstall option: ${unknownOption}`),
+    pc.bold(`Unknown uninstall option: ${escapeTerminalText(unknownOption)}`),
     "",
     pc.dim("Supported options: --dry-run, -n."),
     pc.dim("No files or hooks were changed."),
@@ -43,11 +51,32 @@ if (unknownOption) {
 }
 const dryRun = args.includes("--dry-run") || args.includes("-n");
 
-if (!fs.existsSync("package.json")) {
+const packageFileState = inspectMutableProjectFile("package.json");
+if (packageFileState.status === "missing") {
   errorBox([
     pc.bold("No package.json found."),
     "",
     pc.dim("Run this from your project root."),
+  ]);
+  process.exit(1);
+}
+
+const projectFileStates = new Map([
+  ["package.json", packageFileState],
+  [STANDALONE_CONFIG_FILE, inspectMutableProjectFile(STANDALONE_CONFIG_FILE)],
+]);
+const unsafeProjectFile = [...projectFileStates.values()].find(
+  (state) => state.status === "unsafe",
+);
+if (unsafeProjectFile) {
+  errorBox([
+    pc.bold(`Unsafe project file: ${unsafeProjectFile.filePath}.`),
+    "",
+    pc.dim(`The path ${unsafeProjectFile.reason}.`),
+    pc.dim(
+      "Replace it with a regular file inside this project, then run uninstall again.",
+    ),
+    pc.dim("No files or hooks were changed."),
   ]);
   process.exit(1);
 }
@@ -69,7 +98,7 @@ if (standalone.error) {
   errorBox([
     pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
     "",
-    pc.dim(`The file ${standalone.error}.`),
+    pc.dim(`The file ${escapeTerminalText(standalone.error)}.`),
     pc.dim(
       "Fix or remove it, then run uninstall again. No files were changed.",
     ),
@@ -166,12 +195,20 @@ if (isGitRepo) {
 
     const configuredHooksPath = hooksPathState.value;
     if (configuredHooksPath) {
-      const configuredDir = isHuskyHooksPath(configuredHooksPath)
-        ? path.resolve(".husky")
+      const huskyEraHooksPath = isHuskyHooksPath(configuredHooksPath);
+      const legacyHuskyState = huskyEraHooksPath
+        ? legacyHuskyDirectoryState()
+        : null;
+      const configuredDir = huskyEraHooksPath
+        ? legacyHuskyState.status === "uninspectable"
+          ? null
+          : path.resolve(".husky")
         : effectiveHooksDir();
       if (!configuredDir) {
         manualCleanup.push(
-          "Git could not resolve the configured hooks directory, so those hooks were left unchanged.",
+          huskyEraHooksPath && legacyHuskyState.status === "uninspectable"
+            ? "The legacy .husky path could not be safely inspected and was left unchanged; review a symbolic link or non-directory path manually."
+            : "Git could not resolve the configured hooks directory, so those hooks were left unchanged.",
         );
       } else if (!inspected.has(configuredDir)) {
         inspectHookDirectory(configuredDir);
@@ -194,20 +231,38 @@ const planned = [
 const removed = [];
 
 if (!dryRun) {
-  if (plannedPackageChanges.length > 0) {
-    try {
-      fs.accessSync("package.json", fs.constants.W_OK);
-    } catch {
+  const projectFilesToMutate = [
+    ...(plannedPackageChanges.length > 0
+      ? [["package.json", projectFileStates.get("package.json"), false]]
+      : []),
+    ...(standalone.exists
+      ? [
+          [
+            STANDALONE_CONFIG_FILE,
+            projectFileStates.get(STANDALONE_CONFIG_FILE),
+            true,
+          ],
+        ]
+      : []),
+  ];
+  for (const [filePath, state, remove] of projectFilesToMutate) {
+    if (!preflightMutableProjectFile(state, { remove })) {
       errorBox([
-        pc.bold("Could not update package.json."),
+        pc.bold(`Could not update ${filePath}.`),
         "",
-        pc.dim("Make package.json writable, then run uninstall again."),
+        pc.dim("Make the project path writable, then run uninstall again."),
         pc.dim("No files or hooks were changed."),
       ]);
       process.exit(1);
     }
+  }
+
+  if (plannedPackageChanges.length > 0) {
     try {
-      fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+      writeMutableProjectFile(
+        projectFileStates.get("package.json"),
+        `${JSON.stringify(pkg, null, 2)}\n`,
+      );
       /* node:coverage ignore next 13 */
     } catch {
       // Permission failures are exercised by the access preflight above. This
@@ -226,6 +281,8 @@ if (!dryRun) {
     const cleanup = removeOwnedPath(
       STANDALONE_CONFIG_FILE,
       STANDALONE_CONFIG_FILE,
+      () =>
+        removeMutableProjectFile(projectFileStates.get(STANDALONE_CONFIG_FILE)),
     );
     removed.push(...cleanup.removed);
     manualCleanup.push(...cleanup.manualCleanup);
@@ -255,9 +312,9 @@ function actionSummaryLines(items, label) {
   return [
     pc.dim(label),
     ...(scripts.length > 0
-      ? [pc.dim(`- package scripts: ${scripts.join(", ")}`)]
+      ? [pc.dim(`- package scripts: ${escapeTerminalText(scripts.join(", "))}`)]
       : []),
-    ...remaining.map((item) => pc.dim(`- ${item}`)),
+    ...remaining.map((item) => pc.dim(`- ${escapeTerminalText(item)}`)),
   ];
 }
 
@@ -273,10 +330,12 @@ function manualCleanupSummaryLines(items) {
     );
     return customized
       ? [
-          pc.dim(`- ${customized[1]} is customized.`),
-          pc.dim(`  Remove its ${customized[2]} command manually.`),
+          pc.dim(`- ${escapeTerminalText(customized[1])} is customized.`),
+          pc.dim(
+            `  Remove its ${escapeTerminalText(customized[2])} command manually.`,
+          ),
         ]
-      : [pc.dim(`- ${item}`)];
+      : [pc.dim(`- ${escapeTerminalText(item)}`)];
   });
 }
 
@@ -308,7 +367,9 @@ const body = [
     ? [
         "",
         pc.dim("Preserved shared .gitignore entries:"),
-        ...preservedIgnores.map((entry) => pc.dim(`- ${entry}`)),
+        ...preservedIgnores.map((entry) =>
+          pc.dim(`- ${escapeTerminalText(entry)}`),
+        ),
       ]
     : []),
   ...(manualCleanup.length > 0
@@ -330,7 +391,7 @@ const body = [
       ]
     : [
         pc.dim("Finish by removing the package and updating the lockfile:"),
-        pc.dim(`  ${removeCommand([BIN])}`),
+        pc.dim(`  ${escapeTerminalText(removeCommand([BIN]))}`),
       ]),
 ];
 

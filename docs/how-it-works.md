@@ -15,13 +15,13 @@
 Install the package with the peer tools it runs:
 
 ```bash
-npm install -D commitment-issues eslint prettier
+npm install -D commitment-issues eslint@^9 prettier@^3
 ```
 
 Then initialize the project:
 
 ```bash
-npx commitment-issues init
+npx --no-install commitment-issues init
 ```
 
 Run this from the project root of a non-bare Git working tree. Bare repositories
@@ -49,7 +49,14 @@ owned and runs verbatim.
 
 ## Pre-commit flow
 
-On commit, the pre-commit hook inspects staged files first.
+On the first eligible clean or informational human-readable pre-commit run in a
+clone, a compact Commit Owl welcome becomes the final box and records a
+versioned marker below Git's common directory. Warnings and errors take
+priority without consuming it. Linked worktrees share the marker. JSON runs do
+not display or consume it, and projects can opt out with
+`showWelcomeOnFirstCommit: false`.
+
+The pre-commit hook then inspects staged files.
 
 - Git pathname lists are requested with NUL delimiters. Leading/trailing
   whitespace, tabs, newlines, and Unicode are preserved exactly when paths are

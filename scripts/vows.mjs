@@ -9,7 +9,7 @@ import { printBox } from "./lib/ui.mjs";
 const model = buildVowsMessage();
 const noColor = Object.hasOwn(process.env, "NO_COLOR");
 
-printBox(model.lines.join("\n"), noColor ? undefined : pc.cyan, {
+printBox(model.lines, noColor ? undefined : pc.cyan, {
   padding: { top: 0, right: 1, bottom: 0, left: 1 },
   margin: 0,
   borderColor: noColor ? undefined : "cyan",

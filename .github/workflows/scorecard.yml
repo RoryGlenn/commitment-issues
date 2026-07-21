@@ -11,14 +11,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: scorecard-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   scorecard:
     name: Scorecard
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write
-      security-events: write
+      id-token: write # publish a signed Scorecard result
+      security-events: write # upload SARIF to code scanning
 
     steps:
       - name: Checkout code

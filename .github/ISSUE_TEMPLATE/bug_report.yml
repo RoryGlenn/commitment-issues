@@ -31,7 +31,7 @@ body:
       label: Steps to reproduce
       description: Minimal, ordered steps so we can reproduce the problem.
       placeholder: |
-        1. `npx commitment-issues init`
+        1. `npx --no-install commitment-issues init`
         2. Stage a file with a lint error
         3. `git commit -m "test"`
         4. See ...
@@ -52,7 +52,7 @@ body:
     id: version
     attributes:
       label: commitment-issues version
-      description: Output of `npx commitment-issues --version`.
+      description: Output of `npx --no-install commitment-issues --version`.
       placeholder: 3.x.x
     validations:
       required: true

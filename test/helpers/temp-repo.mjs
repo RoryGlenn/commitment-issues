@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { withoutGitLocalEnvironment } from "../../scripts/lib/process.mjs";
 
 const helpersDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(helpersDir, "..", "..");
@@ -25,7 +26,7 @@ export function run(command, args, cwd, options = {}) {
   // actually wire up and fire, so strip the skip vars from the subprocess env
   // (whether inherited or caller-provided) to keep the tests hermetic
   // regardless of the outer environment.
-  const env = { ...(options.env ?? process.env) };
+  const env = withoutGitLocalEnvironment(options.env ?? process.env);
   delete env.HUSKY;
   delete env.COMMITMENT_ISSUES;
   return spawnSync(command, args, {
@@ -50,7 +51,7 @@ export function readHeadFile(tempDir, relativePath) {
   return result.stdout;
 }
 
-export function createTempRepo({ commit = true } = {}) {
+export function createTempRepo({ commit = true, suppressWelcome = true } = {}) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "precommit-checks-"));
 
   run("git", ["init"], tempDir);
@@ -67,6 +68,14 @@ export function createTempRepo({ commit = true } = {}) {
   );
   if (rootPkg.precommitChecks && typeof rootPkg.precommitChecks === "object") {
     delete rootPkg.precommitChecks.tone;
+    if (suppressWelcome) {
+      // Most fixtures target an established hook state. Keep the new
+      // once-per-clone onboarding box out of unrelated output assertions;
+      // welcome-specific tests opt back into the production default.
+      rootPkg.precommitChecks.showWelcomeOnFirstCommit = false;
+    } else {
+      delete rootPkg.precommitChecks.showWelcomeOnFirstCommit;
+    }
   }
   writeFile(
     path.join(tempDir, "package.json"),
@@ -105,9 +114,16 @@ export function cleanupTempRepo(tempDir) {
 }
 
 // Overwrite the temp repo's precommitChecks config block.
-export function setPrecommitConfig(tempDir, precommitChecks) {
+export function setPrecommitConfig(
+  tempDir,
+  precommitChecks,
+  { suppressWelcome = true } = {},
+) {
   const pkg = JSON.parse(readFile(tempDir, "package.json"));
-  pkg.precommitChecks = precommitChecks;
+  pkg.precommitChecks = {
+    ...(suppressWelcome ? { showWelcomeOnFirstCommit: false } : {}),
+    ...precommitChecks,
+  };
   writeFile(
     path.join(tempDir, "package.json"),
     `${JSON.stringify(pkg, null, 2)}\n`,
@@ -147,7 +163,13 @@ export function writeCrossPlatformShim(binDir, name, shimBody) {
 // fixtures can include NUL-delimited Git output. Used to exercise defensive Git
 // failure/malformed-output branches without corrupting a real repository.
 // Cross-platform: a Node shim behind `git`/`git.cmd` launchers.
-export function fakeGitEnv(tempDir, matchSubstring, exitCode = 1, stdout = "") {
+export function fakeGitEnv(
+  tempDir,
+  matchSubstring,
+  exitCode = 1,
+  stdout = "",
+  stderr = "",
+) {
   const binDir = path.join(tempDir, ".fakebin");
   fs.mkdirSync(binDir, { recursive: true });
   writeCrossPlatformShim(
@@ -160,6 +182,10 @@ if (match && args.join(" ").includes(match)) {
   const stdout = process.env.FAKE_GIT_STDOUT_BASE64 || "";
   if (stdout) {
     process.stdout.write(Buffer.from(stdout, "base64"));
+  }
+  const stderr = process.env.FAKE_GIT_STDERR_BASE64 || "";
+  if (stderr) {
+    process.stderr.write(Buffer.from(stderr, "base64"));
   }
   process.exit(Number(process.env.FAKE_GIT_EXIT ?? "1"));
 }
@@ -175,6 +201,7 @@ process.exit(result.status == null ? 1 : result.status);
     FAKE_GIT_MATCH: matchSubstring,
     FAKE_GIT_EXIT: String(exitCode),
     FAKE_GIT_STDOUT_BASE64: Buffer.from(stdout).toString("base64"),
+    FAKE_GIT_STDERR_BASE64: Buffer.from(stderr).toString("base64"),
     FAKE_GIT_REAL: REAL_GIT,
   };
 }

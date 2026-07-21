@@ -13,7 +13,15 @@ import {
   plural,
   prepushTestInterruption,
 } from "./lib/message.mjs";
-import { run, spawnAsync, TOOL_TIMEOUT_MS } from "./lib/process.mjs";
+import {
+  isNodeTestCommand,
+  nodeTestArgumentParts,
+  nodeTestArguments,
+  run,
+  runBatchedCommand,
+  TOOL_TIMEOUT_MS,
+  withoutGitLocalEnvironment,
+} from "./lib/process.mjs";
 import {
   loadPrecommitConfig,
   precommitConfigDiagnostics,
@@ -36,6 +44,7 @@ import {
   parseJsonOutputArgs,
 } from "./lib/json-output.mjs";
 import { firstPushBase } from "./lib/push-base.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
 
 // Force literal, unquoted paths (as the pre-commit/fix flows already do) so
 // pushed files with spaces or non-ASCII names still match their associated
@@ -50,7 +59,9 @@ if (outputArgs.error) {
   if (outputArgs.enabled) {
     emitJsonArgumentError("prepush", outputArgs.error);
   } else {
-    console.error(`commitment-issues prepush: ${outputArgs.error}`);
+    console.error(
+      escapeTerminalText(`commitment-issues prepush: ${outputArgs.error}`),
+    );
   }
   process.exit(1);
 }
@@ -101,7 +112,7 @@ if (jsonMode) {
   }
 } else {
   for (const message of configWarnings) {
-    console.warn(pc.yellow(`⚠ ${message}`));
+    console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
   }
 }
 
@@ -143,7 +154,7 @@ if (blocking && config.advisePushTests === true) {
       message,
     });
   } else {
-    console.warn(pc.yellow(`⚠ ${message}`));
+    console.warn(pc.yellow(escapeTerminalText(`⚠ ${message}`)));
   }
 }
 
@@ -188,7 +199,9 @@ if (protectedTargets.length > 0) {
     printHookMessage("error", [
       pc.bold("Push blocked: protected branch."),
       "",
-      pc.dim(`Pushing to ${named} is blocked by blockProtectedBranches.`),
+      pc.dim(
+        `Pushing to ${escapeTerminalText(named)} is blocked by blockProtectedBranches.`,
+      ),
       "",
       pc.dim("Push a feature branch and open a pull request instead."),
       pc.dim("To bypass once: git push --no-verify"),
@@ -421,14 +434,16 @@ const { files: pushedFiles, diffErrors } = getPushedFiles();
 // which tests to run. Advisory mode stays out of the way (warn, then allow);
 // blocking mode fails closed rather than waving through an un-inspectable push.
 if (diffErrors.length > 0) {
-  const detailLines = [...new Set(diffErrors)].map((detail) => pc.dim(detail));
+  const detailLines = [...new Set(diffErrors)].map((detail) =>
+    pc.dim(escapeTerminalText(detail)),
+  );
   const issue = {
     autoFixable: false,
     type: "git",
     message: blocking
       ? "Could not inspect pushed files"
       : "Could not inspect pushed files (advisory)",
-    detail: [...new Set(diffErrors)].join("\n"),
+    detail: [...new Set(diffErrors)],
   };
   jsonOutput.addCheck({
     id: "pushed-files",
@@ -530,57 +545,103 @@ if (testFiles.length === 0) {
   process.exit(0);
 }
 
-const fullCommand = [...testCommand, ...testFiles];
+const isNodeTest = isNodeTestCommand(testCommand);
+const fullCommand = isNodeTest
+  ? [testCommand[0], ...nodeTestArguments(testCommand, testFiles)]
+  : [...testCommand, ...testFiles];
 
 if (!jsonMode) {
   console.log("");
   console.log(
-    pc.dim(`Running tests for pushed files: ${fullCommand.join(" ")}`),
+    pc.dim(
+      escapeTerminalText(
+        `Running tests for pushed files: ${fullCommand.join(" ")}`,
+      ),
+    ),
   );
   console.log("");
 }
 
-// Avoid leaking this process's test-runner context into the spawned suite.
-const env = { ...process.env };
+// Avoid leaking this process's test-runner context or Git's hook-local
+// repository routing into the spawned suite. Tests can rediscover the current
+// checkout by cwd without redirecting nested Git fixtures into the caller.
+const env = withoutGitLocalEnvironment();
 delete env.NODE_TEST_CONTEXT;
 
 // Human mode keeps the test runner attached/teed as before. JSON mode captures
 // the same subprocess output and relays it to stderr after completion; stdout
 // remains exactly one parseable JSON document.
-const isNodeTest =
-  /(^|[/\\])node(\.exe)?$/i.test(testCommand[0]) &&
-  testCommand.includes("--test");
-
 let result;
 let summary = null;
 
+function aggregateTestSummaries(batchResult, summaries) {
+  if (
+    summaries.some((entry) => entry === null) ||
+    batchResult.batchResults.some(
+      (entry) => entry.outcome !== "success" && entry.outcome !== "nonzero",
+    )
+  ) {
+    return null;
+  }
+  return summaries.reduce(
+    (totals, entry) => ({
+      passed: totals.passed + entry.passed,
+      failed: totals.failed + entry.failed,
+    }),
+    { passed: 0, failed: 0 },
+  );
+}
+
 if (isNodeTest) {
-  const tapFile = path.join(os.tmpdir(), `prepush-tap-${process.pid}.tap`);
-  const args = [
-    ...testCommand.slice(1),
+  // Keep reporter output below a freshly created private directory. A
+  // predictable shared-temp filename can collide with or follow an attacker-
+  // prepared path on multi-user systems.
+  const tapDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-issues-prepush-"),
+  );
+  const tapFile = path.join(tapDir, "results.tap");
+  const parts = nodeTestArgumentParts(testCommand, testFiles, [
     "--test-reporter=spec",
     "--test-reporter-destination=stdout",
     "--test-reporter=tap",
     `--test-reporter-destination=${tapFile}`,
-    ...testFiles,
-  ];
-  result = await spawnAsync(testCommand[0], args, {
-    env,
-    stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
-  });
+  ]);
+  const batchSummaries = [];
   try {
-    summary = parseNodeTestSummary(fs.readFileSync(tapFile, "utf8"));
-  } catch {
-    summary = null;
+    result = await runBatchedCommand(
+      testCommand[0],
+      parts.fixedArgs,
+      parts.fileArgs,
+      {
+        env,
+        stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
+        beforeBatch: () => fs.writeFileSync(tapFile, ""),
+        afterBatch: () =>
+          batchSummaries.push(
+            parseNodeTestSummary(fs.readFileSync(tapFile, "utf8")),
+          ),
+      },
+    );
+    summary = aggregateTestSummaries(result, batchSummaries);
   } finally {
-    fs.rmSync(tapFile, { force: true });
+    fs.rmSync(tapDir, { recursive: true, force: true });
   }
 } else {
-  result = await spawnAsync(fullCommand[0], fullCommand.slice(1), {
-    env,
-    echo: !jsonMode,
-  });
-  summary = parseNodeTestSummary(`${result.stdout}\n${result.stderr}`);
+  result = await runBatchedCommand(
+    testCommand[0],
+    testCommand.slice(1),
+    testFiles,
+    {
+      env,
+      echo: !jsonMode,
+    },
+  );
+  summary = aggregateTestSummaries(
+    result,
+    result.batchResults.map((batch) =>
+      parseNodeTestSummary(`${batch.stdout}\n${batch.stderr}`),
+    ),
+  );
 }
 
 if (jsonMode) {
@@ -629,6 +690,13 @@ if (testDidNotComplete) {
       error: result.error?.message || null,
       outcome: testOutcome,
       summary,
+      batchCount: result.batchCount,
+      plannedBatchCount: result.plannedBatchCount,
+      batchOutcomes: result.batchResults.map(({ outcome, status, signal }) => ({
+        outcome,
+        status,
+        signal,
+      })),
     },
   });
   if (blocking) {
@@ -692,6 +760,13 @@ if (testOutcome === "nonzero") {
       signal: result.signal,
       outcome: testOutcome,
       summary,
+      batchCount: result.batchCount,
+      plannedBatchCount: result.plannedBatchCount,
+      batchOutcomes: result.batchResults.map(({ outcome, status, signal }) => ({
+        outcome,
+        status,
+        signal,
+      })),
     },
   });
   if (blocking) {
@@ -750,6 +825,13 @@ jsonOutput.addCheck({
     signal: result.signal,
     outcome: testOutcome,
     summary,
+    batchCount: result.batchCount,
+    plannedBatchCount: result.plannedBatchCount,
+    batchOutcomes: result.batchResults.map(({ outcome, status, signal }) => ({
+      outcome,
+      status,
+      signal,
+    })),
   },
 });
 

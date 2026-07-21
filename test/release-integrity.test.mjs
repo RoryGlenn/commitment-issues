@@ -3,13 +3,24 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   checkReleaseAvailability,
   normalizeReleaseVersion,
 } from "../tools/release-preflight.mjs";
+import {
+  formatLifecycleManagers,
+  formatMigrationManagers,
+  hasExactOutputLine,
+  hasSuppliedTarballDigest,
+  isSupportedLifecycleManager,
+  isSupportedMigrationManager,
+  shouldEnforcePosixPackageModes,
+} from "../scripts/lib/lifecycle-managers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -17,55 +28,311 @@ function readText(file) {
   return fs.readFileSync(path.join(root, file), "utf8");
 }
 
+function runGit(cwd, args) {
+  return spawnSync("git", args, { cwd, encoding: "utf8" });
+}
+
+function npmPackInvocations(source) {
+  const executableLines = source
+    .split(/\r?\n/u)
+    .filter((line) => !line.trimStart().startsWith("#"))
+    .join("\n");
+  return executableLines.match(/\bnpm\b(?:(?!\bnpm\b|#).)*?\bpack\b/gu) ?? [];
+}
+
 function availableGit(args) {
   if (args[0] === "show-ref") return { status: 1, stdout: "", stderr: "" };
   return { status: 0, stdout: "", stderr: "" };
 }
 
+test("publish workflow verifies canonical mainline before dependency or release work", () => {
+  const workflow = readText(".github/workflows/publish.yml");
+  const candidateJob = workflow.slice(
+    workflow.indexOf("\n  candidate:"),
+    workflow.indexOf("\n  publish:"),
+  );
+  const ancestryGate = candidateJob.indexOf(
+    "- name: Verify release commit belongs to reviewed mainline",
+  );
+  const metadataGate = candidateJob.indexOf(
+    "- name: Validate release metadata and reviewed notes",
+  );
+  const setupNode = candidateJob.indexOf("uses: actions/setup-node@");
+  const install = candidateJob.indexOf("- run: npm ci");
+  const pack = candidateJob.indexOf("- name: Pack tarball");
+
+  assert.match(
+    workflow,
+    /uses: actions\/checkout@[0-9a-f]+ # v7\s+with:\s+persist-credentials: false\s+fetch-depth: 0/,
+    "the tag checkout must fetch complete canonical history without retaining credentials",
+  );
+  assert.notEqual(ancestryGate, -1);
+  assert.notEqual(metadataGate, -1);
+  assert.match(
+    workflow,
+    /- name: Verify release commit belongs to reviewed mainline\s+run: node tools\/verify-release-mainline\.mjs/,
+    "the workflow must execute the helper covered by the ancestry fixture",
+  );
+  assert.ok(
+    setupNode < ancestryGate &&
+      ancestryGate < metadataGate &&
+      metadataGate < install &&
+      metadataGate < pack,
+    "mainline authorization and release metadata validation must run before dependency installation or packing",
+  );
+  assert.match(
+    candidateJob,
+    /name: Validate release metadata and reviewed notes\s+env:\s+RELEASE_TAG: \$\{\{ github\.ref_name \}\}\s+run: npm run release:validate -- --tag "\$RELEASE_TAG"/u,
+  );
+});
+
+test("release ancestry rule accepts reviewed mainline and rejects an off-main commit", (t) => {
+  const repo = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-issues-release-ancestry-"),
+  );
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
+  const helper = path.join(root, "tools", "verify-release-mainline.mjs");
+  const runHelper = () =>
+    spawnSync(process.execPath, [helper], {
+      cwd: repo,
+      encoding: "utf8",
+      env: { ...process.env, GITHUB_REF_NAME: "v-test" },
+    });
+
+  for (const args of [
+    ["init"],
+    ["config", "user.name", "release-integrity-test"],
+    ["config", "user.email", "release-integrity@example.com"],
+  ]) {
+    const result = runGit(repo, args);
+    assert.equal(result.status, 0, result.stderr);
+  }
+
+  fs.writeFileSync(path.join(repo, "reviewed.txt"), "reviewed\n");
+  for (const args of [
+    ["add", "reviewed.txt"],
+    ["commit", "-m", "reviewed mainline"],
+    ["branch", "-M", "main"],
+  ]) {
+    const result = runGit(repo, args);
+    assert.equal(result.status, 0, result.stderr);
+  }
+
+  const mainCommit = runGit(repo, ["rev-parse", "HEAD"]).stdout.trim();
+  assert.equal(
+    runGit(repo, ["update-ref", "refs/remotes/origin/main", mainCommit]).status,
+    0,
+  );
+  const reviewed = runHelper();
+  assert.equal(reviewed.status, 0, reviewed.stderr);
+  assert.match(
+    reviewed.stdout,
+    new RegExp(`Release commit ${mainCommit} belongs to reviewed origin/main`),
+  );
+
+  assert.equal(runGit(repo, ["switch", "-c", "off-main"]).status, 0);
+  fs.writeFileSync(path.join(repo, "off-main.txt"), "unreviewed\n");
+  assert.equal(runGit(repo, ["add", "off-main.txt"]).status, 0);
+  assert.equal(
+    runGit(repo, ["commit", "-m", "unreviewed release candidate"]).status,
+    0,
+  );
+  const offMainCommit = runGit(repo, ["rev-parse", "HEAD"]).stdout.trim();
+  const unreviewed = runHelper();
+  assert.equal(unreviewed.status, 1, unreviewed.stderr);
+  assert.match(unreviewed.stderr, /::error::Tag v-test points to/);
+  assert.match(
+    unreviewed.stderr,
+    new RegExp(`${offMainCommit}[^\n]*not reachable from origin/main`),
+  );
+});
+
 test("publish workflow gates and publishes one immutable release", () => {
   const workflow = readText(".github/workflows/publish.yml");
+  const pullRequestTrigger = workflow.slice(
+    workflow.indexOf("  pull_request:"),
+    workflow.indexOf("  push:"),
+  );
+  const validateJob = workflow.slice(
+    workflow.indexOf("\n  validate:"),
+    workflow.indexOf("\n  candidate:"),
+  );
+  const candidateJob = workflow.slice(
+    workflow.indexOf("\n  candidate:"),
+    workflow.indexOf("\n  publish:"),
+  );
+  const publishJob = workflow.slice(
+    workflow.indexOf("\n  publish:"),
+    workflow.indexOf("\n  provenance:"),
+  );
+  const initialRecoveryStep = publishJob.slice(
+    publishJob.indexOf("- name: Classify release recovery state"),
+    publishJob.indexOf("- name: Upload tarball artifact"),
+  );
+  const confirmationStep = publishJob.slice(
+    publishJob.indexOf("- name: Confirm npm publication boundary"),
+  );
   const provenanceJob = workflow.slice(
     workflow.indexOf("\n  provenance:"),
     workflow.indexOf("\n  publish-release:"),
   );
-  const lifecycleGate = workflow.indexOf("run: npm run test:lifecycle:npm");
+  const publishReleaseJob = workflow.slice(
+    workflow.indexOf("\n  publish-release:"),
+  );
+  const testStep = workflow.indexOf("- run: npm test");
+  const lifecycleGate = workflow.indexOf(
+    "- name: Verify exact npm package lifecycle",
+  );
+  const migrationGate = workflow.indexOf(
+    "- name: Verify exact npm upgrade migration",
+  );
   const packStep = workflow.indexOf("- name: Pack tarball");
+  const recoveryGate = workflow.indexOf(
+    "- name: Classify release recovery state",
+  );
   const publishStep = workflow.indexOf("- name: Publish to npm");
+  const confirmRecoveryGate = workflow.indexOf(
+    "- name: Confirm npm publication boundary",
+  );
   const provenanceDownload = workflow.indexOf(
     "- name: Download provenance artifact",
+  );
+  const provenanceVerification = workflow.indexOf(
+    "- name: Cryptographically verify signed provenance",
+  );
+  const finalRecoveryGate = workflow.indexOf(
+    "- name: Revalidate release draft and assets",
+  );
+  const releaseNotesGate = workflow.indexOf(
+    "- name: Generate reviewed release notes",
   );
   const releaseStep = workflow.indexOf(
     "- name: Publish immutable release with all assets",
   );
 
   assert.notEqual(lifecycleGate, -1);
+  assert.notEqual(migrationGate, -1);
   assert.notEqual(packStep, -1);
+  assert.notEqual(recoveryGate, -1);
   assert.notEqual(publishStep, -1);
+  assert.notEqual(confirmRecoveryGate, -1);
+  assert.match(
+    candidateJob,
+    /runs-on: ubuntu-latest/,
+    "the release artifact must remain on a POSIX producer that enforces packed modes",
+  );
   assert.ok(
-    lifecycleGate < packStep && packStep < publishStep,
-    "npm lifecycle smoke must finish before the release tarball is packed and published",
+    testStep < packStep &&
+      packStep < lifecycleGate &&
+      lifecycleGate < migrationGate &&
+      migrationGate < recoveryGate &&
+      recoveryGate < publishStep,
+    "the release tarball must be packed once, lifecycle-tested, migration-tested, classified, and then conditionally published",
+  );
+  assert.equal(
+    npmPackInvocations(candidateJob).length,
+    1,
+    "the candidate job must contain only one npm pack command, regardless of its flags",
+  );
+  assert.equal(
+    npmPackInvocations(publishJob).length,
+    0,
+    "the privileged publish job must consume rather than rebuild the candidate",
+  );
+  assert.equal(
+    npmPackInvocations(`${candidateJob}\nrun: npm --silent pack`).length,
+    2,
+    "the assertion must recognize npm global options before the pack command",
+  );
+  assert.equal(
+    npmPackInvocations(`${candidateJob}\nrun: npm --workspace demo pack`)
+      .length,
+    2,
+    "the assertion must recognize npm options with values before the pack command",
+  );
+  assert.equal(workflow.match(/- name: Pack tarball/gu)?.length ?? 0, 1);
+  assert.match(
+    workflow,
+    /name: Verify exact npm package lifecycle[\s\S]*?env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: npm run test:lifecycle:npm -- --tarball "\$TARBALL"/,
+  );
+  assert.match(
+    workflow,
+    /name: Verify exact npm upgrade migration\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: node tools\/run-migration-lifecycle-test\.mjs npm --tarball "\$TARBALL"/,
   );
 
   assert.match(
     workflow,
-    /npm publish "\.\/\$\{\{ steps\.pack\.outputs\.tarball \}\}" --access public/,
+    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
+  );
+  assert.equal(
+    workflow.match(/npm publish "\.\/\$TARBALL" --access public/gu)?.length ??
+      0,
+    1,
+    "the workflow must contain exactly one guarded npm publish command",
+  );
+  for (const releaseInput of [
+    ".github/workflows/publish.yml",
+    ".github/release-history.json",
+    "CHANGELOG.md",
+    "package.json",
+    "package-lock.json",
+    "tools/release-preflight.mjs",
+    "tools/release-recovery.mjs",
+    "tools/validate-release-metadata.mjs",
+  ]) {
+    assert.match(
+      pullRequestTrigger,
+      new RegExp(`- "${releaseInput.replaceAll(".", "\\.")}"`, "u"),
+      `${releaseInput} must trigger the non-publishing release validation job`,
+    );
+  }
+  assert.match(validateJob, /if: github\.event_name == 'pull_request'/u);
+  assert.match(validateJob, /permissions:\s+contents: read/u);
+  assert.match(validateJob, /uses: actions\/checkout@[0-9a-f]{40} # v7/u);
+  assert.match(validateJob, /persist-credentials: false/u);
+  assert.match(validateJob, /node-version: "24"/u);
+  assert.match(
+    validateJob,
+    /name: Confirm release workflow validation\s+run: npm run release:validate/u,
   );
   assert.match(
     workflow,
-    /pull_request:\s+paths:\s+- "\.github\/workflows\/publish\.yml"/,
-  );
-  assert.match(
-    workflow,
-    /validate:\s+if: github\.event_name == 'pull_request'[\s\S]*Confirm release workflow validation/,
-  );
-  assert.match(
-    workflow,
-    /publish:\s+if: github\.event_name == 'push'/,
+    /publish:[\s\S]*?if: github\.event_name == 'push'/,
     "publishing must remain disabled during pull-request validation",
   );
   assert.match(
     workflow,
-    /sha256sum "\$\{\{ steps\.pack\.outputs\.tarball \}\}"/,
+    /name: Record hosted candidate identity[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}[\s\S]*?sha256sum "\$TARBALL"/,
+  );
+  assert.match(
+    publishJob,
+    /outputs:[\s\S]*?release_needed: \$\{\{ steps\.confirm_recovery\.outputs\.release_needed \}\}/,
+  );
+  assert.match(
+    candidateJob,
+    /permissions:\s+contents: read[\s\S]*?Verify exact npm upgrade migration/,
+  );
+  assert.doesNotMatch(candidateJob, /id-token:\s+write/);
+  assert.doesNotMatch(publishJob, /(?:npm ci|run-migration-lifecycle-test)/);
+  assert.match(
+    publishJob,
+    /needs: \[candidate\][\s\S]*?id-token: write[\s\S]*?Download verified release candidate[\s\S]*?Verify release candidate handoff/,
+  );
+  assert.match(
+    publishJob,
+    /name: Classify release recovery state\s+id: recovery[\s\S]*?run: node tools\/release-recovery\.mjs/,
+  );
+  assert.doesNotMatch(initialRecoveryStep, /--require-npm/);
+  assert.match(confirmationStep, /--require-npm/);
+  assert.match(
+    publishJob,
+    /name: Classify release recovery state[\s\S]*?run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"[\s\S]*?name: Publish to npm[\s\S]*?npm publish "\.\/\$TARBALL" --access public[\s\S]*?name: Confirm npm publication boundary[\s\S]*?--require-npm/,
+    "the post-publication confirmation enables bounded npm propagation polling",
+  );
+  assert.match(
+    publishJob,
+    /name: Upload tarball artifact\s+if: steps\.recovery\.outputs\.release_needed == 'true'[\s\S]*?overwrite: true/,
+    "an exact full rerun may replace only its ephemeral Actions artifact",
   );
   assert.match(workflow, /path:\s+\$\{\{ steps\.pack\.outputs\.tarball \}\}/);
   assert.match(workflow, /upload-assets:\s+false/);
@@ -73,15 +340,40 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.doesNotMatch(workflow, /upload-tag-name:/);
   assert.match(
     provenanceJob,
-    /contents:\s+write/,
+    /if: needs\.publish\.outputs\.release_needed == 'true'[\s\S]*?contents:\s+write/,
     "GitHub requires the caller to grant the reusable SLSA workflow's declared permission even when its upload job is skipped",
   );
   assert.match(workflow, /needs:\s+\[publish, provenance\]/);
   assert.match(
     workflow,
+    /publish-release:[\s\S]*?if: needs\.publish\.outputs\.release_needed == 'true'/,
+  );
+  assert.match(
+    workflow,
     /name:\s+\$\{\{ needs\.provenance\.outputs\.provenance-name \}\}/,
   );
   assert.match(workflow, /draft:\s+false/);
+  assert.match(
+    publishReleaseJob,
+    /uses: actions\/setup-node@[0-9a-f]{40} # v7[\s\S]*?node-version: "24"/u,
+    "the final recovery and note generator must run on the pinned release runtime",
+  );
+  assert.match(workflow, /name:\s+\$\{\{ github\.ref_name \}\}/u);
+  assert.match(workflow, /body_path:\s+release-notes\.md/u);
+  assert.doesNotMatch(workflow, /generate_release_notes:/u);
+  assert.match(workflow, /overwrite_files:\s+false/);
+  assert.match(
+    workflow,
+    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?--require-npm[\s\S]*?name: Generate reviewed release notes[\s\S]*?npm run release:validate -- --tag "\$RELEASE_TAG" --notes-file release-notes\.md[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
+  );
+  assert.match(
+    workflow,
+    /slsa-framework\/slsa-verifier\/actions\/installer@[0-9a-f]{40} # v2\.7\.1/,
+  );
+  assert.match(
+    workflow,
+    /name: Cryptographically verify signed provenance[\s\S]*?slsa-verifier verify-artifact release-assets\/\*\.tgz[\s\S]*?--source-uri github\.com\/RoryGlenn\/commitment-issues[\s\S]*?--source-tag "\$RELEASE_TAG"/,
+  );
   assert.match(workflow, /release-assets\/\*\.tgz/);
   assert.match(workflow, /release-assets\/\*\.intoto\.jsonl/);
   assert.equal(
@@ -95,14 +387,165 @@ test("publish workflow gates and publishes one immutable release", () => {
     "the only release uploader must use the Node 24 action line",
   );
   assert.ok(
-    publishStep < provenanceDownload && provenanceDownload < releaseStep,
-    "npm publish and provenance generation must finish before one release action uploads both assets",
+    recoveryGate < publishStep &&
+      publishStep < confirmRecoveryGate &&
+      confirmRecoveryGate < provenanceDownload &&
+      provenanceDownload < provenanceVerification &&
+      provenanceVerification < finalRecoveryGate &&
+      finalRecoveryGate < releaseNotesGate &&
+      releaseNotesGate < releaseStep &&
+      finalRecoveryGate < releaseStep,
+    "npm publication, provenance verification, state classification, and reviewed release-note generation must finish before one release action publishes the assets",
+  );
+  assert.doesNotMatch(
+    workflow,
+    /npm (?:unpublish|deprecate|dist-tag)|git tag -[df]|gh release delete/,
+    "automated recovery must not mutate public identifiers or registry policy",
   );
 });
 
-test("manual exact-tarball publishing runs gates before packing", () => {
+test("hosted release candidate records byte identity and pack toolchain together", () => {
+  const workflow = readText(".github/workflows/publish.yml");
+  const candidateJob = workflow.slice(
+    workflow.indexOf("\n  candidate:"),
+    workflow.indexOf("\n  publish:"),
+  );
+  const packStep = candidateJob.indexOf("- name: Pack tarball");
+  const identityStep = candidateJob.indexOf(
+    "- name: Record hosted candidate identity",
+  );
+  const uploadStep = candidateJob.indexOf(
+    "- name: Upload verified release candidate",
+  );
+  const identityBlock = candidateJob.slice(identityStep, uploadStep);
+
+  assert.ok(
+    packStep !== -1 &&
+      identityStep !== -1 &&
+      uploadStep !== -1 &&
+      packStep < identityStep &&
+      identityStep < uploadStep,
+    "the workflow must identify the same candidate after packing and before upload",
+  );
+  assert.match(identityBlock, /hash_line="\$\(sha256sum "\$TARBALL"\)"/u);
+  assert.match(
+    identityBlock,
+    /hashes="\$\(printf '%s\\n' "\$hash_line" \| base64 -w0\)"/u,
+    "the provenance subject must derive from the recorded candidate hash",
+  );
+  assert.match(identityBlock, /sha256="\$\{hash_line%% \*\}"/u);
+  assert.match(identityBlock, /node_version="\$\(node --version\)"/u);
+  assert.match(identityBlock, /npm_version="\$\(npm --version\)"/u);
+  assert.match(
+    identityBlock,
+    /### Hosted release candidate built by this run[\s\S]*?GITHUB_STEP_SUMMARY/u,
+    "a rebuilt candidate must not be declared authoritative before recovery accepts it",
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Filename \| \\`%s\\` \|\\n" "\$TARBALL"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| SHA-256 \| \\`%s\\` \|\\n" "\$sha256"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Release tag \| \\`%s\\` \|\\n" "\$GITHUB_REF_NAME"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Source commit \| \\`%s\\` \|\\n" "\$GITHUB_SHA"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Runner \| \\`%s %s; %s %s\\` \|\\n"[\s\S]*?"\$RUNNER_OS" "\$RUNNER_ARCH"[\s\S]*?"\$\{ImageOS:-unknown-image\}" "\$\{ImageVersion:-unknown-version\}"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| Node \| \\`%s\\` \|\\n" "\$node_version"/u,
+  );
+  assert.match(
+    identityBlock,
+    /printf "\| npm \| \\`%s\\` \|\\n" "\$npm_version"/u,
+  );
+  assert.equal(
+    npmPackInvocations(identityBlock).length,
+    0,
+    "recording identity must never rebuild the candidate",
+  );
+});
+
+test("required npm CI lifecycle lanes consume explicitly prebuilt tarballs", () => {
+  const workflow = readText(".github/workflows/ci.yml");
+  const checkJob = workflow.slice(
+    workflow.indexOf("\n  check:"),
+    workflow.indexOf("\n  windows-tests:"),
+  );
+  const windowsLifecycleJob = workflow.slice(
+    workflow.indexOf("\n  windows-npm-lifecycle:"),
+    workflow.indexOf("\n  shell-compat:"),
+  );
+  const wrapper = readText("tools/run-prebuilt-lifecycle-test.mjs");
+  const wrapperHash = wrapper.indexOf(
+    "const expectedTarballHash = sha256(tarball)",
+  );
+  const wrapperLifecycle = wrapper.indexOf(
+    "const lifecycle = run(process.execPath",
+  );
+
+  assert.match(
+    checkJob,
+    /- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/,
+  );
+  assert.match(
+    windowsLifecycleJob,
+    /runs-on: windows-latest[\s\S]*node-version: \["22\.11\.0", "24"\][\s\S]*- name: Prebuilt package lifecycle integration \(separate from runtime coverage\)\s+run: node tools\/run-prebuilt-lifecycle-test\.mjs/u,
+  );
+  assert.equal(
+    `${checkJob}\n${windowsLifecycleJob}`.match(
+      /run: node tools\/run-prebuilt-lifecycle-test\.mjs/gu,
+    )?.length ?? 0,
+    2,
+    "non-Windows check lanes and the dedicated Windows matrix should each declare one lifecycle owner",
+  );
+  assert.equal(
+    wrapper.match(/\brun\(\s*"npm"\s*,\s*\[\s*"pack"\s*,/gu)?.length ?? 0,
+    1,
+    "the hosted-CI wrapper must create its prebuilt tarball exactly once",
+  );
+  assert.match(
+    wrapper,
+    /run\(process\.execPath, \[\s*"scripts\/run-lifecycle-test\.mjs",\s*"npm",\s*"--tarball",\s*tarball,/,
+  );
+  assert.match(wrapper, /const expectedTarballHash = sha256\(tarball\)/);
+  assert.match(
+    wrapper,
+    /hasSuppliedTarballDigest\(lifecycle\.stdout, expectedTarballHash\)/,
+    "the wrapper should confirm supplied bytes without matching a platform-rendered path",
+  );
+  assert.ok(
+    wrapperHash !== -1 &&
+      wrapperLifecycle !== -1 &&
+      wrapperHash < wrapperLifecycle,
+    "the wrapper must hash its tarball before launching the lifecycle",
+  );
+  assert.doesNotMatch(
+    wrapper,
+    /includes\(`\[lifecycle integration\] supplied tarball: \$\{tarball\}`\)/,
+    "TAP escapes Windows path separators differently across Node versions",
+  );
+});
+
+test("manual exact-tarball publishing tests the artifact it publishes", () => {
   const guide = readText(".github/skills/release-and-publish/SKILL.md");
-  const lifecycleGate = guide.indexOf("npm run test:lifecycle:npm");
+  const packageJson = JSON.parse(readText("package.json"));
+  const metadataGate = guide.indexOf(
+    'npm run release:validate -- --tag "v$VERSION"',
+  );
+  const lifecycleGate = guide.indexOf(
+    'npm run test:lifecycle:npm -- --tarball "$tarball"',
+  );
   const packCommand = guide.indexOf(
     'tarball="$(npm pack --silent | tail -n1)"',
   );
@@ -113,12 +556,195 @@ test("manual exact-tarball publishing runs gates before packing", () => {
     /Publishing a tarball does not run this root package's `prepublishOnly`/,
   );
   assert.notEqual(lifecycleGate, -1);
+  assert.notEqual(metadataGate, -1);
   assert.notEqual(packCommand, -1);
   assert.notEqual(publishCommand, -1);
   assert.ok(
-    lifecycleGate < packCommand && packCommand < publishCommand,
-    "manual gates must finish before the release tarball is packed and published",
+    metadataGate < packCommand &&
+      packCommand < lifecycleGate &&
+      lifecycleGate < publishCommand,
+    "manual publication must validate metadata and lifecycle-test the exact tarball it publishes",
   );
+  assert.match(
+    packageJson.scripts.prepublishOnly,
+    /^npm run release:validate && npm test && npm run test:lifecycle:npm$/u,
+    "a direct root publish must validate metadata before its other safety gates",
+  );
+});
+
+test("lifecycle runners validate and forward an explicit tarball without a shell", () => {
+  const runner = readText("scripts/run-lifecycle-test.mjs");
+  const integration = readText("test/integration/lifecycle-manager.test.mjs");
+  const fixture = readText("test/integration/helpers/lifecycle-fixture.mjs");
+  const packedModes = fixture.slice(
+    fixture.indexOf("function assertPackedModes"),
+    fixture.indexOf("function inspectPackedTarball"),
+  );
+  const installedCli = fixture.slice(
+    fixture.indexOf("function assertInstalledCli"),
+    fixture.indexOf("function assertFileContains"),
+  );
+
+  assert.match(runner, /--tarball/);
+  assert.match(runner, /COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(runner, /delete childEnv\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(runner, /lstatSync\(resolved\)\.isFile\(\)/);
+  assert.match(integration, /createLifecycleIntegration/);
+  assert.match(integration, /for \(const phase of lifecycle\.phases\)/);
+  assert.match(integration, /t\.test\(phase\.name/);
+  assert.match(fixture, /process\.env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(fixture, /lstatSync\(resolved\)\.isFile\(\)/);
+  assert.match(
+    packedModes,
+    /if \(!shouldEnforcePosixPackageModes\(\)\) \{[\s\S]*?return;[\s\S]*?cli\?\.mode === 0o755[\s\S]*?file\.mode !== 0o644/,
+    "only POSIX producers should enforce tarball mode metadata",
+  );
+  assert.match(installedCli, /startsWith\("#!\/usr\/bin\/env node\\n"\)/);
+  assert.match(installedCli, /execBin\(\["--version"\]\)/);
+  assert.match(
+    installedCli,
+    /hasExactOutputLine\(versionOutput, packedMetadata\.version\)/,
+  );
+  assert.doesNotMatch(
+    installedCli,
+    /shouldEnforcePosixPackageModes/,
+    "bin, shebang, and version checks must remain unconditional on Windows",
+  );
+  assert.match(fixture, /delete env\.COMMITMENT_ISSUES_LIFECYCLE_TARBALL/);
+  assert.match(
+    fixture,
+    /if \(suppliedTarball\) \{[\s\S]*?SUPPLIED_TARBALL_DIGEST_PREFIX[\s\S]*?initialTarballHash/,
+    "only a supplied artifact should emit its initial digest handshake",
+  );
+  assert.match(
+    fixture,
+    /tarball = suppliedTarball;\s+if \(tarball\) \{[\s\S]*?supplied tarball:[\s\S]*?\} else \{[\s\S]*?run\("npm", \["pack", "--pack-destination", packDir\], root\)/,
+    "a supplied tarball must bypass the branch that creates a disposable package",
+  );
+  assert.equal(
+    fixture.match(/run\("npm", \["pack",/gu)?.length ?? 0,
+    1,
+    "one stateful lifecycle should pack at most once",
+  );
+  for (const phaseName of [
+    "select the package manager",
+    "pack and inspect the exact artifact",
+    "install the packed artifact and discover workspaces",
+    "initialize and wire the hooks",
+    "commit and defer the first-run welcome",
+    "push through the real pre-push hook",
+    "repair a fresh clone",
+    "exercise a linked worktree",
+    "preview uninstall and remove owned setup",
+  ]) {
+    assert.match(fixture, new RegExp(`name: "${phaseName}"`, "u"));
+  }
+  assert.doesNotMatch(
+    `${runner}\n${integration}\n${fixture}`,
+    /(?:execSync|spawnSync)\([^\n]*\$\{/,
+    "tarball paths must cross process boundaries as argv, never shell text",
+  );
+});
+
+test("lifecycle artifact helpers preserve exact output and platform boundaries", () => {
+  assert.equal(
+    hasExactOutputLine(
+      "yarn run v1.22.22\r\n$ commitment-issues --version\r\n3.3.2\r\nDone in 0.06s.",
+      "3.3.2",
+    ),
+    true,
+  );
+  assert.equal(
+    hasExactOutputLine("commitment-issues@3.3.2\n13.3.20", "3.3.2"),
+    false,
+    "version wrappers and near matches must not impersonate exact CLI output",
+  );
+  assert.equal(shouldEnforcePosixPackageModes("linux"), true);
+  assert.equal(shouldEnforcePosixPackageModes("darwin"), true);
+  assert.equal(shouldEnforcePosixPackageModes("win32"), false);
+
+  const digest = "0123456789abcdef".repeat(4);
+  const marker = `[lifecycle integration] supplied tarball sha256: ${digest}`;
+  assert.equal(
+    hasSuppliedTarballDigest(
+      `# [lifecycle integration] supplied tarball: C:\\\\Temp\\\\package.tgz\r\n# ${marker}\r\n`,
+      digest,
+    ),
+    true,
+    "TAP prefixes and escaped Windows diagnostic paths must not affect byte identity",
+  );
+  assert.equal(
+    hasSuppliedTarballDigest(`# ${marker}0\n`, digest),
+    false,
+    "a digest suffix must not be accepted as an exact marker",
+  );
+  assert.equal(
+    hasSuppliedTarballDigest(`# ${marker}\n`, `${digest.slice(0, -1)}0`),
+    false,
+    "the marker must contain the expected digest",
+  );
+});
+
+test("lifecycle manager support is exposed through read-only helpers", () => {
+  assert.equal(formatLifecycleManagers(), "npm, pnpm, yarn, yarn-berry, bun");
+  assert.equal(formatMigrationManagers(), "npm, pnpm, yarn, bun");
+
+  for (const packageManager of ["npm", "pnpm", "yarn", "yarn-berry", "bun"]) {
+    assert.equal(isSupportedLifecycleManager(packageManager), true);
+  }
+  assert.equal(isSupportedLifecycleManager("corepack"), false);
+
+  for (const packageManager of ["npm", "pnpm", "yarn", "bun"]) {
+    assert.equal(isSupportedMigrationManager(packageManager), true);
+  }
+  assert.equal(isSupportedMigrationManager("yarn-berry"), false);
+});
+
+test("lifecycle launcher rejects malformed tarball arguments before integration", (t) => {
+  const fixture = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-issues-lifecycle-args-"),
+  );
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const fakeTarball = path.join(fixture, "fixture.tgz");
+  const wrongExtension = path.join(fixture, "fixture.tar");
+  const directory = path.join(fixture, "directory.tgz");
+  fs.writeFileSync(fakeTarball, "not needed for argument validation");
+  fs.writeFileSync(wrongExtension, "not a tgz");
+  fs.mkdirSync(directory);
+
+  const cases = [
+    { args: ["npm", "--unknown"], expected: /Unknown lifecycle option/ },
+    {
+      args: ["npm", "--tarball"],
+      expected: /--tarball requires a path/,
+    },
+    {
+      args: ["npm", "--tarball", path.join(fixture, "missing.tgz")],
+      expected: /does not exist/,
+    },
+    {
+      args: ["npm", "--tarball", wrongExtension],
+      expected: /must use the \.tgz extension/,
+    },
+    {
+      args: ["npm", "--tarball", directory],
+      expected: /is not a regular file/,
+    },
+    {
+      args: ["npm", "--tarball", fakeTarball, "--tarball", fakeTarball],
+      expected: /may be provided only once/,
+    },
+  ];
+
+  for (const { args, expected } of cases) {
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/run-lifecycle-test.mjs", ...args],
+      { cwd: root, encoding: "utf8" },
+    );
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, expected);
+  }
 });
 
 test("release verification uses supported npm provenance surfaces", () => {
@@ -128,6 +754,67 @@ test("release verification uses supported npm provenance surfaces", () => {
   assert.match(docs, /dist\.integrity dist\.signatures/);
   assert.doesNotMatch(docs, /npm view[^\n]*\bprovenance\b/);
   assert.match(docs, /must never be moved or reused/);
+  assert.match(docs, /git merge-base --is-ancestor/);
+  assert.match(docs, /tag rules must separately restrict `v\*` creation/);
+});
+
+test("release evidence distinguishes archive bytes from package-tree identity", () => {
+  const docs = readText("docs/release-verification.md");
+  const guide = readText(".github/skills/release-and-publish/SKILL.md");
+  const audit = readText("docs/audits/independent-final-verification.md");
+  const localDigest =
+    "6c9d3f13d1848d36c20e232436efaf9ee77a8d13f8ea39d086297ae97081fc56";
+  const hostedDigest =
+    "99f421294984c2bab50e5a282dc33e59ad2137d0f26f35643f6bec09497ce3f6";
+
+  assert.match(
+    docs,
+    /authoritative byte-level candidate is selected by the\s+hosted release workflow/u,
+  );
+  assert.match(
+    docs,
+    /becomes authoritative\s+only when the later recovery and publication gates accept it/u,
+  );
+  assert.match(docs, /runner OS\/image/u);
+  assert.match(docs, /Archive-byte identity/u);
+  assert.match(docs, /Extracted-tree identity/u);
+  assert.match(docs, /sha256sum "\$LOCAL_TARBALL" "\$HOSTED_TARBALL"/u);
+  assert.match(docs, /cmp "\$LOCAL_TARBALL" "\$HOSTED_TARBALL"/u);
+  assert.match(
+    docs,
+    /LC_ALL=C tar -tvzf "\$LOCAL_TARBALL" \| LC_ALL=C sort > "\$COMPARE_DIR\/local\.list"/u,
+  );
+  assert.match(
+    docs,
+    /LC_ALL=C tar -tvzf "\$HOSTED_TARBALL" \| LC_ALL=C sort > "\$COMPARE_DIR\/hosted\.list"/u,
+  );
+  assert.match(docs, /diff --recursive --no-dereference/u);
+  assert.match(
+    guide,
+    /local\s+pre-tag pack qualifies contents and behavior\s+only/u,
+  );
+
+  assert.match(
+    audit,
+    new RegExp(
+      `macOS Darwin 25\\.5\\.0 arm64; Node 26\\.4\\.0; npm 11\\.17\\.0[\\s\\S]*?${localDigest}`,
+      "u",
+    ),
+  );
+  assert.match(
+    audit,
+    new RegExp(
+      `Node 24\\.18\\.0; npm 11\\.16\\.0[\\s\\S]*?${hostedDigest}`,
+      "u",
+    ),
+  );
+  assert.match(audit, /extracted\s+54-file trees/u);
+  assert.match(audit, /immutable v3\.4\.0[\s\S]*?remain\s+unchanged/u);
+  assert.doesNotMatch(
+    audit,
+    /report merge must reproduce SHA-256/u,
+    "the historical local digest must not remain a cross-toolchain promise",
+  );
 });
 
 test("release preflight accepts a completely unused exact version", async () => {

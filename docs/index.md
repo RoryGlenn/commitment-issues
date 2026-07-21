@@ -8,14 +8,22 @@ not installed with the npm package unless users need it offline.
 ## Start here
 
 - [Project overview and quickstart](../README.md)
+- [Try it safely in a disposable repository](try-it-safely.md)
+- [Before/after workflow and why it matters](why-before-ci.md)
 - [Configuration and behavior](configuration.md) — canonical option, default,
   validation, and check behavior reference
 - [FAQ and troubleshooting](faq.md)
+- [Git terms in plain language](faq.md#git-terms-used-in-this-project) — working
+  tree, staged changes, hooks, branches, and other words newcomers encounter
 - [Migration guide](migration.md)
 - [How commitment-issues works](how-it-works.md)
 
 ## Compatibility guides
 
+- [Compatibility and installation support](compatibility.md) — canonical
+  package-manager, Node, OS, shell, client, and lifecycle boundary
+- [GUI Git-client release checklist](git-client-release-checklist.md) — manual
+  VS Code, JetBrains, and GitHub Desktop evidence and deferral rules
 - [Monorepos and workspaces](monorepo.md)
 - [Yarn Berry](yarn-berry.md)
 - [Framework recipes](framework-recipes.md)
@@ -43,11 +51,23 @@ They are evidence, not living descriptions of later code.
 
 ## Maintainer and audit evidence
 
+- [Definition of Done](definition-of-done.md) — change, release, promotion, and
+  feature-complete maintenance-mode gates
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
   health, package contents, and release housekeeping
 - [Runtime coverage policy](branch-coverage.md)
+- [Hook performance and scaling](performance.md)
+- [CI performance baseline](ci-performance.md)
 - [Scenario coverage](scenario-coverage.md)
 - [Core CLI and Git behavior audit](audits/core-cli-git.md)
+- [Security, secrets, paths, and subprocesses audit](audits/security-secrets-paths-subprocesses.md)
+- [Test quality and meaningful coverage audit](audits/test-quality-and-meaningful-coverage.md)
+- [Terminal UX and output architecture audit](audits/terminal-ux-and-output-architecture.md)
+- [Package managers and cross-platform behavior audit](audits/package-managers-and-cross-platform.md)
+- [CI/CD and GitHub Actions audit](audits/ci-cd-and-github-actions.md)
+- [Release, packaging, and upgrades audit](audits/release-packaging-and-upgrades.md)
+- [Documentation, governance, and promotional assets audit](audits/documentation-governance-and-promotional-assets.md)
+- [Independent final verification preflight](audits/independent-final-verification.md)
 - [Message-state gallery](message-states.md)
 - [OpenSSF evidence map](openssf-best-practices.md)
 - [Feature-planning archive](feature-ideas.md)
@@ -57,10 +77,6 @@ They are evidence, not living descriptions of later code.
 The scenario matrix and message-state gallery are repository evidence. Their
 mechanically checkable parts are enforced by tests and maintainer tools; manual
 limitations remain written down explicitly.
-
-## Rationale
-
-- [Why catch problems before CI?](why-before-ci.md)
 
 ## Contribution guidance
 

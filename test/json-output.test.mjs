@@ -10,6 +10,7 @@ import {
   createTempRepo,
   fakeGitEnv,
   readFile,
+  repoRoot,
   run,
   setPrecommitConfig,
   writeFile,
@@ -21,7 +22,65 @@ import {
   issueToJsonFinding,
   normalizeProcessOutcome,
   parseJsonOutputArgs,
+  writeAllSync,
 } from "../scripts/lib/json-output.mjs";
+
+const jsonOutputSchema = JSON.parse(
+  fs.readFileSync(path.resolve("docs/json-output.schema.json"), "utf8"),
+);
+
+function assertSchemaValue(value, schema, pointer = "$") {
+  if (schema.$ref) {
+    const referenced = schema.$ref
+      .slice(2)
+      .split("/")
+      .reduce((current, key) => current[key], jsonOutputSchema);
+    assertSchemaValue(value, referenced, pointer);
+    return;
+  }
+
+  if (schema.type === "object") {
+    assert.ok(
+      value !== null && typeof value === "object" && !Array.isArray(value),
+      `${pointer} is an object`,
+    );
+    for (const key of schema.required ?? []) {
+      assert.ok(Object.hasOwn(value, key), `${pointer}.${key} is required`);
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(value)) {
+        assert.ok(
+          Object.hasOwn(schema.properties, key),
+          `${pointer}.${key} is declared by the schema`,
+        );
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties ?? {})) {
+      if (Object.hasOwn(value, key)) {
+        assertSchemaValue(value[key], childSchema, `${pointer}.${key}`);
+      }
+    }
+  } else if (schema.type === "array") {
+    assert.ok(Array.isArray(value), `${pointer} is an array`);
+    value.forEach((item, index) =>
+      assertSchemaValue(item, schema.items, `${pointer}[${index}]`),
+    );
+  } else if (schema.type === "integer") {
+    assert.ok(Number.isInteger(value), `${pointer} is an integer`);
+  } else if (schema.type) {
+    assert.equal(typeof value, schema.type, `${pointer} is a ${schema.type}`);
+  }
+
+  if (Object.hasOwn(schema, "const")) {
+    assert.deepEqual(value, schema.const, `${pointer} matches its constant`);
+  }
+  if (schema.enum) {
+    assert.ok(schema.enum.includes(value), `${pointer} matches its enum`);
+  }
+  if (schema.minimum !== undefined) {
+    assert.ok(value >= schema.minimum, `${pointer} meets its minimum`);
+  }
+}
 
 function cli(tempDir, args, options = {}) {
   return run(
@@ -37,6 +96,7 @@ function jsonPayload(result) {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.schemaVersion, JSON_OUTPUT_SCHEMA_VERSION);
   assert.equal(payload.exitCode, result.status);
+  assertSchemaValue(payload, jsonOutputSchema);
   for (const key of [
     "command",
     "mode",
@@ -204,6 +264,65 @@ test("JSON helpers parse supported arguments and normalize findings", () => {
   assert.equal(result.diagnostics[0].severity, "error");
 });
 
+test("complete synchronous writes survive partial pipe progress", () => {
+  const chunks = [];
+  let temporarilyBlocked = true;
+  const writer = (_fd, buffer, offset, length) => {
+    if (temporarilyBlocked) {
+      temporarilyBlocked = false;
+      throw Object.assign(new Error("pipe busy"), { code: "EAGAIN" });
+    }
+    const written = Math.min(length, 7);
+    chunks.push(buffer.subarray(offset, offset + written));
+    return written;
+  };
+
+  writeAllSync(1, "large output: snow 雪\n", writer);
+  writeAllSync(1, Buffer.from("buffer input\n"), writer);
+  assert.equal(
+    Buffer.concat(chunks).toString("utf8"),
+    "large output: snow 雪\nbuffer input\n",
+  );
+  assert.throws(() => writeAllSync(1, "stalled", () => 0), /made no progress/);
+  assert.throws(
+    () => writeAllSync(1, "invalid", () => 0.5),
+    /made no progress/,
+  );
+  assert.throws(
+    () =>
+      writeAllSync(1, "broken", () => {
+        throw Object.assign(new Error("broken pipe"), { code: "EPIPE" });
+      }),
+    /broken pipe/,
+  );
+});
+
+test("large JSON output is complete before an immediate exit", () => {
+  const script = `
+import { createJsonOutput } from "./scripts/lib/json-output.mjs";
+const output = createJsonOutput({ command: "precommit", mode: "advisory" });
+output.addCheck({
+  id: "large-result",
+  status: "passed",
+  summary: "large result",
+  details: { padding: "x".repeat(128 * 1024) },
+});
+output.emit({ status: "clean", exitCode: 0, summary: "complete" });
+process.exit(0);
+`;
+  const result = run(
+    process.execPath,
+    ["--input-type=module", "--eval", script],
+    repoRoot,
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.checks[0].details.padding.length, 128 * 1024);
+  assert.ok(result.stdout.endsWith("\n"));
+});
+
 test("precommit --json reports skipped and clean states", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -304,6 +423,36 @@ test("precommit --json reports advisory findings and a safe command", (t) => {
   assert.match(payload.suggestions[0].command, /commit:fix/);
   assert.doesNotMatch(result.stdout, /Pre-commit suggestions found|╭|╰/);
 });
+
+test(
+  "precommit JSON preserves an exact control-character filename",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const file = "src/json\rline\n\t\b\u001b[31mRED\u001b[39m.mjs";
+    writeFile(path.join(tempDir, file), "export const value = 1;\n");
+    run("git", ["add", "--", file], tempDir);
+
+    const result = cli(tempDir, ["precommit", "--json"]);
+    const payload = jsonPayload(result);
+    const missingTests = payload.findings.find(
+      (finding) => finding.check === "tests",
+    );
+
+    assert.equal(result.stderr, "");
+    assert.deepEqual(missingTests.details, [file]);
+    assert.deepEqual(
+      payload.checks.find((check) => check.id === "missing-tests").details
+        .sourceFiles,
+      [file],
+    );
+    assert.match(
+      result.stdout,
+      /json\\rline\\n\\t\\b\\u001b\[31mRED\\u001b\[39m\.mjs/,
+    );
+  },
+);
 
 test("JSON configuration diagnostics stay structured", (t) => {
   const tempDir = createTempRepo();
@@ -408,6 +557,37 @@ test("precommit JSON covers blocking and fail-open guard outcomes", (t) => {
   payload = jsonPayload(result);
   assert.equal(payload.status, "advisory");
   assert.ok(payload.findings.some((finding) => finding.check === "branch"));
+});
+
+test("blocking secret-scan JSON distinguishes an unavailable scanner", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  setPrecommitConfig(tempDir, {
+    blockOnSecrets: true,
+    protectedBranches: [],
+    requireTests: false,
+  });
+  writeFile(path.join(tempDir, "src", "clean.txt"), "clean\n");
+  run("git", ["add", "src/clean.txt"], tempDir);
+
+  const result = cli(tempDir, ["precommit", "--json"], {
+    env: fakeGitEnv(tempDir, "diff --cached -U0"),
+  });
+  const payload = jsonPayload(result);
+  const secretCheck = payload.checks.find((check) => check.id === "secrets");
+
+  assert.equal(result.status, 1);
+  assert.equal(payload.status, "blocked");
+  assert.equal(
+    payload.summary,
+    "Commit blocked because the secret scan was unavailable",
+  );
+  assert.equal(secretCheck.status, "failed");
+  assert.equal(secretCheck.details.inspectionOutcome, "nonzero");
+  assert.equal(payload.findings[0].check, "secrets");
+  assert.equal(payload.findings[0].message, "Staged secret scan unavailable");
+  assert.doesNotMatch(result.stdout, /possible secret staged/i);
 });
 
 test("prepush JSON keeps protected-branch advisories in every allowed outcome", (t) => {

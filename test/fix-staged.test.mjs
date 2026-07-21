@@ -75,6 +75,28 @@ test("refuses to fix partially staged files", (t) => {
   assert.match(output, /Cannot safely fix partially staged files\./);
 });
 
+test(
+  "escapes control characters from a real partially staged Git filename",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    const file = "src/evil\rFAKE SUCCESS\n\t\b\u001b[31mRED\u001b[39m.json";
+    writeFile(path.join(tempDir, file), '{"before":true}\n');
+    run("git", ["add", "--", file], tempDir);
+    writeFile(path.join(tempDir, file), '{"after":true}\n');
+
+    const result = runFixStaged(tempDir, {
+      env: { ...process.env, COLUMNS: "240", NO_COLOR: "1" },
+    });
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 1);
+    assert.match(output, /src\/evil\\rFAKE SUCCESS\\n\\t\\x08RED\.json/);
+    assert.doesNotMatch(output, /\r|\t|\x08|\u001b/);
+  },
+);
+
 test("applies staged fixes successfully when all issues are auto-fixable", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -316,5 +338,5 @@ test("reports local install guidance when fixer peer tools are missing", (t) => 
 
   assert.equal(result.status, 1);
   assert.match(output, /Missing local tool\(s\): eslint, prettier/);
-  assert.match(output, /npm install -D eslint prettier/);
+  assert.match(output, /npm install -D eslint@\^9 prettier@\^3/);
 });

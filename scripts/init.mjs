@@ -14,6 +14,7 @@ import {
   hookNamesForConfig,
   hooksPathConfigState,
   isHuskyHooksPath,
+  legacyHuskyDirectoryState,
   leftoverHuskyHooks,
   legacyHuskyWiringPaths,
   removeLegacyHuskyWiring,
@@ -27,6 +28,12 @@ import {
 } from "./lib/config.mjs";
 import { run } from "./lib/process.mjs";
 import { logoLines } from "./lib/logo.mjs";
+import { escapeTerminalText } from "./lib/terminal.mjs";
+import {
+  inspectMutableProjectFile,
+  preflightMutableProjectFile,
+  writeMutableProjectFile,
+} from "./lib/files.mjs";
 
 // One-command setup for a consuming repo: wires up the git hooks, npm scripts,
 // and gitignored caches without clobbering existing values. Hooks are plain
@@ -34,7 +41,8 @@ import { logoLines } from "./lib/logo.mjs";
 // manager, nothing vendored. Also migrates husky-era wiring from pre-3.0
 // setups. Safe to re-run.
 
-if (!fs.existsSync("package.json")) {
+const packageFileState = inspectMutableProjectFile("package.json");
+if (packageFileState.status === "missing") {
   errorBox([
     pc.bold("No package.json found."),
     "",
@@ -49,7 +57,7 @@ const unknownOption = args.find(
 );
 if (unknownOption) {
   errorBox([
-    pc.bold(`Unknown init option: ${unknownOption}`),
+    pc.bold(`Unknown init option: ${escapeTerminalText(unknownOption)}`),
     "",
     pc.dim("Supported options: --dry-run, -n."),
     pc.dim("No files or hooks were changed."),
@@ -57,6 +65,27 @@ if (unknownOption) {
   process.exit(1);
 }
 const dryRun = args.includes("--dry-run") || args.includes("-n");
+
+const projectFileStates = new Map([
+  ["package.json", packageFileState],
+  [STANDALONE_CONFIG_FILE, inspectMutableProjectFile(STANDALONE_CONFIG_FILE)],
+  [".gitignore", inspectMutableProjectFile(".gitignore")],
+]);
+const unsafeProjectFile = [...projectFileStates.values()].find(
+  (state) => state.status === "unsafe",
+);
+if (unsafeProjectFile) {
+  errorBox([
+    pc.bold(`Unsafe project file: ${unsafeProjectFile.filePath}.`),
+    "",
+    pc.dim(`The path ${unsafeProjectFile.reason}.`),
+    pc.dim(
+      "Replace it with a regular file inside this project, then run init again.",
+    ),
+    pc.dim("No files or hooks were changed."),
+  ]);
+  process.exit(1);
+}
 
 let pkg;
 try {
@@ -79,7 +108,9 @@ function rejectInvalidContainer(property) {
   errorBox([
     pc.bold("Invalid package.json structure."),
     "",
-    pc.dim(`The ${location} must be a non-null, non-array JSON object.`),
+    pc.dim(
+      `The ${escapeTerminalText(location)} must be a non-null, non-array JSON object.`,
+    ),
     pc.dim("Fix package.json, then run init again. No files were changed."),
   ]);
   process.exit(1);
@@ -105,7 +136,7 @@ if (standalone.error) {
   errorBox([
     pc.bold(`Invalid ${STANDALONE_CONFIG_FILE}.`),
     "",
-    pc.dim(`The file ${standalone.error}.`),
+    pc.dim(`The file ${escapeTerminalText(standalone.error)}.`),
     pc.dim("Fix or remove it, then run init again. No files were changed."),
   ]);
   process.exit(1);
@@ -202,9 +233,10 @@ const configWarnings = precommitConfigWarningMessages(effectiveConfig);
 
 let gitignore;
 try {
-  gitignore = fs.existsSync(".gitignore")
-    ? fs.readFileSync(".gitignore", "utf8")
-    : "";
+  gitignore =
+    projectFileStates.get(".gitignore").status === "regular"
+      ? fs.readFileSync(".gitignore", "utf8")
+      : "";
 } catch {
   errorBox([
     pc.bold("Could not inspect .gitignore."),
@@ -222,21 +254,19 @@ const ignores = [".eslintcache", ".prettiercache", "node_modules/"].filter(
 );
 
 const projectFilesToWrite = [
-  "package.json",
-  ...(standaloneChanged ? [STANDALONE_CONFIG_FILE] : []),
-  ...(ignores.length > 0 ? [".gitignore"] : []),
+  ["package.json", projectFileStates.get("package.json")],
+  ...(standaloneChanged
+    ? [[STANDALONE_CONFIG_FILE, projectFileStates.get(STANDALONE_CONFIG_FILE)]]
+    : []),
+  ...(ignores.length > 0
+    ? [[".gitignore", projectFileStates.get(".gitignore")]]
+    : []),
 ];
 if (!dryRun) {
-  for (const filePath of projectFilesToWrite) {
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.accessSync(filePath, fs.constants.W_OK);
-      } else {
-        fs.accessSync(".", fs.constants.W_OK);
-      }
-    } catch {
+  for (const [filePath, state] of projectFilesToWrite) {
+    if (!preflightMutableProjectFile(state)) {
       errorBox([
-        pc.bold(`Could not update ${filePath}.`),
+        pc.bold(`Could not update ${escapeTerminalText(filePath)}.`),
         "",
         pc.dim("Make the project file writable, then run init again."),
         pc.dim("No files or hooks were changed."),
@@ -248,16 +278,19 @@ if (!dryRun) {
 
 if (!dryRun) {
   try {
-    fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+    writeMutableProjectFile(
+      projectFileStates.get("package.json"),
+      `${JSON.stringify(pkg, null, 2)}\n`,
+    );
     if (standaloneChanged) {
-      fs.writeFileSync(
-        STANDALONE_CONFIG_FILE,
+      writeMutableProjectFile(
+        projectFileStates.get(STANDALONE_CONFIG_FILE),
         `${JSON.stringify(standalone.config, null, 2)}\n`,
       );
     }
     if (ignores.length > 0) {
-      fs.writeFileSync(
-        ".gitignore",
+      writeMutableProjectFile(
+        projectFileStates.get(".gitignore"),
         `${gitignore}${gitignore.endsWith("\n") || gitignore === "" ? "" : "\n"}${ignores.join("\n")}\n`,
       );
     }
@@ -446,19 +479,27 @@ if (isGitRepo && !foreignHooksPath && !hooksPathInspectionFailed) {
   // while core.hooksPath still points into `.husky` (failed unset above):
   // deleting the files git currently runs would kill working hooks.
   if (hooksDir && hooksPathRetired) {
-    const legacyWiring = dryRun
-      ? legacyHuskyWiringPaths()
-      : removeLegacyHuskyWiring();
-    if (legacyWiring.length > 0) {
-      created.push("removed legacy .husky wiring");
-    }
-
-    const stranded = leftoverHuskyHooks();
-    if (stranded.length > 0) {
+    const legacyHuskyState = legacyHuskyDirectoryState();
+    if (legacyHuskyState.status === "uninspectable") {
       warnings.push(
-        `Leftover .husky hooks no longer run: ${stranded.join(", ")}.`,
-        "Move the logic into .git/hooks, or delete the files.",
+        "The legacy .husky path could not be safely inspected and was left unchanged.",
+        "If it is a symbolic link or another non-directory path, review it manually.",
       );
+    } else {
+      const legacyWiring = dryRun
+        ? legacyHuskyWiringPaths()
+        : removeLegacyHuskyWiring();
+      if (legacyWiring.length > 0) {
+        created.push("removed legacy .husky wiring");
+      }
+
+      const stranded = leftoverHuskyHooks();
+      if (stranded.length > 0) {
+        warnings.push(
+          `Leftover .husky hooks no longer run: ${stranded.join(", ")}.`,
+          "Move the logic into .git/hooks, or delete the files.",
+        );
+      }
     }
   }
 }
@@ -471,7 +512,7 @@ const setupSummary =
   created.length > 0
     ? [
         pc.dim(dryRun ? "Would add:" : "Added:"),
-        ...created.map((item) => pc.dim(`- ${item}`)),
+        ...created.map((item) => pc.dim(`- ${escapeTerminalText(item)}`)),
       ]
     : [
         pc.dim(
@@ -484,7 +525,9 @@ const setupSummary =
 const footer = dryRun
   ? [
       pc.dim("No files were written."),
-      pc.dim("Run again without --dry-run to apply these changes."),
+      ...(created.length > 0
+        ? [pc.dim("Run again without --dry-run to apply these changes.")]
+        : []),
     ]
   : hooksActive
     ? [
@@ -515,7 +558,7 @@ const warningSections = [
         "",
         pc.bold("Hook wiring needs your attention."),
         "",
-        ...warnings.map((line) => pc.dim(line)),
+        ...warnings.map((line) => pc.dim(escapeTerminalText(line))),
       ]
     : []),
   ...(configWarnings.length > 0
@@ -523,7 +566,9 @@ const warningSections = [
         "",
         pc.bold("Configuration needs attention."),
         "",
-        ...configWarnings.map((message) => pc.dim(`• ${message}`)),
+        ...configWarnings.map((message) =>
+          pc.dim(`• ${escapeTerminalText(message)}`),
+        ),
       ]
     : []),
 ];
@@ -550,5 +595,5 @@ if (warningSections.length > 0) {
 } else if (dryRun) {
   infoBox(body);
 } else {
-  printBox(body.join("\n"), (value) => value, { borderColor: "green" });
+  printBox(body, undefined, { borderColor: "green" });
 }

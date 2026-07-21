@@ -3,41 +3,39 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   formatLifecycleManagers,
-  SUPPORTED_LIFECYCLE_MANAGERS,
+  isSupportedLifecycleManager,
 } from "../../scripts/lib/lifecycle-managers.mjs";
+import { createLifecycleIntegration } from "./helpers/lifecycle-fixture.mjs";
 
-const integrationDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(integrationDir, "..", "..");
 const packageManager = process.env.COMMITMENT_ISSUES_LIFECYCLE_PM ?? "npm";
 
-test(`${packageManager} runs packed lifecycle hooks across workspaces and worktrees`, () => {
+async function runPhase(t, phase) {
+  let phaseError;
+  await t.test(phase.name, async () => {
+    try {
+      await phase.run();
+    } catch (error) {
+      phaseError = error;
+      throw error;
+    }
+  });
+  return phaseError === undefined;
+}
+
+test(`${packageManager} runs one stateful packed lifecycle across workspaces and worktrees`, async (t) => {
   assert.ok(
-    SUPPORTED_LIFECYCLE_MANAGERS.has(packageManager),
+    isSupportedLifecycleManager(packageManager),
     `unsupported lifecycle package manager: ${packageManager}; expected ${formatLifecycleManagers()}`,
   );
 
-  const result = spawnSync(
-    process.execPath,
-    ["scripts/ci-lifecycle-smoke.mjs", packageManager],
-    {
-      cwd: repoRoot,
-      stdio: "inherit",
-      env: process.env,
-    },
-  );
+  const lifecycle = createLifecycleIntegration();
+  t.after(() => lifecycle.cleanup());
 
-  if (result.error) {
-    throw result.error;
+  for (const phase of lifecycle.phases) {
+    if (!(await runPhase(t, phase))) {
+      return;
+    }
   }
-
-  assert.equal(
-    result.status,
-    0,
-    `lifecycle integration failed for ${packageManager}`,
-  );
 });

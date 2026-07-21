@@ -4,6 +4,11 @@ This document describes the current public direction for `commitment-issues`.
 It distinguishes the supported v3 product from proposed post-launch work; an
 open issue is a design proposal, not a compatibility or delivery promise.
 
+The canonical [Definition of Done](docs/definition-of-done.md) defines the
+completion gates for changes, releases, public promotion, and a future
+feature-complete maintenance-only state. Once a milestone meets its gate, new
+ideas remain backlog candidates rather than retroactive blockers.
+
 ## Current product and near-term priority
 
 The supported v3 release is a local, advisory-first Git-hook toolkit for
@@ -16,8 +21,8 @@ workstreams run in their documented dependency order, ending with independent
 final verification in
 [#138](https://github.com/RoryGlenn/commitment-issues/issues/138).
 
-The technically validated, human-written public launch tracked in
-[#78](https://github.com/RoryGlenn/commitment-issues/issues/78) follows that
+The technically validated, human-written Product Hunt launch tracked in
+[#240](https://github.com/RoryGlenn/commitment-issues/issues/240) follows that
 verification. The launch has no fixed date until every audit workstream is
 closed, every Critical and High finding is resolved, remaining findings have an
 explicit disposition, and the final verification passes. Non-blocking feature
@@ -82,11 +87,13 @@ issues before closing the workstream.
 
 ### Validate platform compatibility
 
-The cross-shell and Git-client matrix is tracked in
-[#83](https://github.com/RoryGlenn/commitment-issues/issues/83). It separates
-shell launch behavior from GUI-client behavior and covers hook quoting, paths,
-permissions, line endings, and restricted `PATH` environments. Until that work
-lands, the project should not claim blanket support for every shell or Git GUI.
+The required cross-shell matrix landed through
+[#83](https://github.com/RoryGlenn/commitment-issues/issues/83). It covers hook
+quoting, paths, permissions, line endings, and restricted `PATH` environments.
+Post-launch GUI-client validation remains separately tracked in
+[#231](https://github.com/RoryGlenn/commitment-issues/issues/231); until those
+UI lanes run, the project does not claim verified support for VS Code Source
+Control, JetBrains commit/push UI, or GitHub Desktop.
 
 ### Evaluate the v4 standalone core
 
@@ -130,7 +137,7 @@ The project does not intend to:
 
 - Treat the production-readiness tracker and its nine workstreams as the
   current execution plan. Independent verification in #138 gates the launch in
-  #78.
+  #240.
 - Treat [ADOPTION.md](ADOPTION.md) as the maintainer checklist for work that has
   already landed and launch/adoption tasks that follow the audit.
 - Treat linked GitHub issues as the detailed acceptance criteria for proposed

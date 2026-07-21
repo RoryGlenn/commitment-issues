@@ -58,6 +58,19 @@ Contributors may:
 
 Contributors must follow the contribution guide, sign off commits with the Developer Certificate of Origin, and include tests for major new functionality.
 
+Designated contributors may receive time-bounded write access only when they
+are listed in [Project roles](docs/project-roles.md) with an active assignment
+and review deadline. Because a personal-account collaborator's technical write
+permission also permits merge-affecting reviews, pull-request merges, and
+GitHub Release management, that grant is broader than the approved contributor
+role. Unless separately promoted to maintainer, a designated contributor may
+push only assigned topic branches, maintain the assigned issue, open pull
+requests, and provide requested reviews. They may not merge, create or edit
+Releases, create version tags, or act for the project on npm, repository
+administration, or private security reports. Remove the grant when the
+assignment ends; use an organization with narrower custom roles if ongoing
+direct access becomes necessary.
+
 ## Change process
 
 The normal change process is:
@@ -86,15 +99,27 @@ An audit found it was the sole unsigned commit among the 33 commits after the
 adoption baseline through that update. Rewriting published `main` history would
 be more disruptive than recording the narrow exception, so
 [issue #160](https://github.com/RoryGlenn/commitment-issues/issues/160) resets
-the operational audit baseline to that commit. Every commit after the
-operational baseline must carry a valid `Signed-off-by` trailer, including
-commits that reach `main` through an authorized bypass.
+the first operational audit baseline to that commit.
+
+Commit
+[`495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19`](https://github.com/RoryGlenn/commitment-issues/commit/495d25a2dcfea5f4ee7857fed2b3a1d845ca9a19)
+was the GitHub-generated squash of the Audit 9 preflight on **2026-07-16**. The
+merge operation supplied an intended sign-off, but accidentally encoded its
+paragraph separators as the literal characters `\\n\\n`; the verified commit
+therefore contains visible sign-off text but no parseable Git trailer. An audit
+found it was the sole unsigned commit among the 41 commits after the prior
+operational baseline through that squash. Rewriting protected, published
+`main` history would be more disruptive than recording the narrow exception,
+so [issue #221](https://github.com/RoryGlenn/commitment-issues/issues/221)
+resets the current operational audit baseline to that commit. Every later
+commit must carry a valid `Signed-off-by` trailer, including commits that reach
+`main` through an authorized bypass.
 
 The DCO job inside `CI Success` checks pull-request commits and audits all
-commits on `main` after the operational baseline. The focused DCO workflow
-provides a second, visible report. The operational baseline must not be
-advanced again to hide a failure; any future exception requires its own public
-governance record.
+commits on `main` after the operational baseline. It is the single workflow
+owner for DCO enforcement; a second identical report would add no evidence. The
+operational baseline must not be advanced again to hide a failure; any future
+exception requires its own public governance record.
 Before a squash merge, the merger must ensure the generated commit message
 retains a valid sign-off; checking signed head commits cannot predict the final
 server-generated squash message.
@@ -116,6 +141,50 @@ Pull requests are reviewed against the standards in the contributing guide.
 Maintainers may request changes, ask for additional tests, or reject changes
 that are too broad or outside the roadmap.
 
+### Code scanning alert policy
+
+The live `main` ruleset has required the `CodeQL` tool with these
+merge-protection thresholds since 2026-07-16:
+
+- block tool-severity **Errors** (`alerts_threshold: errors`); and
+- block security alerts rated **High or Critical**
+  (`security_alerts_threshold: high_or_higher`).
+
+`CI Success` remains required because it proves that CodeQL ran successfully;
+the separate ruleset rule evaluates what the completed scan found. This
+threshold matches the launch gate's treatment of Critical and High security
+findings while keeping Medium and lower findings visible for review and normal
+triage. A lower-severity finding can still justify blocking a merge, and the
+threshold may be tightened through a later reviewed governance change.
+
+The activation and its positive and negative evidence are tracked in
+[issue #177](https://github.com/RoryGlenn/commitment-issues/issues/177). The
+post-write read-back preserved every existing rule and bypass actor.
+Disposable [PR #216](https://github.com/RoryGlenn/commitment-issues/pull/216)
+proved the negative path: the analysis workflow succeeded, then merge
+protection failed on an Error/Critical command-injection alert and kept the PR
+blocked. Clean [PR #217](https://github.com/RoryGlenn/commitment-issues/pull/217)
+passed both CodeQL analysis and the separate ruleset alert check, proving the
+positive path.
+
+[GitHub documents](https://docs.github.com/en/code-security/concepts/code-scanning/merge-protection)
+two platform exceptions: code-scanning merge protection does not apply to
+merge-queue groups or to Dependabot pull requests analyzed by default setup.
+This repository currently uses advanced CodeQL setup and no merge queue;
+re-evaluate the rule before either condition changes. The existing
+repository-admin ruleset bypass also applies. Bypassing an alert for convenience
+is prohibited; fix the finding or dismiss it through code scanning with a
+reviewable reason.
+
+To modify this control, capture the current full ruleset, change only its
+`code_scanning` rule, write the complete ruleset document, and read it back.
+Verify that deletion, non-fast-forward, linear-history, review,
+`CI Success`, and admin-bypass controls are unchanged. If GitHub incorrectly
+blocks a clean pull request, restore the captured document with only the
+`code_scanning` rule removed, verify the read-back, and record the rollback and
+follow-up in #177. The required CodeQL execution inside `CI Success` must remain
+active during a rollback.
+
 ### Temporary single-maintainer exception
 
 The project currently has one trusted maintainer, so a second eligible approver
@@ -128,9 +197,10 @@ record that the temporary exception was used and why. Self-approval is not
 treated as independent review.
 
 The continuity plan is to recruit and onboard a second trusted reviewer who
-has the repository permission needed to satisfy the live approval rule,
-review sensitive-resource coverage at each release and whenever access
-changes, and remove this exception once two-person review is sustainable.
+has the repository permission needed to satisfy the live approval rule, follow
+the recurring access-review cadence in
+[Project roles](docs/project-roles.md#recurring-access-review), and remove this
+exception once two-person review is sustainable.
 
 ### Emergency bypass
 

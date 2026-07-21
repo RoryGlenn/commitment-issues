@@ -6,12 +6,29 @@
 > here or in a referenced SVG, and `tools/gen-message-state-svgs.mjs` regenerates
 > the visual fixtures.
 
-`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
+`commitment-issues` uses compact terminal boxes to keep Git hook output readable. Each command invocation renders at most one box; when several findings coexist, they are consolidated under the strongest severity. On an eligible first run, the one-time onboarding box documented below replaces an otherwise clean or informational result. A warning or error takes priority and leaves the welcome unconsumed for a later clean run. The README shows the main user journey; this page catalogs the states a user may see, grouped by the command that produces them. Hook and fixer examples include rendered SVGs of real box output; setup and removal states also describe their ownership behavior.
 
 Routine hooks default to `hookOutput: "problems-only"`, so their success and
 informational states are normally silent. This gallery intentionally documents
 those states under an explicit `hookOutput: "normal"` override; warnings and
 errors are visible in either mode.
+
+### Untrusted values and terminal controls
+
+Repository filenames, refs, configuration values, Git diagnostics, argv, and
+captured tool diagnostics are untrusted inside product-owned human messages.
+Carriage returns, embedded newlines, and tabs appear visibly as `\\r`, `\\n`,
+and `\\t`; other C0/C1 controls use `\\xNN`, and ANSI CSI/OSC sequences are
+removed. Separate message-model entries still create the intended box line
+breaks, while Unicode, spaces, and normal punctuation are preserved. Raw
+project-tool output intentionally remains outside the box renderer.
+Product-owned bold, dim, border, and severity colors are retained around the
+escaped text. JSON mode keeps the original semantic strings and uses JSON's own
+escaping.
+
+The renderer unit coverage and the real-Git partially staged filename scenario
+exercise this boundary with carriage-return, newline, tab, backspace, ANSI,
+Unicode, and JSON round-trip cases.
 
 To watch representative states render live in your own terminal (real hooks running in throwaway repos), clone this repo and run. The static gallery below is the exhaustive catalog; the runner intentionally keeps a smaller, maintainable set of executable examples.
 
@@ -37,7 +54,10 @@ Shown only when `init` finishes wiring every configured hook along with the scri
   <img src="../assets/init-dry-run.svg" alt="Info output previewing the changes init would make without writing files" width="716">
 </p>
 
-Shown for `init --dry-run`: the same change list, but nothing is written.
+Shown for `init --dry-run`: when changes are pending, it shows the same change
+list without writing anything and explains how to apply it. When setup is
+already complete, it reports that nothing would change and does not instruct
+the user to apply nonexistent changes.
 
 ### Already configured
 
@@ -97,6 +117,16 @@ These cover permission/preflight and unexpected write failures. The states stop
 before hook installation or removal begins; rerunning `init` safely repairs any
 project-file change left by an interrupted filesystem write.
 
+### Unsafe project file
+
+`Unsafe project file: <path>.` is shown when a mutable project path is a
+symbolic link, a non-regular entry, or cannot be inspected safely. `init` and
+`init --dry-run` check `package.json`, `.gitignore`, and `.commitmentrc.json`;
+`uninstall` and `uninstall --dry-run` check the two JSON files they can modify.
+The command names the reason and exits before changing project files or hooks.
+Replace the path with a regular file inside the project before rerunning the
+command.
+
 ### Hook wiring needs attention
 
 <p>
@@ -131,6 +161,36 @@ command cannot inspect local Git hooks. User-owned content is reported and
 preserved instead of being edited heuristically.
 
 ## Pre-commit
+
+### First-commit welcome
+
+```text
+╭───────────────────────── info ─────────────────────────╮
+│                                                        │
+│                          ,_,                           │
+│                         (O,O)  <3                      │
+│                         (   )                          │
+│                         -"-"-                          │
+│                                                        │
+│   Commitment Issues is active here.                    │
+│                                                        │
+│   Commitment Issues checks changes before each         │
+│   commit. Keep the hooks enabled, and tell us if       │
+│   any guidance feels confusing.                        │
+│                                                        │
+│   Verify or repair the hooks anytime: npm run doctor   │
+│                                                        │
+╰────────────────────────────────────────────────────────╯
+```
+
+Shown once per clone as the final presentation for the first eligible clean or
+informational human-readable pre-commit run. It is visible under the default
+`hookOutput: "problems-only"` policy because it is onboarding, not a normal
+check result. Warnings and errors take priority without consuming the welcome,
+so one invocation never renders two boxes. The command follows the consuming
+project's package manager. Its versioned Git-common-directory marker is shared
+by linked worktrees; JSON mode and hook bypasses do not consume it. Set
+`showWelcomeOnFirstCommit: false` to suppress both the message and marker.
 
 ### All checks passed
 
@@ -357,6 +417,17 @@ Shown when the staged diff adds a line matching a curated credential pattern (AW
 </p>
 
 Shown only when `blockOnSecrets` is enabled and the scan found something. The commit is refused; `git commit --no-verify` bypasses it once. Rotate anything already exposed — a secret that reached a commit should be treated as leaked.
+
+### Commit blocked: staged secret scan unavailable
+
+`Commit blocked: staged secret scan unavailable.` is shown only when
+`blockOnSecrets` is enabled and Git cannot launch, exits nonzero, or returns a
+malformed staged patch. The commit is refused because possible secrets could
+not be ruled out. This state is distinct from a detected secret in both human
+and JSON output; retry after restoring Git/index access, or use
+`git commit --no-verify` as an explicit one-time bypass. Without
+`blockOnSecrets`, the same inspection failure is an advisory and the commit
+continues.
 
 ### Commit blocked: protected branch
 
@@ -780,6 +851,15 @@ Shown when `core.hooksPath` points at a directory this tool does not manage (ano
 </p>
 
 Shown when user-authored hooks are stranded in `.husky/` after the husky-era wiring is retired. Advisory only — the files are never deleted.
+
+### Legacy Husky path needs manual review
+
+`The legacy .husky path needs manual review.` is included in interactive
+`doctor` output when `.husky` is a symbolic link, a non-directory entry, or
+cannot be read safely. `init` and `uninstall` report the same preservation
+decision in their existing summaries. No command follows or removes the path;
+the user must inspect it manually. Quiet doctor prints the decision as a plain
+warning and still exits successfully so dependency installation is not broken.
 
 ### Not a git working tree
 

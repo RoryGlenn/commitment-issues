@@ -238,17 +238,32 @@ export function largeFileIssue(sizes, guardConfig) {
   if (oversized.length === 0) {
     return null;
   }
-  const detail = oversized
-    .map(
-      (entry) =>
-        `${(entry.bytes / MB).toFixed(1)} MB  ${normalizeRepoPath(entry.file)}`,
-    )
-    .join("\n");
+  const detail = oversized.map(
+    (entry) =>
+      `${(entry.bytes / MB).toFixed(1)} MB  ${normalizeRepoPath(entry.file)}`,
+  );
   return {
     autoFixable: false,
     type: "shape",
     message: `${oversized.length} staged ${plural(oversized.length, "file")} over ${guardConfig.maxFileSizeMb} MB`,
-    detail: `${detail}\nDid you mean to use Git LFS?`,
+    detail: [...detail, "Did you mean to use Git LFS?"],
+  };
+}
+
+/**
+ * Advisory issue for a staged file-size probe that could not complete.
+ * @param {{code?: string}|null} [error] - Optional child-process error.
+ * @returns {object} Issue for the consolidated pre-commit box.
+ */
+export function largeFileInspectionIssue(error = null) {
+  const outputLimitExceeded = error?.code === "ENOBUFS";
+  return {
+    autoFixable: false,
+    type: "shape",
+    message: "Staged file-size check unavailable",
+    detail: outputLimitExceeded
+      ? "Git returned more index data than the bounded inspection buffer allows."
+      : "Git could not inspect staged blob sizes; retry after restoring Git access.",
   };
 }
 
@@ -267,7 +282,10 @@ export function generatedFilesIssue(stagedFiles, guardConfig) {
     autoFixable: false,
     type: "shape",
     message: `${matched.length} generated ${plural(matched.length, "file")} staged`,
-    detail: `${shortFileList(matched)}\nThese are usually ignored, not committed.`,
+    detail: [
+      shortFileList(matched),
+      "These are usually ignored, not committed.",
+    ],
   };
 }
 
