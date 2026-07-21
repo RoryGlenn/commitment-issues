@@ -47,6 +47,10 @@ import {
   preCommitRunner,
 } from "./helpers/hook-manager-fixtures.mjs";
 
+function quoteShellWord(value) {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
 function localHookInvocation(name) {
   const command = `node_modules/.bin/commitment-issues ${
     name === "pre-commit"
@@ -3050,17 +3054,15 @@ test("pre-commit runner words reject shell expansion and preserve safe quoting",
     "wired",
   );
 
-  const absolutePython = path.join(
-    dir,
-    "absolute-runtime",
-    process.platform === "win32" ? "python3.cmd" : "python3",
-  );
+  // Keep a literal short-name marker in the path so this covers Windows
+  // runners whose temporary directory is spelled like RUNNER~1.
+  const absolutePython = path.join(dir, "absolute~runtime", "python3");
   fs.mkdirSync(path.dirname(absolutePython));
   fs.writeFileSync(absolutePython, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   fs.writeFileSync(
     wrapper,
     preCommitRunner("pre-commit", {
-      installPython: absolutePython.replaceAll("\\", "/"),
+      installPython: quoteShellWord(absolutePython.replaceAll("\\", "/")),
     }),
     { mode: 0o755 },
   );
@@ -3108,21 +3110,18 @@ test("pre-commit runtime inspection fails closed after execute access succeeds",
   fs.mkdirSync(path.join(dir, "node_modules"));
   const hooksDir = path.join(dir, ".git", "hooks");
   const binDir = path.join(dir, "node_modules", ".bin");
-  const fallbackDir = path.join(dir, ".runtime-fallback");
+  const fallbackDir = path.join(dir, ".runtime~fallback");
   fs.mkdirSync(binDir, { recursive: true });
   fs.mkdirSync(fallbackDir);
   writeCrossPlatformShim(binDir, "python3", "process.exit(0);\n");
   writeCrossPlatformShim(fallbackDir, "pre-commit", "process.exit(0);\n");
   process.env.PATH = `${fallbackDir}${path.delimiter}${originalPath}`;
-  const absolutePython = path.join(
-    fallbackDir,
-    process.platform === "win32" ? "python3.cmd" : "python3",
-  );
+  const absolutePython = path.join(fallbackDir, "python3");
   writeCrossPlatformShim(fallbackDir, "python3", "process.exit(0);\n");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
     preCommitRunner("pre-commit", {
-      installPython: absolutePython.replaceAll("\\", "/"),
+      installPython: quoteShellWord(absolutePython.replaceAll("\\", "/")),
     }),
     { mode: 0o755 },
   );
@@ -3383,10 +3382,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     path.join(hooksDir, "pre-commit"),
     lefthookRunner("pre-commit", {
       embeddedExecutable: path
-        .join(
-          outside,
-          process.platform === "win32" ? "lefthook.cmd" : "lefthook",
-        )
+        .relative(dir, path.join(outside, "lefthook"))
         .replaceAll("\\", "/"),
     }),
     { mode: 0o755 },
@@ -3400,7 +3396,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
   fs.mkdirSync(unicodeRuntimeDir);
   writeCrossPlatformShim(unicodeRuntimeDir, "lefthook", "process.exit(0);\n");
   const unicodeRuntime = path
-    .join(unicodeRuntimeDir, "lefthook")
+    .relative(dir, path.join(unicodeRuntimeDir, "lefthook"))
     .replaceAll("\\", "/");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
