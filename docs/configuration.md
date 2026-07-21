@@ -30,8 +30,8 @@ advisory push default, and ignore entries above, but it:
 
 - does not write `.git/hooks` or manager files;
 - does not unset or replace `core.hooksPath`;
-- prints static project-local entries for pre-commit, pre-push, and the optional
-  commit-msg hook;
+- prints static project-local entries for each inactive pre-commit, pre-push,
+  and optional commit-msg hook;
 - composes `doctor --quiet --integration=<manager>` into `prepare`, so a later
   install verifies the same owner instead of running native repair; and
 - reports lint-staged as composition evidence without changing its tasks.
@@ -105,19 +105,10 @@ existing `scripts` and `precommitChecks` values are JSON objects (not `null`,
 arrays, or primitive values). An invalid shape exits with the exact property to
 fix and leaves `package.json` unchanged.
 
-Existing custom hooks are considered active only when the guarded
-project-local command is their first substantive command, so earlier control
-flow cannot skip it and later commands cannot swallow a blocking exit. The
-health verifier accepts only that exact guard-and-dispatch line. Older
-unguarded `command ... || exit $?` and terminal `exec ...` forms are recognized
-only for cleanup and remediation reporting; they are not considered active.
-Only a direct `.husky` v8 hook may place the exact Husky v8 runtime source before
-its entry.
-Comments, printed examples, assignments, conditions, and quoted examples do
-not count. On POSIX, the current process must also have effective execute
-access to the hook file; mode bits alone are not treated as proof.
-`init` and `doctor` never alter these user-owned hooks; they report the exact
-command or `chmod +x` remediation instead.
+A custom hook is active only when its guarded local command is first (after an
+exact Husky v8 source line). Comments, conditions, examples, and inert or
+non-executable files do not count. User-owned hooks stay unchanged: `hook`
+keeps skips hook-scoped, and doctor reports missing, old, or duplicate forms.
 
 ## Configuration files and precedence
 
@@ -527,12 +518,9 @@ Conventional Commits ruleset.
 The generated `.git/hooks/commit-msg` body invokes
 `commitment-issues commit-msg "$1"`, preserving the message-file path as one
 literal argument. If a custom commit-msg hook already exists, `init` and
-`doctor` leave it unchanged and show the bypass-aware guarded command
-`test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?`
-for manual composition. The inverted guards make package removal fail open;
-the final `|| exit $?` still preserves a real configured blocking result.
+`doctor` leave it unchanged and show that exact command for manual composition.
 Git's `git commit --no-verify` bypasses the hook in the standard way.
-Lefthook coexistence uses the separate static `commit-msg --git-path` form;
+Lefthook coexistence uses the separate static `hook commit-msg --git-path` form;
 Commitment Issues then resolves this worktree's `MERGE_MSG` during a direct
 automatic merge and `COMMIT_EDITMSG` otherwise before passing one absolute argv
 value to commitlint.
@@ -622,8 +610,12 @@ Recognized keys with the wrong value type (for example a string where a boolean 
 
 ## Continuous integration
 
-These scripts are Git-hook tooling, so set `COMMITMENT_ISSUES=0` in CI to skip hook runs.
+Set `COMMITMENT_ISSUES=0` in CI when package installation might trigger Git
+hooks. The variable skips automatic hook dispatch only; explicit CI commands
+such as `npm run test:precommit` still execute their checks.
 
-This project's own workflow runs `npm ci`, `npm run lint`, `npm run format:check`, and `npm test` on Node 22.11.0 and 24 across Ubuntu, macOS, and Windows. `npm run test:coverage` measures the explicitly scoped user-facing runtime and enforces 100% line, branch, and function coverage on both Node lines. Packed npm, pnpm, Yarn Classic 1.22.22, Yarn Berry 4.17.0 `node-modules`, and Bun lifecycle integration remains a separately named pass/fail gate; the non-npm managers run on all three OSes at Node 24 and at the exact Node floor on Ubuntu. See the [compatibility matrix](compatibility.md) and [runtime coverage policy](branch-coverage.md) for the exact boundaries, badge freshness rule, and rationale.
+Repository CI covers Node 22.11.0 and 24 on Linux, macOS, and Windows, enforces
+100% runtime coverage, and tests packed package-manager lifecycles. See the
+[compatibility matrix](compatibility.md) and [coverage policy](branch-coverage.md).
 
 For ready-to-use pipelines, see the [CI provider recipes](ci-recipes.md) for GitHub Actions, GitLab CI, and CircleCI.

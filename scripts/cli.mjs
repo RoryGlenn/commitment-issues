@@ -7,7 +7,6 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { enforceSupportedNodeVersion } from "./lib/runtime.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
-import { hooksDisabled } from "./lib/hooks.mjs";
 
 // Single entry point for the `commitment-issues` bin. It dispatches a
 // subcommand to the matching script that lives alongside it inside the
@@ -166,13 +165,14 @@ const COMMANDS = {
   },
 };
 
-const HELP_GROUPS = ["Setup", "Checks", "Fixes", "Integration"];
-const DOCUMENTATION_URL = "https://github.com/RoryGlenn/commitment-issues";
-const HOOK_FILES = new Map([
+const HOOK_COMMAND_FILES = new Map([
   ["precommit", "precommit.mjs"],
   ["prepush", "prepush.mjs"],
   ["commit-msg", "commit-msg.mjs"],
 ]);
+
+const HELP_GROUPS = ["Setup", "Checks", "Fixes", "Integration"];
+const DOCUMENTATION_URL = "https://github.com/RoryGlenn/commitment-issues";
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = path.join(path.dirname(scriptsDir), "package.json");
@@ -333,7 +333,7 @@ const commandArgs = rest;
 
 if (commandName === "hook") {
   const [hookName, ...hookArgs] = commandArgs;
-  const hookFile = HOOK_FILES.get(hookName);
+  const hookFile = HOOK_COMMAND_FILES.get(hookName);
   if (!hookFile) {
     console.error(
       escapeTerminalText(
@@ -342,11 +342,12 @@ if (commandName === "hook") {
     );
     process.exit(1);
   }
-  if (hooksDisabled()) process.exit(0);
+  if (process.env.COMMITMENT_ISSUES === "0" || process.env.HUSKY === "0") {
+    process.exit(0);
+  }
   const hookTarget = path.join(scriptsDir, hookFile);
   process.argv = [process.argv[0], hookTarget, ...hookArgs];
   await import(pathToFileURL(hookTarget).href);
-  process.exit(0);
 }
 
 if (

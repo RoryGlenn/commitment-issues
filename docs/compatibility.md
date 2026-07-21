@@ -53,10 +53,7 @@ Classic-only flag. The
 Global installation and a registry-downloading one-shot runner are not
 supported. Generated hooks deliberately invoke
 `node_modules/.bin/commitment-issues` and self-neutralize when that project-local
-entry is gone; they never fall through to a global binary. The Husky,
-Lefthook, and pre-commit coexistence snippets use the same successful
-missing/non-file/non-executable guard while retaining a real hook's nonzero
-status.
+entry is gone; they never fall through to a global binary.
 
 ## Install and lifecycle modes
 

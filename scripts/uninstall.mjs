@@ -17,7 +17,7 @@ import {
   gitHooksDir,
   hooksPathConfigState,
   isHuskyHooksPath,
-  inspectHookManagerForCleanup,
+  inspectHookManager,
   legacyHuskyDirectoryState,
 } from "./lib/hooks.mjs";
 import { removeCommand } from "./lib/package-manager.mjs";
@@ -176,7 +176,7 @@ function inspectHookDirectory(directory, { preserveOwnedBy = null } = {}) {
     // uninspectable state, so cleanup remains non-destructive.
     const status = classifyHook(directory, name, {
       requireExecutable: false,
-      recognizeLegacyCommand: true,
+      ownershipOnly: true,
     });
     if (status === "wired" || status === "stale-wired") {
       if (preserveOwnedBy) {
@@ -188,10 +188,16 @@ function inspectHookDirectory(directory, { preserveOwnedBy = null } = {}) {
       }
     } else if (
       status === "custom-with-command" ||
-      status === "custom-with-legacy-command"
+      status === "custom-with-legacy-command" ||
+      status === "custom-with-duplicate-command" ||
+      status === "custom-with-cross-command"
     ) {
       manualCleanup.push(
-        `${displayPath(hookPath)} is customized; remove its ${BIN} command manually.`,
+        status === "custom-with-duplicate-command"
+          ? `${displayPath(hookPath)} is customized; remove both its current and older direct ${BIN} commands manually.`
+          : status === "custom-with-cross-command"
+            ? `${displayPath(hookPath)} is customized; remove all its ${BIN} commands manually.`
+            : `${displayPath(hookPath)} is customized; remove its ${BIN} command manually.`,
       );
     } else if (status === "uninspectable") {
       manualCleanup.push(
@@ -254,13 +260,17 @@ if (isGitRepo) {
 
 const managerDetection = detectHookManagers(process.cwd(), pkg);
 for (const manager of managerDetection.managers) {
-  const report = inspectHookManagerForCleanup(manager, HOOK_NAMES);
+  const report = inspectHookManager(manager, HOOK_NAMES, process.cwd(), {
+    ownershipOnly: true,
+  });
   const wired = report.hooks
-    .filter(({ status }) => status === "wired")
+    .filter(({ status }) =>
+      ["wired", "legacy", "duplicate", "cross-stage"].includes(status),
+    )
     .map(({ name }) => name);
   if (wired.length > 0) {
     manualCleanup.push(
-      `${manager} configuration is user-owned; remove the Commitment Issues ${wired.join(", ")} ${wired.length === 1 ? "entry" : "entries"} manually.`,
+      `${manager} configuration is user-owned; remove all Commitment Issues entries for ${wired.join(", ")} manually.`,
     );
   } else if (report.status === "uninspectable") {
     manualCleanup.push(

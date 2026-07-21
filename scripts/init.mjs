@@ -10,6 +10,7 @@ import {
   HOOK_MANAGERS,
   classifyHook,
   detectHookManagers,
+  effectiveHooksDir,
   gitWorkTreeState,
   gitHooksDir,
   hookInvocation,
@@ -497,15 +498,19 @@ if (integrationManager) {
     hookNames,
     process.cwd(),
   );
-  const inactive = integrationReport.hooks.filter(
-    ({ status }) => status !== "wired",
-  );
   integrationSnippets =
     integrationReport.status === "uninspectable"
       ? []
       : hookManagerSnippets(
           integrationManager,
-          inactive.map(({ name }) => name),
+          integrationReport.hooks
+            .filter(
+              ({ status }) =>
+                status !== "wired" &&
+                status !== "duplicate" &&
+                status !== "cross-stage",
+            )
+            .map(({ name }) => name),
           integrationReport.destination,
         );
   integrationRunnerReport = inspectHookManagerRunner(
@@ -544,13 +549,46 @@ if (integrationManager) {
       ...managerDetection.unsafePaths.map((filePath) => `  ${filePath}`),
     );
   }
+  const inactive = integrationReport.hooks.filter(
+    ({ status }) => status !== "wired",
+  );
+  const duplicates = inactive.filter(({ status }) => status === "duplicate");
+  const crossStage = inactive.filter(({ status }) => status === "cross-stage");
   if (inactive.length > 0) {
     warnings.push(
       `${integrationManager} does not yet have every active Commitment Issues hook.`,
       ...inactive.map(
         ({ name, status }) =>
-          `  ${name}: ${status === "uninspectable" ? "could not be inspected" : "snippet not found"}`,
+          `  ${name}: ${
+            status === "uninspectable"
+              ? "could not be inspected"
+              : status === "duplicate"
+                ? "older direct duplicate must be removed"
+                : status === "cross-stage"
+                  ? "a direct command for another hook needs in-place migration"
+                  : status === "legacy"
+                    ? "older direct entry must be replaced"
+                    : "snippet not found"
+          }`,
       ),
+    );
+  }
+  if (duplicates.length > 0) {
+    warnings.push(
+      "Remove only the older direct duplicate entries; keep the existing hook-dispatch entries:",
+      ...duplicates.map(({ name }) => `  ${name}`),
+      ...(integrationManager === "husky"
+        ? [
+            "Make each retained hook-dispatch entry the first substantive command.",
+          ]
+        : []),
+    );
+  }
+  if (crossStage.length > 0) {
+    warnings.push(
+      "Preserve these manager entries and migrate each direct Commitment Issues call in place:",
+      ...crossStage.map(({ name }) => `  ${name}`),
+      "Insert `hook` before the existing subcommand; keep its arguments and ordering.",
     );
   }
   if (
@@ -626,12 +664,87 @@ if (!integrationManager && huskyEraHooksPath) {
 // A foreign core.hooksPath belongs to another hook manager or the user's own
 // setup — never unset it or write hooks it would shadow. Explain instead.
 if (!integrationManager && foreignHooksPath) {
-  warnings.push(
-    `core.hooksPath is set to ${configuredHooksPathLabel}, so git ignores .git/hooks.`,
-    "Add these commands to the matching hooks in that directory:",
-    ...hookNames.map((name) => `  ${name}: ${hookInvocation(name)}`),
-    "Or unset it: git config --unset core.hooksPath",
-  );
+  const hooksDir = effectiveHooksDir();
+  if (!hooksDir) {
+    warnings.push(
+      `core.hooksPath is set to ${configuredHooksPathLabel}, but Git could not resolve its hooks directory.`,
+      "Fix the Git configuration error, then run doctor.",
+    );
+  } else {
+    const reports = hookNames.map((name) => ({
+      name,
+      status: classifyHook(hooksDir, name),
+    }));
+    const activeStatuses = new Set([
+      "wired",
+      "stale-wired",
+      "custom-with-command",
+    ]);
+    hooksActive = reports.every(({ status }) => activeStatuses.has(status));
+    if (!hooksActive) {
+      const legacy = reports.filter(
+        ({ status }) => status === "custom-with-legacy-command",
+      );
+      const duplicates = reports.filter(
+        ({ status }) => status === "custom-with-duplicate-command",
+      );
+      const crossStage = reports.filter(
+        ({ status }) => status === "custom-with-cross-command",
+      );
+      const missing = reports.filter(({ status }) =>
+        ["missing", "custom-without-command"].includes(status),
+      );
+      const nonExecutable = reports.filter(
+        ({ status }) => status === "non-executable",
+      );
+      const uninspectable = reports.filter(
+        ({ status }) => status === "uninspectable",
+      );
+      warnings.push(
+        `core.hooksPath is set to ${configuredHooksPathLabel}, so git ignores .git/hooks.`,
+        "The configured hooks directory was preserved.",
+      );
+      if (duplicates.length > 0) {
+        warnings.push(
+          "Remove only the older direct duplicate entries; keep the existing hook-dispatch entries:",
+          ...duplicates.map(({ name }) => `  ${name}`),
+          "Make each retained hook-dispatch entry the first substantive command.",
+        );
+      }
+      if (legacy.length > 0) {
+        warnings.push(
+          "Replace each older direct entry in place; do not keep both forms:",
+          ...legacy.map(({ name }) => `  ${name}: ${hookInvocation(name)}`),
+        );
+      }
+      if (crossStage.length > 0) {
+        warnings.push(
+          "Preserve these configured hooks and migrate each cross-stage direct command in place:",
+          ...crossStage.map(({ name }) => `  ${name}`),
+          "Insert `hook` before the direct subcommand; keep its arguments and ordering.",
+        );
+      }
+      if (missing.length > 0) {
+        warnings.push(
+          "Add these guarded commands only to missing or unwired hooks:",
+          ...missing.map(({ name }) => `  ${name}: ${hookInvocation(name)}`),
+        );
+      }
+      if (nonExecutable.length > 0) {
+        warnings.push(
+          "Make these configured hooks executable:",
+          ...nonExecutable.map(({ name }) => `  ${name}`),
+        );
+      }
+      if (uninspectable.length > 0) {
+        warnings.push(
+          "These configured hooks could not be inspected and were left unchanged:",
+          ...uninspectable.map(({ name }) => `  ${name}`),
+        );
+      }
+      warnings.push("Or unset it: git config --unset core.hooksPath");
+    }
+  }
 }
 
 if (!integrationManager && hooksPathInspectionFailed) {
@@ -665,6 +778,8 @@ if (
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
   const legacyHooks = [];
+  const duplicateHooks = [];
+  const crossStageHooks = [];
   const nonExecutableHooks = [];
   const uninspectableHooks = [];
   const failedHooks = [];
@@ -702,6 +817,10 @@ if (
         unwiredHooks.push(name);
       } else if (status === "custom-with-legacy-command") {
         legacyHooks.push(name);
+      } else if (status === "custom-with-duplicate-command") {
+        duplicateHooks.push(name);
+      } else if (status === "custom-with-cross-command") {
+        crossStageHooks.push(name);
       } else if (status === "non-executable") {
         nonExecutableHooks.push(name);
       } else if (status === "uninspectable") {
@@ -722,11 +841,29 @@ if (
 
   if (legacyHooks.length > 0) {
     warnings.push(
-      "Existing git hooks use unguarded or direct commands outside the current managed hook contract.",
-      "Replace each first substantive command so package removal fails open and hook-only skip variables stay effective:",
+      "Existing git hooks use older direct hook entries for Commitment Issues.",
+      "Replace each older command and make the guarded hook-dispatch entry the first substantive command; do not keep both:",
       ...legacyHooks.map(
         (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
       ),
+    );
+  }
+
+  if (duplicateHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks contain both current and older direct Commitment Issues entries.",
+      "Remove only the older direct duplicate; keep the existing hook-dispatch entry:",
+      ...duplicateHooks.map((name) => `  .git/hooks/${name}`),
+      "Make each retained hook-dispatch entry the first substantive command.",
+    );
+  }
+
+  if (crossStageHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks contain direct commands for a different hook stage.",
+      "Preserve each file and migrate every direct Commitment Issues call in place:",
+      ...crossStageHooks.map((name) => `  .git/hooks/${name}`),
+      "Insert `hook` before the direct subcommand; keep its arguments and ordering.",
     );
   }
 
@@ -756,13 +893,16 @@ if (
 
   // Missing hooks are written above (or would be written by a dry run), and
   // wired/custom-with-command hooks are already active. Native hooks remain
-  // inactive when a custom hook omits the command, lacks an executable bit on
-  // POSIX, or a husky hooksPath could not be retired and shadows .git/hooks.
+  // incomplete when a custom hook uses the older direct command, omits the
+  // managed command, lacks an executable bit on POSIX, or a husky hooksPath
+  // could not be retired and shadows .git/hooks.
   hooksActive =
     hooksDir !== null &&
     hooksPathRetired &&
     unwiredHooks.length === 0 &&
     legacyHooks.length === 0 &&
+    duplicateHooks.length === 0 &&
+    crossStageHooks.length === 0 &&
     nonExecutableHooks.length === 0 &&
     uninspectableHooks.length === 0 &&
     failedHooks.length === 0;
@@ -874,30 +1014,50 @@ const integrationSections =
         pc.bold(`${integrationManager} coexistence snippets.`),
         "",
         pc.dim(
-          "Manager-owned files were not changed. Merge each entry without replacing or reordering existing commands.",
+          "Manager-owned files were not changed. Apply each entry using its add or replace label without reordering unrelated commands.",
         ),
-        ...(integrationManager === "pre-commit"
+        ...(integrationReport.hooks.some(({ status }) => status === "legacy")
+          ? [
+              pc.dim(
+                "Replace each labelled older entry in place; do not keep both the direct and hook-dispatch forms.",
+              ),
+            ]
+          : []),
+        ...(integrationReport.hooks.some(
+          ({ status }) => status === "missing",
+        ) && integrationManager === "pre-commit"
           ? [
               pc.dim(
                 "Place these entries under a local repo's hooks list; keep any existing repos and hooks.",
               ),
             ]
-          : integrationManager === "lefthook"
+          : integrationReport.hooks.some(
+                ({ status }) => status === "missing",
+              ) && integrationManager === "lefthook"
             ? [
                 pc.dim(
                   "Merge each command under the matching top-level hook; do not duplicate an existing hook key.",
                 ),
               ]
-            : [
-                pc.dim(
-                  "Place each guarded line before unrelated substantive commands; an exact Husky v8 source may precede it.",
-                ),
-              ]),
-        ...integrationSnippets.flatMap(({ name, destination, content }) => [
-          "",
-          pc.dim(`${destination} (${name}):`),
-          ...content.trimEnd().split("\n"),
-        ]),
+            : integrationReport.hooks.some(({ status }) => status === "missing")
+              ? [
+                  pc.dim(
+                    "Place each missing guarded line before unrelated substantive commands; an exact Husky v8 source may precede it.",
+                  ),
+                ]
+              : []),
+        ...integrationSnippets.flatMap(({ name, destination, content }) => {
+          const status = integrationReport.hooks.find(
+            (hook) => hook.name === name,
+          )?.status;
+          return [
+            "",
+            pc.dim(
+              `${destination} (${name}; ${status === "legacy" ? "replace older entry" : "add missing entry"}):`,
+            ),
+            ...content.trimEnd().split("\n"),
+          ];
+        }),
       ]
     : [];
 

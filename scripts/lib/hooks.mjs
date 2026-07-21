@@ -114,6 +114,11 @@ const PRE_COMMIT_STAGES = new Set([
   "merge-commit",
   "push",
 ]);
+const PRE_COMMIT_STAGE_ALIASES = Object.freeze({
+  "pre-commit": ["pre-commit", "commit"],
+  "pre-push": ["pre-push", "push"],
+  "commit-msg": ["commit-msg"],
+});
 const PRE_COMMIT_INSTALL_HOOK_TYPES = new Set(
   [...PRE_COMMIT_STAGES].filter(
     (stage) => !["manual", "commit", "merge-commit", "push"].includes(stage),
@@ -225,18 +230,6 @@ const HUSKY_V8_SOURCE_COMMANDS = Object.freeze([
   '. "$(dirname -- "$0")/_/husky.sh"',
 ]);
 
-/**
- * Shared opt-out for generated hooks and manager-composed entry points.
- * Manager-native bypasses (`--no-verify`, HUSKY=0, SKIP, and equivalent)
- * remain owned by each manager; this keeps Commitment Issues' documented
- * project-wide switch working when a manager invokes the bin directly.
- * @param {NodeJS.ProcessEnv} [env] - Environment to inspect.
- * @returns {boolean} Whether hook entry points should exit successfully.
- */
-export function hooksDisabled(env = process.env) {
-  return env.COMMITMENT_ISSUES === "0" || env.HUSKY === "0";
-}
-
 function sameFile(left, right) {
   return left.dev === right.dev && left.ino === right.ino;
 }
@@ -289,23 +282,10 @@ function legacyHookInvocation(name) {
 }
 
 function managerInvocation(name) {
-  return `${missingLocalBinGuard()} || ${localHookInvocation(name)} || exit $?`;
-}
-
-function missingLocalBinGuard() {
-  return `test ! -f ${LOCAL_BIN} || test ! -x ${LOCAL_BIN}`;
+  return `${managedLocalHookInvocation(name)} || exit $?`;
 }
 
 function localHookInvocation(name) {
-  const command = `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
-  return name === "pre-push"
-    ? `${command} "$@"`
-    : name === "commit-msg"
-      ? `${command} "$1"`
-      : command;
-}
-
-function legacyLocalHookInvocation(name) {
   const command = `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`;
   return name === "pre-push"
     ? `${command} "$@"`
@@ -314,18 +294,13 @@ function legacyLocalHookInvocation(name) {
       : command;
 }
 
-function lefthookInvocation(name, { guarded = true, legacy = false } = {}) {
-  const command = `${LOCAL_BIN} ${legacy ? "" : "hook "}${HOOK_SUBCOMMANDS[name]}${
-    name === "commit-msg" ? " --git-path" : ""
-  }`;
-  return guarded ? `${missingLocalBinGuard()} || ${command}` : command;
-}
-
-function preCommitInvocation(name, { guarded = true, legacy = false } = {}) {
-  const command = `${LOCAL_BIN} ${legacy ? "" : "hook "}${HOOK_SUBCOMMANDS[name]}`;
-  return guarded
-    ? `sh -c '${missingLocalBinGuard()} || exec ${command} "$@"' --`
-    : command;
+function managedLocalHookInvocation(name) {
+  const command = `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
+  return name === "pre-push"
+    ? `${command} "$@"`
+    : name === "commit-msg"
+      ? `${command} "$1"`
+      : command;
 }
 
 function packageDependencies(pkg) {
@@ -612,11 +587,15 @@ function lefthookSnippet(name) {
   // through use_stdin, while commit-msg resolves Git's active message path
   // inside the Node entrypoint. No Git-provided value is expanded into a shell
   // command.
+  const command =
+    name === "commit-msg"
+      ? `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]} --git-path`
+      : `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
   const lines = [
     `${name}:`,
     "  commands:",
     `    ${BIN}:`,
-    `      run: ${lefthookInvocation(name)}`,
+    `      run: ${command}`,
   ];
   if (name === "pre-push") {
     lines.push("      use_stdin: true");
@@ -629,7 +608,7 @@ function preCommitSnippet(name) {
   return [
     `      - id: ${id}`,
     `        name: ${BIN} ${name}`,
-    `        entry: ${preCommitInvocation(name)}`,
+    `        entry: ${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`,
     "        language: system",
     `        pass_filenames: ${name === "commit-msg" ? "true" : "false"}`,
     "        always_run: true",
@@ -1227,11 +1206,7 @@ function yamlKeyIndices(lines, key, indentation) {
     .filter((index) => index !== -1);
 }
 
-function hasLefthookCommand(
-  content,
-  name,
-  { recognizeLegacyCommand = false } = {},
-) {
+function hasLefthookCommand(content, name) {
   const lines = structuralYamlLines(content);
   const hookIndices = yamlKeyIndices(lines, name, 0);
   if (hookIndices.length !== 1) {
@@ -1266,13 +1241,11 @@ function hasLefthookCommand(
   }
   if (commandsBlock[commandIndices[0]].trim() !== `${BIN}:`) return false;
   const commandBlock = yamlBlock(commandsBlock, commandIndices[0]);
-  const commands = [lefthookInvocation(name)];
-  if (recognizeLegacyCommand) {
-    commands.push(
-      lefthookInvocation(name, { guarded: false }),
-      lefthookInvocation(name, { guarded: false, legacy: true }),
-    );
-  }
+  const command =
+    name === "commit-msg"
+      ? `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]} --git-path`
+      : `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
+  const runLine = `run: ${command}`;
   const properties = directYamlPropertyEntries(commandBlock);
   const allowedCommandProperties = new Set(
     name === "pre-push" ? ["run", "use_stdin"] : ["run"],
@@ -1286,7 +1259,7 @@ function hasLefthookCommand(
   }
   const runProperties = properties.filter(({ key }) => key === "run");
   const runsCommand =
-    runProperties.length === 1 && commands.includes(runProperties[0].value);
+    runProperties.length === 1 && `run: ${runProperties[0].value}` === runLine;
   const stdinProperties = properties.filter(({ key }) => key === "use_stdin");
   const forwardsStdin =
     name !== "pre-push" ||
@@ -1298,14 +1271,14 @@ function hasPreCommitCommand(
   content,
   name,
   document,
-  { recognizeLegacyCommand = false } = {},
+  { requireUnique = true } = {},
 ) {
   const lines = structuralYamlLines(content);
   const id = `${BIN}-${name}`;
   const matchingIds = document.repos.flatMap((repo) =>
     repo.hooks.filter((hook) => hook.id === id),
   );
-  if (matchingIds.length !== 1) return false;
+  if (requireUnique && matchingIds.length !== 1) return false;
   const matchingBlocks = [];
   const topLevelProperties = lines
     .filter(
@@ -1360,23 +1333,15 @@ function hasPreCommitCommand(
       }
     }
   }
-  if (matchingBlocks.length !== 1) {
+  if (
+    matchingBlocks.length === 0 ||
+    (requireUnique && matchingBlocks.length !== 1)
+  ) {
     return false;
-  }
-  const properties = directYamlPropertyEntries(matchingBlocks[0]);
-  const entries = [`entry: ${preCommitInvocation(name)}`];
-  if (recognizeLegacyCommand) {
-    entries.push(
-      `entry: ${preCommitInvocation(name, { guarded: false })}`,
-      `entry: ${preCommitInvocation(name, {
-        guarded: false,
-        legacy: true,
-      })}`,
-    );
   }
   const required = [
     ["name", `name: ${BIN} ${name}`],
-    ["entry", entries],
+    ["entry", `entry: ${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`],
     ["language", "language: system"],
     [
       "pass_filenames",
@@ -1385,27 +1350,88 @@ function hasPreCommitCommand(
     ["always_run", "always_run: true"],
     ["stages", `stages: [${name}]`],
   ];
-  if (properties === null || properties.length !== required.length) {
-    return false;
-  }
-  return required.every(([key, expected]) => {
-    const matchingProperties = properties.filter(
-      (property) => property.key === key,
-    );
-    const expectedValues = Array.isArray(expected) ? expected : [expected];
-    return (
-      matchingProperties.length === 1 &&
-      expectedValues.includes(`${key}: ${matchingProperties[0].value}`)
-    );
+  return matchingBlocks.some((block) => {
+    const properties = directYamlPropertyEntries(block);
+    if (properties === null || properties.length !== required.length) {
+      return false;
+    }
+    return required.every(([key, expected]) => {
+      const matchingProperties = properties.filter(
+        (property) => property.key === key,
+      );
+      return (
+        matchingProperties.length === 1 &&
+        `${key}: ${matchingProperties[0].value}` === expected
+      );
+    });
   });
 }
 
-function inspectYamlIntegration(
-  manager,
-  hookNames,
-  cwd,
-  { recognizeLegacyCommand = false } = {},
-) {
+function isUnconditionallyDisabledLefthookEntry({ skip, only }) {
+  return (
+    skip === true ||
+    only === false ||
+    (Array.isArray(only) && only.length === 0)
+  );
+}
+
+function lefthookJobHasLegacyCommand(job, command) {
+  if (isUnconditionallyDisabledLefthookEntry(job)) return false;
+  return (
+    job.run === command ||
+    job.runner === command ||
+    job.group?.jobs?.some((nested) =>
+      lefthookJobHasLegacyCommand(nested, command),
+    ) === true
+  );
+}
+
+function hasLegacyLefthookCommand(document, name, directName = name) {
+  const hook = document[name];
+  if (!isPlainObject(hook)) return false;
+  if (isUnconditionallyDisabledLefthookEntry(hook)) return false;
+  const command =
+    directName === "commit-msg"
+      ? `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[directName]} --git-path`
+      : `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[directName]}`;
+  return (
+    Object.values(hook.commands ?? {}).some(
+      (entry) =>
+        !isUnconditionallyDisabledLefthookEntry(entry) && entry.run === command,
+    ) ||
+    (hook.setup ?? []).some(({ run }) => run === command) ||
+    Object.values(hook.scripts ?? {}).some(
+      (entry) =>
+        !isUnconditionallyDisabledLefthookEntry(entry) &&
+        entry.runner === command,
+    ) ||
+    (hook.jobs ?? []).some((job) => lefthookJobHasLegacyCommand(job, command))
+  );
+}
+
+function hasLegacyPreCommitCommand(document, name, directName = name) {
+  const entry = `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[directName]}`;
+  return document.repos.some((repo) =>
+    repo.hooks.some((hook) => {
+      if (hook.entry !== entry) return false;
+      if (["docker_image", "fail", "pygrep", "r"].includes(hook.language)) {
+        return false;
+      }
+      const stages =
+        hook.stages?.length > 0
+          ? hook.stages
+          : repo.repo !== "local" && !Object.hasOwn(hook, "stages")
+            ? undefined
+            : document.default_stages;
+      return (
+        stages === undefined ||
+        PRE_COMMIT_STAGE_ALIASES[name].some((stage) => stages.includes(stage))
+      );
+    }),
+  );
+}
+
+function inspectYamlIntegration(manager, hookNames, cwd) {
   const candidates =
     manager === "lefthook" ? LEFTHOOK_CONFIG_FILES : PRE_COMMIT_CONFIG_FILES;
   const inspectable =
@@ -1466,49 +1492,62 @@ function inspectYamlIntegration(
       hooks: hookNames.map((name) => ({ name, status: "uninspectable" })),
     };
   }
-  const hooks = hookNames.map((name) => ({
-    name,
-    status: (
+  const hooks = hookNames.map((name) => {
+    const wired =
       manager === "lefthook"
-        ? hasLefthookCommand(file.content, name, { recognizeLegacyCommand })
-        : hasPreCommitCommand(file.content, name, document, {
-            recognizeLegacyCommand,
+        ? hasLefthookCommand(file.content, name)
+        : hasPreCommitCommand(file.content, name, document);
+    const current =
+      manager === "pre-commit"
+        ? hasPreCommitCommand(file.content, name, document, {
+            requireUnique: false,
           })
-    )
-      ? "wired"
-      : "missing",
-  }));
+        : wired;
+    const hasLegacy = (directName) =>
+      manager === "lefthook"
+        ? hasLegacyLefthookCommand(document, name, directName)
+        : hasLegacyPreCommitCommand(document, name, directName);
+    const legacy = hasLegacy(name);
+    const crossStageLegacy = HOOK_NAMES.some(
+      (directName) => directName !== name && hasLegacy(directName),
+    );
+    return {
+      name,
+      status: crossStageLegacy
+        ? "cross-stage"
+        : legacy
+          ? current
+            ? "duplicate"
+            : "legacy"
+          : wired
+            ? "wired"
+            : "missing",
+    };
+  });
   return {
     manager,
     destination,
     status: hooks.every(({ status }) => status === "wired")
       ? "wired"
-      : "missing",
+      : hooks.some(({ status }) => status === "uninspectable")
+        ? "uninspectable"
+        : "missing",
     hooks,
   };
 }
 
-/**
- * Verify only the selected manager's user-owned files. This function never
- * writes, chmods, reorders, or removes manager configuration.
- * @param {string} manager - Explicit supported manager.
- * @param {string[]} hookNames - Required hook names.
- * @param {string} [cwd] - Project root.
- * @returns {{manager: string, destination: string|null, status: string, hooks: Array<{name: string, status: string}>}}
- */
-function inspectHookManagerState(
+/** Inspect but never modify a selected manager's files. */
+export function inspectHookManager(
   manager,
   hookNames,
-  cwd,
-  { recognizeLegacyCommand = false } = {},
+  cwd = process.cwd(),
+  { ownershipOnly = false } = {},
 ) {
   if (!HOOK_MANAGERS.includes(manager)) {
     throw new RangeError(`Unsupported hook manager: ${manager}`);
   }
   if (manager !== "husky") {
-    return inspectYamlIntegration(manager, hookNames, cwd, {
-      recognizeLegacyCommand,
-    });
+    return inspectYamlIntegration(manager, hookNames, cwd);
   }
   const rootState = pathEntryState(path.join(cwd, ".husky"), "directory");
   if (rootState === "unsafe") {
@@ -1532,25 +1571,37 @@ function inspectHookManagerState(
         status: file.status === "missing" ? "missing" : "uninspectable",
       };
     }
-    const invocations = [managerInvocation(name)];
-    if (recognizeLegacyCommand) {
-      invocations.push(
-        `${localHookInvocation(name)} || exit $?`,
-        `${legacyLocalHookInvocation(name)} || exit $?`,
-      );
-    }
+    const options = {
+      requireShebang,
+      allowedPreludeCommands: requireShebang ? HUSKY_V8_SOURCE_COMMANDS : [],
+    };
+    const wired = hasExecutableShellCommand(
+      file.content,
+      managerInvocation(name),
+      options,
+    );
+    const current =
+      wired || hasStandaloneManagerHookCommandLine(file.content, name, options);
+    const legacy =
+      hasLegacyManagerShellCommand(file.content, name, options) ||
+      hasStandaloneLegacyHookCommandLine(file.content, name, options) ||
+      (current && hasActiveLegacyHookCommandLine(file.content, name, options));
+    const crossStageLegacy = HOOK_NAMES.some(
+      (directName) =>
+        directName !== name &&
+        hasActiveLegacyHookCommandLine(file.content, directName, options),
+    );
     return {
       name,
-      status: invocations.some((invocation) =>
-        hasExecutableShellCommand(file.content, invocation, {
-          requireShebang,
-          allowedPreludeCommands: requireShebang
-            ? HUSKY_V8_SOURCE_COMMANDS
-            : [],
-        }),
-      )
-        ? "wired"
-        : "missing",
+      status: crossStageLegacy
+        ? "cross-stage"
+        : legacy
+          ? current
+            ? "duplicate"
+            : "legacy"
+          : wired || (ownershipOnly && current)
+            ? "wired"
+            : "missing",
     };
   });
   return {
@@ -1563,30 +1614,6 @@ function inspectHookManagerState(
         : "missing",
     hooks,
   };
-}
-
-export function inspectHookManager(manager, hookNames, cwd = process.cwd()) {
-  return inspectHookManagerState(manager, hookNames, cwd);
-}
-
-/**
- * Recognize current and pre-dispatch manager entries solely so uninstall can
- * identify user-owned commands that need manual removal. Health checks remain
- * strict through inspectHookManager, and this function never writes manager
- * configuration.
- * @param {string} manager - Explicit supported manager.
- * @param {string[]} hookNames - Hook names to inventory for cleanup guidance.
- * @param {string} [cwd] - Project root.
- * @returns {{manager: string, destination: string|null, status: string, hooks: Array<{name: string, status: string}>}}
- */
-export function inspectHookManagerForCleanup(
-  manager,
-  hookNames,
-  cwd = process.cwd(),
-) {
-  return inspectHookManagerState(manager, hookNames, cwd, {
-    recognizeLegacyCommand: true,
-  });
 }
 
 function isLefthookRunner(content, name) {
@@ -1621,39 +1648,21 @@ function lefthookRunnerRuntime(content, name) {
 
   const normalized = content.replace(/\r\n?/gu, "\n").replace(/\n$/u, "");
   const lines = normalized.split("\n");
-  const extensions = process.platform === "win32" ? [".exe"] : [""];
-  for (const extension of extensions) {
-    const canonical = canonicalLefthookWrapper(name, extension).split("\n");
-    if (lines.length !== canonical.length) continue;
-    const probeIndex = canonical.indexOf(
-      "  elif <LEFTHOOK_EXE> -h >/dev/null 2>&1",
-    );
-    const invocationIndex = canonical.indexOf('    <LEFTHOOK_EXE> "$@"');
-    const embedded = lines[probeIndex].match(
-      /^ {2}elif ([\p{L}\p{M}\p{N}_@%+:,./-]+) -h >\/dev\/null 2>&1$/u,
-    );
-    if (
-      !embedded ||
-      lines[invocationIndex] !== `    ${embedded[1]} "$@"` ||
-      /\s/u.test(embedded[1]) ||
-      !isReviewedLefthookCurrentExecutable(embedded[1], extension)
-    ) {
-      continue;
-    }
-    const comparable = [...lines];
-    comparable[probeIndex] = canonical[probeIndex];
-    comparable[invocationIndex] = canonical[invocationIndex];
-    if (comparable.join("\n") === canonical.join("\n")) {
-      return { kind: "canonical", embedded: embedded[1], extension };
-    }
+  if (lines.length !== 71) return null;
+  const embedded = lines[18].match(
+    /^ {2}elif ([\p{L}\p{M}\p{N}_@%+:,./-]+) -h >\/dev\/null 2>&1$/u,
+  );
+  if (!embedded || lines[20] !== `    ${embedded[1]} "$@"`) return null;
+  lines[18] = "  elif <LEFTHOOK_EXE> -h >/dev/null 2>&1";
+  lines[20] = '    <LEFTHOOK_EXE> "$@"';
+  if (
+    lines.join("\n") !== canonicalLefthookWrapper(name) ||
+    /\s/u.test(embedded[1]) ||
+    !isReviewedLefthookExecutable(embedded[1])
+  ) {
+    return null;
   }
-  return null;
-}
-
-function isReviewedLefthookCurrentExecutable(executable, extension) {
-  if (extension !== ".exe") return isReviewedLefthookExecutable(executable);
-  const normalized = normalizedExecutablePath(executable);
-  return normalized.slice(normalized.lastIndexOf("/") + 1) === "lefthook.exe";
+  return { kind: "canonical", embedded: embedded[1] };
 }
 
 function isReviewedLefthookExecutable(executable) {
@@ -1696,18 +1705,13 @@ function hasAvailableLefthookRuntime(content, name, cwd) {
   }
   const runtimePlatform =
     process.platform === "win32" ? "windows" : process.platform;
-  const runtimeExtension = runtime.extension;
   const localExecutables = [
-    `node_modules/lefthook-${runtimePlatform}-${process.arch}/bin/lefthook${runtimeExtension}`,
-    `node_modules/@evilmartians/lefthook/bin/lefthook-${runtimePlatform}-${process.arch}/lefthook${runtimeExtension}`,
-    `node_modules/@evilmartians/lefthook-installer/bin/lefthook${runtimeExtension}`,
+    `node_modules/lefthook-${runtimePlatform}-${process.arch}/bin/lefthook`,
+    `node_modules/@evilmartians/lefthook/bin/lefthook-${runtimePlatform}-${process.arch}/lefthook`,
+    "node_modules/@evilmartians/lefthook-installer/bin/lefthook",
     "node_modules/lefthook/bin/index.js",
   ];
-  const pathExecutables =
-    runtime.extension === ".exe"
-      ? ["lefthook.exe", "lefthook.bat", runtime.embedded]
-      : ["lefthook", runtime.embedded];
-  for (const executable of pathExecutables) {
+  for (const executable of ["lefthook", runtime.embedded]) {
     const state = executableFileState(
       executable,
       cwd,
@@ -1826,13 +1830,7 @@ function executablePathState(candidate, resolvedIdentityValidator) {
   }
 }
 
-function canonicalLefthookWrapper(name, extension = "") {
-  const windowsBatchFallback = extension
-    ? `  elif lefthook.bat -h >/dev/null 2>&1
-  then
-    lefthook.bat "$@"
-`
-    : "";
+function canonicalLefthookWrapper(name) {
   return `#!/bin/sh
 
 if [ "$LEFTHOOK_VERBOSE" = "1" -o "$LEFTHOOK_VERBOSE" = "true" ]; then
@@ -1848,25 +1846,25 @@ call_lefthook()
   if test -n "$LEFTHOOK_BIN"
   then
     "$LEFTHOOK_BIN" "$@"
-  elif lefthook${extension} -h >/dev/null 2>&1
+  elif lefthook -h >/dev/null 2>&1
   then
-    lefthook${extension} "$@"
-${windowsBatchFallback}  elif <LEFTHOOK_EXE> -h >/dev/null 2>&1
+    lefthook "$@"
+  elif <LEFTHOOK_EXE> -h >/dev/null 2>&1
   then
     <LEFTHOOK_EXE> "$@"
   else
     dir="$(git rev-parse --show-toplevel)"
     osArch=$(uname | tr '[:upper:]' '[:lower:]')
     cpuArch=$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')
-    if test -f "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}"
+    if test -f "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook"
     then
-      "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}" "$@"
-    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}"
+      "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook"
     then
-      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}" "$@"
-    elif test -f "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}"
+      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook"
     then
-      "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}" "$@"
+      "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook" "$@"
     elif test -f "$dir/node_modules/lefthook/bin/index.js"
     then
       "$dir/node_modules/lefthook/bin/index.js" "$@"
@@ -2613,33 +2611,11 @@ export function effectiveHooksDir(cwd = process.cwd(), env = process.env) {
   return hooksDir ? path.resolve(cwd, hooksDir) : null;
 }
 
-/**
- * Classify a hook file so repair logic can react appropriately:
- *   missing                → recreate from hookBody
- *   wired                  → our exact generated body; healthy
- *   stale-wired            → exact older generated body; safe to refresh
- *   custom-with-command    → user's own hook that still calls us; healthy
- *   custom-with-legacy-command → user's hook has an older unguarded or
- *                            public-check invocation; preserve it but require
- *                            the guarded managed dispatcher
- *   non-executable         → hook contents may be wired, but Git will not run
- *                            the file on POSIX
- *   uninspectable          → the path exists but cannot be safely read as a
- *                            regular hook file
- *   custom-without-command → user's own hook that never calls us; a problem to
- *                            report but never overwrite.
- * @param {string} hooksDir - Directory containing the hook files.
- * @param {string} name - Hook name (e.g. "pre-commit").
- * @param {{requireExecutable?: boolean, recognizeLegacyCommand?: boolean}} [options] - Whether POSIX mode bits
- *   participate in health classification. Ownership-only callers can disable
- *   this while comparing generated/custom hook contents, and uninstall can
- *   recognize a historical global command solely for manual cleanup.
- * @returns {"missing"|"wired"|"stale-wired"|"custom-with-command"|"custom-with-legacy-command"|"non-executable"|"uninspectable"|"custom-without-command"} Classification.
- */
+/** Classify hook health and ownership without changing the file. */
 export function classifyHook(
   hooksDir,
   name,
-  { requireExecutable = true, recognizeLegacyCommand = false } = {},
+  { requireExecutable = true, ownershipOnly = false } = {},
 ) {
   const file = regularChildFileContents(hooksDir, name);
   if (file.status !== "regular") return file.status;
@@ -2657,33 +2633,44 @@ export function classifyHook(
   if (STALE_GENERATED_HOOK_BODIES[name]?.includes(content)) {
     return "stale-wired";
   }
-  if (
-    hasExecutableHookCommand(content, name) ||
-    (recognizeLegacyCommand && hasLegacyExecutableHookCommand(content, name))
-  ) {
+  const wired = hasExecutableHookCommand(content, name);
+  const standaloneManaged = hasStandaloneManagerHookCommandLine(content, name, {
+    requireShebang: true,
+  });
+  const current = wired || standaloneManaged;
+  const legacy =
+    hasLegacyLocalExecutableHookCommand(content, name) ||
+    hasLegacyExecutableHookCommand(content, name) ||
+    hasStandaloneLegacyHookCommandLine(content, name, {
+      requireShebang: true,
+    }) ||
+    (current &&
+      hasActiveLegacyHookCommandLine(content, name, {
+        requireShebang: true,
+      }));
+  const crossStageLegacy = HOOK_NAMES.some(
+    (directName) =>
+      directName !== name &&
+      hasActiveLegacyHookCommandLine(content, directName, {
+        requireShebang: true,
+      }),
+  );
+  if (crossStageLegacy) return "custom-with-cross-command";
+  if (legacy) {
+    return current
+      ? "custom-with-duplicate-command"
+      : "custom-with-legacy-command";
+  }
+  if (wired || (ownershipOnly && standaloneManaged)) {
     return "custom-with-command";
   }
-  return hasLegacyLocalHookCommand(content, name)
-    ? "custom-with-legacy-command"
-    : "custom-without-command";
+  return "custom-without-command";
 }
 
-function hasLegacyLocalHookCommand(content, name) {
-  return [localHookInvocation(name), legacyLocalHookInvocation(name)].some(
-    (invocation) =>
-      [
-        `${invocation} || exit $?`,
-        `command ${invocation} || exit $?`,
-        `exec ${invocation}`,
-      ].some((expected) =>
-        hasExecutableShellCommand(content, expected, { requireShebang: true }),
-      ),
-  );
-}
-
-function hasLegacyExecutableHookCommand(content, name) {
-  const invocation = legacyHookInvocation(name);
+function hasLegacyLocalExecutableHookCommand(content, name) {
+  const invocation = localHookInvocation(name);
   return [
+    invocation,
     `${invocation} || exit $?`,
     `command ${invocation} || exit $?`,
     `exec ${invocation}`,
@@ -2692,20 +2679,85 @@ function hasLegacyExecutableHookCommand(content, name) {
   );
 }
 
-/**
- * Recognize a deliberately conservative shell invocation. A protected local
- * command must be the first substantive hook line (apart from an exact Husky
- * v8 source prelude), so earlier control flow cannot skip it and later
- * commands cannot swallow its blocking exit. Comments and quoted examples
- * cannot masquerade as active wiring.
- * @param {string} content - Hook file contents.
- * @param {string} name - Hook name (e.g. "pre-commit").
- * @returns {boolean} Whether an executable line invokes the expected command.
- */
+function hasLegacyExecutableHookCommand(content, name) {
+  const invocation = legacyHookInvocation(name);
+  return [
+    invocation,
+    `${invocation} || exit $?`,
+    `command ${invocation} || exit $?`,
+    `exec ${invocation}`,
+  ].some((command) =>
+    hasExecutableShellCommand(content, command, { requireShebang: true }),
+  );
+}
+
+function hasLegacyManagerShellCommand(content, name, options) {
+  const localInvocation = localHookInvocation(name);
+  const globalInvocation = legacyHookInvocation(name);
+  return [
+    localInvocation,
+    `${localInvocation} || exit $?`,
+    `command ${localInvocation} || exit $?`,
+    `exec ${localInvocation}`,
+    globalInvocation,
+    `${globalInvocation} || exit $?`,
+    `command ${globalInvocation} || exit $?`,
+    `exec ${globalInvocation}`,
+  ].some((command) => hasExecutableShellCommand(content, command, options));
+}
+
+function legacyHookCommandForms(name) {
+  const localInvocation = localHookInvocation(name);
+  const globalInvocation = legacyHookInvocation(name);
+  return [
+    localInvocation,
+    `${localInvocation} || exit $?`,
+    `command ${localInvocation} || exit $?`,
+    `exec ${localInvocation}`,
+    globalInvocation,
+    `${globalInvocation} || exit $?`,
+    `command ${globalInvocation} || exit $?`,
+    `exec ${globalInvocation}`,
+  ];
+}
+
+function managedHookCommandForms(name) {
+  const invocation = managedLocalHookInvocation(name);
+  return [
+    `${invocation} || exit $?`,
+    `command ${invocation} || exit $?`,
+    `exec ${invocation}`,
+  ];
+}
+
+function hasStandaloneLegacyHookCommandLine(content, name, options) {
+  return legacyHookCommandForms(name).some((command) =>
+    hasStandaloneShellCommandLine(content, command, options),
+  );
+}
+
+function hasActiveLegacyHookCommandLine(content, name, options) {
+  return legacyHookCommandForms(name).some((command) =>
+    hasActiveShellCommandLine(content, command, options),
+  );
+}
+
+function hasStandaloneManagerHookCommandLine(content, name, options) {
+  return managedHookCommandForms(name).some((command) =>
+    hasStandaloneShellCommandLine(content, command, options),
+  );
+}
+
+// Healthy wiring must be the first substantive command (after a Husky prelude).
 function hasExecutableHookCommand(content, name) {
-  return hasExecutableShellCommand(content, managerInvocation(name), {
-    requireShebang: true,
-  });
+  const invocation = managedLocalHookInvocation(name);
+  return [
+    `${invocation} || exit $?`,
+    `command ${invocation} || exit $?`,
+    `exec ${invocation}`,
+  ].some((command) =>
+    hasExecutableShellCommand(content, command, { requireShebang: true }),
+  );
 }
 
 function hasExecutableShellCommand(
@@ -2726,6 +2778,40 @@ function hasExecutableShellCommand(
     return false;
   }
   return false;
+}
+
+function hasStandaloneShellCommandLine(content, expectedCommand, options) {
+  const lines = content.split(/\r?\n/u);
+  return activeShellLineRecords(content)
+    .filter(({ line, controlLine }) => {
+      const trimmed = line.trim();
+      return (
+        Boolean(trimmed || controlLine.trim()) &&
+        !trimmed.startsWith("#") &&
+        trimmed === expectedCommand
+      );
+    })
+    .some(({ sourceIndex }) => {
+      const preserveShebang = lines[0]?.startsWith("#!") === true;
+      const isolated = lines
+        .map((line, index) =>
+          index < sourceIndex && !(index === 0 && preserveShebang) ? "" : line,
+        )
+        .join("\n");
+      return hasExecutableShellCommand(isolated, expectedCommand, options);
+    });
+}
+
+function hasActiveShellCommandLine(
+  content,
+  expectedCommand,
+  { requireShebang = false } = {},
+) {
+  if (requireShebang && !hasApprovedShellShebang(content)) return false;
+  if (!hasValidShellSyntax(content)) return false;
+  return activeShellLineRecords(content).some(
+    ({ line }) => line.trim() === expectedCommand,
+  );
 }
 
 function hasApprovedShellShebang(content) {
@@ -2782,7 +2868,9 @@ function activeShellLineRecords(content) {
   const heredocs = [];
   const active = [];
 
-  for (const line of content.split(/\r?\n/)) {
+  const lines = content.split(/\r?\n/u);
+  for (let sourceIndex = 0; sourceIndex < lines.length; sourceIndex += 1) {
+    const line = lines[sourceIndex];
     if (heredocs.length > 0) {
       const current = heredocs[0];
       const candidate = current.stripTabs ? line.replace(/^\t+/, "") : line;
@@ -2802,6 +2890,7 @@ function activeShellLineRecords(content) {
       active.push({
         line: isActive ? line.trimStart() : "",
         controlLine: state.structuralLine.trimStart(),
+        sourceIndex,
       });
     }
     quote = state.quote;

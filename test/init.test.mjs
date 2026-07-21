@@ -19,36 +19,9 @@ import {
   readFile,
   repoRoot,
   run,
-  writeCrossPlatformShim,
   writeFile,
 } from "./helpers/temp-repo.mjs";
-import {
-  HUSKY_V9_RUNTIME,
-  lefthookRunner,
-} from "./helpers/hook-manager-fixtures.mjs";
-import { hookInvocation, hookManagerSnippets } from "../scripts/lib/hooks.mjs";
-
-const LOCAL_BIN_PATTERN = String.raw`node_modules\/\.bin\/commitment-issues`;
-const MISSING_BIN_GUARD_PATTERN = String.raw`test\s+!\s+-f\s*${LOCAL_BIN_PATTERN}\s*\|\|\s*test\s+!\s+-x\s*${LOCAL_BIN_PATTERN}`;
-
-function hookSuggestionPattern(name) {
-  const subcommand =
-    name === "pre-commit"
-      ? "precommit"
-      : name === "pre-push"
-        ? "prepush"
-        : "commit-msg";
-  const forwarded =
-    name === "pre-push"
-      ? String.raw`\s*"\$@"`
-      : name === "commit-msg"
-        ? String.raw`\s*"\$1"`
-        : "";
-  return new RegExp(
-    String.raw`${name}:\s*${MISSING_BIN_GUARD_PATTERN}\s*\|\|\s*${LOCAL_BIN_PATTERN}\s+hook\s+${subcommand}${forwarded}\s*\|\|\s*exit\s*\$\?`,
-    "u",
-  );
-}
+import { HUSKY_V9_RUNTIME } from "./helpers/hook-manager-fixtures.mjs";
 
 function runInit(tempDir, args = [], options = {}) {
   return run(
@@ -259,8 +232,10 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
     writeFile(wrapper, '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n');
     fs.chmodSync(wrapper, 0o755);
   }
-  const preCommit = `${hookInvocation("pre-commit")}\necho custom-after\n`;
-  const prePush = `${hookInvocation("pre-push")}\necho push-after\n`;
+  const preCommit =
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\necho custom-after\n";
+  const prePush =
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho push-after\n';
   writeFile(path.join(tempDir, ".husky", "pre-commit"), preCommit);
   writeFile(path.join(tempDir, ".husky", "pre-push"), prePush);
   const hooksPathBefore = hooksPath(tempDir);
@@ -268,9 +243,8 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
   const first = runInit(tempDir, ["--integration=husky"]);
   const firstOutput = `${first.stdout}${first.stderr}`;
   assert.equal(first.status, 0);
-  assert.match(firstOutput, /Commitment Issues is set up/);
   assert.doesNotMatch(firstOutput, /husky coexistence snippets/i);
-  assert.doesNotMatch(firstOutput, /Manager-owned files were not changed/);
+  assert.match(firstOutput, /Commitment Issues is set up/i);
   assert.equal(readFile(tempDir, ".husky/pre-commit"), preCommit);
   assert.equal(readFile(tempDir, ".husky/pre-push"), prePush);
   assert.equal(hooksPath(tempDir), hooksPathBefore);
@@ -282,11 +256,8 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
 
   const packageAfterFirst = readFile(tempDir, "package.json");
   const second = runInit(tempDir, ["--integration=husky"]);
-  const secondOutput = `${second.stdout}${second.stderr}`;
   assert.equal(second.status, 0);
-  assert.match(secondOutput, /Commitment Issues is set up/);
-  assert.doesNotMatch(secondOutput, /hook wiring still needs attention/i);
-  assert.doesNotMatch(secondOutput, /husky coexistence snippets/i);
+  assert.match(`${second.stdout}${second.stderr}`, /Already configured/);
   assert.equal(readFile(tempDir, "package.json"), packageAfterFirst);
   assert.equal(readFile(tempDir, ".husky/pre-commit"), preCommit);
   assert.equal(readFile(tempDir, ".husky/pre-push"), prePush);
@@ -302,6 +273,119 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
   assert.ok(fs.existsSync(gitHook(tempDir, "pre-push")));
   assert.equal(readFile(tempDir, ".husky/pre-commit"), preCommit);
   assert.equal(readFile(tempDir, ".husky/pre-push"), prePush);
+});
+
+test("init prints replacements only for inactive manager hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "partial-husky-project",
+    version: "1.0.0",
+    type: "module",
+    scripts: { prepare: "husky" },
+    devDependencies: { husky: "^9.0.0" },
+  });
+  run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
+  fs.mkdirSync(path.join(tempDir, ".husky", "_"), { recursive: true });
+  writeFile(path.join(tempDir, ".husky", "_", "h"), HUSKY_V9_RUNTIME);
+  for (const name of ["pre-commit", "pre-push"]) {
+    const wrapper = path.join(tempDir, ".husky", "_", name);
+    writeFile(wrapper, '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n');
+    fs.chmodSync(wrapper, 0o755);
+  }
+  const preCommit =
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n";
+  const legacyPrePush =
+    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n';
+  writeFile(path.join(tempDir, ".husky", "pre-commit"), preCommit);
+  writeFile(path.join(tempDir, ".husky", "pre-push"), legacyPrePush);
+
+  const result = runInit(tempDir, ["--integration=husky"]);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /husky coexistence snippets/i);
+  assert.match(
+    output,
+    /node_modules\/\.bin\/commitment-issues hook prepush "\$@"/u,
+  );
+  assert.match(output, /pre-push; replace older entry/u);
+  assert.match(output, /Replace each labelled older entry in place/u);
+  assert.match(output, /hook-dispatch forms/u);
+  assert.doesNotMatch(
+    output,
+    /node_modules\/\.bin\/commitment-issues hook precommit/u,
+  );
+  assert.equal(readFile(tempDir, ".husky/pre-commit"), preCommit);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), legacyPrePush);
+
+  const duplicatePrePush = [
+    "echo prior",
+    legacyPrePush.trimEnd(),
+    preCommit.trimEnd().replace("precommit", 'prepush "$@"'),
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), duplicatePrePush);
+  const duplicate = runInit(tempDir, ["--integration=husky"]);
+  const duplicateOutput = compactTerminalBoxText(
+    `${duplicate.stdout}${duplicate.stderr}`,
+  );
+  assert.equal(duplicate.status, 0);
+  assert.match(duplicateOutput, /older direct duplicate must be removed/i);
+  assert.match(duplicateOutput, /remove only the older direct duplicate/i);
+  assert.match(duplicateOutput, /keep.*existing.*hook-dispatch.*entr/iu);
+  assert.doesNotMatch(duplicateOutput, /pre-push; replace older entry/i);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), duplicatePrePush);
+
+  const crossStagePrePush = [
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?',
+    "node_modules/.bin/commitment-issues precommit || exit $?",
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, ".husky", "pre-push"), crossStagePrePush);
+  const crossStage = runInit(tempDir, ["--integration=husky"]);
+  const crossOutput = compactTerminalBoxText(
+    `${crossStage.stdout}${crossStage.stderr}`,
+  );
+  assert.equal(crossStage.status, 0);
+  assert.match(crossOutput, /direct command for another hook/i);
+  assert.match(crossOutput, /Preserve these manager entries/i);
+  assert.match(crossOutput, /Insert `hook` before the existing subcommand/i);
+  assert.doesNotMatch(crossOutput, /could not be inspected|replace each path/i);
+  assert.equal(readFile(tempDir, ".husky/pre-push"), crossStagePrePush);
+});
+
+test("init omits Husky-only ordering guidance for Lefthook duplicates", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "lefthook-duplicate-project",
+    version: "1.0.0",
+    type: "module",
+  });
+  const config = [
+    "pre-commit:",
+    "  commands:",
+    "    commitment-issues:",
+    "      run: node_modules/.bin/commitment-issues hook precommit",
+    "    commitment-issues-old:",
+    "      run: node_modules/.bin/commitment-issues precommit",
+    "pre-push:",
+    "  commands:",
+    "    commitment-issues:",
+    "      run: node_modules/.bin/commitment-issues hook prepush",
+    "      use_stdin: true",
+    "",
+  ].join("\n");
+  writeFile(path.join(tempDir, "lefthook.yml"), config);
+
+  const result = runInit(tempDir, ["--integration=lefthook"]);
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 0);
+  assert.match(output, /older direct duplicate must be removed/i);
+  assert.match(output, /remove only the older direct duplicate/i);
+  assert.doesNotMatch(output, /first substantive command/i);
+  assert.equal(readFile(tempDir, "lefthook.yml"), config);
 });
 
 test("init integration dry run prints exact pre-commit entries without writes", (t) => {
@@ -470,66 +554,6 @@ test("init automatic integration requires and selects exactly one owner", (t) =>
   assert.equal(fs.existsSync(gitHook(oneOwnerDir, "pre-commit")), false);
 });
 
-test("init recognizes fully active Lefthook integration", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-  writePackage(tempDir, {
-    name: "active-lefthook-project",
-    version: "1.0.0",
-    type: "module",
-    devDependencies: { lefthook: "2" },
-  });
-  writeFile(
-    path.join(tempDir, "lefthook.yml"),
-    hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
-      .map(({ content }) => content)
-      .join("\n"),
-  );
-  for (const name of ["pre-commit", "pre-push"]) {
-    writeFile(gitHook(tempDir, name), lefthookRunner(name));
-    fs.chmodSync(gitHook(tempDir, name), 0o755);
-  }
-  const managerBin = path.join(tempDir, "manager-bin");
-  fs.mkdirSync(managerBin);
-  writeCrossPlatformShim(managerBin, "lefthook", "process.exit(0);\n", {
-    windowsBatch: true,
-  });
-
-  const result = runInit(tempDir, ["--integration=lefthook"], {
-    env: {
-      ...process.env,
-      PATH: `${managerBin}${path.delimiter}${process.env.PATH ?? ""}`,
-    },
-  });
-  const output = `${result.stdout}${result.stderr}`;
-
-  assert.equal(result.status, 0);
-  assert.match(output, /Commitment Issues is set up/);
-  assert.doesNotMatch(output, /hook wiring still needs attention/i);
-  assert.doesNotMatch(output, /coexistence snippets/i);
-
-  writeFile(
-    path.join(tempDir, "lefthook.yml"),
-    hookManagerSnippets("lefthook", ["pre-commit"])[0].content,
-  );
-  const partial = runInit(tempDir, ["--integration=lefthook"], {
-    env: {
-      ...process.env,
-      PATH: `${managerBin}${path.delimiter}${process.env.PATH ?? ""}`,
-    },
-  });
-  const partialOutput = `${partial.stdout}${partial.stderr}`;
-  assert.equal(partial.status, 0);
-  assert.match(
-    partialOutput,
-    /node_modules\/\.bin\/commitment-issues hook prepush/,
-  );
-  assert.doesNotMatch(
-    partialOutput,
-    /node_modules\/\.bin\/commitment-issues hook precommit/,
-  );
-});
-
 test("init preserves Lefthook and lint-staged composition", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -619,7 +643,7 @@ test("init reports inactive Husky ownership without changing its hooks", (t) => 
     devDependencies: { husky: "9" },
   });
   fs.mkdirSync(path.join(tempDir, ".husky"));
-  const hook = `${hookInvocation("pre-commit")}\n`;
+  const hook = "node_modules/.bin/commitment-issues precommit || exit $?\n";
   writeFile(path.join(tempDir, ".husky", "pre-commit"), hook);
 
   const result = runInit(tempDir, ["--integration=husky"]);
@@ -909,9 +933,18 @@ test(
     });
     writeFile(
       path.join(tempDir, "lefthook.yml"),
-      hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
-        .map(({ content }) => content)
-        .join("\n"),
+      [
+        "pre-commit:",
+        "  commands:",
+        "    commitment-issues:",
+        "      run: node_modules/.bin/commitment-issues precommit",
+        "pre-push:",
+        "  commands:",
+        "    commitment-issues:",
+        "      run: node_modules/.bin/commitment-issues prepush",
+        "      use_stdin: true",
+        "",
+      ].join("\n"),
     );
     const hooksDir = path.join(tempDir, ".git", "hooks");
     fs.rmSync(hooksDir, { recursive: true });
@@ -954,11 +987,11 @@ test(
     fs.mkdirSync(hooksDir, { recursive: true });
     writeFile(
       path.join(tempDir, ".husky", "pre-commit"),
-      `${hookInvocation("pre-commit")}\n`,
+      "node_modules/.bin/commitment-issues precommit || exit $?\n",
     );
     writeFile(
       path.join(tempDir, ".husky", "pre-push"),
-      `${hookInvocation("pre-push")}\n`,
+      'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
     );
     const wrapper = '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n';
     writeFile(path.join(outside, "pre-commit"), wrapper);
@@ -1011,11 +1044,11 @@ test(
     fs.mkdirSync(hooksDir, { recursive: true });
     writeFile(
       path.join(tempDir, ".husky", "pre-commit"),
-      `${hookInvocation("pre-commit")}\n`,
+      "node_modules/.bin/commitment-issues precommit || exit $?\n",
     );
     writeFile(
       path.join(tempDir, ".husky", "pre-push"),
-      `${hookInvocation("pre-push")}\n`,
+      'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
     );
     writeFile(path.join(outside, "h"), "# foreign runtime\n");
     fs.symlinkSync(path.join(outside, "h"), path.join(hooksDir, "h"));
@@ -1244,7 +1277,7 @@ test("init wires commit-msg only for an explicit commitMessage opt-in", (t) => {
   });
 });
 
-test("init preserves custom commit-msg hooks and requires safe forwarding", (t) => {
+test("init preserves custom commit-msg hooks and requires hook-scoped wiring", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
   writePackage(tempDir, {
@@ -1261,7 +1294,7 @@ test("init preserves custom commit-msg hooks and requires safe forwarding", (t) 
   assert.match(output, /Hook wiring needs your attention/);
   assert.match(
     compactTerminalBoxText(output),
-    hookSuggestionPattern("commit-msg"),
+    /commit-msg:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
   );
   assert.equal(
     fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
@@ -1270,9 +1303,56 @@ test("init preserves custom commit-msg hooks and requires safe forwarding", (t) 
 
   fs.writeFileSync(
     gitHook(tempDir, "commit-msg"),
-    `${hookInvocation("commit-msg")}\necho custom\n`,
+    'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?\necho custom\n',
   );
   fs.chmodSync(gitHook(tempDir, "commit-msg"), 0o755);
+  const legacy = runInit(tempDir);
+  const legacyOutput = `${legacy.stdout}${legacy.stderr}`;
+  const compactLegacyOutput = compactTerminalBoxText(legacyOutput);
+  assert.equal(legacy.status, 0);
+  assert.match(
+    compactLegacyOutput,
+    /older direct hook entr(?:y|ies).*commit-msg/is,
+  );
+  assert.match(compactLegacyOutput, /replace each older command/i);
+  assert.match(compactLegacyOutput, /first substantive command/i);
+  assert.match(compactLegacyOutput, /do not\s*keep both/i);
+  assert.match(
+    compactLegacyOutput,
+    /node_modules\/\.bin\/commitment-issues\s*hook\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
+  );
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?\necho custom\n',
+  );
+
+  const duplicate = [
+    "#!/bin/sh",
+    "echo prior",
+    'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?',
+    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?',
+    "echo custom",
+    "",
+  ].join("\n");
+  fs.writeFileSync(gitHook(tempDir, "commit-msg"), duplicate);
+  const duplicateResult = runInit(tempDir);
+  const duplicateOutput = compactTerminalBoxText(
+    `${duplicateResult.stdout}${duplicateResult.stderr}`,
+  );
+  assert.equal(duplicateResult.status, 0);
+  assert.match(duplicateOutput, /both current and older direct/i);
+  assert.match(duplicateOutput, /remove only the older direct duplicate/i);
+  assert.match(duplicateOutput, /keep.*existing.*hook-dispatch.*entr/iu);
+  assert.doesNotMatch(duplicateOutput, /commit-msg:.*hook commit-msg/iu);
+  assert.equal(
+    fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
+    duplicate,
+  );
+
+  fs.writeFileSync(
+    gitHook(tempDir, "commit-msg"),
+    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\necho custom\n',
+  );
   const safe = runInit(tempDir);
   assert.equal(safe.status, 0);
   assert.match(`${safe.stdout}${safe.stderr}`, /Already configured/);
@@ -1743,8 +1823,14 @@ test("init leaves customized hooks untouched", (t) => {
   assertHookClaimsWithheld(output);
   assert.match(output, /Existing git hooks were left unchanged/);
   const compactOutput = compactTerminalBoxText(output);
-  assert.match(compactOutput, hookSuggestionPattern("pre-commit"));
-  assert.match(compactOutput, hookSuggestionPattern("pre-push"));
+  assert.match(
+    compactOutput,
+    /pre-commit:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*precommit\s*\|\|\s*exit\s*\$\?/,
+  );
+  assert.match(
+    compactOutput,
+    /pre-push:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*prepush\s*"\$@"\s*\|\|\s*exit\s*\$\?/,
+  );
   assert.equal(countTerminalBoxes(output), 1);
 });
 
@@ -1754,8 +1840,10 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
 
   writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
   fs.mkdirSync(path.join(tempDir, ".git", "hooks"), { recursive: true });
-  const preCommit = `#!/bin/sh\n${hookInvocation("pre-commit")}\necho custom commit\n`;
-  const prePush = `#!/bin/sh\n${hookInvocation("pre-push")}\necho custom push\n`;
+  const preCommit =
+    "#!/bin/sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\necho custom commit\n";
+  const prePush =
+    '#!/bin/sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho custom push\n';
   fs.writeFileSync(gitHook(tempDir, "pre-commit"), preCommit);
   fs.writeFileSync(gitHook(tempDir, "pre-push"), prePush);
   fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o755);
@@ -1774,38 +1862,19 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
     preCommit,
   );
   assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
-});
 
-test("init reports customized hooks that still use unguarded or direct commands", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-
-  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
-  const preCommit =
-    "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\necho custom commit\n";
-  const prePush =
-    '#!/bin/sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho custom push\n';
-  fs.writeFileSync(gitHook(tempDir, "pre-commit"), preCommit);
-  fs.writeFileSync(gitHook(tempDir, "pre-push"), prePush);
-  fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o755);
-  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
-
-  const result = runInit(tempDir);
-  const output = `${result.stdout}${result.stderr}`;
-
-  assert.equal(result.status, 0);
-  assertHookClaimsWithheld(output);
-  const compactOutput = compactTerminalBoxText(output);
-  assert.match(
-    compactOutput,
-    /unguarded or direct commands outside the current\s*managed\s*hook contract/,
-  );
-  assert.match(compactOutput, hookSuggestionPattern("pre-commit"));
+  const crossStage = `${prePush.trimEnd()}\nnode_modules/.bin/commitment-issues precommit || exit $?\n`;
+  fs.writeFileSync(gitHook(tempDir, "pre-push"), crossStage);
+  const crossResult = runInit(tempDir);
+  const crossOutput = `${crossResult.stdout}${crossResult.stderr}`;
+  assert.equal(crossResult.status, 0);
+  assert.match(crossOutput, /direct commands for a different hook stage/i);
+  assert.match(crossOutput, /Preserve each file/i);
+  assert.doesNotMatch(crossOutput, /Replace each path with a readable hook/i);
   assert.equal(
-    fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
-    preCommit,
+    fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"),
+    crossStage,
   );
-  assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
 });
 
 test("init distinguishes configured package settings from inactive hooks", (t) => {
@@ -1881,6 +1950,156 @@ test("init warns about a foreign core.hooksPath and leaves it alone", (t) => {
   // The user's configuration is untouched and no shadowed hooks are written.
   assert.equal(hooksPath(tempDir), "githooks");
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+});
+
+test("init reports an unresolved foreign hooks directory", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+  const env = fakeGitEnv(tempDir, "rev-parse --git-path hooks", 128);
+  const result = runInit(tempDir, [], { env });
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 0);
+  assert.match(output, /could not resolve its hooks\s*directory/i);
+  assertHookClaimsWithheld(output);
+});
+
+test(
+  "init reports non-executable and uninspectable foreign hooks",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+    const hooksDir = path.join(tempDir, "githooks");
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(hooksDir, "pre-commit"),
+      "#!/bin/sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
+      { mode: 0o644 },
+    );
+    fs.mkdirSync(path.join(hooksDir, "pre-push"));
+    run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+    const result = runInit(tempDir);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assert.equal(result.status, 0);
+    assert.match(output, /Make these configured hooks executable/i);
+    assert.match(output, /could not be inspected and were left unchanged/i);
+    assertHookClaimsWithheld(output);
+  },
+);
+
+test("init gives precise replacement guidance for foreign hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
+  const hooksDir = path.join(tempDir, "githooks");
+  const legacy =
+    "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\n";
+  const currentPush =
+    '#!/bin/sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n';
+  fs.mkdirSync(hooksDir, { recursive: true });
+  fs.writeFileSync(path.join(hooksDir, "pre-commit"), legacy, { mode: 0o755 });
+  fs.writeFileSync(path.join(hooksDir, "pre-push"), currentPush, {
+    mode: 0o755,
+  });
+  run("git", ["config", "core.hooksPath", "githooks"], tempDir);
+
+  const legacyResult = runInit(tempDir);
+  const legacyOutput = compactTerminalBoxText(
+    `${legacyResult.stdout}${legacyResult.stderr}`,
+  );
+  assert.equal(legacyResult.status, 0);
+  assert.match(legacyOutput, /replace each older direct entry in place/i);
+  assert.match(
+    legacyOutput,
+    /pre-commit:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*precommit/,
+  );
+  assert.doesNotMatch(
+    legacyOutput,
+    /pre-push:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*prepush/,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(hooksDir, "pre-commit"), "utf8"),
+    legacy,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(hooksDir, "pre-push"), "utf8"),
+    currentPush,
+  );
+
+  const duplicateCommit = [
+    "#!/bin/sh",
+    "echo prior",
+    "node_modules/.bin/commitment-issues hook precommit || exit $?",
+    "node_modules/.bin/commitment-issues precommit || exit $?",
+    "",
+  ].join("\n");
+  fs.writeFileSync(path.join(hooksDir, "pre-commit"), duplicateCommit, {
+    mode: 0o755,
+  });
+  const duplicateResult = runInit(tempDir);
+  const duplicateOutput = compactTerminalBoxText(
+    `${duplicateResult.stdout}${duplicateResult.stderr}`,
+  );
+  assert.equal(duplicateResult.status, 0);
+  assert.match(duplicateOutput, /remove only the older direct duplicate/i);
+  assert.match(duplicateOutput, /keep.*existing.*hook-dispatch.*entr/iu);
+  assert.doesNotMatch(duplicateOutput, /pre-commit:.*hook precommit/iu);
+  assert.equal(
+    fs.readFileSync(path.join(hooksDir, "pre-commit"), "utf8"),
+    duplicateCommit,
+  );
+
+  const currentCommit =
+    "#!/bin/sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n";
+  const crossPush = `${currentPush.trimEnd()}\nnode_modules/.bin/commitment-issues precommit || exit $?\n`;
+  fs.writeFileSync(path.join(hooksDir, "pre-commit"), currentCommit, {
+    mode: 0o755,
+  });
+  fs.writeFileSync(path.join(hooksDir, "pre-push"), crossPush, { mode: 0o755 });
+  const crossResult = runInit(tempDir);
+  const crossOutput = compactTerminalBoxText(
+    `${crossResult.stdout}${crossResult.stderr}`,
+  );
+  assert.equal(crossResult.status, 0);
+  assert.match(
+    crossOutput,
+    /migrate each cross-stage direct\s*command in place/i,
+  );
+  assert.match(crossOutput, /Insert `hook` before the direct subcommand/i);
+  assert.doesNotMatch(crossOutput, /could not be inspected|replace each path/i);
+  assert.equal(
+    fs.readFileSync(path.join(hooksDir, "pre-push"), "utf8"),
+    crossPush,
+  );
+
+  fs.writeFileSync(path.join(hooksDir, "pre-push"), currentPush, {
+    mode: 0o755,
+  });
+  fs.writeFileSync(path.join(hooksDir, "pre-commit"), currentCommit, {
+    mode: 0o755,
+  });
+  const healthy = runInit(tempDir);
+  const healthyOutput = `${healthy.stdout}${healthy.stderr}`;
+  assert.equal(healthy.status, 0);
+  assert.match(healthyOutput, /Commitment Issues is set up/);
+  assert.doesNotMatch(healthyOutput, /Hook wiring needs your attention/);
+  assert.doesNotMatch(healthyOutput, /Add these guarded commands/);
+  assert.equal(
+    fs.readFileSync(path.join(hooksDir, "pre-commit"), "utf8"),
+    currentCommit,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(hooksDir, "pre-push"), "utf8"),
+    currentPush,
+  );
 });
 
 test("init preserves a configured empty hooksPath instead of writing shadowed hooks", (t) => {
@@ -2199,8 +2418,14 @@ test("init rejects inert command mentions in executable custom hooks", (t) => {
   assert.equal(result.status, 0);
   assertHookClaimsWithheld(output);
   const compactOutput = compactTerminalBoxText(output);
-  assert.match(compactOutput, hookSuggestionPattern("pre-commit"));
-  assert.match(compactOutput, hookSuggestionPattern("pre-push"));
+  assert.match(
+    compactOutput,
+    /pre-commit:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*precommit\s*\|\|\s*exit\s*\$\?/,
+  );
+  assert.match(
+    compactOutput,
+    /pre-push:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*prepush\s*"\$@"\s*\|\|\s*exit\s*\$\?/,
+  );
   for (const [name, body] of Object.entries(bodies)) {
     assert.equal(fs.readFileSync(gitHook(tempDir, name), "utf8"), body);
   }

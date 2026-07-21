@@ -39,7 +39,11 @@ test("manager-composed pre-commit honors the project-wide skip switch", (t) => {
     {
       cwd: tempDir,
       encoding: "utf8",
-      env: { ...process.env, COMMITMENT_ISSUES: "0" },
+      env: {
+        ...process.env,
+        COMMITMENT_ISSUES: "0",
+        HUSKY: "1",
+      },
     },
   );
   assert.equal(result.status, 0);
@@ -53,18 +57,20 @@ test("explicit precommit still runs when hook-only skips are configured", (t) =>
   writeFile(path.join(tempDir, "src", "broken.json"), '{"value":1}\n');
   run("git", ["add", "src/broken.json"], tempDir);
 
-  const result = spawnSync(
-    process.execPath,
-    [path.join(tempDir, "scripts", "cli.mjs"), "precommit", "--json"],
-    {
-      cwd: tempDir,
-      encoding: "utf8",
-      env: { ...process.env, COMMITMENT_ISSUES: "0", HUSKY: "0" },
-    },
-  );
+  for (const variable of ["COMMITMENT_ISSUES", "HUSKY"]) {
+    const env = { ...process.env };
+    delete env.COMMITMENT_ISSUES;
+    delete env.HUSKY;
+    env[variable] = "0";
+    const result = spawnSync(
+      process.execPath,
+      [path.join(tempDir, "scripts", "cli.mjs"), "precommit", "--json"],
+      { cwd: tempDir, encoding: "utf8", env },
+    );
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(JSON.parse(result.stdout).command, "precommit");
+    assert.equal(result.status, 0, `${variable}: ${result.stderr}`);
+    assert.equal(JSON.parse(result.stdout).command, "precommit");
+  }
 });
 
 test("shows commit:fix for fully auto-fixable warnings", (t) => {

@@ -38,7 +38,8 @@ The normal run may update Commitment Issues' `package.json` scripts,
 configuration, `.gitignore` defaults, and its exact `prepare` suffix. It does
 not write native hooks, unset `core.hooksPath`, run a manager install command,
 or edit any manager-owned file. Dry-run writes nothing and prints the same
-reviewable snippets. Re-running is idempotent.
+reviewable snippets for inactive hooks; a fully wired rerun prints none.
+Re-running is idempotent.
 
 Package-manager-native forms for the same command are:
 
@@ -61,6 +62,10 @@ Husky uses its inspected repository-local dispatcher instead of a `husky`
 executable from `PATH`. The project-local Commitment Issues path prevents a
 global package fallback; it does not bundle those runtimes.
 
+Earlier snippets omitted `hook`. Replace those direct forms so skip variables
+remain hook-scoped. Doctor never rewrites user-owned files; with both forms,
+remove only the older duplicate.
+
 ### Husky contract
 
 Place the guarded line before every unrelated substantive command in the
@@ -70,21 +75,18 @@ precede it:
 
 ```sh
 # .husky/pre-commit
-test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook precommit || exit $?
+node_modules/.bin/commitment-issues hook precommit || exit $?
 
 # .husky/pre-push
-test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
+node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
 
 # .husky/commit-msg — only when commitMessage.enabled is true
-test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
+node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
 ```
 
-The inverted file/executable checks return success when the project-local bin
-is absent or unusable, so removing or pruning the package cannot strand Git.
-When the bin is usable, the quoted arguments preserve Git's remote and
-message-file values and `|| exit $?` preserves a configured blocking result
-even when custom commands follow. Success continues into the remaining Husky
-script. Git's `--no-verify`,
+The quoted arguments preserve Git's remote and message-file values. `|| exit
+$?` preserves a configured blocking result even when custom commands follow;
+success continues into the remaining Husky script. Git's `--no-verify`,
 Husky's `HUSKY=0`, and `COMMITMENT_ISSUES=0` retain their normal bypass
 behavior. `doctor` also requires Husky's `.husky/_` (or compatible `.husky`)
 `core.hooksPath` to be active before reporting healthy.
@@ -126,23 +128,20 @@ top-level hook and `commands` mapping. Do not duplicate a hook key or the
 pre-commit:
   commands:
     commitment-issues:
-      run: test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook precommit
+      run: node_modules/.bin/commitment-issues hook precommit
 pre-push:
   commands:
     commitment-issues:
-      run: test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook prepush
+      run: node_modules/.bin/commitment-issues hook prepush
       use_stdin: true
 commit-msg: # only when commitMessage.enabled is true
   commands:
     commitment-issues:
-      run: test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook commit-msg --git-path
+      run: node_modules/.bin/commitment-issues hook commit-msg --git-path
 ```
 
 These commands are static: no Git-provided value or Lefthook positional
-template is inserted into manager-owned shell configuration. The inverted
-guards exit successfully without a global fallback when the local launcher is
-absent, not a regular file, or not executable; an available launcher's exact
-exit status remains authoritative. `use_stdin: true`
+template is inserted into manager-owned shell configuration. `use_stdin: true`
 passes the pushed ref list to the pre-push entrypoint. For commit-msg,
 `--git-path` resolves Git's active message file at runtime with
 `git rev-parse --git-path`, including in linked worktrees. Direct automatic
@@ -189,14 +188,14 @@ repos:
     hooks:
       - id: commitment-issues-pre-commit
         name: commitment-issues pre-commit
-        entry: sh -c 'test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || exec node_modules/.bin/commitment-issues hook precommit "$@"' --
+        entry: node_modules/.bin/commitment-issues hook precommit
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
       - id: commitment-issues-pre-push
         name: commitment-issues pre-push
-        entry: sh -c 'test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || exec node_modules/.bin/commitment-issues hook prepush "$@"' --
+        entry: node_modules/.bin/commitment-issues hook prepush
         language: system
         pass_filenames: false
         always_run: true
@@ -204,17 +203,14 @@ repos:
       # Add only when commitMessage.enabled is true:
       - id: commitment-issues-commit-msg
         name: commitment-issues commit-msg
-        entry: sh -c 'test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || exec node_modules/.bin/commitment-issues hook commit-msg "$@"' --
+        entry: node_modules/.bin/commitment-issues hook commit-msg
         language: system
         pass_filenames: true
         always_run: true
         stages: [commit-msg]
 ```
 
-The fixed `sh -c` wrapper applies the same missing-bin fail-open boundary. Its
-literal `--` occupies shell `$0`, so framework-supplied commit-msg filenames
-remain quoted argv in `"$@"` and are never evaluated as shell source. The
-framework supplies commit-msg's filename normally. For pre-push it consumes
+The framework supplies commit-msg's filename normally. For pre-push it consumes
 Git stdin and publishes the same range through `PRE_COMMIT_FROM_REF`,
 `PRE_COMMIT_TO_REF`, branch, remote-name, and remote-URL variables; the
 Commitment Issues entrypoint understands that documented environment. The

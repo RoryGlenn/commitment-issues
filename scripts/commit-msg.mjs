@@ -20,6 +20,7 @@ import {
 } from "./lib/local-tool.mjs";
 import { run, spawnAsync } from "./lib/process.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
+
 const config = loadPrecommitConfig();
 const hookOutput = resolveHookOutput(config);
 for (const message of precommitConfigWarningMessages(config)) {

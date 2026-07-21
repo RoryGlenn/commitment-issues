@@ -110,15 +110,15 @@ first substantive command. Only a direct `.husky` v8 hook may put the exact
 Husky v8 runtime source line first. Leave unrelated commands after it:
 
 ```sh
-test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook precommit || exit $?
-test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
-test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
+node_modules/.bin/commitment-issues hook precommit || exit $?
+node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
+node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
 ```
 
 This ordering lets the verifier prove the hook reaches Commitment Issues and
-preserves a blocking exit while package removal still exits successfully.
-Comments, printed examples, arbitrary command
+preserves a blocking exit. Comments, printed examples, arbitrary command
 preludes, and non-executable POSIX hooks do not count as active wiring.
+`hook` scopes skip variables to automatic hooks; direct commands still run.
 
 ## Will it change code or commits automatically?
 

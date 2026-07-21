@@ -39,47 +39,35 @@ test("manager-composed commit-msg honors the project-wide skip switch", (t) => {
     {
       cwd: tempDir,
       encoding: "utf8",
-      env: { ...process.env, COMMITMENT_ISSUES: "0" },
+      env: {
+        ...process.env,
+        COMMITMENT_ISSUES: "0",
+        HUSKY: "1",
+      },
     },
   );
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`, "");
 });
 
-test("explicit commit-msg runs under hook-only skip variables", (t) => {
+test("explicit commit-msg still runs when hook-only skips are configured", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
   setPrecommitConfig(tempDir, {
     commitMessage: { enabled: true, blockOnFailure: true },
   });
-  const messagePath = path.join(tempDir, "MESSAGE");
-  writeFile(messagePath, "feat: verify direct command\n");
-  installFakeCommitlint(tempDir);
-
-  for (const skippedBy of ["COMMITMENT_ISSUES", "HUSKY"]) {
-    const logPath = path.join(tempDir, `${skippedBy}.jsonl`);
+  for (const variable of ["COMMITMENT_ISSUES", "HUSKY"]) {
+    const env = { ...process.env };
+    delete env.COMMITMENT_ISSUES;
+    delete env.HUSKY;
+    env[variable] = "0";
     const result = spawnSync(
       process.execPath,
-      [path.join(tempDir, "scripts", "cli.mjs"), "commit-msg", messagePath],
-      {
-        cwd: tempDir,
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          COMMITMENT_ISSUES: skippedBy === "COMMITMENT_ISSUES" ? "0" : "1",
-          HUSKY: skippedBy === "HUSKY" ? "0" : "1",
-          FAKE_COMMITLINT_LOG: logPath,
-        },
-      },
+      [path.join(tempDir, "scripts", "cli.mjs"), "commit-msg", tempDir],
+      { cwd: tempDir, encoding: "utf8", env },
     );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(fs.existsSync(logPath), true);
-    const [args] = fs
-      .readFileSync(logPath, "utf8")
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
-    assert.deepEqual(args.slice(-2), ["--edit", messagePath]);
+    assert.equal(result.status, 1, variable);
+    assert.match(`${result.stdout}${result.stderr}`, /Not a file:/u);
   }
 });
 

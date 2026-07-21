@@ -192,33 +192,23 @@ export function addBareRemote(tempDir) {
 
 // Write a cross-platform executable `name` into binDir that runs a Node shim
 // with the same arguments: a shebang launcher for POSIX shells plus a matching
-// `.cmd` for Windows (cross-spawn resolves `.cmd` there via PATHEXT). Tests for
-// tools whose own wrapper explicitly probes `.bat` can request that exact
-// launcher too.
-export function writeCrossPlatformShim(
-  binDir,
-  name,
-  shimBody,
-  { windowsBatch = false } = {},
-) {
+// `.cmd` for Windows (cross-spawn resolves `.cmd` there via PATHEXT).
+export function writeCrossPlatformShim(binDir, name, shimBody) {
   const shimPath = path.join(binDir, `${name}-shim.mjs`);
   fs.writeFileSync(shimPath, shimBody);
   const unix = path.join(binDir, name);
   fs.writeFileSync(unix, '#!/bin/sh\nexec node "${0}-shim.mjs" "$@"\n');
   fs.chmodSync(unix, 0o755);
-  const windowsLauncher = [
-    "@echo off",
-    "setlocal DisableDelayedExpansion",
-    'node "%~dpn0-shim.mjs" %*',
-    "exit /b %ERRORLEVEL%",
-    "",
-  ].join("\r\n");
-  fs.writeFileSync(path.join(binDir, `${name}.cmd`), windowsLauncher);
-  if (windowsBatch) {
-    const batch = path.join(binDir, `${name}.bat`);
-    fs.writeFileSync(batch, windowsLauncher);
-    fs.chmodSync(batch, 0o755);
-  }
+  fs.writeFileSync(
+    path.join(binDir, `${name}.cmd`),
+    [
+      "@echo off",
+      "setlocal DisableDelayedExpansion",
+      'node "%~dpn0-shim.mjs" %*',
+      "exit /b %ERRORLEVEL%",
+      "",
+    ].join("\r\n"),
+  );
 }
 
 // Build an env that puts a fake `git` first on PATH. The shim exits with

@@ -816,6 +816,12 @@ not changed. `<manager> integration needs attention.` lists exact missing
 snippets or the manager wrapper-install command and exits nonzero interactively.
 Quiet mode emits one line and exits zero.
 
+An older direct Commitment Issues entry is labelled for replacement with the
+guarded dispatcher as the first substantive command. If the current
+hook-dispatch entry is also present, the output instead asks the user to remove
+only the older duplicate, retain and correctly position the current entry, and
+does not print another snippet.
+
 The health state requires an exact unconditional Commitment Issues entry:
 duplicate Lefthook hook/command keys, duplicate pre-commit IDs, wrong or
 repeated required fields, and any pre-commit `args` property on a Commitment

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import {
   classifyHook,
@@ -19,13 +20,11 @@ import {
   hookManagerInstallCommand,
   hookManagerSnippets,
   hookNamesForConfig,
-  hooksDisabled,
   hooksPathConfig,
   hooksPathConfigState,
   isHuskyDirectHooksPath,
   isHuskyHooksPath,
   inspectHookManager,
-  inspectHookManagerForCleanup,
   inspectHookManagerRunner,
   legacyHuskyDirectoryState,
   legacyHuskyWiringPaths,
@@ -39,6 +38,7 @@ import {
   fakeGitEnv,
   REAL_GIT,
   run,
+  setPrecommitConfig,
   writeCrossPlatformShim,
 } from "./helpers/temp-repo.mjs";
 import {
@@ -53,7 +53,7 @@ function quoteShellWord(value) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-function localHookInvocation(name) {
+function managedLocalHookInvocation(name) {
   const command = `node_modules/.bin/commitment-issues hook ${
     name === "pre-commit"
       ? "precommit"
@@ -64,9 +64,16 @@ function localHookInvocation(name) {
   return command;
 }
 
+function nativeLocalHookInvocation(name) {
+  return managedLocalHookInvocation(name).replace(
+    "commitment-issues hook ",
+    "commitment-issues ",
+  );
+}
+
 for (const name of ["pre-commit", "pre-push"]) {
-  const localInvocation = localHookInvocation(name);
-  const expectedCommand = hookInvocation(name);
+  const managedInvocation = managedLocalHookInvocation(name);
+  const expectedCommand = `${managedInvocation} || exit $?`;
   const globalInvocation =
     name === "pre-commit"
       ? "commitment-issues precommit"
@@ -83,20 +90,40 @@ for (const name of ["pre-commit", "pre-push"]) {
     assert.equal(classifyHook(hooksDir, name), "wired");
     assert.equal(fs.readFileSync(hookPath, "utf8"), hookBody(name));
 
-    const body = `#!/bin/sh\n${expectedCommand}\necho still-custom\n`;
-    fs.writeFileSync(hookPath, body);
-    fs.chmodSync(hookPath, 0o755);
-    assert.equal(classifyHook(hooksDir, name), "custom-with-command");
-    assert.equal(fs.readFileSync(hookPath, "utf8"), body);
+    assert.equal(hookInvocation(name), expectedCommand);
 
+    for (const localInvocation of [managedInvocation]) {
+      for (const command of [
+        `${localInvocation} || exit $?`,
+        `command ${localInvocation} || exit $?`,
+        `exec ${localInvocation}`,
+      ]) {
+        const body = `#!/bin/sh\n${command}\necho still-custom\n`;
+        fs.writeFileSync(hookPath, body);
+        fs.chmodSync(hookPath, 0o755);
+        assert.equal(classifyHook(hooksDir, name), "custom-with-command");
+        assert.equal(fs.readFileSync(hookPath, "utf8"), body);
+      }
+    }
+
+    const legacyInvocation = nativeLocalHookInvocation(name);
     for (const command of [
-      `${localInvocation} || exit $?`,
-      `command ${localInvocation} || exit $?`,
-      `exec ${localInvocation}`,
+      `${legacyInvocation} || exit $?`,
+      `command ${legacyInvocation} || exit $?`,
+      `exec ${legacyInvocation}`,
     ]) {
-      fs.writeFileSync(hookPath, `#!/bin/sh\n${command}\n`);
-      fs.chmodSync(hookPath, 0o755);
-      assert.equal(classifyHook(hooksDir, name), "custom-with-legacy-command");
+      for (const body of [
+        `#!/bin/sh\n${command}\necho still-custom\n`,
+        `#!/bin/sh\necho prior\n${command}\necho still-custom\n`,
+      ]) {
+        fs.writeFileSync(hookPath, body);
+        fs.chmodSync(hookPath, 0o755);
+        assert.equal(
+          classifyHook(hooksDir, name),
+          "custom-with-legacy-command",
+        );
+        assert.equal(fs.readFileSync(hookPath, "utf8"), body);
+      }
     }
 
     const documentedBody = [
@@ -111,16 +138,54 @@ for (const name of ["pre-commit", "pre-push"]) {
     assert.equal(classifyHook(hooksDir, name), "custom-with-command");
     assert.equal(fs.readFileSync(hookPath, "utf8"), documentedBody);
 
-    const legacyLocalInvocation =
-      name === "pre-commit"
-        ? "node_modules/.bin/commitment-issues precommit"
-        : 'node_modules/.bin/commitment-issues prepush "$@"';
-    fs.writeFileSync(
-      hookPath,
-      `#!/bin/sh\n${legacyLocalInvocation} || exit $?\n`,
-    );
+    const misplacedBody = `#!/bin/sh\necho prior\n${expectedCommand}\n`;
+    fs.writeFileSync(hookPath, misplacedBody);
     fs.chmodSync(hookPath, 0o755);
-    assert.equal(classifyHook(hooksDir, name), "custom-with-legacy-command");
+    assert.equal(classifyHook(hooksDir, name), "custom-without-command");
+    assert.equal(
+      classifyHook(hooksDir, name, { ownershipOnly: true }),
+      "custom-with-command",
+    );
+
+    for (const duplicate of [
+      legacyInvocation,
+      `${legacyInvocation} || exit $?`,
+      `command ${legacyInvocation} || exit $?`,
+      `exec ${legacyInvocation}`,
+      globalInvocation,
+      `${globalInvocation} || exit $?`,
+      `command ${globalInvocation} || exit $?`,
+      `exec ${globalInvocation}`,
+    ]) {
+      for (const body of [
+        `#!/bin/sh\n${expectedCommand}\n${duplicate}\n`,
+        `#!/bin/sh\n${duplicate}\n${expectedCommand}\n`,
+        `#!/bin/sh\necho prior\n${expectedCommand}\n${duplicate}\n`,
+        `#!/bin/sh\necho prior\n${duplicate}\n${expectedCommand}\n`,
+        `#!/bin/sh\n${expectedCommand}\nif true; then\n${duplicate}\nfi\n`,
+      ]) {
+        fs.writeFileSync(hookPath, body);
+        fs.chmodSync(hookPath, 0o755);
+        assert.equal(
+          classifyHook(hooksDir, name),
+          "custom-with-duplicate-command",
+        );
+        assert.equal(fs.readFileSync(hookPath, "utf8"), body);
+      }
+    }
+
+    const crossName = name === "pre-commit" ? "pre-push" : "pre-commit";
+    const crossStageBody = [
+      "#!/bin/sh",
+      expectedCommand,
+      "if true; then",
+      `${nativeLocalHookInvocation(crossName)} || exit $?`,
+      "fi",
+      "",
+    ].join("\n");
+    fs.writeFileSync(hookPath, crossStageBody);
+    fs.chmodSync(hookPath, 0o755);
+    assert.equal(classifyHook(hooksDir, name), "custom-with-cross-command");
 
     const malformedHeredoc = `#!/bin/sh\ncat << ;\n${expectedCommand}\n`;
     fs.writeFileSync(hookPath, malformedHeredoc);
@@ -158,6 +223,14 @@ for (const name of ["pre-commit", "pre-push"]) {
       ["#!/bin/sh", "true; if false; then", expectedCommand, "fi", ""].join(
         "\n",
       ),
+      [
+        "#!/bin/sh",
+        "if false; then",
+        expectedCommand,
+        `${nativeLocalHookInvocation(name)} || exit $?`,
+        "fi",
+        "",
+      ].join("\n"),
       ["#!/bin/sh", "check() { # helper", expectedCommand, "}", ""].join("\n"),
       ["#!/bin/sh", "check()", "{", expectedCommand, "}", ""].join("\n"),
       [
@@ -183,8 +256,6 @@ for (const name of ["pre-commit", "pre-push"]) {
       ["#!/bin/sh", "{", expectedCommand, "} &", ""].join("\n"),
       ["#!/bin/sh", "{", expectedCommand, "} | true", ""].join("\n"),
       ["#!/bin/sh", "echo existing", expectedCommand, ""].join("\n"),
-      `#!/bin/sh\ncommand ${globalInvocation} || exit $?\n`,
-      `#!/bin/sh\nexec ${globalInvocation}\n`,
       ["#!/bin/sh", "exit;", expectedCommand, ""].join("\n"),
       ["#!/bin/false", expectedCommand, ""].join("\n"),
     ];
@@ -201,17 +272,15 @@ for (const name of ["pre-commit", "pre-push"]) {
     }
 
     for (const body of [
+      `#!/bin/sh\n${globalInvocation}\n`,
       `#!/bin/sh\ncommand ${globalInvocation} || exit $?\n`,
       `#!/bin/sh\nexec ${globalInvocation}\n`,
     ]) {
       fs.writeFileSync(hookPath, body);
       fs.chmodSync(hookPath, 0o755);
       assert.equal(
-        classifyHook(hooksDir, name, {
-          requireExecutable: false,
-          recognizeLegacyCommand: true,
-        }),
-        "custom-with-command",
+        classifyHook(hooksDir, name, { requireExecutable: false }),
+        "custom-with-legacy-command",
       );
     }
   });
@@ -295,7 +364,7 @@ test(
     const hookPath = path.join(hooksDir, "pre-commit");
     fs.writeFileSync(
       hookPath,
-      `#!/usr/bin/env sh\n${hookInvocation("pre-commit")}\n`,
+      "#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
       { mode: 0o755 },
     );
     const originalPath = process.env.PATH;
@@ -333,9 +402,11 @@ test(
       { mode: 0o755 },
     );
     const hookPath = path.join(hooksDir, "pre-commit");
-    fs.writeFileSync(hookPath, `#!/bin/sh\n${hookInvocation("pre-commit")}\n`, {
-      mode: 0o755,
-    });
+    fs.writeFileSync(
+      hookPath,
+      "#!/bin/sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
+      { mode: 0o755 },
+    );
 
     const platform = Object.getOwnPropertyDescriptor(process, "platform");
     const originalPath = process.env.PATH;
@@ -394,10 +465,54 @@ test(
     fs.chmodSync(path.join(usrBin, "bash.exe"), 0o755);
     fs.writeFileSync(
       hookPath,
-      `#!/bin/bash\n${hookInvocation("pre-commit")}\n`,
+      "#!/bin/bash\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
       { mode: 0o755 },
     );
     assert.equal(classifyHook(hooksDir, "pre-commit"), "custom-with-command");
+  },
+);
+
+test(
+  "recommended custom native hooks honor hook-scoped bypass variables",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    setPrecommitConfig(tempDir, { blockProtectedBranches: true });
+    fs.writeFileSync(path.join(tempDir, "blocked.mjs"), "export default 1;\n");
+    run("git", ["add", "package.json", "blocked.mjs"], tempDir);
+    const hookPath = path.join(tempDir, ".git", "hooks", "pre-commit");
+    fs.writeFileSync(
+      hookPath,
+      `#!/bin/sh\n${hookInvocation("pre-commit")}\nprintf 'custom hook continued\\n'\n`,
+      { mode: 0o755 },
+    );
+
+    const baseEnv = { ...process.env };
+    delete baseEnv.COMMITMENT_ISSUES;
+    delete baseEnv.HUSKY;
+    const active = spawnSync("sh", [hookPath], {
+      cwd: tempDir,
+      encoding: "utf8",
+      env: baseEnv,
+    });
+    assert.notEqual(active.status, 0);
+    assert.doesNotMatch(active.stdout, /custom hook continued/u);
+
+    for (const variable of ["COMMITMENT_ISSUES", "HUSKY"]) {
+      const bypassed = spawnSync("sh", [hookPath], {
+        cwd: tempDir,
+        encoding: "utf8",
+        env: { ...baseEnv, [variable]: "0" },
+      });
+      assert.equal(
+        bypassed.status,
+        0,
+        `${variable}: ${bypassed.stdout}${bypassed.stderr}`,
+      );
+      assert.match(bypassed.stdout, /custom hook continued/u);
+      assert.equal(bypassed.stderr, "");
+    }
   },
 );
 
@@ -424,45 +539,26 @@ test(
       "node_modules",
       `lefthook-windows-${process.arch}`,
       "bin",
-      "lefthook.exe",
+      "lefthook",
     );
     fs.mkdirSync(path.dirname(packagedLefthook), { recursive: true });
     fs.copyFileSync("/bin/sh", packagedLefthook);
     fs.chmodSync(packagedLefthook, 0o755);
+    fs.writeFileSync(
+      path.join(hooksDir, "pre-commit"),
+      lefthookRunner("pre-commit"),
+      { mode: 0o755 },
+    );
+
     Object.defineProperty(process, "platform", {
       configurable: true,
       enumerable: true,
       value: "win32",
     });
-    fs.writeFileSync(
-      path.join(hooksDir, "pre-commit"),
-      lefthookRunner("pre-commit"),
-      { mode: 0o755 },
-    );
     process.env.PATH = runtimeBin;
     assert.equal(
       inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
       "wired",
-    );
-    for (const embeddedExecutable of [
-      "node_modules/.bin/lefthook",
-      "node_modules/lefthook/bin/index.js",
-    ]) {
-      fs.writeFileSync(
-        path.join(hooksDir, "pre-commit"),
-        lefthookRunner("pre-commit", { embeddedExecutable }),
-        { mode: 0o755 },
-      );
-      assert.equal(
-        inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
-        "foreign",
-        embeddedExecutable,
-      );
-    }
-    fs.writeFileSync(
-      path.join(hooksDir, "pre-commit"),
-      lefthookRunner("pre-commit"),
-      { mode: 0o755 },
     );
 
     fs.writeFileSync(path.join(dir, ".pre-commit-config.yaml"), "repos: []\n");
@@ -495,6 +591,9 @@ test("commit-msg wiring is opt-in and quotes Git's message-file argument", () =>
   ]);
   assert.equal(hookCommand("commit-msg"), 'commitment-issues commit-msg "$1"');
   assert.match(hookBody("commit-msg"), /commitment-issues commit-msg "\$1"/);
+  for (const name of ["pre-commit", "pre-push", "commit-msg"]) {
+    assert.doesNotMatch(hookBody(name), /commitment-issues hook /u);
+  }
 });
 
 test("generated hooks never fall back to a global commitment-issues binary", (t) => {
@@ -1102,7 +1201,7 @@ test("generated commit-msg hooks are executable and exact-match owned", () => {
   }
 });
 
-test("custom commit-msg hooks require the safely quoted invocation", () => {
+test("custom commit-msg hooks distinguish current and legacy invocations", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "custom-commit-msg-"));
   try {
     const hookPath = path.join(dir, "commit-msg");
@@ -1126,7 +1225,7 @@ test("custom commit-msg hooks require the safely quoted invocation", () => {
 
     fs.writeFileSync(
       hookPath,
-      `#!/bin/sh\n${hookInvocation("commit-msg")}\necho custom\n`,
+      '#!/bin/sh\nnode_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\necho custom\n',
     );
     fs.chmodSync(hookPath, 0o755);
     assert.equal(classifyHook(dir, "commit-msg"), "custom-with-command");
@@ -1755,7 +1854,10 @@ test("manager snippets are static, local-only, and preserve hook inputs", () => 
     husky.map(({ destination }) => destination),
     [".husky/pre-commit", ".husky/pre-push", ".husky/commit-msg"],
   );
-  assert.equal(husky[0].content, `${hookInvocation("pre-commit")}\n`);
+  assert.equal(
+    husky[0].content,
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
+  );
   assert.match(husky[1].content, /hook prepush "\$@"/u);
   assert.match(husky[2].content, /hook commit-msg "\$1"/u);
 
@@ -1763,13 +1865,6 @@ test("manager snippets are static, local-only, and preserve hook inputs", () => 
   assert.ok(lefthook.every(({ destination }) => destination === "custom.yaml"));
   assert.match(lefthook[1].content, /run: .* hook prepush$/mu);
   assert.match(lefthook[2].content, /hook commit-msg --git-path/u);
-  assert.ok(
-    lefthook.every(({ content }) =>
-      content.includes(
-        "test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues ||",
-      ),
-    ),
-  );
   assert.ok(lefthook.every(({ content }) => !/[{}]/u.test(content)));
   assert.match(lefthook[1].content, /use_stdin: true/u);
   assert.doesNotMatch(lefthook[0].content, /use_stdin/u);
@@ -1777,13 +1872,6 @@ test("manager snippets are static, local-only, and preserve hook inputs", () => 
   const preCommit = hookManagerSnippets("pre-commit", names, "hooks.yaml");
   assert.match(preCommit[0].content, /pass_filenames: false/u);
   assert.match(preCommit[2].content, /pass_filenames: true/u);
-  assert.ok(
-    preCommit.every(({ content }) =>
-      content.includes(
-        "entry: sh -c 'test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || exec node_modules/.bin/commitment-issues hook",
-      ),
-    ),
-  );
   assert.ok(
     [...husky, ...lefthook, ...preCommit].every(
       ({ content }) => !content.includes(process.cwd()),
@@ -1816,241 +1904,6 @@ test("manager snippets are static, local-only, and preserve hook inputs", () => 
   );
 });
 
-test("manager snippets fail open only while the project-local bin is unusable", (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "manager-bin-guard-"));
-  const bin = path.join(dir, "node_modules", ".bin", "commitment-issues");
-  const marker = path.join(dir, "continued");
-  const capture = path.join(dir, "argv");
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  fs.mkdirSync(path.dirname(bin), { recursive: true });
-
-  const husky = hookManagerSnippets("husky", ["pre-push"])[0].content;
-  const huskyPath = path.join(dir, "husky-hook");
-  fs.writeFileSync(huskyPath, `${husky}printf continued > continued\n`, {
-    mode: 0o755,
-  });
-  const missing = run(
-    "sh",
-    [huskyPath, "origin ; touch injected", "ssh://example.invalid/repo"],
-    dir,
-  );
-  assert.equal(missing.status, 0, `${missing.stdout}${missing.stderr}`);
-  assert.equal(fs.readFileSync(marker, "utf8"), "continued");
-
-  fs.rmSync(marker);
-  fs.mkdirSync(bin);
-  const wrongKind = run("sh", [huskyPath, "origin", "url"], dir);
-  assert.equal(wrongKind.status, 0, `${wrongKind.stdout}${wrongKind.stderr}`);
-  assert.equal(fs.readFileSync(marker, "utf8"), "continued");
-  fs.rmSync(bin, { recursive: true });
-  fs.rmSync(marker);
-
-  const fakeBinBody = [
-    "#!/bin/sh",
-    'printf \'%s\\0\' "$@" > "$MANAGER_ARGV_CAPTURE"',
-    'exit "${MANAGER_TEST_EXIT:-0}"',
-    "",
-  ].join("\n");
-  const writeFakeBin = () => {
-    fs.writeFileSync(bin, fakeBinBody, { mode: 0o755 });
-    fs.chmodSync(bin, 0o755);
-  };
-  writeFakeBin();
-  const blocked = run(
-    "sh",
-    [huskyPath, "origin ; touch injected", "ssh://example.invalid/repo"],
-    dir,
-    {
-      env: {
-        ...process.env,
-        MANAGER_ARGV_CAPTURE: capture,
-        MANAGER_TEST_EXIT: "23",
-      },
-    },
-  );
-  assert.equal(blocked.status, 23, `${blocked.stdout}${blocked.stderr}`);
-  assert.equal(fs.existsSync(marker), false);
-  assert.deepEqual(
-    fs.readFileSync(capture).toString().split("\0").slice(0, -1),
-    [
-      "hook",
-      "prepush",
-      "origin ; touch injected",
-      "ssh://example.invalid/repo",
-    ],
-  );
-
-  const lefthook = hookManagerSnippets("lefthook", [
-    "commit-msg",
-  ])[0].content.match(/^\s*run: (.+)$/mu)?.[1];
-  assert.ok(lefthook);
-  fs.rmSync(bin);
-  const missingLefthook = run("sh", ["-c", lefthook], dir);
-  assert.equal(
-    missingLefthook.status,
-    0,
-    `${missingLefthook.stdout}${missingLefthook.stderr}`,
-  );
-  writeFakeBin();
-  const lefthookResult = run("sh", ["-c", lefthook], dir, {
-    env: {
-      ...process.env,
-      MANAGER_ARGV_CAPTURE: capture,
-      MANAGER_TEST_EXIT: "24",
-    },
-  });
-  assert.equal(
-    lefthookResult.status,
-    24,
-    `${lefthookResult.stdout}${lefthookResult.stderr}`,
-  );
-  assert.deepEqual(
-    fs.readFileSync(capture).toString().split("\0").slice(0, -1),
-    ["hook", "commit-msg", "--git-path"],
-  );
-
-  const preCommitEntry = hookManagerSnippets("pre-commit", [
-    "commit-msg",
-  ])[0].content.match(/entry: sh -c '([^']+)' --$/mu)?.[1];
-  assert.ok(preCommitEntry);
-  const messagePath = "message ; $(touch injected) [unicode 雪]";
-  fs.rmSync(bin);
-  const missingPreCommit = run(
-    "sh",
-    ["-c", preCommitEntry, "--", messagePath],
-    dir,
-  );
-  assert.equal(
-    missingPreCommit.status,
-    0,
-    `${missingPreCommit.stdout}${missingPreCommit.stderr}`,
-  );
-  writeFakeBin();
-  const preCommitResult = run(
-    "sh",
-    ["-c", preCommitEntry, "--", messagePath],
-    dir,
-    {
-      env: {
-        ...process.env,
-        MANAGER_ARGV_CAPTURE: capture,
-        MANAGER_TEST_EXIT: "25",
-      },
-    },
-  );
-  assert.equal(
-    preCommitResult.status,
-    25,
-    `${preCommitResult.stdout}${preCommitResult.stderr}`,
-  );
-  assert.deepEqual(
-    fs.readFileSync(capture).toString().split("\0").slice(0, -1),
-    ["hook", "commit-msg", messagePath],
-  );
-  assert.equal(fs.existsSync(path.join(dir, "injected")), false);
-});
-
-test("manager-composed hook entry points honor documented skip variables", () => {
-  assert.equal(hooksDisabled({}), false);
-  assert.equal(hooksDisabled({ COMMITMENT_ISSUES: "1", HUSKY: "1" }), false);
-  assert.equal(hooksDisabled({ COMMITMENT_ISSUES: "0" }), true);
-  assert.equal(hooksDisabled({ HUSKY: "0" }), true);
-});
-
-test("cleanup inspection recognizes earlier manager entries without treating them as healthy", (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "manager-cleanup-"));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-
-  fs.mkdirSync(path.join(dir, ".husky"));
-  for (const commands of [
-    [
-      "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
-      'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
-      'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\n',
-    ],
-    [
-      "node_modules/.bin/commitment-issues precommit || exit $?\n",
-      'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
-      'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?\n',
-    ],
-  ]) {
-    for (const [index, name] of [
-      "pre-commit",
-      "pre-push",
-      "commit-msg",
-    ].entries()) {
-      fs.writeFileSync(path.join(dir, ".husky", name), commands[index]);
-    }
-    assert.equal(
-      inspectHookManager("husky", ["pre-commit", "pre-push", "commit-msg"], dir)
-        .status,
-      "missing",
-    );
-    assert.equal(
-      inspectHookManagerForCleanup(
-        "husky",
-        ["pre-commit", "pre-push", "commit-msg"],
-        dir,
-      ).status,
-      "wired",
-    );
-  }
-
-  for (const hookPrefix of ["hook ", ""]) {
-    fs.writeFileSync(
-      path.join(dir, "lefthook.yml"),
-      [
-        "pre-push:",
-        "  commands:",
-        "    commitment-issues:",
-        `      run: node_modules/.bin/commitment-issues ${hookPrefix}prepush`,
-        "      use_stdin: true",
-        "commit-msg:",
-        "  commands:",
-        "    commitment-issues:",
-        `      run: node_modules/.bin/commitment-issues ${hookPrefix}commit-msg --git-path`,
-        "",
-      ].join("\n"),
-    );
-    assert.equal(
-      inspectHookManager("lefthook", ["pre-push", "commit-msg"], dir).status,
-      "missing",
-    );
-    assert.equal(
-      inspectHookManagerForCleanup("lefthook", ["pre-push", "commit-msg"], dir)
-        .status,
-      "wired",
-    );
-  }
-
-  for (const hookPrefix of ["hook ", ""]) {
-    fs.writeFileSync(
-      path.join(dir, ".pre-commit-config.yaml"),
-      [
-        "repos:",
-        "  - repo: local",
-        "    hooks:",
-        "      - id: commitment-issues-commit-msg",
-        "        name: commitment-issues commit-msg",
-        `        entry: node_modules/.bin/commitment-issues ${hookPrefix}commit-msg`,
-        "        language: system",
-        "        pass_filenames: true",
-        "        always_run: true",
-        "        stages: [commit-msg]",
-        "",
-      ].join("\n"),
-    );
-    assert.equal(
-      inspectHookManager("pre-commit", ["commit-msg"], dir).status,
-      "missing",
-    );
-    assert.equal(
-      inspectHookManagerForCleanup("pre-commit", ["commit-msg"], dir).status,
-      "wired",
-    );
-  }
-});
-
 test("Husky integration inspection accepts only active exact invocations", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "husky-inspect-"));
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), "husky-outside-"));
@@ -2067,18 +1920,18 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
     [
       "#!/bin/sh",
       "# node_modules/.bin/commitment-issues hook precommit",
-      hookInvocation("pre-commit"),
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
       "echo existing hook",
       "",
     ].join("\n"),
   );
   fs.writeFileSync(
     path.join(dir, ".husky", "pre-push"),
-    `${hookInvocation("pre-push")}\n`,
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
   );
   fs.writeFileSync(
     path.join(dir, ".husky", "commit-msg"),
-    `${hookInvocation("commit-msg")}\n`,
+    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\n',
   );
   assert.equal(
     inspectHookManager("husky", ["pre-commit"], dir).status,
@@ -2092,12 +1945,69 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
 
   fs.writeFileSync(
     path.join(dir, ".husky", "pre-commit"),
-    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+    "echo custom\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
   );
-  assert.equal(
-    inspectHookManager("husky", ["pre-commit"], dir).status,
-    "missing",
+  assert.deepEqual(inspectHookManager("husky", ["pre-commit"], dir).hooks, [
+    { name: "pre-commit", status: "missing" },
+  ]);
+  assert.deepEqual(
+    inspectHookManager("husky", ["pre-commit"], dir, {
+      ownershipOnly: true,
+    }).hooks,
+    [{ name: "pre-commit", status: "wired" }],
   );
+
+  for (const legacyCommand of [
+    "node_modules/.bin/commitment-issues precommit",
+    "node_modules/.bin/commitment-issues precommit || exit $?",
+    "command node_modules/.bin/commitment-issues precommit || exit $?",
+    "exec node_modules/.bin/commitment-issues precommit",
+    "commitment-issues precommit",
+    "commitment-issues precommit || exit $?",
+    "command commitment-issues precommit || exit $?",
+    "exec commitment-issues precommit",
+  ]) {
+    for (const content of [
+      `${legacyCommand}\n`,
+      `echo prior\n${legacyCommand}\n`,
+    ]) {
+      fs.writeFileSync(path.join(dir, ".husky", "pre-commit"), content);
+      const legacy = inspectHookManager("husky", ["pre-commit"], dir);
+      assert.equal(legacy.status, "missing");
+      assert.deepEqual(legacy.hooks, [
+        { name: "pre-commit", status: "legacy" },
+      ]);
+    }
+  }
+
+  for (const content of [
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+    "node_modules/.bin/commitment-issues precommit || exit $?\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
+    "echo prior\nnode_modules/.bin/commitment-issues hook precommit || exit $?\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+    "echo prior\nnode_modules/.bin/commitment-issues precommit || exit $?\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\nif true; then\nnode_modules/.bin/commitment-issues precommit || exit $?\nfi\n",
+  ]) {
+    fs.writeFileSync(path.join(dir, ".husky", "pre-commit"), content);
+    const duplicate = inspectHookManager("husky", ["pre-commit"], dir);
+    assert.equal(duplicate.status, "missing");
+    assert.deepEqual(duplicate.hooks, [
+      { name: "pre-commit", status: "duplicate" },
+    ]);
+  }
+
+  fs.writeFileSync(
+    path.join(dir, ".husky", "pre-push"),
+    [
+      'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?',
+      "if true; then",
+      "node_modules/.bin/commitment-issues precommit || exit $?",
+      "fi",
+      "",
+    ].join("\n"),
+  );
+  assert.deepEqual(inspectHookManager("husky", ["pre-push"], dir).hooks, [
+    { name: "pre-push", status: "cross-stage" },
+  ]);
 
   fs.writeFileSync(
     path.join(outside, "pre-push"),
@@ -2122,7 +2032,8 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
     "missing",
   );
 
-  const invocation = hookInvocation("pre-commit");
+  const invocation =
+    "node_modules/.bin/commitment-issues hook precommit || exit $?";
   for (const content of [
     ["#!/bin/sh", "false &&", invocation, ""].join("\n"),
     ["#!/bin/sh", "true ||", invocation, ""].join("\n"),
@@ -2130,6 +2041,14 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
     ["#!/bin/sh", "true; if false; then", invocation, "fi", ""].join("\n"),
     ["#!/bin/sh", "check() { # helper", invocation, "}", ""].join("\n"),
     ["#!/bin/sh", "set -n", invocation, ""].join("\n"),
+    [
+      "#!/bin/sh",
+      "if false; then",
+      invocation,
+      "node_modules/.bin/commitment-issues precommit || exit $?",
+      "fi",
+      "",
+    ].join("\n"),
   ]) {
     fs.writeFileSync(path.join(dir, ".husky", "pre-commit"), content);
     assert.equal(
@@ -2156,7 +2075,7 @@ test("Husky v9 rejects a stale v8 source prelude that breaks the real hook", (t)
     [
       "#!/usr/bin/env sh",
       '. "$(dirname -- "$0")/_/husky.sh"',
-      hookInvocation("pre-commit"),
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
       "",
     ].join("\n"),
   );
@@ -2189,6 +2108,143 @@ test("Lefthook integration inspection requires the command and pre-push stdin", 
   assert.equal(inspectHookManager("lefthook", names, dir).status, "wired");
 
   const canonical = snippets.map(({ content }) => content).join("\n");
+  const directPrecommit = "node_modules/.bin/commitment-issues precommit";
+  const currentPrecommit =
+    "      run: node_modules/.bin/commitment-issues hook precommit\n";
+  for (const duplicate of [
+    canonical.replace(
+      currentPrecommit,
+      `${currentPrecommit}    commitment-issues-old:\n      run: ${directPrecommit}\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  setup:\n    - run: ${directPrecommit}\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  scripts:\n    legacy.sh:\n      runner: ${directPrecommit}\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - run: ${directPrecommit}\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - script: legacy.sh\n      runner: ${directPrecommit}\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - group:\n        jobs:\n          - run: ${directPrecommit}\n`,
+    ),
+  ]) {
+    fs.writeFileSync(path.join(dir, "lefthook.yml"), duplicate);
+    const report = inspectHookManager("lefthook", names, dir);
+    assert.equal(report.status, "missing", duplicate);
+    assert.deepEqual(report.hooks[0], {
+      name: "pre-commit",
+      status: "duplicate",
+    });
+  }
+
+  fs.writeFileSync(
+    path.join(dir, "lefthook.yml"),
+    canonical.replace(
+      "pre-push:\n",
+      `pre-push:\n  setup:\n    - run: ${directPrecommit}\n`,
+    ),
+  );
+  const crossStage = inspectHookManager("lefthook", names, dir);
+  assert.equal(crossStage.status, "missing");
+  assert.deepEqual(crossStage.hooks[1], {
+    name: "pre-push",
+    status: "cross-stage",
+  });
+
+  for (const disabledDuplicate of [
+    canonical.replace(
+      currentPrecommit,
+      `${currentPrecommit}    commitment-issues-old:\n      run: ${directPrecommit}\n      skip: true\n`,
+    ),
+    canonical.replace(
+      currentPrecommit,
+      `${currentPrecommit}    commitment-issues-old:\n      run: ${directPrecommit}\n      only: false\n`,
+    ),
+    canonical.replace(
+      currentPrecommit,
+      `${currentPrecommit}    commitment-issues-old:\n      run: ${directPrecommit}\n      only: []\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  scripts:\n    legacy.sh:\n      runner: ${directPrecommit}\n      skip: true\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  scripts:\n    legacy.sh:\n      runner: ${directPrecommit}\n      only: false\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  scripts:\n    legacy.sh:\n      runner: ${directPrecommit}\n      only: []\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - run: ${directPrecommit}\n      skip: true\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - run: ${directPrecommit}\n      only: false\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - run: ${directPrecommit}\n      only: []\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - group:\n        jobs:\n          - run: ${directPrecommit}\n      skip: true\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - group:\n        jobs:\n          - run: ${directPrecommit}\n      only: false\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - group:\n        jobs:\n          - run: ${directPrecommit}\n      only: []\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - group:\n        jobs:\n          - run: ${directPrecommit}\n            only: false\n`,
+    ),
+    canonical.replace(
+      "pre-commit:\n",
+      `pre-commit:\n  jobs:\n    - group:\n        jobs:\n          - run: ${directPrecommit}\n            only: []\n`,
+    ),
+  ]) {
+    fs.writeFileSync(path.join(dir, "lefthook.yml"), disabledDuplicate);
+    assert.equal(
+      inspectHookManager("lefthook", names, dir).status,
+      "wired",
+      disabledDuplicate,
+    );
+  }
+
+  for (const disabledProperty of ["skip: true", "only: false", "only: []"]) {
+    const disabledHook = canonical
+      .replace("pre-commit:\n", `pre-commit:\n  ${disabledProperty}\n`)
+      .replace(currentPrecommit, `      run: ${directPrecommit}\n`);
+    fs.writeFileSync(path.join(dir, "lefthook.yml"), disabledHook);
+    assert.deepEqual(inspectHookManager("lefthook", names, dir).hooks[0], {
+      name: "pre-commit",
+      status: "missing",
+    });
+  }
+
+  fs.writeFileSync(
+    path.join(dir, "lefthook.yml"),
+    canonical.replaceAll("commitment-issues hook", "commitment-issues"),
+  );
+  const legacy = inspectHookManager("lefthook", names, dir);
+  assert.equal(legacy.status, "missing");
+  assert.ok(legacy.hooks.every(({ status }) => status === "legacy"));
+
   for (const commentedStructure of [
     canonical.replace("  commands:\n", "  commands: # managed\n"),
     canonical.replace("  commands:\n", "  commands :\n"),
@@ -2560,6 +2616,157 @@ test("pre-commit integration inspection validates complete local hook entries", 
   fs.writeFileSync(path.join(dir, ".pre-commit-config.yaml"), config);
   assert.equal(inspectHookManager("pre-commit", names, dir).status, "wired");
 
+  const duplicateLegacyHook = [
+    "      - id: commitment-issues-pre-commit-old",
+    "        name: older commitment-issues pre-commit",
+    "        entry: node_modules/.bin/commitment-issues precommit",
+    "        language: system",
+    "        pass_filenames: false",
+    "        always_run: true",
+    "        stages: [pre-commit]",
+    "",
+  ].join("\n");
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook}`,
+  );
+  const duplicateLegacy = inspectHookManager("pre-commit", names, dir);
+  assert.equal(duplicateLegacy.status, "missing");
+  assert.deepEqual(duplicateLegacy.hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook.replace("commitment-issues-pre-commit-old", "commitment-issues-pre-commit")}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook.replace("language: system", "language: script")}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  const remoteLegacy = [
+    "  - repo: https://example.invalid/hooks",
+    "    rev: v1.0.0",
+    "    hooks:",
+    duplicateLegacyHook.trimEnd(),
+    "",
+  ].join("\n");
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${remoteLegacy}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  for (const inertLegacy of [
+    duplicateLegacyHook.replace("language: system", "language: fail"),
+    duplicateLegacyHook.replace("language: system", "language: pygrep"),
+    duplicateLegacyHook.replace("language: system", "language: docker_image"),
+    duplicateLegacyHook.replace("language: system", "language: r"),
+  ]) {
+    fs.writeFileSync(
+      path.join(dir, ".pre-commit-config.yaml"),
+      `${config}${inertLegacy}`,
+    );
+    assert.equal(inspectHookManager("pre-commit", names, dir).status, "wired");
+  }
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook.replace("stages: [pre-commit]", "stages: [manual]")}`,
+  );
+  assert.equal(inspectHookManager("pre-commit", names, dir).status, "wired");
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook.replace("stages: [pre-commit]", "stages: [commit]")}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook.replace("stages: [pre-commit]", "stages: []")}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  const defaultStageLegacyHook = duplicateLegacyHook.replace(
+    "        stages: [pre-commit]\n",
+    "",
+  );
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${defaultStageLegacyHook}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `default_stages: [manual]\n${config}${defaultStageLegacyHook}`,
+  );
+  assert.equal(inspectHookManager("pre-commit", names, dir).status, "wired");
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `default_stages: []\n${config}${defaultStageLegacyHook}`,
+  );
+  assert.equal(inspectHookManager("pre-commit", names, dir).status, "wired");
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `default_stages: [manual]\n${config}${remoteLegacy.replace("        stages: [pre-commit]\n", "")}`,
+  );
+  assert.deepEqual(inspectHookManager("pre-commit", names, dir).hooks[0], {
+    name: "pre-commit",
+    status: "duplicate",
+  });
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `default_stages: [manual]\n${config}${remoteLegacy.replace("stages: [pre-commit]", "stages: []")}`,
+  );
+  assert.equal(inspectHookManager("pre-commit", names, dir).status, "wired");
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `${config}${duplicateLegacyHook.replace("stages: [pre-commit]", "stages: [pre-push]")}`,
+  );
+  const crossStage = inspectHookManager("pre-commit", names, dir);
+  assert.equal(crossStage.status, "missing");
+  assert.deepEqual(crossStage.hooks[1], {
+    name: "pre-push",
+    status: "cross-stage",
+  });
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    config.replaceAll("commitment-issues hook", "commitment-issues"),
+  );
+  const legacy = inspectHookManager("pre-commit", names, dir);
+  assert.equal(legacy.status, "missing");
+  assert.ok(legacy.hooks.every(({ status }) => status === "legacy"));
+
   for (const commentedStructure of [
     config.replace("repos:\n", "repos: # managed\n"),
     config.replace("repos:\n", "repos :\n"),
@@ -2577,12 +2784,10 @@ test("pre-commit integration inspection validates complete local hook entries", 
     );
   }
 
-  const targetEntry = snippets[0].content.match(/^\s*entry: (.+)$/mu)?.[1];
-  assert.ok(targetEntry);
   const targetHook = {
     id: "commitment-issues-pre-commit",
     name: "commitment-issues pre-commit",
-    entry: targetEntry,
+    entry: "node_modules/.bin/commitment-issues hook precommit",
     language: "system",
     pass_filenames: false,
     always_run: true,
@@ -3065,46 +3270,12 @@ test(
     );
 
     fs.rmSync(path.join(runtimeBin, "lefthook.exe"));
-    fs.writeFileSync(
-      path.join(runtimeBin, "lefthook.cmd"),
-      "#!/bin/sh\nexit 0\n",
-      { mode: 0o755 },
-    );
-    assert.deepEqual(
-      inspectHookManagerRunner("lefthook", ["pre-commit"], dir).hooks,
-      [{ name: "pre-commit", status: "missing-runtime" }],
-    );
-    fs.writeFileSync(
-      path.join(hooksDir, "pre-commit"),
-      '#!/bin/sh\nlefthook run "pre-commit"\n',
-      { mode: 0o755 },
-    );
-    assert.equal(
-      inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
-      "wired",
-    );
-    fs.writeFileSync(
-      path.join(hooksDir, "pre-commit"),
-      lefthookRunner("pre-commit", { extension: ".exe" }),
-      { mode: 0o755 },
-    );
-    fs.rmSync(path.join(runtimeBin, "lefthook.cmd"));
-    fs.writeFileSync(
-      path.join(runtimeBin, "lefthook.bat"),
-      "#!/bin/sh\nexit 0\n",
-      { mode: 0o755 },
-    );
-    assert.equal(
-      inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
-      "wired",
-    );
-    fs.rmSync(path.join(runtimeBin, "lefthook.bat"));
     const packagedLefthook = path.join(
       dir,
       "node_modules",
       `lefthook-windows-${process.arch}`,
       "bin",
-      "lefthook.exe",
+      "lefthook",
     );
     fs.mkdirSync(path.dirname(packagedLefthook), { recursive: true });
     fs.writeFileSync(packagedLefthook, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
@@ -3540,7 +3711,6 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     binDir,
     "lefthook",
     'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
-    { windowsBatch: true },
   );
   writeCrossPlatformShim(binDir, "python3", "process.exit(0);\n");
 
@@ -3562,7 +3732,6 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     binDir,
     "lefthook",
     `import fs from "node:fs";\nfs.writeFileSync(${JSON.stringify(runtimeMarker)}, "executed");\nprocess.exit(0);\n`,
-    { windowsBatch: true },
   );
   assert.equal(
     inspectHookManagerRunner("lefthook", names, dir).status,
@@ -3596,13 +3765,11 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
       binDir,
       "lefthook",
       'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
-      { windowsBatch: true },
     );
   }
 
   fs.rmSync(path.join(binDir, "lefthook"));
   fs.rmSync(path.join(binDir, "lefthook.cmd"));
-  fs.rmSync(path.join(binDir, "lefthook.bat"), { force: true });
   assert.deepEqual(
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).hooks,
     [{ name: "pre-commit", status: "missing-runtime" }],
@@ -3701,7 +3868,6 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     binDir,
     "lefthook",
     'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
-    { windowsBatch: true },
   );
 
   writeCrossPlatformShim(binDir, "false", "process.exit(1);\n");
@@ -3717,15 +3883,12 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     [{ name: "pre-commit", status: "foreign" }],
   );
 
-  const reviewedLefthookName =
-    process.platform === "win32" ? "lefthook.exe" : "lefthook";
-  const reviewedLefthook = path.join(outside, reviewedLefthookName);
-  writeCrossPlatformShim(outside, reviewedLefthookName, "process.exit(0);\n");
+  writeCrossPlatformShim(outside, "lefthook", "process.exit(0);\n");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
     lefthookRunner("pre-commit", {
       embeddedExecutable: path
-        .relative(dir, reviewedLefthook)
+        .relative(dir, path.join(outside, "lefthook"))
         .replaceAll("\\", "/"),
     }),
     { mode: 0o755 },
@@ -3737,13 +3900,9 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
 
   const unicodeRuntimeDir = path.join(outside, "unicodé-runtime");
   fs.mkdirSync(unicodeRuntimeDir);
-  writeCrossPlatformShim(
-    unicodeRuntimeDir,
-    reviewedLefthookName,
-    "process.exit(0);\n",
-  );
+  writeCrossPlatformShim(unicodeRuntimeDir, "lefthook", "process.exit(0);\n");
   const unicodeRuntime = path
-    .relative(dir, path.join(unicodeRuntimeDir, reviewedLefthookName))
+    .relative(dir, path.join(unicodeRuntimeDir, "lefthook"))
     .replaceAll("\\", "/");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
@@ -3827,7 +3986,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).hooks,
     [{ name: "pre-commit", status: "missing-runtime" }],
   );
-  process.env.LEFTHOOK_BIN = reviewedLefthook;
+  process.env.LEFTHOOK_BIN = path.join(outside, "lefthook");
   assert.equal(
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
     "wired",
@@ -3878,7 +4037,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
   );
   assert.equal(
     inspectHookManagerRunner("lefthook", ["pre-commit"], dir).status,
-    process.platform === "win32" ? "foreign" : "wired",
+    "wired",
   );
   fs.rmSync(path.join(dir, "node_modules", "lefthook"), {
     recursive: true,
@@ -4434,10 +4593,17 @@ test("Husky v8 direct hook paths do not require the v9 runtime", (t) => {
   const hooksDir = path.join(dir, ".husky");
   fs.mkdirSync(hooksDir, { recursive: true });
 
-  for (const name of ["pre-commit", "pre-push"]) {
+  for (const [name, command] of [
+    ["pre-commit", "precommit"],
+    ["pre-push", 'prepush "$@"'],
+  ]) {
     fs.writeFileSync(
       path.join(hooksDir, name),
-      ["#!/usr/bin/env sh", hookInvocation(name), ""].join("\n"),
+      [
+        "#!/usr/bin/env sh",
+        `node_modules/.bin/commitment-issues hook ${command} || exit $?`,
+        "",
+      ].join("\n"),
       { mode: 0o755 },
     );
   }
@@ -4451,7 +4617,7 @@ test("Husky v8 direct hook paths do not require the v9 runtime", (t) => {
   const preCommitBody = fs.readFileSync(preCommitPath, "utf8");
   fs.writeFileSync(
     preCommitPath,
-    `#!/bin/false\n${hookInvocation("pre-commit")}\n`,
+    "#!/bin/false\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
     { mode: 0o755 },
   );
   assert.equal(
@@ -4506,7 +4672,7 @@ test("Husky v8 direct hooks require a valid runtime only when sourced", (t) => {
     [
       "#!/usr/bin/env sh",
       '. "$(dirname -- "$0")/_/husky.sh"',
-      hookInvocation("pre-commit"),
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
       "",
     ].join("\n"),
     { mode: 0o755 },
