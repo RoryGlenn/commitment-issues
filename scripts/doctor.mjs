@@ -686,7 +686,7 @@ if (unwiredHooks.length > 0) {
 }
 if (legacyHooks.length > 0) {
   problems.push(
-    `hook(s) using direct checks without managed bypasses: ${legacyHooks
+    `hook(s) using unguarded or direct checks outside the current managed contract: ${legacyHooks
       .map((name) => displayHookPath(hooksDir, name))
       .join(", ")}`,
   );

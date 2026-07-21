@@ -69,6 +69,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Accepted Lefthook 2.1.10's exact Windows-generated dispatcher, including its
+  `lefthook.exe` command, reviewed `.bat` fallback, and `.exe` package-runtime
+  paths, without broadening the byte-exact wrapper check on other platforms.
+- Made every Husky, Lefthook, and pre-commit coexistence entry fail open when
+  the project-local package launcher is absent, pruned, the wrong file type, or
+  non-executable, without a global fallback or masking any real configured
+  blocking result. The static pre-commit shell wrapper keeps hostile message
+  filenames in literal argv.
 - Hardened hook-manager coexistence verification: Lefthook snippets are static
   and resolve the active commit-message path inside Commitment Issues,
   effective Lefthook wrappers must forward hook arguments, pre-commit wrappers

@@ -722,8 +722,8 @@ if (
 
   if (legacyHooks.length > 0) {
     warnings.push(
-      "Existing git hooks use direct check commands that bypass the managed hook contract.",
-      "Replace each first substantive command so hook-only skip variables stay effective:",
+      "Existing git hooks use unguarded or direct commands outside the current managed hook contract.",
+      "Replace each first substantive command so package removal fails open and hook-only skip variables stay effective:",
       ...legacyHooks.map(
         (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
       ),

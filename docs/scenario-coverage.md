@@ -464,9 +464,16 @@ production-readiness workstream #130 is consolidated in the
 - **HOOK-021** — manager-composed pre-commit, pre-push, and commit-msg entry
   points retain `COMMITMENT_ISSUES=0` and legacy `HUSKY=0` through the hidden
   hook dispatcher without suppressing explicit direct commands; Husky snippets
-  preserve nonzero blocking exits before later custom commands. Unit/fixture:
-  `test/hooks.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`,
-  `test/commit-msg.test.mjs`.
+  preserve nonzero blocking exits before later custom commands. All three
+  manager forms exit successfully without a PATH/global fallback when the
+  project-local launcher is missing, the wrong file type, or non-executable;
+  an available launcher's exact nonzero status and hostile literal argv remain
+  intact. Lefthook 2.1.10's exact Windows `.exe`/`.bat` dispatcher and `.exe`
+  package-runtime paths are verified under Git-for-Windows lookup rules.
+  Unit/packed lifecycle: `test/hooks.test.mjs`,
+  `test/precommit.test.mjs`, `test/prepush.test.mjs`,
+  `test/commit-msg.test.mjs`,
+  `test/integration/helpers/lifecycle-fixture.mjs`.
 - **HOOK-022** — hook-path probes require exactly one NUL-delimited config
   record, preserve configured whitespace, empty values, POSIX backslashes,
   CRLF, and unterminated resolved Git paths, and reject malformed config output;

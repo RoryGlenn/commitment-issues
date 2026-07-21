@@ -108,9 +108,11 @@ fix and leaves `package.json` unchanged.
 Existing custom hooks are considered active only when the guarded
 project-local command is their first substantive command, so earlier control
 flow cannot skip it and later commands cannot swallow a blocking exit. The
-verifier also accepts an explicit guarded `command` form or a terminal `exec`
-form; only a direct `.husky` v8 hook may place the exact Husky v8 runtime source
-before its entry.
+health verifier accepts only that exact guard-and-dispatch line. Older
+unguarded `command ... || exit $?` and terminal `exec ...` forms are recognized
+only for cleanup and remediation reporting; they are not considered active.
+Only a direct `.husky` v8 hook may place the exact Husky v8 runtime source before
+its entry.
 Comments, printed examples, assignments, conditions, and quoted examples do
 not count. On POSIX, the current process must also have effective execute
 access to the hook file; mode bits alone are not treated as proof.
@@ -526,8 +528,9 @@ The generated `.git/hooks/commit-msg` body invokes
 `commitment-issues commit-msg "$1"`, preserving the message-file path as one
 literal argument. If a custom commit-msg hook already exists, `init` and
 `doctor` leave it unchanged and show the bypass-aware guarded command
-`node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?` for
-manual composition.
+`test ! -f node_modules/.bin/commitment-issues || test ! -x node_modules/.bin/commitment-issues || node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?`
+for manual composition. The inverted guards make package removal fail open;
+the final `|| exit $?` still preserves a real configured blocking result.
 Git's `git commit --no-verify` bypasses the hook in the standard way.
 Lefthook coexistence uses the separate static `commit-msg --git-path` form;
 Commitment Issues then resolves this worktree's `MERGE_MSG` during a direct

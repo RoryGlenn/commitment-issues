@@ -17,6 +17,13 @@ const yaml = packageRequire("js-yaml");
 const args = process.argv.slice(2);
 const executable = path.basename(process.argv[1]).toLowerCase();
 const logPath = process.env.COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG;
+const localBin = "node_modules/.bin/commitment-issues";
+const missingBinGuard = `test ! -f ${localBin} || test ! -x ${localBin}`;
+const hookSubcommands = {
+  "pre-commit": "precommit",
+  "pre-push": "prepush",
+  "commit-msg": "commit-msg",
+};
 
 function fail(message) {
   console.error(`[lifecycle manager harness] ${message}`);
@@ -51,24 +58,32 @@ function readYaml(relativePath) {
   }
 }
 
-function parseEntry(entry) {
+function parseEntry(entry, manager, hook) {
   if (typeof entry !== "string" || entry.trim() !== entry || !entry) {
     fail("manager entry must be one non-empty command line");
   }
-  const tokens = entry.split(/[ \t]+/u);
-  if (
-    tokens.length < 2 ||
-    tokens.some((token) => !/^[A-Za-z0-9_./:@=+-]+$/u.test(token))
-  ) {
-    fail(`manager entry is outside the argv-only lifecycle contract: ${entry}`);
+  const subcommand = hookSubcommands[hook];
+  const invocation = `${localBin} hook ${subcommand}`;
+  const shellScript =
+    manager === "pre-commit"
+      ? `${missingBinGuard} || exec ${invocation} "$@"`
+      : `${missingBinGuard} || ${invocation}${hook === "commit-msg" ? " --git-path" : ""}`;
+  const expectedEntry =
+    manager === "pre-commit" ? `sh -c '${shellScript}' --` : shellScript;
+  if (!subcommand || entry !== expectedEntry) {
+    fail(`manager entry is outside the guarded lifecycle contract: ${entry}`);
   }
-
-  const [command, ...commandArgs] = tokens;
-  const expectedCommand = "node_modules/.bin/commitment-issues";
-  if (command !== expectedCommand) {
-    fail(`manager entry did not select the packed bin: ${command}`);
-  }
-  return { command, commandArgs };
+  return {
+    command: localBin,
+    commandArgs: [
+      "hook",
+      subcommand,
+      ...(manager === "lefthook" && hook === "commit-msg"
+        ? ["--git-path"]
+        : []),
+    ],
+    shellScript,
+  };
 }
 
 function runEntry({
@@ -80,7 +95,11 @@ function runEntry({
   entryInput = "",
   entryEnv = {},
 }) {
-  const { command, commandArgs } = parseEntry(entry);
+  const { command, commandArgs, shellScript } = parseEntry(
+    entry,
+    manager,
+    hook,
+  );
   const finalArgs = [...commandArgs, ...extraArgs];
   appendRecord({
     manager,
@@ -93,16 +112,19 @@ function runEntry({
     entryEnv,
   });
 
-  // Keep the configured path extensionless, exactly as the documented manager
-  // entry spells it. cross-spawn applies the host's real command-resolution
-  // rules (including PATHEXT on Windows), while the fixed path keeps lookup
-  // inside this packed lifecycle repository.
-  const result = crossSpawn.sync(command, finalArgs, {
-    cwd,
-    encoding: "utf8",
-    env: { ...process.env, ...entryEnv },
-    input: entryInput,
-  });
+  // Execute the exact static shell contract the real managers consume. The
+  // fixed extensionless path keeps lookup inside this packed repository, while
+  // the appended hook values remain argv and never become shell source.
+  const result = crossSpawn.sync(
+    "sh",
+    ["-c", shellScript, "--", ...extraArgs],
+    {
+      cwd,
+      encoding: "utf8",
+      env: { ...process.env, ...entryEnv },
+      input: entryInput,
+    },
+  );
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.error) {

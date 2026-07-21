@@ -245,6 +245,13 @@ use the package's hidden `hook` dispatcher so `COMMITMENT_ISSUES=0` and legacy
 `HUSKY=0` apply to automatic manager calls without suppressing an explicit
 human invocation of `precommit`, `prepush`, or `commit-msg`. Advisory outcomes
 exit 0; configured blocking outcomes retain their normal nonzero status.
+Every emitted manager entry first verifies that the exact project-local
+`node_modules/.bin/commitment-issues` path is a regular executable file. A
+missing, pruned, wrong-kind, or non-executable launcher ends the static shell
+OR-list successfully and silently, without consulting `PATH`; an available
+launcher replaces that success path and its exact nonzero result propagates.
+The pre-commit framework form uses a fixed `sh -c` script with `--` as `$0`, so
+framework-supplied filenames remain literal `"$@"` argv.
 
 The first eligible clean or informational human-readable pre-commit invocation
 shows a default-on contributor welcome, then records

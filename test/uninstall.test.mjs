@@ -6,7 +6,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { hookBody, hookInvocation } from "../scripts/lib/hooks.mjs";
+import {
+  hookBody,
+  hookInvocation,
+  hookManagerSnippets,
+} from "../scripts/lib/hooks.mjs";
 import {
   compactTerminalBoxText,
   countTerminalBoxes,
@@ -746,18 +750,9 @@ const coexistenceFixtures = {
   },
   lefthook: {
     file: "lefthook.yml",
-    content: [
-      "pre-commit:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook precommit",
-      "pre-push:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook prepush",
-      "      use_stdin: true",
-      "",
-    ].join("\n"),
+    content: hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
+      .map(({ content }) => content)
+      .join("\n"),
     legacyContent: [
       "pre-commit:",
       "  commands:",
@@ -773,19 +768,9 @@ const coexistenceFixtures = {
   },
   "pre-commit": {
     file: ".pre-commit-config.yaml",
-    content: [
-      "repos:",
-      "  - repo: local",
-      "    hooks:",
-      "      - id: commitment-issues-pre-commit",
-      "        name: commitment-issues pre-commit",
-      "        entry: node_modules/.bin/commitment-issues hook precommit",
-      "        language: system",
-      "        pass_filenames: false",
-      "        always_run: true",
-      "        stages: [pre-commit]",
-      "",
-    ].join("\n"),
+    content: `repos:\n  - repo: local\n    hooks:\n${
+      hookManagerSnippets("pre-commit", ["pre-commit"])[0].content
+    }`,
     legacyContent: [
       "repos:",
       "  - repo: local",

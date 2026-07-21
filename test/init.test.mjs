@@ -26,6 +26,29 @@ import {
   HUSKY_V9_RUNTIME,
   lefthookRunner,
 } from "./helpers/hook-manager-fixtures.mjs";
+import { hookInvocation, hookManagerSnippets } from "../scripts/lib/hooks.mjs";
+
+const LOCAL_BIN_PATTERN = String.raw`node_modules\/\.bin\/commitment-issues`;
+const MISSING_BIN_GUARD_PATTERN = String.raw`test\s+!\s+-f\s*${LOCAL_BIN_PATTERN}\s*\|\|\s*test\s+!\s+-x\s*${LOCAL_BIN_PATTERN}`;
+
+function hookSuggestionPattern(name) {
+  const subcommand =
+    name === "pre-commit"
+      ? "precommit"
+      : name === "pre-push"
+        ? "prepush"
+        : "commit-msg";
+  const forwarded =
+    name === "pre-push"
+      ? String.raw`\s*"\$@"`
+      : name === "commit-msg"
+        ? String.raw`\s*"\$1"`
+        : "";
+  return new RegExp(
+    String.raw`${name}:\s*${MISSING_BIN_GUARD_PATTERN}\s*\|\|\s*${LOCAL_BIN_PATTERN}\s+hook\s+${subcommand}${forwarded}\s*\|\|\s*exit\s*\$\?`,
+    "u",
+  );
+}
 
 function runInit(tempDir, args = [], options = {}) {
   return run(
@@ -236,10 +259,8 @@ test("init coexists with Husky without rewriting manager-owned hooks", (t) => {
     writeFile(wrapper, '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n');
     fs.chmodSync(wrapper, 0o755);
   }
-  const preCommit =
-    "node_modules/.bin/commitment-issues hook precommit || exit $?\necho custom-after\n";
-  const prePush =
-    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho push-after\n';
+  const preCommit = `${hookInvocation("pre-commit")}\necho custom-after\n`;
+  const prePush = `${hookInvocation("pre-push")}\necho push-after\n`;
   writeFile(path.join(tempDir, ".husky", "pre-commit"), preCommit);
   writeFile(path.join(tempDir, ".husky", "pre-push"), prePush);
   const hooksPathBefore = hooksPath(tempDir);
@@ -460,18 +481,9 @@ test("init recognizes fully active Lefthook integration", (t) => {
   });
   writeFile(
     path.join(tempDir, "lefthook.yml"),
-    [
-      "pre-commit:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook precommit",
-      "pre-push:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook prepush",
-      "      use_stdin: true",
-      "",
-    ].join("\n"),
+    hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
+      .map(({ content }) => content)
+      .join("\n"),
   );
   for (const name of ["pre-commit", "pre-push"]) {
     writeFile(gitHook(tempDir, name), lefthookRunner(name));
@@ -479,7 +491,9 @@ test("init recognizes fully active Lefthook integration", (t) => {
   }
   const managerBin = path.join(tempDir, "manager-bin");
   fs.mkdirSync(managerBin);
-  writeCrossPlatformShim(managerBin, "lefthook", "process.exit(0);\n");
+  writeCrossPlatformShim(managerBin, "lefthook", "process.exit(0);\n", {
+    windowsBatch: true,
+  });
 
   const result = runInit(tempDir, ["--integration=lefthook"], {
     env: {
@@ -496,13 +510,7 @@ test("init recognizes fully active Lefthook integration", (t) => {
 
   writeFile(
     path.join(tempDir, "lefthook.yml"),
-    [
-      "pre-commit:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook precommit",
-      "",
-    ].join("\n"),
+    hookManagerSnippets("lefthook", ["pre-commit"])[0].content,
   );
   const partial = runInit(tempDir, ["--integration=lefthook"], {
     env: {
@@ -611,8 +619,7 @@ test("init reports inactive Husky ownership without changing its hooks", (t) => 
     devDependencies: { husky: "9" },
   });
   fs.mkdirSync(path.join(tempDir, ".husky"));
-  const hook =
-    "node_modules/.bin/commitment-issues hook precommit || exit $?\n";
+  const hook = `${hookInvocation("pre-commit")}\n`;
   writeFile(path.join(tempDir, ".husky", "pre-commit"), hook);
 
   const result = runInit(tempDir, ["--integration=husky"]);
@@ -902,18 +909,9 @@ test(
     });
     writeFile(
       path.join(tempDir, "lefthook.yml"),
-      [
-        "pre-commit:",
-        "  commands:",
-        "    commitment-issues:",
-        "      run: node_modules/.bin/commitment-issues hook precommit",
-        "pre-push:",
-        "  commands:",
-        "    commitment-issues:",
-        "      run: node_modules/.bin/commitment-issues hook prepush",
-        "      use_stdin: true",
-        "",
-      ].join("\n"),
+      hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
+        .map(({ content }) => content)
+        .join("\n"),
     );
     const hooksDir = path.join(tempDir, ".git", "hooks");
     fs.rmSync(hooksDir, { recursive: true });
@@ -956,11 +954,11 @@ test(
     fs.mkdirSync(hooksDir, { recursive: true });
     writeFile(
       path.join(tempDir, ".husky", "pre-commit"),
-      "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
+      `${hookInvocation("pre-commit")}\n`,
     );
     writeFile(
       path.join(tempDir, ".husky", "pre-push"),
-      'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
+      `${hookInvocation("pre-push")}\n`,
     );
     const wrapper = '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n';
     writeFile(path.join(outside, "pre-commit"), wrapper);
@@ -1013,11 +1011,11 @@ test(
     fs.mkdirSync(hooksDir, { recursive: true });
     writeFile(
       path.join(tempDir, ".husky", "pre-commit"),
-      "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
+      `${hookInvocation("pre-commit")}\n`,
     );
     writeFile(
       path.join(tempDir, ".husky", "pre-push"),
-      'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
+      `${hookInvocation("pre-push")}\n`,
     );
     writeFile(path.join(outside, "h"), "# foreign runtime\n");
     fs.symlinkSync(path.join(outside, "h"), path.join(hooksDir, "h"));
@@ -1263,7 +1261,7 @@ test("init preserves custom commit-msg hooks and requires safe forwarding", (t) 
   assert.match(output, /Hook wiring needs your attention/);
   assert.match(
     compactTerminalBoxText(output),
-    /commit-msg:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
+    hookSuggestionPattern("commit-msg"),
   );
   assert.equal(
     fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
@@ -1272,7 +1270,7 @@ test("init preserves custom commit-msg hooks and requires safe forwarding", (t) 
 
   fs.writeFileSync(
     gitHook(tempDir, "commit-msg"),
-    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\necho custom\n',
+    `${hookInvocation("commit-msg")}\necho custom\n`,
   );
   fs.chmodSync(gitHook(tempDir, "commit-msg"), 0o755);
   const safe = runInit(tempDir);
@@ -1745,14 +1743,8 @@ test("init leaves customized hooks untouched", (t) => {
   assertHookClaimsWithheld(output);
   assert.match(output, /Existing git hooks were left unchanged/);
   const compactOutput = compactTerminalBoxText(output);
-  assert.match(
-    compactOutput,
-    /pre-commit:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*precommit\s*\|\|\s*exit\s*\$\?/,
-  );
-  assert.match(
-    compactOutput,
-    /pre-push:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*prepush\s*"\$@"\s*\|\|\s*exit\s*\$\?/,
-  );
+  assert.match(compactOutput, hookSuggestionPattern("pre-commit"));
+  assert.match(compactOutput, hookSuggestionPattern("pre-push"));
   assert.equal(countTerminalBoxes(output), 1);
 });
 
@@ -1762,10 +1754,8 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
 
   writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
   fs.mkdirSync(path.join(tempDir, ".git", "hooks"), { recursive: true });
-  const preCommit =
-    "#!/bin/sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\necho custom commit\n";
-  const prePush =
-    '#!/bin/sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho custom push\n';
+  const preCommit = `#!/bin/sh\n${hookInvocation("pre-commit")}\necho custom commit\n`;
+  const prePush = `#!/bin/sh\n${hookInvocation("pre-push")}\necho custom push\n`;
   fs.writeFileSync(gitHook(tempDir, "pre-commit"), preCommit);
   fs.writeFileSync(gitHook(tempDir, "pre-push"), prePush);
   fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o755);
@@ -1786,7 +1776,7 @@ test("init accepts customized hooks that invoke commitment-issues", (t) => {
   assert.equal(fs.readFileSync(gitHook(tempDir, "pre-push"), "utf8"), prePush);
 });
 
-test("init reports customized hooks that still use direct check commands", (t) => {
+test("init reports customized hooks that still use unguarded or direct commands", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -1808,12 +1798,9 @@ test("init reports customized hooks that still use direct check commands", (t) =
   const compactOutput = compactTerminalBoxText(output);
   assert.match(
     compactOutput,
-    /direct check commands that bypass the managed\s*hook contract/,
+    /unguarded or direct commands outside the current\s*managed\s*hook contract/,
   );
-  assert.match(
-    compactOutput,
-    /pre-commit:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*precommit\s*\|\|\s*exit\s*\$\?/,
-  );
+  assert.match(compactOutput, hookSuggestionPattern("pre-commit"));
   assert.equal(
     fs.readFileSync(gitHook(tempDir, "pre-commit"), "utf8"),
     preCommit,
@@ -2212,14 +2199,8 @@ test("init rejects inert command mentions in executable custom hooks", (t) => {
   assert.equal(result.status, 0);
   assertHookClaimsWithheld(output);
   const compactOutput = compactTerminalBoxText(output);
-  assert.match(
-    compactOutput,
-    /pre-commit:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*precommit\s*\|\|\s*exit\s*\$\?/,
-  );
-  assert.match(
-    compactOutput,
-    /pre-push:\s*node_modules\/\.bin\/commitment-issues\s*hook\s*prepush\s*"\$@"\s*\|\|\s*exit\s*\$\?/,
-  );
+  assert.match(compactOutput, hookSuggestionPattern("pre-commit"));
+  assert.match(compactOutput, hookSuggestionPattern("pre-push"));
   for (const [name, body] of Object.entries(bodies)) {
     assert.equal(fs.readFileSync(gitHook(tempDir, name), "utf8"), body);
   }

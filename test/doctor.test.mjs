@@ -28,6 +28,7 @@ import {
   lefthookRunner,
   preCommitRunner,
 } from "./helpers/hook-manager-fixtures.mjs";
+import { hookInvocation, hookManagerSnippets } from "../scripts/lib/hooks.mjs";
 
 function runDoctor(tempDir, args = [], options = {}) {
   return run(
@@ -48,6 +49,28 @@ function hooksPath(tempDir) {
 
 function gitHook(tempDir, name) {
   return path.join(tempDir, ".git", "hooks", name);
+}
+
+const LOCAL_BIN_PATTERN = String.raw`node_modules\/\.bin\/commitment-issues`;
+const MISSING_BIN_GUARD_PATTERN = String.raw`test\s+!\s+-f\s*${LOCAL_BIN_PATTERN}\s*\|\|\s*test\s+!\s+-x\s*${LOCAL_BIN_PATTERN}`;
+
+function hookSuggestionPattern(name) {
+  const subcommand =
+    name === "pre-commit"
+      ? "precommit"
+      : name === "pre-push"
+        ? "prepush"
+        : "commit-msg";
+  const forwarded =
+    name === "pre-push"
+      ? String.raw`\s*"\$@"`
+      : name === "commit-msg"
+        ? String.raw`\s*"\$1"`
+        : "";
+  return new RegExp(
+    String.raw`${MISSING_BIN_GUARD_PATTERN}\s*\|\|\s*${LOCAL_BIN_PATTERN}\s+hook\s+${subcommand}${forwarded}\s*\|\|\s*exit\s*\$\?`,
+    "u",
+  );
 }
 
 function aliasedRepoPath(t, tempDir, prefix) {
@@ -104,10 +127,8 @@ function managerFixture(tempDir, manager) {
       ".husky/_/h": HUSKY_V9_RUNTIME,
       ".husky/_/pre-commit": '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n',
       ".husky/_/pre-push": '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n',
-      ".husky/pre-commit":
-        "node_modules/.bin/commitment-issues hook precommit || exit $?\necho custom\n",
-      ".husky/pre-push":
-        'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho still-custom\n',
+      ".husky/pre-commit": `${hookInvocation("pre-commit")}\necho custom\n`,
+      ".husky/pre-push": `${hookInvocation("pre-push")}\necho still-custom\n`,
     };
     for (const [filePath, content] of Object.entries(files)) {
       writeFile(path.join(tempDir, filePath), content);
@@ -118,26 +139,21 @@ function managerFixture(tempDir, manager) {
     return files;
   }
   if (manager === "lefthook") {
-    const content = [
-      "pre-commit:",
-      "  commands:",
-      "    existing:",
-      "      run: echo existing",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook precommit",
-      "pre-push:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook prepush",
-      "      use_stdin: true",
-      "",
-    ].join("\n");
+    const snippets = hookManagerSnippets("lefthook", [
+      "pre-commit",
+      "pre-push",
+    ]);
+    const content = `${snippets[0].content.replace(
+      "  commands:\n",
+      "  commands:\n    existing:\n      run: echo existing\n",
+    )}${snippets[1].content}`;
     writeFile(path.join(tempDir, "lefthook.yml"), content);
     const binDir = isolatedManagerBinDir(tempDir);
     writeCrossPlatformShim(
       binDir,
       "lefthook",
       'process.exit(process.argv[2] === "-h" ? 0 : 17);\n',
+      { windowsBatch: true },
     );
     const files = { "lefthook.yml": content };
     for (const name of ["pre-commit", "pre-push"]) {
@@ -149,6 +165,9 @@ function managerFixture(tempDir, manager) {
     }
     return files;
   }
+  const entries = hookManagerSnippets("pre-commit", ["pre-commit", "pre-push"])
+    .map(({ content: snippet }) => snippet)
+    .join("");
   const content = [
     "repos:",
     "  - repo: local",
@@ -157,21 +176,7 @@ function managerFixture(tempDir, manager) {
     "        name: existing hook",
     "        entry: echo existing",
     "        language: system",
-    "      - id: commitment-issues-pre-commit",
-    "        name: commitment-issues pre-commit",
-    "        entry: node_modules/.bin/commitment-issues hook precommit",
-    "        language: system",
-    "        pass_filenames: false",
-    "        always_run: true",
-    "        stages: [pre-commit]",
-    "      - id: commitment-issues-pre-push",
-    "        name: commitment-issues pre-push",
-    "        entry: node_modules/.bin/commitment-issues hook prepush",
-    "        language: system",
-    "        pass_filenames: false",
-    "        always_run: true",
-    "        stages: [pre-push]",
-    "",
+    entries,
   ].join("\n");
   writeFile(path.join(tempDir, ".pre-commit-config.yaml"), content);
   const binDir = isolatedManagerBinDir(tempDir);
@@ -224,10 +229,8 @@ test("doctor recognizes healthy Husky v8 direct hooks", (t) => {
   const hooksDir = path.join(tempDir, ".husky");
   fs.mkdirSync(hooksDir, { recursive: true });
   const hooks = {
-    "pre-commit":
-      "#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
-    "pre-push":
-      '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
+    "pre-commit": `#!/usr/bin/env sh\n${hookInvocation("pre-commit")}\n`,
+    "pre-push": `#!/usr/bin/env sh\n${hookInvocation("pre-push")}\n`,
   };
   for (const [name, content] of Object.entries(hooks)) {
     writeFile(path.join(hooksDir, name), content);
@@ -370,14 +373,7 @@ test("doctor rejects manager wrappers that do not execute or forward hook argume
 test("doctor reports exact missing manager snippets but never installs them", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
-  const config = [
-    "pre-push:",
-    "  commands:",
-    "    commitment-issues:",
-    "      run: node_modules/.bin/commitment-issues hook prepush",
-    "      use_stdin: true",
-    "",
-  ].join("\n");
+  const config = hookManagerSnippets("lefthook", ["pre-push"])[0].content;
   writeFile(path.join(tempDir, "lefthook.yml"), config);
 
   const result = runDoctor(tempDir, ["--integration=lefthook"]);
@@ -385,14 +381,9 @@ test("doctor reports exact missing manager snippets but never installs them", (t
   assert.equal(result.status, 1);
   assert.match(output, /lefthook integration needs attention/i);
   assert.match(output, /missing hook entries: pre-commit/);
-  assert.match(
-    output,
-    /run: node_modules\/\.bin\/commitment-issues hook precommit/,
-  );
-  assert.doesNotMatch(
-    output,
-    /run: node_modules\/\.bin\/commitment-issues hook prepush/,
-  );
+  assert.match(output, /test ! -f node_modules\/\.bin\/commitment-issues/);
+  assert.match(output, /hook precommit/);
+  assert.doesNotMatch(output, /hook prepush/);
   assert.match(output, /Manager-owned files were left unchanged/);
   assert.equal(
     fs.readFileSync(path.join(tempDir, "lefthook.yml"), "utf8"),
@@ -739,12 +730,13 @@ test("doctor explains every manager activation failure without writing", (t) => 
   );
 
   const files = managerFixture(dirs[5], "lefthook");
+  const guardedPreCommitRun = hookManagerSnippets("lefthook", [
+    "pre-commit",
+  ])[0].content.match(/^\s*run: .+$/mu)?.[0];
+  assert.ok(guardedPreCommitRun);
   writeFile(
     path.join(dirs[5], "lefthook.yml"),
-    files["lefthook.yml"].replace(
-      "      run: node_modules/.bin/commitment-issues hook precommit",
-      "      run: echo other",
-    ),
+    files["lefthook.yml"].replace(guardedPreCommitRun, "      run: echo other"),
   );
   const configOnly = `${runDoctor(dirs[5], ["--integration=lefthook"]).stdout}`;
   assert.match(configOnly, /missing hook entries: pre-commit/);
@@ -879,7 +871,7 @@ test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t
   assert.match(unwiredOutput, /commit-msg/);
   assert.match(
     compactTerminalBoxText(unwiredOutput),
-    /node_modules\/\.bin\/commitment-issues\s*hook\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
+    hookSuggestionPattern("commit-msg"),
   );
   assert.equal(
     fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
@@ -888,7 +880,7 @@ test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t
 
   fs.writeFileSync(
     gitHook(tempDir, "commit-msg"),
-    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\necho custom\n',
+    `${hookInvocation("commit-msg")}\necho custom\n`,
   );
   const safe = runDoctor(tempDir);
   assert.equal(safe.status, 0);
@@ -1008,11 +1000,11 @@ test("doctor recognizes managed live husky-era wiring", (t) => {
   wireHuskyEra(tempDir, { live: true });
   fs.writeFileSync(
     path.join(tempDir, ".husky", "pre-commit"),
-    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
+    `${hookInvocation("pre-commit")}\n`,
   );
   fs.writeFileSync(
     path.join(tempDir, ".husky", "pre-push"),
-    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
+    `${hookInvocation("pre-push")}\n`,
   );
 
   const result = runDoctor(tempDir);
@@ -1325,11 +1317,11 @@ test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
   fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
   fs.writeFileSync(
     path.join(tempDir, "githooks", "pre-commit"),
-    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
+    `${hookInvocation("pre-commit")}\n`,
   );
   fs.writeFileSync(
     path.join(tempDir, "githooks", "pre-push"),
-    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
+    `${hookInvocation("pre-push")}\n`,
   );
   fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
   fs.chmodSync(path.join(tempDir, "githooks", "pre-push"), 0o755);
@@ -1352,17 +1344,11 @@ test("doctor resolves a tilde-based core.hooksPath through Git", (t) => {
   t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
 
   const hooksDir = path.join(homeDir, "shared hooks");
-  for (const [name, command] of [
-    [
-      "pre-commit",
-      "node_modules/.bin/commitment-issues hook precommit || exit $?",
-    ],
-    [
-      "pre-push",
-      'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?',
-    ],
-  ]) {
-    writeFile(path.join(hooksDir, name), `#!/bin/sh\n${command}\n`);
+  for (const name of ["pre-commit", "pre-push"]) {
+    writeFile(
+      path.join(hooksDir, name),
+      `#!/bin/sh\n${hookInvocation(name)}\n`,
+    );
     fs.chmodSync(path.join(hooksDir, name), 0o755);
   }
   run("git", ["config", "core.hooksPath", "~/shared hooks"], tempDir);
