@@ -502,6 +502,11 @@ test("Windows shards execute every test file once beside required npm lifecycle"
   );
 
   assert.match(windowsTests, /runs-on: windows-latest/u);
+  assert.ok(
+    Number(windowsTests.match(/^ {4}timeout-minutes: (\d+)\s*$/mu)?.[1] ?? 0) >=
+      15,
+    "Windows test shards need enough time for the complete cross-platform fixture suite",
+  );
   assert.match(windowsTests, /fail-fast: false/u);
   assert.match(windowsTests, /node-version: \["22\.11\.0", "24"\]/u);
   assert.match(windowsTests, /shard: \[1, 2\]/u);

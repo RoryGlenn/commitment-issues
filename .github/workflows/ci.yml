@@ -275,7 +275,9 @@ jobs:
         )
       }}
     runs-on: windows-latest
-    timeout-minutes: 10
+    # The cross-platform hook-manager fixtures push shard 2 past ten minutes
+    # on hosted Windows runners even when every test remains green.
+    timeout-minutes: 20
 
     env:
       COMMITMENT_ISSUES: 0
