@@ -379,21 +379,12 @@ if (integrationManager) {
   }
 
   const inactive = report.hooks.filter(({ status }) => status !== "wired");
-  const duplicates = inactive.filter(({ status }) => status === "duplicate");
-  const legacy = inactive.filter(({ status }) => status === "legacy");
-  const crossStage = inactive.filter(({ status }) => status === "cross-stage");
-  const missing = inactive.filter(({ status }) => status === "missing");
   const snippets =
     report.status === "uninspectable"
       ? []
       : hookManagerSnippets(
           integrationManager,
-          inactive
-            .filter(
-              ({ status }) =>
-                status !== "duplicate" && status !== "cross-stage",
-            )
-            .map(({ name }) => name),
+          inactive.map(({ name }) => name),
           report.destination,
         );
   const missingEvidence = selectedEvidence.length === 0;
@@ -406,73 +397,28 @@ if (integrationManager) {
       ? "the manager configuration could not be inspected safely"
       : missingEvidence
         ? `no active ${integrationManager} configuration was detected`
-        : duplicates.length > 0
-          ? `older direct duplicate entries must be removed: ${duplicates.map(({ name }) => name).join(", ")}`
-          : crossStage.length > 0
-            ? `cross-stage direct commands need in-place migration: ${crossStage.map(({ name }) => name).join(", ")}`
-            : legacy.length > 0
-              ? `older direct hook entries must be replaced: ${legacy.map(({ name }) => name).join(", ")}`
-              : missing.length > 0
-                ? `missing hook entries: ${missing.map(({ name }) => name).join(", ")}`
-                : runnerReport.status === "uninspectable"
-                  ? `Git's effective ${integrationManager} hook wrappers could not be inspected safely`
-                  : runnerReport.status === "foreign"
-                    ? `Git's effective ${integrationManager} hook wrappers are customized or unsupported: ${inactiveRunners.map(({ name }) => name).join(", ")}`
-                    : `Git's effective hooks do not dispatch to ${integrationManager}: ${inactiveRunners.map(({ name }) => name).join(", ")}`;
+        : inactive.length > 0
+          ? `missing hook entries: ${inactive.map(({ name }) => name).join(", ")}`
+          : runnerReport.status === "uninspectable"
+            ? `Git's effective ${integrationManager} hook wrappers could not be inspected safely`
+            : runnerReport.status === "foreign"
+              ? `Git's effective ${integrationManager} hook wrappers are customized or unsupported: ${inactiveRunners.map(({ name }) => name).join(", ")}`
+              : `Git's effective hooks do not dispatch to ${integrationManager}: ${inactiveRunners.map(({ name }) => name).join(", ")}`;
   const configRemediation =
     report.status === "wired" || report.status === "uninspectable"
       ? []
       : [
           "",
-          ...(duplicates.length > 0
-            ? [
-                pc.dim(
-                  "Remove only each older direct duplicate; keep the existing hook-dispatch entry:",
-                ),
-                ...duplicates.map(({ name }) => pc.dim(`  ${name}`)),
-                ...(integrationManager === "husky"
-                  ? [
-                      pc.dim(
-                        "Make each retained hook-dispatch entry the first substantive command.",
-                      ),
-                    ]
-                  : []),
-              ]
-            : []),
-          ...(legacy.length > 0
-            ? [
-                pc.dim(
-                  "Replace each older direct entry in place; preserve unrelated siblings and ordering, and do not keep both forms:",
-                ),
-              ]
-            : []),
-          ...(crossStage.length > 0
-            ? [
-                pc.dim(
-                  "Preserve these manager entries. Insert `hook` before each direct Commitment Issues subcommand in place; keep arguments and ordering:",
-                ),
-                ...crossStage.map(({ name }) => pc.dim(`  ${name}`)),
-              ]
-            : []),
-          ...(missing.length > 0
-            ? [
-                pc.dim(
-                  integrationManager === "husky"
-                    ? "Place each missing guarded entry before unrelated substantive commands:"
-                    : "Merge each missing entry without replacing existing commands:",
-                ),
-              ]
-            : []),
-          ...snippets.flatMap(({ name, destination, content }) => {
-            const status = inactive.find((hook) => hook.name === name)?.status;
-            return [
-              "",
-              pc.dim(
-                `${destination} (${name}; ${status === "legacy" ? "replace older entry" : "add missing entry"}):`,
-              ),
-              ...content.trimEnd().split("\n"),
-            ];
-          }),
+          pc.dim(
+            integrationManager === "husky"
+              ? "Place each missing guarded entry before unrelated substantive commands:"
+              : "Merge the missing entries without replacing existing commands:",
+          ),
+          ...snippets.flatMap(({ name, destination, content }) => [
+            "",
+            pc.dim(`${destination} (${name}):`),
+            ...content.trimEnd().split("\n"),
+          ]),
         ];
   const unsafeManagerInspection =
     report.status === "uninspectable" ||
@@ -613,8 +559,6 @@ if (hooksPathState.present && (!huskyEraHooksPath || huskyEraLive)) {
       "missing",
       "custom-without-command",
       "custom-with-legacy-command",
-      "custom-with-duplicate-command",
-      "custom-with-cross-command",
       "non-executable",
       "uninspectable",
     ].includes(report.status),
@@ -664,7 +608,7 @@ if (hooksPathState.present && (!huskyEraHooksPath || huskyEraLive)) {
       pc.dim(
         huskyEraLive
           ? "runs hooks managed by husky. These hooks are not wired up:"
-          : "runs hooks from that directory. Review these hooks:",
+          : "runs hooks from that directory. Add these commands there:",
       ),
       "",
       ...(huskyEraLive
@@ -674,39 +618,9 @@ if (hooksPathState.present && (!huskyEraHooksPath || huskyEraLive)) {
               ? `  ${escapeTerminalText(displayHookPath(checkDir, report.name))} ${pc.dim("(could not be inspected)")}`
               : report.status === "non-executable"
                 ? `  ${escapeTerminalText(executableFixCommand(checkDir, report.name))}`
-                : report.status === "custom-with-duplicate-command"
-                  ? `  ${escapeTerminalText(displayHookPath(checkDir, report.name))} ${pc.dim("(remove only the older direct duplicate; keep hook-dispatch)")}`
-                  : report.status === "custom-with-cross-command"
-                    ? `  ${escapeTerminalText(displayHookPath(checkDir, report.name))} ${pc.dim("(migrate cross-stage direct command in place)")}`
-                    : report.status === "custom-with-legacy-command"
-                      ? `  ${hookInvocation(report.name)}   ${pc.dim(`(replace older ${report.name} entry)`)}`
-                      : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
+                : `  ${hookInvocation(report.name)}   ${pc.dim(`(${report.name})`)}`,
           )),
       "",
-      ...(!huskyEraLive &&
-      inactive.some(({ status }) =>
-        [
-          "custom-with-legacy-command",
-          "custom-with-duplicate-command",
-          "custom-with-cross-command",
-        ].includes(status),
-      )
-        ? [
-            pc.dim(
-              "Make each retained or replacement hook-dispatch entry the first substantive command.",
-            ),
-            ...(inactive.some(
-              ({ status }) => status === "custom-with-cross-command",
-            )
-              ? [
-                  pc.dim(
-                    "Preserve each hook; insert `hook` before every cross-stage direct subcommand in place.",
-                  ),
-                ]
-              : []),
-            "",
-          ]
-        : []),
       ...(huskyEraLive
         ? [pc.dim(`Migrate to native .git/hooks wiring: npx ${BIN} init`)]
         : [
@@ -746,12 +660,6 @@ const unwiredHooks = hookReports
 const legacyHooks = hookReports
   .filter((report) => report.status === "custom-with-legacy-command")
   .map((report) => report.name);
-const duplicateHooks = hookReports
-  .filter((report) => report.status === "custom-with-duplicate-command")
-  .map((report) => report.name);
-const crossStageHooks = hookReports
-  .filter((report) => report.status === "custom-with-cross-command")
-  .map((report) => report.name);
 const nonExecutableHooks = hookReports
   .filter((report) => report.status === "non-executable")
   .map((report) => report.name);
@@ -778,21 +686,7 @@ if (unwiredHooks.length > 0) {
 }
 if (legacyHooks.length > 0) {
   problems.push(
-    `hook(s) using older direct commands: ${legacyHooks
-      .map((name) => displayHookPath(hooksDir, name))
-      .join(", ")}`,
-  );
-}
-if (duplicateHooks.length > 0) {
-  problems.push(
-    `hook(s) with current and older direct commands: ${duplicateHooks
-      .map((name) => displayHookPath(hooksDir, name))
-      .join(", ")}`,
-  );
-}
-if (crossStageHooks.length > 0) {
-  problems.push(
-    `hook(s) with cross-stage direct commands: ${crossStageHooks
+    `hook(s) using unguarded or direct checks outside the current managed contract: ${legacyHooks
       .map((name) => displayHookPath(hooksDir, name))
       .join(", ")}`,
   );
@@ -909,13 +803,14 @@ if (
   ]);
 }
 
-// Preserve user-owned hooks and report manual repairs. Quiet install checks
-// still exit 0; interactive doctor reports incomplete wiring as nonzero.
+// A user-owned hook that never calls commitment-issues, is not executable, or
+// cannot be inspected cannot be repaired without changing the user's path or
+// file. Surface it instead of silently claiming health. Quiet mode still exits
+// 0 (an install must never break); interactive mode explains the manual fix and
+// exits non-zero because the tool is genuinely not wired in.
 if (
   unwiredHooks.length > 0 ||
   legacyHooks.length > 0 ||
-  duplicateHooks.length > 0 ||
-  crossStageHooks.length > 0 ||
   nonExecutableHooks.length > 0 ||
   uninspectableHooks.length > 0
 ) {
@@ -923,14 +818,12 @@ if (
     const inactivePaths = [
       ...unwiredHooks,
       ...legacyHooks,
-      ...duplicateHooks,
-      ...crossStageHooks,
       ...nonExecutableHooks,
       ...uninspectableHooks,
     ].map((name) => displayHookPath(hooksDir, name));
     quietWarning(
-      `commitment-issues: ${inactivePaths.join(", ")} are inactive, use an ` +
-        `older direct command or duplicate, or do not invoke commitment-issues — run ` +
+      `commitment-issues: ${inactivePaths.join(", ")} are inactive or do not ` +
+        `invoke commitment-issues — run ` +
         `\`${runScript("doctor")}\`.`,
     );
     process.exit(0);
@@ -943,13 +836,9 @@ if (
           ? "A git hook could not be inspected."
           : nonExecutableHooks.length > 0
             ? "A git hook is inactive."
-            : crossStageHooks.length > 0
-              ? "A git hook contains a cross-stage direct Commitment Issues command."
-              : duplicateHooks.length > 0
-                ? "A git hook contains duplicate Commitment Issues commands."
-                : legacyHooks.length > 0
-                  ? "A git hook uses an older Commitment Issues command."
-                  : "A git hook does not invoke commitment-issues.",
+            : legacyHooks.length > 0
+              ? "A git hook uses outdated unguarded or direct wiring."
+              : "A git hook does not invoke commitment-issues.",
       ),
       "",
       ...unwiredHooks.map((name) =>
@@ -959,17 +848,7 @@ if (
       ),
       ...legacyHooks.map((name) =>
         pc.dim(
-          `${escapeTerminalText(displayHookPath(hooksDir, name))}: replace the older entry with \`${escapeTerminalText(hookInvocation(name))}\`.`,
-        ),
-      ),
-      ...duplicateHooks.map((name) =>
-        pc.dim(
-          `${escapeTerminalText(displayHookPath(hooksDir, name))}: remove only the older direct duplicate; keep the existing hook-dispatch entry.`,
-        ),
-      ),
-      ...crossStageHooks.map((name) =>
-        pc.dim(
-          `${escapeTerminalText(displayHookPath(hooksDir, name))}: preserve this hook and migrate each cross-stage direct command in place.`,
+          `${escapeTerminalText(displayHookPath(hooksDir, name))} must use ${escapeTerminalText(hookInvocation(name))} so package removal fails open and hook-only bypasses stay effective.`,
         ),
       ),
       ...nonExecutableHooks.flatMap((name) => [
@@ -986,36 +865,12 @@ if (
         ),
       ),
       "",
-      ...(unwiredHooks.length > 0
+      ...(unwiredHooks.length > 0 || legacyHooks.length > 0
         ? [
             pc.dim(
               "Make the command above the first substantive line in each unwired",
             ),
             pc.dim("hook, or delete the hook so doctor can recreate it."),
-          ]
-        : []),
-      ...(legacyHooks.length > 0
-        ? [
-            pc.dim(
-              "Replace each older command, then make the guarded hook-dispatch",
-            ),
-            pc.dim(
-              "entry the first substantive command; do not keep both forms.",
-            ),
-          ]
-        : []),
-      ...(duplicateHooks.length > 0
-        ? [
-            pc.dim(
-              "Keep each current hook-dispatch entry and make it the first substantive command.",
-            ),
-          ]
-        : []),
-      ...(crossStageHooks.length > 0
-        ? [
-            pc.dim(
-              "Insert `hook` before each direct Commitment Issues subcommand; keep its arguments and ordering.",
-            ),
           ]
         : []),
       ...(uninspectableHooks.length > 0

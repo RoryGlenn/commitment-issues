@@ -69,21 +69,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Made Husky, Lefthook, and pre-commit coexistence entries select only the
+  first regular executable project-local launcher from the exact extensionless,
+  `.exe`, `.cmd`, and `.bat` candidates. Missing, pruned, wrong-kind, or
+  non-executable launchers now fail open silently without a PATH/global
+  fallback, while literal hook argv and real blocking exits still propagate.
 - Hardened hook-manager coexistence verification: Lefthook snippets are static
   and resolve the active commit-message path inside Commitment Issues,
   effective Lefthook wrappers must forward hook arguments, pre-commit wrappers
   must contain a real dispatch, and linked Husky roots/runtime directories are
   rejected without reading through them. Custom executable Husky v8 hooks
   remain valid unless they explicitly source an invalid `_/husky.sh` runtime.
+  Init and doctor now print remediation snippets only for inactive hook
+  entries, so fully wired integrations are not told to add duplicates.
+  Uninstall cleanup guidance also recognizes exact pre-dispatch direct manager
+  entries without treating them as healthy or changing manager-owned files.
+  Lefthook's fixed package-owned file producer keeps empty commits and pushes
+  inside the policy path, while canonical POSIX/Windows and workspace-root
+  wrappers are inspected without executing repository-controlled manager code.
 - The staged large-file guard now gives its fixed-argv, NUL-safe whole-index
   probe an explicit bounded output buffer instead of inheriting Node's roughly
   1 MiB default. Large indexes no longer silently disable oversized-file
   findings, and genuine Git or buffer failures remain advisory but visible.
 - Pre-push now accepts the documented complete `PRE_COMMIT_*` range environment
-  when the pre-commit framework has consumed Git's stdin. Managed hooks now use
-  a hook-only dispatcher: skip variables stay hook-scoped, old entries receive
-  replacement or duplicate-removal guidance, and Husky preserves blocking
-  exits before later custom commands.
+  when the pre-commit framework has consumed Git's stdin. Manager-composed hook
+  entrypoints honor `COMMITMENT_ISSUES=0` and legacy `HUSKY=0`, and Husky
+  snippets preserve nonzero blocking exits before later custom commands.
 - Pre-commit lint, format, and staged-test checks plus configured pre-push tests
   now partition path arguments by one shared platform-aware byte/unit budget
   instead of passing an unbounded argv. Non-zero batches continue so every

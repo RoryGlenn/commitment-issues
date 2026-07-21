@@ -44,31 +44,33 @@ test("manager-composed pre-push honors the legacy Husky skip switch", (t) => {
       cwd: tempDir,
       encoding: "utf8",
       input: "",
-      env: {
-        ...process.env,
-        COMMITMENT_ISSUES: "1",
-        HUSKY: "0",
-      },
+      env: { ...process.env, HUSKY: "0" },
     },
   );
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`, "");
 });
 
-test("explicit prepush still runs when hook-only skips are configured", (t) => {
+test("explicit pre-push runs under hook-only skip variables", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
-  for (const variable of ["COMMITMENT_ISSUES", "HUSKY"]) {
-    const env = { ...process.env };
-    delete env.COMMITMENT_ISSUES;
-    delete env.HUSKY;
-    env[variable] = "0";
+
+  for (const skippedBy of ["COMMITMENT_ISSUES", "HUSKY"]) {
     const result = spawnSync(
       process.execPath,
       [path.join(tempDir, "scripts", "cli.mjs"), "prepush", "--json"],
-      { cwd: tempDir, encoding: "utf8", input: "", env },
+      {
+        cwd: tempDir,
+        encoding: "utf8",
+        input: "",
+        env: {
+          ...process.env,
+          COMMITMENT_ISSUES: skippedBy === "COMMITMENT_ISSUES" ? "0" : "1",
+          HUSKY: skippedBy === "HUSKY" ? "0" : "1",
+        },
+      },
     );
-    assert.equal(result.status, 0, `${variable}: ${result.stderr}`);
+    assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).command, "prepush");
   }
 });

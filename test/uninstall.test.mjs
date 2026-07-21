@@ -6,7 +6,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { hookBody, hookInvocation } from "../scripts/lib/hooks.mjs";
+import {
+  hookBody,
+  hookInvocation,
+  hookManagerSnippets,
+} from "../scripts/lib/hooks.mjs";
 import {
   compactTerminalBoxText,
   countTerminalBoxes,
@@ -59,7 +63,7 @@ test("uninstall removes generated setup and preserves shared project state", (t)
 
   assert.equal(runScript(tempDir, "init").status, 0);
   const result = runScript(tempDir, "uninstall");
-  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+  const output = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0);
   assert.match(output, /Commitment Issues setup was removed/);
@@ -309,7 +313,7 @@ test("uninstall previews and removes an owned commit-msg hook", (t) => {
   assert.equal(fs.existsSync(gitHook(tempDir, "commit-msg")), false);
 });
 
-test("uninstall preserves misplaced managed commands for manual cleanup", (t) => {
+test("uninstall preserves customized commit-msg hooks for manual cleanup", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
   writePackage(tempDir, {
@@ -317,7 +321,7 @@ test("uninstall preserves misplaced managed commands for manual cleanup", (t) =>
     version: "1.0.0",
     precommitChecks: { commitMessage: { enabled: true } },
   });
-  const customHook = `#!/bin/sh\necho custom\n${hookInvocation("commit-msg")}\n`;
+  const customHook = `#!/bin/sh\n${hookInvocation("commit-msg")}\necho custom\n`;
   writeFile(gitHook(tempDir, "commit-msg"), customHook);
 
   const result = runScript(tempDir, "uninstall");
@@ -328,78 +332,19 @@ test("uninstall preserves misplaced managed commands for manual cleanup", (t) =>
   assert.equal(readFile(tempDir, ".git/hooks/commit-msg"), customHook);
 });
 
-test("uninstall preserves legacy direct custom hooks for manual cleanup", (t) => {
+test("uninstall reports legacy local hook commands for manual cleanup", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
   const legacyHook =
-    '#!/bin/sh\nnode_modules/.bin/commitment-issues commit-msg "$1" || exit $?\necho custom\n';
-  writeFile(gitHook(tempDir, "commit-msg"), legacyHook);
-  fs.chmodSync(gitHook(tempDir, "commit-msg"), 0o755);
+    "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\necho custom\n";
+  writeFile(gitHook(tempDir, "pre-commit"), legacyHook);
 
   const result = runScript(tempDir, "uninstall");
   const output = `${result.stdout}${result.stderr}`;
-
   assert.equal(result.status, 0);
-  assert.match(output, /commit-msg is customized/);
+  assert.match(output, /pre-commit is customized/);
   assert.match(output, /remove its commitment-issues command manually/i);
-  assert.equal(countTerminalBoxes(output), 1);
-  assert.equal(readFile(tempDir, ".git/hooks/commit-msg"), legacyHook);
-});
-
-test("uninstall reports both commands in a customized duplicate hook", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-  const duplicateHook = [
-    "#!/bin/sh",
-    "echo prior",
-    "node_modules/.bin/commitment-issues precommit || exit $?",
-    hookInvocation("pre-commit"),
-    "echo custom",
-    "",
-  ].join("\n");
-  writeFile(gitHook(tempDir, "pre-commit"), duplicateHook);
-  fs.chmodSync(gitHook(tempDir, "pre-commit"), 0o755);
-  fs.mkdirSync(path.join(tempDir, ".husky"), { recursive: true });
-  writeFile(
-    path.join(tempDir, ".husky", "pre-commit"),
-    duplicateHook.replace("#!/bin/sh\n", ""),
-  );
-
-  const result = runScript(tempDir, "uninstall");
-  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
-
-  assert.equal(result.status, 0);
-  assert.match(output, /pre-commit is customized/i);
-  assert.match(output, /remove both.*current.*older.*direct/iu);
-  assert.match(
-    output,
-    /husky configuration.*remove all Commitment Issues.*entries for pre-commit manually/iu,
-  );
-  assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), duplicateHook);
-  assert.equal(
-    readFile(tempDir, ".husky/pre-commit"),
-    duplicateHook.replace("#!/bin/sh\n", ""),
-  );
-});
-
-test("uninstall reports every cross-stage command for manual cleanup", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-  const crossStage = [
-    "#!/bin/sh",
-    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?',
-    "node_modules/.bin/commitment-issues precommit || exit $?",
-    "",
-  ].join("\n");
-  writeFile(gitHook(tempDir, "pre-push"), crossStage);
-  fs.chmodSync(gitHook(tempDir, "pre-push"), 0o755);
-
-  const result = runScript(tempDir, "uninstall");
-  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
-
-  assert.equal(result.status, 0);
-  assert.match(output, /remove all its commitment-issues\s*commands manually/i);
-  assert.equal(readFile(tempDir, ".git/hooks/pre-push"), crossStage);
+  assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), legacyHook);
 });
 
 test("uninstall dry-run consolidates customized-hook cleanup", (t) => {
@@ -571,7 +516,7 @@ test("uninstall reports legacy commands in an active Husky directory", (t) => {
 
   writeFile(
     path.join(tempDir, ".husky", "pre-commit"),
-    `#!/bin/sh\necho custom\n${hookInvocation("pre-commit")}\n`,
+    `#!/bin/sh\n${hookInvocation("pre-commit")}\n`,
   );
   run("git", ["config", "core.hooksPath", ".husky/_"], tempDir);
 
@@ -581,7 +526,7 @@ test("uninstall reports legacy commands in an active Husky directory", (t) => {
   assert.equal(result.status, 0);
   assert.equal(
     readFile(tempDir, ".husky/pre-commit"),
-    `#!/bin/sh\necho custom\n${hookInvocation("pre-commit")}\n`,
+    `#!/bin/sh\n${hookInvocation("pre-commit")}\n`,
   );
   assert.match(output, /\.husky\/pre-commit is customized/);
 });
@@ -799,25 +744,15 @@ test("uninstall errors clearly without a valid package.json", (t) => {
 const coexistenceFixtures = {
   husky: {
     file: ".husky/pre-commit",
-    content:
-      "#!/bin/sh\necho custom\nnode_modules/.bin/commitment-issues hook precommit || exit $?\necho preserved\n",
+    content: `#!/bin/sh\n${hookInvocation("pre-commit")}\necho custom\necho preserved\n`,
     legacyContent:
       "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\necho custom\necho preserved\n",
   },
   lefthook: {
     file: "lefthook.yml",
-    content: [
-      "pre-commit:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook precommit",
-      "pre-push:",
-      "  commands:",
-      "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues hook prepush",
-      "      use_stdin: true",
-      "",
-    ].join("\n"),
+    content: hookManagerSnippets("lefthook", ["pre-commit", "pre-push"])
+      .map(({ content }) => content)
+      .join(""),
     legacyContent: [
       "pre-commit:",
       "  commands:",
@@ -833,19 +768,9 @@ const coexistenceFixtures = {
   },
   "pre-commit": {
     file: ".pre-commit-config.yaml",
-    content: [
-      "repos:",
-      "  - repo: local",
-      "    hooks:",
-      "      - id: commitment-issues-pre-commit",
-      "        name: commitment-issues pre-commit",
-      "        entry: node_modules/.bin/commitment-issues hook precommit",
-      "        language: system",
-      "        pass_filenames: false",
-      "        always_run: true",
-      "        stages: [pre-commit]",
-      "",
-    ].join("\n"),
+    content: `repos:\n  - repo: local\n    hooks:\n${
+      hookManagerSnippets("pre-commit", ["pre-commit"])[0].content
+    }`,
     legacyContent: [
       "repos:",
       "  - repo: local",
@@ -863,55 +788,90 @@ const coexistenceFixtures = {
 };
 
 for (const [manager, fixture] of Object.entries(coexistenceFixtures)) {
-  for (const [variant, content] of [
-    ["current", fixture.content],
-    ["legacy", fixture.legacyContent],
-  ]) {
-    test(`uninstall preserves user-owned ${manager} ${variant} integration content`, (t) => {
-      const tempDir = createTempRepo();
-      t.after(() => cleanupTempRepo(tempDir));
-      writePackage(tempDir, {
-        name: `${manager}-consumer`,
-        version: "1.0.0",
-        scripts: {
-          prepare: `setup-manager && commitment-issues doctor --quiet --integration=${manager}`,
-          doctor: "commitment-issues doctor",
-        },
-        precommitChecks: { advisePushTests: true },
-        devDependencies: { [manager === "pre-commit" ? "tool" : manager]: "1" },
-      });
-      if (manager === "husky") {
-        fs.mkdirSync(path.join(tempDir, ".husky"), { recursive: true });
-      }
-      writeFile(path.join(tempDir, fixture.file), content);
-
-      const preview = runScript(tempDir, "uninstall", ["--dry-run"]);
-      assert.equal(preview.status, 0);
-      assert.match(
-        `${preview.stdout}${preview.stderr}`,
-        new RegExp(`${manager} configuration is user-owned`, "i"),
-      );
-      assert.equal(readFile(tempDir, fixture.file), content);
-      assert.match(
-        readPackage(tempDir).scripts.prepare,
-        /commitment-issues doctor --quiet --integration=/,
-      );
-
-      const result = runScript(tempDir, "uninstall");
-      const output = `${result.stdout}${result.stderr}`;
-      assert.equal(result.status, 0);
-      assert.match(output, /Manual cleanup still needed/);
-      assert.match(
-        output,
-        new RegExp(`${manager} configuration is user-owned`, "i"),
-      );
-      assert.equal(readFile(tempDir, fixture.file), content);
-      assert.deepEqual(readPackage(tempDir).scripts, {
-        prepare: "setup-manager",
-      });
-      assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  test(`uninstall preserves user-owned ${manager} integration content`, (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    writePackage(tempDir, {
+      name: `${manager}-consumer`,
+      version: "1.0.0",
+      scripts: {
+        prepare: `setup-manager && commitment-issues doctor --quiet --integration=${manager}`,
+        doctor: "commitment-issues doctor",
+      },
+      precommitChecks: { advisePushTests: true },
+      devDependencies: { [manager === "pre-commit" ? "tool" : manager]: "1" },
     });
-  }
+    if (manager === "husky") {
+      fs.mkdirSync(path.join(tempDir, ".husky"), { recursive: true });
+    }
+    writeFile(path.join(tempDir, fixture.file), fixture.content);
+
+    const preview = runScript(tempDir, "uninstall", ["--dry-run"]);
+    assert.equal(preview.status, 0);
+    assert.match(
+      `${preview.stdout}${preview.stderr}`,
+      new RegExp(`${manager} configuration is user-owned`, "i"),
+    );
+    assert.equal(readFile(tempDir, fixture.file), fixture.content);
+    assert.match(
+      readPackage(tempDir).scripts.prepare,
+      /commitment-issues doctor --quiet --integration=/,
+    );
+
+    const result = runScript(tempDir, "uninstall");
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0);
+    assert.match(output, /Manual cleanup still needed/);
+    assert.match(
+      output,
+      new RegExp(`${manager} configuration is user-owned`, "i"),
+    );
+    assert.equal(readFile(tempDir, fixture.file), fixture.content);
+    assert.deepEqual(readPackage(tempDir).scripts, {
+      prepare: "setup-manager",
+    });
+    assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
+  });
+
+  test(`uninstall reports pre-dispatch ${manager} entries without changing them`, (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    writePackage(tempDir, {
+      name: `${manager}-legacy-consumer`,
+      version: "1.0.0",
+      scripts: {
+        prepare: `setup-manager && commitment-issues doctor --quiet --integration=${manager}`,
+        doctor: "commitment-issues doctor",
+      },
+      precommitChecks: { advisePushTests: true },
+      devDependencies: { [manager === "pre-commit" ? "tool" : manager]: "1" },
+    });
+    if (manager === "husky") {
+      fs.mkdirSync(path.join(tempDir, ".husky"), { recursive: true });
+    }
+    writeFile(path.join(tempDir, fixture.file), fixture.legacyContent);
+
+    const preview = runScript(tempDir, "uninstall", ["--dry-run"]);
+    assert.equal(preview.status, 0);
+    assert.match(
+      `${preview.stdout}${preview.stderr}`,
+      new RegExp(`${manager} configuration is user-owned`, "i"),
+    );
+    assert.equal(readFile(tempDir, fixture.file), fixture.legacyContent);
+
+    const result = runScript(tempDir, "uninstall");
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0);
+    assert.match(output, /Manual cleanup still needed/);
+    assert.match(
+      output,
+      new RegExp(`${manager} configuration is user-owned`, "i"),
+    );
+    assert.equal(readFile(tempDir, fixture.file), fixture.legacyContent);
+    assert.deepEqual(readPackage(tempDir).scripts, {
+      prepare: "setup-manager",
+    });
+  });
 }
 
 test("uninstall preserves ambiguous manager configuration for manual cleanup", (t) => {

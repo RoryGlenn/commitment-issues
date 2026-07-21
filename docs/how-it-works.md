@@ -48,9 +48,14 @@ The hook files call the package binary from `node_modules/.bin`, so the behavior
 
 ### Existing-manager path
 
-`init --integration=<manager>` uses a hidden dispatcher inside Husky, Lefthook,
-or pre-commit. Manager files stay user-owned; health requires exact config and
-an executable installed dispatcher. Ambiguous or unsafe ownership fails closed.
+With `init --integration=<manager>`, the same three entrypoints run inside
+Husky, Lefthook, or pre-commit instead. Init and doctor share one conservative
+inspector: comments/examples do not count as wiring, manager config symlinks
+are uninspectable, multiple owners are never auto-selected, and every manager
+file stays byte-for-byte user-owned. Health also requires an executable
+manager-generated dispatcher in Git's effective hooks directory, so a config
+entry is not confused with an installed integration. Explicit owner selection
+does not bypass an unsafe, duplicate, or unsupported selected configuration.
 
 The recognized forms are intentionally conservative. Lefthook inspection is
 limited to one of six main YAML names (`lefthook.yml`, `lefthook.yaml`, their
@@ -74,8 +79,9 @@ forwards pre-push stdin through `use_stdin: true`, and invokes commit-msg with
 `--git-path` so the Node entrypoint resolves Git's worktree-specific
 message path itself. The pre-commit framework supplies commit-msg's filename
 and publishes its consumed pre-push range through `PRE_COMMIT_*`
-variables. Hidden dispatch keeps skips hook-scoped; old and duplicate forms get
-replacement or removal-only guidance.
+variables. All paths reach the same Node
+entrypoints, advisory/blocking configuration, local-tool resolution, and
+project-wide skip switch.
 
 Only the Commitment Issues entry is required to be unconditional; other
 manager commands retain their own ordering, conditions, and skip behavior.
@@ -129,7 +135,7 @@ When `precommitChecks.commitMessage.enabled` is `true`, `init` and `doctor`
 also own the native commit-msg hook. Git supplies the pending message file as
 `$1`; the generated hook quotes it and the Node entrypoint forwards its absolute
 path as one argv value to project-local `node_modules/.bin/commitlint`.
-Lefthook instead uses the explicit static `hook commit-msg --git-path` mode, which
+Lefthook instead uses the explicit static `commit-msg --git-path` mode, which
 selects `MERGE_MSG` only for a direct `git merge` invocation (identified by
 Git's `GITHEAD_<object-id>` environment plus a regular `MERGE_HEAD`) and uses
 `COMMIT_EDITMSG` for ordinary commits and a later `git commit` that completes a

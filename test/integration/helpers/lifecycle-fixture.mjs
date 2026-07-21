@@ -139,6 +139,39 @@ const HOOK_SUBCOMMANDS = {
   "pre-push": "prepush",
   "commit-msg": 'commit-msg "$1"',
 };
+const LOCAL_MANAGER_BIN = "node_modules/.bin/commitment-issues";
+const LOCAL_MANAGER_BIN_CANDIDATES = [
+  LOCAL_MANAGER_BIN,
+  `${LOCAL_MANAGER_BIN}.exe`,
+  `${LOCAL_MANAGER_BIN}.cmd`,
+  `${LOCAL_MANAGER_BIN}.bat`,
+];
+
+function managerCandidateLoop(command) {
+  return `for commitment_issues_bin in ${LOCAL_MANAGER_BIN_CANDIDATES.join(" ")}; do if test -f "$commitment_issues_bin"; then if test -x "$commitment_issues_bin"; then ${command}; fi; fi; done`;
+}
+
+function guardedManagerCommand(name, manager) {
+  const subcommand = HOOK_SUBCOMMANDS[name].split(" ", 1)[0];
+  if (manager === "husky") {
+    const suffix =
+      name === "pre-push" ? ' "$@"' : name === "commit-msg" ? ' "$1"' : "";
+    return managerCandidateLoop(
+      `"$commitment_issues_bin" hook ${subcommand}${suffix} || exit $?; break`,
+    );
+  }
+  if (manager === "lefthook") {
+    const environment =
+      name === "commit-msg" ? "" : "COMMITMENT_ISSUES_LEFTHOOK_FILE={files} ";
+    const suffix = name === "commit-msg" ? " --git-path" : "";
+    return managerCandidateLoop(
+      `${environment}exec "$commitment_issues_bin" hook ${subcommand}${suffix}`,
+    );
+  }
+  return `sh -c '${managerCandidateLoop(
+    `exec "$commitment_issues_bin" hook ${subcommand} "$@"`,
+  )}' --`;
+}
 
 // Yarn Berry's file protocol expects a package identity and has ambiguous
 // absolute-drive handling on Windows. Stage the unchanged bytes at a fixed
@@ -1039,26 +1072,25 @@ export function createLifecycleIntegration() {
           "utf8",
         );
         const managerFiles = {
-          ".husky/pre-commit":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-commit "$@"\n',
-          ".husky/pre-push":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-push "$@"\n',
-          ".husky/commit-msg":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky commit-msg "$@"\n',
+          ".husky/pre-commit": `#!/usr/bin/env sh\n${guardedManagerCommand("pre-commit", "husky")}\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-commit "$@"\n`,
+          ".husky/pre-push": `#!/usr/bin/env sh\n${guardedManagerCommand("pre-push", "husky")}\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-push "$@"\n`,
+          ".husky/commit-msg": `#!/usr/bin/env sh\n${guardedManagerCommand("commit-msg", "husky")}\n.lifecycle-manager-bin/lifecycle-husky-probe husky commit-msg "$@"\n`,
           "lefthook.yml": [
             "pre-commit:",
             "  commands:",
             "    commitment-issues:",
-            "      run: node_modules/.bin/commitment-issues hook precommit",
+            `      run: ${guardedManagerCommand("pre-commit", "lefthook")}`,
+            "      files: node -- node_modules/commitment-issues/scripts/lefthook-files.mjs",
             "pre-push:",
             "  commands:",
             "    commitment-issues:",
-            "      run: node_modules/.bin/commitment-issues hook prepush",
+            `      run: ${guardedManagerCommand("pre-push", "lefthook")}`,
+            "      files: node -- node_modules/commitment-issues/scripts/lefthook-files.mjs",
             "      use_stdin: true",
             "commit-msg:",
             "  commands:",
             "    commitment-issues:",
-            "      run: node_modules/.bin/commitment-issues hook commit-msg --git-path",
+            `      run: ${guardedManagerCommand("commit-msg", "lefthook")}`,
             "",
           ].join("\n"),
           ".pre-commit-config.yaml": [
@@ -1068,7 +1100,7 @@ export function createLifecycleIntegration() {
             ...["pre-commit", "pre-push", "commit-msg"].flatMap((name) => [
               `      - id: commitment-issues-${name}`,
               `        name: commitment-issues ${name}`,
-              `        entry: node_modules/.bin/commitment-issues hook ${HOOK_SUBCOMMANDS[name].split(" ")[0]}`,
+              `        entry: ${guardedManagerCommand(name, "pre-commit")}`,
               "        language: system",
               `        pass_filenames: ${name === "commit-msg" ? "true" : "false"}`,
               "        always_run: true",
@@ -1093,6 +1125,14 @@ export function createLifecycleIntegration() {
         writeFile(
           path.join(competingManagerBin, "lefthook.cmd"),
           '@if "%~1"=="-h" exit /b 0\r\n@exit /b 97\r\n',
+        );
+        writeFile(
+          path.join(competingManagerBin, "commitment-issues"),
+          '#!/bin/sh\nprintf global-fallback > "$COMMITMENT_ISSUES_LIFECYCLE_CLI_LOG"\nexit 98\n',
+        );
+        fs.chmodSync(
+          path.join(competingManagerBin, "commitment-issues"),
+          0o755,
         );
 
         const probeSource = [
@@ -1456,6 +1496,13 @@ export function createLifecycleIntegration() {
                       : ""),
                   `${manager} ${name} should apply its configured stdin contract`,
                 );
+                if (manager === "lefthook" && name !== "commit-msg") {
+                  assertLifecycle(
+                    record.entryEnv.COMMITMENT_ISSUES_LEFTHOOK_FILE ===
+                      "node_modules/commitment-issues/package.json",
+                    `Lefthook ${name} should force empty operations with only the fixed installed-package sentinel`,
+                  );
+                }
                 if (manager === "pre-commit" && name === "pre-push") {
                   assertLifecycle(
                     record.entryEnv.PRE_COMMIT_LOCAL_BRANCH ===
@@ -1534,6 +1581,75 @@ export function createLifecycleIntegration() {
           }
         };
 
+        const executeMissingManagerBin = (manager, hooksPath) => {
+          const wrapperPath = path.join(repoDir, hooksPath, "pre-commit");
+          const localBin = path.join(
+            repoDir,
+            "node_modules",
+            ".bin",
+            "commitment-issues",
+          );
+          const parkedCandidates = ["", ".exe", ".cmd", ".bat"]
+            .map((suffix) => `${localBin}${suffix}`)
+            .filter((candidate) => fs.existsSync(candidate))
+            .map((candidate) => ({
+              candidate,
+              parked: `${candidate}.lifecycle-parked`,
+            }));
+          assertLifecycle(
+            parkedCandidates.length > 0,
+            `${manager} should begin with an installed permitted local launcher`,
+          );
+          const managerLogPath = path.join(
+            repoDir,
+            `.lifecycle-${manager}-missing-bin-manager.jsonl`,
+          );
+          const cliLogPath = path.join(
+            repoDir,
+            `.lifecycle-${manager}-missing-bin-cli.jsonl`,
+          );
+          fs.rmSync(managerLogPath, { force: true });
+          fs.rmSync(cliLogPath, { force: true });
+          for (const { candidate, parked } of parkedCandidates) {
+            fs.renameSync(candidate, parked);
+          }
+          try {
+            const result = crossSpawn.sync(
+              manager === "pre-commit" ? "bash" : "sh",
+              [wrapperPath],
+              {
+                cwd: repoDir,
+                encoding: "utf8",
+                env: {
+                  ...managerLifecycleEnv(repoDir, competingManagerBin),
+                  COMMITMENT_ISSUES_LIFECYCLE_CLI_LOG: cliLogPath,
+                  COMMITMENT_ISSUES_LIFECYCLE_HOOK_LOG: managerLogPath,
+                  NODE_OPTIONS: `--import=${pathToFileURL(cliTracePath).href}`,
+                },
+              },
+            );
+            if (result.error) throw result.error;
+            assertLifecycle(
+              result.status === 0,
+              `${manager} should fail open when every permitted project-local launcher is absent, found ${result.status}: ${[result.stdout, result.stderr].filter(Boolean).join("\n")}`,
+            );
+            assertLifecycle(
+              !fs.existsSync(cliLogPath),
+              `${manager} should not execute a PATH/global fallback when its project-local launchers are absent`,
+            );
+            assertLifecycle(
+              fs.existsSync(managerLogPath),
+              `${manager} should still reach its reviewed wrapper before the guarded entry fails open`,
+            );
+          } finally {
+            for (const { candidate, parked } of parkedCandidates) {
+              fs.renameSync(parked, candidate);
+            }
+            fs.rmSync(managerLogPath, { force: true });
+            fs.rmSync(cliLogPath, { force: true });
+          }
+        };
+
         for (const manager of ["husky", "lefthook", "pre-commit"]) {
           const { hooksPath, runnerFiles } = configureManagerRunner(manager);
           const ownedFiles = {
@@ -1554,7 +1670,7 @@ export function createLifecycleIntegration() {
           );
           assertLifecycle(
             !preview.includes(`${manager} coexistence snippets`),
-            `${manager} dry-run should omit snippets for fully wired hooks`,
+            `${manager} dry-run should not reprint already-wired snippets`,
           );
           assertFilesUnchanged(ownedFiles, `${manager} dry-run`);
 
@@ -1615,6 +1731,7 @@ export function createLifecycleIntegration() {
           executeManagerRunners(manager, hooksPath);
           executeConfiguredManagerEntries(manager, hooksPath);
           executeManagerBypasses(manager, hooksPath);
+          executeMissingManagerBin(manager, hooksPath);
 
           const [integrationUninstallCommand, integrationUninstallArgs] =
             execBin(["uninstall"]);

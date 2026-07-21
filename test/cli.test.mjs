@@ -310,55 +310,15 @@ test("cli prints the package version for --version and -v", (t) => {
   }
 });
 
-test("cli version stays available without command-only dependencies", (t) => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-version-only-"));
-  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
-  for (const relativePath of [
-    "scripts/cli.mjs",
-    "scripts/lib/runtime.mjs",
-    "scripts/lib/terminal.mjs",
-  ]) {
-    const destination = path.join(tempDir, relativePath);
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.copyFileSync(path.join(repoRoot, relativePath), destination);
-  }
-  writeFile(
-    path.join(tempDir, "package.json"),
-    `${JSON.stringify({
-      version: "1.2.3",
-      type: "module",
-      engines: { node: ">=22.11.0" },
-    })}\n`,
-  );
-
-  const result = spawnSync(
-    process.execPath,
-    [path.join(tempDir, "scripts", "cli.mjs"), "--version"],
-    { cwd: tempDir, encoding: "utf8" },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout, "1.2.3\n");
-});
-
 test("cli errors on an unknown command", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  const result = cli(tempDir, ["bogus"]);
-  assert.equal(result.status, 1);
-  assert.match(combinedOutput(result), /unknown command 'bogus'/);
-  assert.doesNotMatch(combinedOutput(result), /Did you mean/);
-});
-
-test("cli rejects inherited object names as unknown commands", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
-
-  for (const name of ["constructor", "toString", "__proto__"]) {
+  for (const name of ["bogus", "__proto__", "constructor", "toString"]) {
     const result = cli(tempDir, [name]);
-    assert.equal(result.status, 1, name);
-    assert.match(combinedOutput(result), /unknown command/u, name);
-    assert.doesNotMatch(combinedOutput(result), /TypeError|ERR_INVALID_ARG/u);
+    assert.equal(result.status, 1);
+    assert.match(combinedOutput(result), /unknown command/);
+    assert.doesNotMatch(combinedOutput(result), /TypeError|at path\.join/);
   }
 });
 
@@ -369,53 +329,77 @@ test("hook dispatch is hidden, validated, and owns bypass handling", (t) => {
   assert.equal(help.status, 1);
   assert.match(combinedOutput(help), /unknown command 'hook'/);
 
-  const invoke = (args, env) =>
-    spawnSync(
-      process.execPath,
-      [path.join(tempDir, "scripts", "cli.mjs"), ...args],
-      { cwd: tempDir, encoding: "utf8", env },
-    );
-  const bypassEnv = { ...process.env };
-  delete bypassEnv.COMMITMENT_ISSUES;
-  delete bypassEnv.HUSKY;
-  bypassEnv.COMMITMENT_ISSUES = "0";
-
-  const invalid = invoke(["hook", "bogus\nname"], bypassEnv);
-  assert.equal(invalid.status, 1);
-  assert.match(
-    combinedOutput(invalid),
-    /expected precommit, prepush, or commit-msg/,
-  );
-  assert.doesNotMatch(combinedOutput(invalid), /bogus\nname/);
-  const missing = invoke(["hook"], bypassEnv);
+  const missing = cli(tempDir, ["hook"]);
   assert.equal(missing.status, 1);
-  assert.match(combinedOutput(missing), /received ''/u);
+  assert.match(
+    combinedOutput(missing),
+    /expected precommit, prepush, or commit-msg; received ''/,
+  );
 
-  for (const name of ["constructor", "toString", "__proto__"]) {
-    const inherited = invoke(["hook", name], bypassEnv);
-    assert.equal(inherited.status, 1, name);
+  for (const invalidName of [
+    "bogus\nname",
+    "__proto__",
+    "constructor",
+    "toString",
+  ]) {
+    const invalid = cli(tempDir, ["hook", invalidName]);
+    assert.equal(invalid.status, 1);
     assert.match(
-      combinedOutput(inherited),
-      /expected precommit, prepush, or commit-msg/u,
+      combinedOutput(invalid),
+      /expected precommit, prepush, or commit-msg/,
     );
-    assert.doesNotMatch(
-      combinedOutput(inherited),
-      /TypeError|ERR_INVALID_ARG/u,
+    assert.doesNotMatch(combinedOutput(invalid), /TypeError|at path\.join/);
+  }
+
+  for (const args of [
+    ["hook", "commit-msg", "message-one", "message-two"],
+    ["hook", "commit-msg", "--bogus"],
+  ]) {
+    const invalid = cli(tempDir, args);
+    assert.equal(invalid.status, 1);
+    assert.match(
+      combinedOutput(invalid),
+      /expected one message-file argument|unknown option '--bogus'/,
     );
   }
 
-  for (const variable of ["COMMITMENT_ISSUES", "HUSKY"]) {
-    const env = { ...process.env };
-    delete env.COMMITMENT_ISSUES;
-    delete env.HUSKY;
-    env[variable] = "0";
-    const direct = invoke(["precommit", "--unknown"], env);
-    assert.equal(direct.status, 1, variable);
-    assert.match(combinedOutput(direct), /unknown option '--unknown'/);
-    for (const hookName of ["precommit", "prepush", "commit-msg"]) {
-      const hook = invoke(["hook", hookName, "--unknown"], env);
-      assert.equal(hook.status, 0, `${variable}: ${hookName}`);
-      assert.equal(combinedOutput(hook), "", `${variable}: ${hookName}`);
+  const env = { ...process.env, COMMITMENT_ISSUES: "0" };
+  const invoke = (args, childEnv = env) =>
+    spawnSync(
+      process.execPath,
+      [path.join(tempDir, "scripts", "cli.mjs"), ...args],
+      { cwd: tempDir, encoding: "utf8", env: childEnv },
+    );
+  const direct = invoke(["precommit", "--unknown"]);
+  assert.equal(direct.status, 1);
+  assert.match(combinedOutput(direct), /unknown option '--unknown'/);
+  const hook = invoke(["hook", "precommit", "--unknown"]);
+  assert.equal(hook.status, 0);
+  assert.equal(combinedOutput(hook), "");
+
+  const invalidWhileBypassed = invoke(["hook", "bogus\nname"]);
+  const invalidWhileBypassedOutput = combinedOutput(invalidWhileBypassed);
+  assert.equal(invalidWhileBypassed.status, 1);
+  assert.match(invalidWhileBypassedOutput, /bogus\\nname/);
+  assert.doesNotMatch(invalidWhileBypassedOutput, /bogus\nname/);
+  assert.doesNotMatch(
+    invalidWhileBypassedOutput,
+    /TypeError|ERR_|at path\.join|\s+at /,
+  );
+
+  for (const skippedBy of ["COMMITMENT_ISSUES", "HUSKY"]) {
+    const skippedEnv = {
+      ...process.env,
+      COMMITMENT_ISSUES: skippedBy === "COMMITMENT_ISSUES" ? "0" : "1",
+      HUSKY: skippedBy === "HUSKY" ? "0" : "1",
+    };
+    for (const args of [
+      ["hook", "commit-msg", "message-one", "message-two"],
+      ["hook", "commit-msg", "--bogus"],
+    ]) {
+      const skipped = invoke(args, skippedEnv);
+      assert.equal(skipped.status, 0, skippedBy);
+      assert.equal(combinedOutput(skipped), "", skippedBy);
     }
   }
 });

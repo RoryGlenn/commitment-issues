@@ -112,8 +112,8 @@ npx --no-install commitment-issues doctor --integration=husky
 
 Replace `husky` with `lefthook` or `pre-commit`. The initializer updates only
 Commitment Issues' package settings and package-owned `.gitignore` defaults,
-then prints manager-native snippets only for inactive hooks. It never writes,
-reorders, or deletes the manager's hooks/config. Bare
+then prints exact manager-native snippets; it never writes, reorders, or
+deletes the manager's hooks/config. Bare
 `--integration` auto-detects only when exactly one owner is evident. See the
 [coexistence contracts](docs/migration.md#keep-an-existing-hook-manager).
 Doctor validates both the manager entry and Git's effective installed wrapper;
@@ -215,9 +215,9 @@ repository. Existing custom hooks and foreign `core.hooksPath` values are
 preserved and reported for manual composition.
 
 With `--integration=<manager>`, it writes no native or manager-owned hook
-files. It prints local snippets for inactive hooks and configures install-time
-doctor to verify that manager without repairing native hooks. Manager ordering,
-skip controls, and unrelated commands stay intact.
+files. It prints static project-local snippets, configures install-time doctor
+to verify the selected manager without repairing native hooks, and preserves
+the manager's ordering, skip controls, and unrelated commands.
 
 [Read the complete lifecycle and safety model](docs/how-it-works.md).
 

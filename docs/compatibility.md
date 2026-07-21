@@ -54,6 +54,9 @@ Global installation and a registry-downloading one-shot runner are not
 supported. Generated hooks deliberately invoke
 `node_modules/.bin/commitment-issues` and self-neutralize when that project-local
 entry is gone; they never fall through to a global binary.
+Manager-coexistence snippets apply the same local-only rule across the exact
+extensionless, `.exe`, `.cmd`, and `.bat` launcher candidates so Bun's Windows
+launcher works without making PATH/global fallback part of the contract.
 
 ## Install and lifecycle modes
 

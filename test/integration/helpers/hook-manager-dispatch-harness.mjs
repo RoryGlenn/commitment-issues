@@ -51,24 +51,25 @@ function readYaml(relativePath) {
   }
 }
 
-function parseEntry(entry) {
+function parseEntry(entry, extraArgs) {
   if (typeof entry !== "string" || entry.trim() !== entry || !entry) {
     fail("manager entry must be one non-empty command line");
   }
-  const tokens = entry.split(/[ \t]+/u);
+  const wrapped = entry.match(/^sh -c '([^']+)' --$/u);
+  const script = wrapped?.[1] ?? entry;
   if (
-    tokens.length < 2 ||
-    tokens.some((token) => !/^[A-Za-z0-9_./:@=+-]+$/u.test(token))
+    !script.startsWith(
+      "for commitment_issues_bin in node_modules/.bin/commitment-issues ",
+    ) ||
+    !script.includes('exec "$commitment_issues_bin" hook ')
   ) {
-    fail(`manager entry is outside the argv-only lifecycle contract: ${entry}`);
+    fail(`manager entry is outside the guarded lifecycle contract: ${entry}`);
   }
-
-  const [command, ...commandArgs] = tokens;
-  const expectedCommand = "node_modules/.bin/commitment-issues";
-  if (command !== expectedCommand) {
-    fail(`manager entry did not select the packed bin: ${command}`);
-  }
-  return { command, commandArgs };
+  return {
+    command: "node_modules/.bin/commitment-issues",
+    script,
+    shellArgs: ["-c", script, "--", ...extraArgs],
+  };
 }
 
 function runEntry({
@@ -80,8 +81,20 @@ function runEntry({
   entryInput = "",
   entryEnv = {},
 }) {
-  const { command, commandArgs } = parseEntry(entry);
-  const finalArgs = [...commandArgs, ...extraArgs];
+  const { command, script, shellArgs } = parseEntry(entry, extraArgs);
+  const subcommand =
+    hook === "pre-commit"
+      ? "precommit"
+      : hook === "pre-push"
+        ? "prepush"
+        : "commit-msg";
+  const finalArgs = [
+    "hook",
+    subcommand,
+    ...(manager === "lefthook" && hook === "commit-msg"
+      ? ["--git-path"]
+      : extraArgs),
+  ];
   appendRecord({
     manager,
     hook,
@@ -93,11 +106,7 @@ function runEntry({
     entryEnv,
   });
 
-  // Keep the configured path extensionless, exactly as the documented manager
-  // entry spells it. cross-spawn applies the host's real command-resolution
-  // rules (including PATHEXT on Windows), while the fixed path keeps lookup
-  // inside this packed lifecycle repository.
-  const result = crossSpawn.sync(command, finalArgs, {
+  const result = crossSpawn.sync("sh", shellArgs, {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...entryEnv },
@@ -106,7 +115,9 @@ function runEntry({
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.error) {
-    fail(`could not execute configured entry: ${result.error.message}`);
+    fail(
+      `could not execute guarded configured entry ${script}: ${result.error.message}`,
+    );
   }
   process.exit(result.status ?? 93);
 }
@@ -124,13 +135,56 @@ function dispatchLefthook() {
   if (!command || typeof command !== "object") {
     fail(`lefthook.yml has no commitment-issues entry for ${hook}`);
   }
+  const sentinel = "node_modules/commitment-issues/package.json";
+  const filesCommand =
+    "node -- node_modules/commitment-issues/scripts/lefthook-files.mjs";
+  const needsFileSentinel = hook !== "commit-msg";
+  if (typeof command.run !== "string") {
+    fail(`lefthook.yml has no runnable commitment-issues entry for ${hook}`);
+  }
+  let sentinelOutput = "";
+  if (needsFileSentinel) {
+    if (
+      command.files !== filesCommand ||
+      !command.run.includes(
+        'COMMITMENT_ISSUES_LEFTHOOK_FILE={files} exec "$commitment_issues_bin"',
+      )
+    ) {
+      fail(
+        `lefthook.yml cannot force the ${hook} entry for an empty operation`,
+      );
+    }
+    const [filesExecutable, ...filesArgs] = command.files.split(" ");
+    const filesResult = crossSpawn.sync(filesExecutable, filesArgs, {
+      cwd,
+      encoding: "utf8",
+      env: process.env,
+    });
+    if (
+      filesResult.error ||
+      filesResult.status !== 0 ||
+      filesResult.stdout !== `${sentinel}\n` ||
+      filesResult.stderr !== "" ||
+      !fs.existsSync(fixturePath(sentinel))
+    ) {
+      fail(
+        `Lefthook ${hook} files producer did not emit exactly the installed-package sentinel`,
+      );
+    }
+    sentinelOutput = filesResult.stdout.slice(0, -1);
+  }
   const managerInput = fs.readFileSync(0, "utf8");
   runEntry({
     manager: "lefthook",
     hook,
-    entry: command.run,
+    entry: needsFileSentinel
+      ? command.run.replaceAll("{files}", sentinelOutput)
+      : command.run,
     managerInput,
     entryInput: command.use_stdin === true ? managerInput : "",
+    entryEnv: needsFileSentinel
+      ? { COMMITMENT_ISSUES_LEFTHOOK_FILE: sentinelOutput }
+      : {},
   });
 }
 

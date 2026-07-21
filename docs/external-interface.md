@@ -133,7 +133,9 @@ Hook-manager configuration is always project-owned. Even when an exact
 coexistence entry is recognized, uninstall reports its manager/hook names for
 manual cleanup and does not delete or edit `.husky/*`, Lefthook YAML,
 `.pre-commit-config.yaml`, `.pre-commit-config.yml`, or lint-staged
-configuration. It removes an exact
+configuration. For cleanup reporting only, it also recognizes the exact direct
+manager entries used before the hidden hook dispatcher; `init` and `doctor`
+still require the dispatcher form. It removes an exact
 `doctor --quiet --integration=<manager>` prepare command or suffix because that
 package script is generated package state.
 
@@ -165,19 +167,22 @@ skip. When the local binary is no longer installed, they print one bounded
 skip notice to stderr and exit 0. The pre-push hook forwards Git's remote name
 and URL for remote-specific first-push base selection. Package source is not
 copied into the consumer repository.
-Generated hooks own their bypass guard. Custom and manager-owned paths use the
-hidden dispatcher.
-
-Manual composition uses
-`node_modules/.bin/commitment-issues hook <command>`. Older direct forms receive
-replacement guidance; duplicates receive removal-only guidance.
 
 ### Hook-manager coexistence interface
 
-`init --integration=<manager>` prints only inactive snippets and never writes
-manager files. Doctor requires exact config entries and executable dispatchers;
-ambiguous, partial, dynamic, conditional, linked, or duplicate forms fail
-closed. Explicit selection resolves ownership only, not unsafe configuration.
+`init --integration=<manager>` emits deterministic snippets only for inactive
+or missing entries and never writes manager files; fully wired entries are not
+reprinted. `doctor --integration=<manager>` follows the same missing-only
+remediation rule and recognizes only active exact entries in the manager's real
+hook section plus executable manager dispatchers in Git's effective hooks
+directory. Comments, printed examples, nested example blocks, duplicate
+Lefthook hook/command keys, duplicate pre-commit IDs, partial entries, wrong
+stages, pre-commit `args`, a missing fixed Lefthook `files:` producer or
+`use_stdin: true`, dynamic command templates, wrappers that omit `"$@"`,
+pre-commit wrappers without an executable dispatch, duplicate candidate config
+files, and linked, non-regular, or non-executable paths are not healthy.
+Selecting a manager explicitly resolves owner ambiguity only; it never
+overrides an unsafe, duplicate, or unsupported selected configuration.
 
 The inspectable configuration and dispatcher set is deliberately bounded:
 
@@ -235,10 +240,20 @@ The manager entrypoints preserve these inputs:
 | Lefthook   | ref stream through `use_stdin: true`                 | static `--git-path` resolution of Git's active message file |
 | pre-commit | complete documented `PRE_COMMIT_*` range environment | filename supplied by the framework                          |
 
-Manager-native bypasses stay authoritative. The hidden `hook` dispatcher also
-honors `COMMITMENT_ISSUES=0` and legacy `HUSKY=0`; direct public commands still
-run under those variables. Advisory outcomes exit 0, while configured blocking
-outcomes remain nonzero.
+Manager-native skip and bypass behavior stays authoritative. The entry scripts
+use the package's hidden `hook` dispatcher so `COMMITMENT_ISSUES=0` and legacy
+`HUSKY=0` apply to automatic manager calls without suppressing an explicit
+human invocation of `precommit`, `prepush`, or `commit-msg`. Advisory outcomes
+exit 0; configured blocking outcomes retain their normal nonzero status.
+Every emitted manager entry examines only the ordered project-local launcher
+candidates `node_modules/.bin/commitment-issues`, `.exe`, `.cmd`, and `.bat`,
+then invokes the same first regular executable path it inspected. If no
+candidate is usable, the entry exits successfully and silently; it never
+consults `PATH`, a global install, `npx`, or the network. Husky preserves the
+selected launcher's nonzero result before later custom commands. Lefthook keeps
+its fixed file-sentinel assignment attached to the selected invocation, and
+pre-commit's fixed `sh -c` entry forwards framework filenames as literal
+`"$@"` argv.
 
 The first eligible clean or informational human-readable pre-commit invocation
 shows a default-on contributor welcome, then records

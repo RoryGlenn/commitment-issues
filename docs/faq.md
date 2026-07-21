@@ -105,20 +105,17 @@ local, non-YAML, extended, overridden, or advanced-YAML configuration for
 manual review. Uninstall also leaves those manager files unchanged and
 identifies matching entries for you to remove manually.
 
-To compose manually, make the corresponding guarded line the custom hook's
-first substantive command. Only a direct `.husky` v8 hook may put the exact
-Husky v8 runtime source line first. Leave unrelated commands after it:
-
-```sh
-node_modules/.bin/commitment-issues hook precommit || exit $?
-node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
-node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
-```
+To compose manually, use the exact one-line guarded entry printed by
+`init --dry-run --integration=<manager>` as the custom hook's first substantive
+command. Only a direct `.husky` v8 hook may put the exact Husky v8 runtime
+source line first. Leave unrelated commands after it. The generated entry
+checks only the project-local extensionless, `.exe`, `.cmd`, and `.bat`
+launchers, runs the first regular executable candidate, and silently succeeds
+when none is usable; it never falls back through `PATH`.
 
 This ordering lets the verifier prove the hook reaches Commitment Issues and
 preserves a blocking exit. Comments, printed examples, arbitrary command
 preludes, and non-executable POSIX hooks do not count as active wiring.
-`hook` scopes skip variables to automatic hooks; direct commands still run.
 
 ## Will it change code or commits automatically?
 

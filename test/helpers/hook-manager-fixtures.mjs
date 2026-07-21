@@ -238,8 +238,40 @@ fi
 
 export function lefthookRunner(
   name,
-  { embeddedExecutable = "node_modules/.bin/lefthook" } = {},
+  {
+    embeddedExecutable,
+    roots = [],
+    windows = process.platform === "win32",
+  } = {},
 ) {
+  const extension = windows ? ".exe" : "";
+  const currentExecutable =
+    embeddedExecutable ?? `node_modules/.bin/lefthook${extension}`;
+  const batFallback = windows
+    ? `  elif lefthook.bat -h >/dev/null 2>&1
+  then
+    lefthook.bat "$@"
+`
+    : "";
+  const rootFallbacks = roots
+    .map(
+      (
+        root,
+      ) => `    elif test -f "$dir/${root}/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}"
+    then
+      "$dir/${root}/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/${root}/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}"
+    then
+      "$dir/${root}/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}" "$@"
+    elif test -f "$dir/${root}/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}"
+    then
+      "$dir/${root}/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/${root}/node_modules/lefthook/bin/index.js"
+    then
+      "$dir/${root}/node_modules/lefthook/bin/index.js" "$@"
+`,
+    )
+    .join("");
   return `#!/bin/sh
 
 if [ "$LEFTHOOK_VERBOSE" = "1" -o "$LEFTHOOK_VERBOSE" = "true" ]; then
@@ -255,29 +287,29 @@ call_lefthook()
   if test -n "$LEFTHOOK_BIN"
   then
     "$LEFTHOOK_BIN" "$@"
-  elif lefthook -h >/dev/null 2>&1
+  elif lefthook${extension} -h >/dev/null 2>&1
   then
-    lefthook "$@"
-  elif ${embeddedExecutable} -h >/dev/null 2>&1
+    lefthook${extension} "$@"
+${batFallback}  elif ${currentExecutable} -h >/dev/null 2>&1
   then
-    ${embeddedExecutable} "$@"
+    ${currentExecutable} "$@"
   else
     dir="$(git rev-parse --show-toplevel)"
     osArch=$(uname | tr '[:upper:]' '[:lower:]')
     cpuArch=$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')
-    if test -f "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook"
+    if test -f "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}"
     then
-      "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook" "$@"
-    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook"
+      "$dir/node_modules/lefthook-\${osArch}-\${cpuArch}/bin/lefthook${extension}" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}"
     then
-      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook" "$@"
-    elif test -f "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook"
+      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-\${osArch}-\${cpuArch}/lefthook${extension}" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}"
     then
-      "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook" "$@"
+      "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook${extension}" "$@"
     elif test -f "$dir/node_modules/lefthook/bin/index.js"
     then
       "$dir/node_modules/lefthook/bin/index.js" "$@"
-    elif go tool lefthook -h >/dev/null 2>&1
+${rootFallbacks}    elif go tool lefthook -h >/dev/null 2>&1
     then
       go tool lefthook "$@"
     elif bundle exec lefthook -h >/dev/null 2>&1

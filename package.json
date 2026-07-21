@@ -31,6 +31,7 @@
     "scripts/fix-staged-js.mjs",
     "scripts/fix-staged.mjs",
     "scripts/init.mjs",
+    "scripts/lefthook-files.mjs",
     "scripts/lib/checks.mjs",
     "scripts/lib/commit-guards.mjs",
     "scripts/lib/config.mjs",

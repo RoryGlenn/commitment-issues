@@ -38,8 +38,7 @@ The normal run may update Commitment Issues' `package.json` scripts,
 configuration, `.gitignore` defaults, and its exact `prepare` suffix. It does
 not write native hooks, unset `core.hooksPath`, run a manager install command,
 or edit any manager-owned file. Dry-run writes nothing and prints the same
-reviewable snippets for inactive hooks; a fully wired rerun prints none.
-Re-running is idempotent.
+reviewable snippets. Re-running is idempotent.
 
 Package-manager-native forms for the same command are:
 
@@ -62,10 +61,6 @@ Husky uses its inspected repository-local dispatcher instead of a `husky`
 executable from `PATH`. The project-local Commitment Issues path prevents a
 global package fallback; it does not bundle those runtimes.
 
-Earlier snippets omitted `hook`. Replace those direct forms so skip variables
-remain hook-scoped. Doctor never rewrites user-owned files; with both forms,
-remove only the older duplicate.
-
 ### Husky contract
 
 Place the guarded line before every unrelated substantive command in the
@@ -73,16 +68,17 @@ corresponding existing file; do not replace those later commands. When Git uses
 the direct `.husky` path for Husky v8, an exact `_/husky.sh` source line may
 precede it:
 
+Generate the exact one-line entries for the enabled hooks instead of
+hand-writing a platform-specific launcher:
+
 ```sh
-# .husky/pre-commit
-node_modules/.bin/commitment-issues hook precommit || exit $?
-
-# .husky/pre-push
-node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
-
-# .husky/commit-msg — only when commitMessage.enabled is true
-node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
+npx --no-install commitment-issues init --dry-run --integration=husky
 ```
+
+Each emitted line inspects only the ordered project-local extensionless,
+`.exe`, `.cmd`, and `.bat` launchers, invokes the same first regular executable
+candidate, and completes successfully when none is usable. It never consults
+`PATH` or a global install.
 
 The quoted arguments preserve Git's remote and message-file values. `|| exit
 $?` preserves a configured blocking result even when custom commands follow;
@@ -124,24 +120,19 @@ Merge each `commitment-issues` command below into the matching existing
 top-level hook and `commands` mapping. Do not duplicate a hook key or the
 `commitment-issues` command key:
 
-```yaml
-pre-commit:
-  commands:
-    commitment-issues:
-      run: node_modules/.bin/commitment-issues hook precommit
-pre-push:
-  commands:
-    commitment-issues:
-      run: node_modules/.bin/commitment-issues hook prepush
-      use_stdin: true
-commit-msg: # only when commitMessage.enabled is true
-  commands:
-    commitment-issues:
-      run: node_modules/.bin/commitment-issues hook commit-msg --git-path
+Print the exact static YAML entries for the enabled hooks, then merge only
+those blocks:
+
+```sh
+npx --no-install commitment-issues init --dry-run --integration=lefthook
 ```
 
-These commands are static: no Git-provided value or Lefthook positional
-template is inserted into manager-owned shell configuration. `use_stdin: true`
+These commands are static. The exact `files` producer and `{files}` environment
+assignment give Lefthook one package-owned, always-installed sentinel so it
+cannot skip pre-commit or pre-push policies on an empty commit or push.
+Commit-message hooks already run without file selection. The placeholder never
+enters CLI arguments and cannot expand to a Git-provided filename. Other
+`files` commands or placeholders require manual review. `use_stdin: true`
 passes the pushed ref list to the pre-push entrypoint. For commit-msg,
 `--git-path` resolves Git's active message file at runtime with
 `git rev-parse --git-path`, including in linked worktrees. Direct automatic
@@ -182,33 +173,16 @@ Use pre-commit 3.2 or newer so `stages` names match Git hook names. Merge these
 entries into a `repo: local` hook list in either `.pre-commit-config.yaml` or
 `.pre-commit-config.yml`; keep every other repo and hook:
 
-```yaml
-repos:
-  - repo: local
-    hooks:
-      - id: commitment-issues-pre-commit
-        name: commitment-issues pre-commit
-        entry: node_modules/.bin/commitment-issues hook precommit
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-      - id: commitment-issues-pre-push
-        name: commitment-issues pre-push
-        entry: node_modules/.bin/commitment-issues hook prepush
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-      # Add only when commitMessage.enabled is true:
-      - id: commitment-issues-commit-msg
-        name: commitment-issues commit-msg
-        entry: node_modules/.bin/commitment-issues hook commit-msg
-        language: system
-        pass_filenames: true
-        always_run: true
-        stages: [commit-msg]
+Print the exact guarded local entries, then merge them beneath the existing
+`repo: local` hook list:
+
+```sh
+npx --no-install commitment-issues init --dry-run --integration=pre-commit
 ```
+
+The fixed `sh -c` entry applies the same ordered local-launcher selection and
+uses `exec "$commitment_issues_bin" ... "$@"`, so framework-supplied message
+filenames remain literal argv and the selected launcher's status propagates.
 
 The framework supplies commit-msg's filename normally. For pre-push it consumes
 Git stdin and publishes the same range through `PRE_COMMIT_FROM_REF`,

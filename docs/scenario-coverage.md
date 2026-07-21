@@ -332,8 +332,8 @@ production-readiness workstream #130 is consolidated in the
   deletion rechecks the inspected file identity. Unit/fixture:
   `test/lib-files.test.mjs`, `test/uninstall.test.mjs`.
 - **UNINST-019** — uninstall and dry-run remove exact owner-specific prepare
-  repair while preserving recognized Husky, Lefthook, and pre-commit content
-  byte-for-byte and reporting manual cleanup. Fixture:
+  repair while preserving recognized current and pre-dispatch Husky, Lefthook,
+  and pre-commit content byte-for-byte and reporting manual cleanup. Fixture:
   `test/uninstall.test.mjs`.
 
 ### Pre-commit checks
@@ -353,7 +353,7 @@ production-readiness workstream #130 is consolidated in the
 - **PRE-013** — staged test selection preserves leading/trailing whitespace, tabs, newlines, and Unicode in real Git pathnames. Fixture: `test/precommit.test.mjs`.
 - **PRE-014** — detached HEAD intentionally skips only the branch-name guard while unrelated staged guards continue. Fixture: `test/commit-guards-integration.test.mjs`.
 - **PRE-015** — the default-on Commit Owl welcome appears once per clone as the sole final box for an eligible clean/informational result, uses a Git-common-directory marker shared by linked worktrees, stays readable at narrow widths, and supports an explicit opt-out. Unit/fixture: `test/welcome.test.mjs`.
-- **PRE-016** — JSON mode and generated or manager-composed hook bypasses (`--no-verify`, `COMMITMENT_ISSUES=0`, and legacy `HUSKY=0`) neither display nor consume the welcome; marker probe/write/render failures never block checks. Unit/real-Git fixture: `test/welcome.test.mjs`.
+- **PRE-016** — JSON mode, `--no-verify`, `COMMITMENT_ISSUES=0`, and legacy `HUSKY=0` neither display nor consume the welcome; marker probe/write/render failures never block checks. Unit/real-Git fixture: `test/welcome.test.mjs`.
 - **PRE-017** — a first-run warning or error takes priority without rendering or consuming the welcome, preserving the one-box invariant in both hook-output modes. Unit/fixture: `test/welcome.test.mjs`.
 
 ### Debug-artifact advisory
@@ -461,15 +461,18 @@ production-readiness workstream #130 is consolidated in the
   argument-altering, commented, ambiguous, non-executable, linked-runtime, or
   uninspectable state; and keeps quiet install-time failures exit-zero.
   Unit/fixture: `test/hooks.test.mjs`, `test/doctor.test.mjs`.
-- **HOOK-021** — manager-composed pre-commit, pre-push, and commit-msg entries
-  use a hook-only dispatcher that retains `COMMITMENT_ISSUES=0` and legacy
-  `HUSKY=0` without suppressing direct CLI or CI checks; Husky snippets preserve
-  nonzero blocking exits before later custom commands; and old-only versus
-  old-plus-current native, foreign, and manager-owned entries receive
-  replacement versus removal-only guidance without mutation. Unit/fixture:
-  `test/hooks.test.mjs`, `test/precommit.test.mjs`, `test/prepush.test.mjs`,
-  `test/commit-msg.test.mjs`, `test/init.test.mjs`, `test/doctor.test.mjs`,
-  `test/uninstall.test.mjs`.
+- **HOOK-021** — manager-composed pre-commit, pre-push, and commit-msg entry
+  points retain `COMMITMENT_ISSUES=0` and legacy `HUSKY=0` through the hidden
+  hook dispatcher without suppressing explicit direct commands; Husky snippets
+  preserve nonzero blocking exits before later custom commands. All three
+  manager forms silently succeed without a PATH/global fallback when every
+  permitted project-local launcher is absent, wrong-kind, or non-executable;
+  extensionless and Windows `.exe`/`.cmd`/`.bat` launchers use one exact
+  inspect-then-invoke path, while hostile literal argv and real nonzero exits
+  remain intact. Unit/packed lifecycle: `test/hooks.test.mjs`,
+  `test/precommit.test.mjs`, `test/prepush.test.mjs`,
+  `test/commit-msg.test.mjs`,
+  `test/integration/helpers/lifecycle-fixture.mjs`.
 - **HOOK-022** — hook-path probes require exactly one NUL-delimited config
   record, preserve configured whitespace, empty values, POSIX backslashes,
   CRLF, and unterminated resolved Git paths, and reject malformed config output;
