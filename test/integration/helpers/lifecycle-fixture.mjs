@@ -1275,11 +1275,25 @@ export function createLifecycleIntegration() {
             ),
           );
           const pushInput = `refs/heads/${currentBranch} ${"1".repeat(40)} refs/heads/${blockedPushBranch} ${"0".repeat(40)}\n`;
-          const installedBin = path.join(
+          const installedBinBase = path.join(
             repoDir,
             "node_modules",
             ".bin",
             "commitment-issues",
+          );
+          const installedBin = (
+            process.platform === "win32"
+              ? [
+                  installedBinBase,
+                  `${installedBinBase}.exe`,
+                  `${installedBinBase}.cmd`,
+                  `${installedBinBase}.bat`,
+                ]
+              : [installedBinBase]
+          ).find((candidate) => fs.existsSync(candidate));
+          assertLifecycle(
+            installedBin,
+            "the installed package should expose its platform bin launcher",
           );
           const installedCli = path.join(
             repoDir,
