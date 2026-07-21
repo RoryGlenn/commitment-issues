@@ -719,18 +719,40 @@ function assertPackageDependencyRemoved(repoDir) {
     !Object.hasOwn(pkg.devDependencies ?? {}, "commitment-issues"),
     `${packageManager} should remove commitment-issues from devDependencies`,
   );
-  for (const suffix of ["", ".exe", ".bunx", ".cmd", ".bat", ".com", ".ps1"]) {
+  assertLifecycle(
+    !fs.existsSync(path.join(repoDir, "node_modules", "commitment-issues")),
+    `${packageManager} should remove the installed commitment-issues package`,
+  );
+
+  const binDir = path.join(repoDir, "node_modules", ".bin");
+  const bunWindowsShim =
+    packageManager === "bun" && process.platform === "win32";
+  const suffixes = ["", ".bunx", ".cmd", ".bat", ".com", ".ps1"];
+  if (!bunWindowsShim) suffixes.push(".exe");
+
+  for (const suffix of suffixes) {
     assertLifecycle(
-      !fs.existsSync(
-        path.join(
-          repoDir,
-          "node_modules",
-          ".bin",
-          `commitment-issues${suffix}`,
-        ),
-      ),
+      !fs.existsSync(path.join(binDir, `commitment-issues${suffix}`)),
       `${packageManager} should remove the local commitment-issues${suffix} bin`,
     );
+  }
+
+  // Bun's Windows launcher is a generic .exe paired with package-specific
+  // .bunx metadata. Bun may retain that generic launcher after removal; with
+  // the metadata and package gone, it must fail closed instead of dispatching.
+  if (bunWindowsShim) {
+    const launcher = path.join(binDir, "commitment-issues.exe");
+    if (fs.existsSync(launcher)) {
+      const result = crossSpawn.sync(launcher, ["--version"], {
+        cwd: repoDir,
+        env: lifecycleEnv(),
+        encoding: "utf8",
+      });
+      assertLifecycle(
+        result.error !== undefined || result.status !== 0,
+        "Bun's residual generic commitment-issues.exe shim should be inert",
+      );
+    }
   }
 }
 
