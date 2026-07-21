@@ -55,6 +55,18 @@ function gitHook(tempDir, name) {
   return path.join(tempDir, ".git", "hooks", name);
 }
 
+function aliasedRepoPath(t, tempDir, prefix) {
+  const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const repoAlias = path.join(aliasRoot, "repo");
+  fs.symlinkSync(
+    tempDir,
+    repoAlias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  t.after(() => fs.rmSync(aliasRoot, { recursive: true, force: true }));
+  return repoAlias;
+}
+
 function assertHookClaimsWithheld(output) {
   assert.match(output, /Commitment Issues needs hook wiring/);
   assert.match(output, /Pre-commit and pre-push checks are not active yet/);
@@ -728,6 +740,7 @@ test("init rejects manager overrides and unreadable configs before writes", (t) 
 test("init withholds snippets when manager config changes after preflight", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  const repoAlias = aliasedRepoPath(t, tempDir, "init-config-alias-");
   writePackage(tempDir, {
     name: "manager-config-race",
     version: "1.0.0",
@@ -741,14 +754,22 @@ test("init withholds snippets when manager config changes after preflight", (t) 
     [
       'import fs from "node:fs";',
       'import path from "node:path";',
-      "const target = path.resolve(process.env.TEST_MUTATE_CONFIG_PATH);",
+      "function canonical(filePath) {",
+      "  const resolved = path.resolve(filePath);",
+      "  try {",
+      "    return fs.realpathSync.native(resolved);",
+      "  } catch {",
+      "    return resolved;",
+      "  }",
+      "}",
+      "const target = canonical(process.env.TEST_MUTATE_CONFIG_PATH);",
       "const originalRead = fs.readFileSync.bind(fs);",
       "const originalWrite = fs.writeFileSync.bind(fs);",
       "let targetReads = 0;",
       "fs.readFileSync = (filePath, ...args) => {",
       "  const content = originalRead(filePath, ...args);",
       "  if (",
-      "    path.resolve(String(filePath)) === target &&",
+      "    canonical(String(filePath)) === target &&",
       "    (targetReads += 1) === 3",
       "  ) {",
       '    originalWrite(target, "min_version: 999.0.0\\npre-commit: {}\\n");',
@@ -771,7 +792,7 @@ test("init withholds snippets when manager config changes after preflight", (t) 
     {
       env: {
         ...process.env,
-        TEST_MUTATE_CONFIG_PATH: configPath,
+        TEST_MUTATE_CONFIG_PATH: path.join(repoAlias, "lefthook.yml"),
       },
     },
   );
@@ -1895,6 +1916,7 @@ test("init reports a project-file write failure before installing hooks", (t) =>
 test("init reports hook write failures without a raw exception", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  const repoAlias = aliasedRepoPath(t, tempDir, "init-write-alias-");
 
   writePackage(tempDir, { name: "x", version: "1.0.0", type: "module" });
   const preload = fsFailurePreload(tempDir);
@@ -1906,7 +1928,12 @@ test("init reports hook write failures without a raw exception", (t) => {
       env: {
         ...process.env,
         TEST_FS_FAILURE_METHOD: "writeFileSync",
-        TEST_FS_FAILURE_PATH: gitHook(tempDir, "pre-commit"),
+        TEST_FS_FAILURE_PATH: path.join(
+          repoAlias,
+          ".git",
+          "hooks",
+          "pre-commit",
+        ),
       },
     },
   );

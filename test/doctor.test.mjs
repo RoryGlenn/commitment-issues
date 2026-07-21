@@ -50,6 +50,18 @@ function gitHook(tempDir, name) {
   return path.join(tempDir, ".git", "hooks", name);
 }
 
+function aliasedRepoPath(t, tempDir, prefix) {
+  const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const repoAlias = path.join(aliasRoot, "repo");
+  fs.symlinkSync(
+    tempDir,
+    repoAlias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  t.after(() => fs.rmSync(aliasRoot, { recursive: true, force: true }));
+  return repoAlias;
+}
+
 function isolatedManagerBinDir(tempDir) {
   const nodeModules = path.join(tempDir, "node_modules");
   if (fs.lstatSync(nodeModules).isSymbolicLink()) {
@@ -1756,6 +1768,7 @@ test("doctor reports when the wiring is still broken after repair", (t) => {
 test("doctor reports failure when the hook files cannot be written", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
+  const repoAlias = aliasedRepoPath(t, tempDir, "doctor-write-alias-");
   const preload = fsFailurePreload(tempDir);
   const result = run(
     "node",
@@ -1765,7 +1778,14 @@ test("doctor reports failure when the hook files cannot be written", (t) => {
       env: {
         ...process.env,
         TEST_FS_FAILURE_METHOD: "writeFileSync",
-        TEST_FS_FAILURE_PATH: gitHook(tempDir, "pre-commit"),
+        // Match a not-yet-created hook through a different spelling of the
+        // repository, like macOS' /var/folders -> /private/var/folders alias.
+        TEST_FS_FAILURE_PATH: path.join(
+          repoAlias,
+          ".git",
+          "hooks",
+          "pre-commit",
+        ),
       },
     },
   );

@@ -254,14 +254,19 @@ test("advisory commitlint forwards a literal absolute message path", (t) => {
 
 test("--git-path resolves the linked-worktree COMMIT_EDITMSG path", (t) => {
   const originalDir = createTempRepo();
+  // Install before moving the repository so the launchers prove that their
+  // companion Node shims are located relative to the executable at runtime.
+  // Absolute launcher paths go stale here (and can also disagree with an 8.3
+  // alias on Windows).
+  installFakeCommitlint(originalDir);
   const originalName = path.basename(originalDir);
-  const primaryName = `${originalName} primary 猫`;
+  const primaryName = `${originalName} primary ! 猫`;
   const tempDir = path.join(
     path.dirname(originalDir),
     process.platform === "win32" ? primaryName : ` ${primaryName} `,
   );
   fs.renameSync(originalDir, tempDir);
-  const linkedName = `${originalName} linked worktree 猫`;
+  const linkedName = `${originalName} linked worktree ! 猫`;
   const worktreeDir = path.join(
     path.dirname(tempDir),
     process.platform === "win32" ? linkedName : ` ${linkedName} `,
@@ -270,7 +275,6 @@ test("--git-path resolves the linked-worktree COMMIT_EDITMSG path", (t) => {
     fs.rmSync(worktreeDir, { recursive: true, force: true });
     cleanupTempRepo(tempDir);
   });
-  installFakeCommitlint(tempDir);
   setPrecommitConfig(tempDir, { commitMessage: { enabled: true } });
   run("git", ["add", "package.json"], tempDir);
   const configured = run(

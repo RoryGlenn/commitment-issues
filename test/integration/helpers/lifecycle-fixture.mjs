@@ -326,6 +326,7 @@ function lifecycleEnv() {
 function managerLifecycleEnv(repoDir, competingManagerBin) {
   const env = lifecycleEnv();
   const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path");
+  const fixtureManagerBin = path.join(repoDir, ".lifecycle-manager-bin");
   const localBin = path.join(repoDir, "node_modules", ".bin");
   const homeDir = path.join(repoDir, ".lifecycle-home");
   const configDir = path.join(homeDir, ".config");
@@ -337,16 +338,21 @@ function managerLifecycleEnv(repoDir, competingManagerBin) {
     env[name] = name === "XDG_CONFIG_HOME" ? configDir : homeDir;
   }
   const inheritedPath = pathKey ? env[pathKey] : undefined;
-  env[pathKey ?? "PATH"] = [localBin, competingManagerBin, inheritedPath]
+  env[pathKey ?? "PATH"] = [
+    fixtureManagerBin,
+    localBin,
+    competingManagerBin,
+    inheritedPath,
+  ]
     .filter(Boolean)
     .join(path.delimiter);
   return env;
 }
 
-function run(command, args, cwd) {
+function run(command, args, cwd, env = lifecycleEnv()) {
   const result = crossSpawn.sync(command, args, {
     cwd,
-    env: lifecycleEnv(),
+    env,
     stdio: "inherit",
   });
 
@@ -361,10 +367,10 @@ function run(command, args, cwd) {
   }
 }
 
-function runForOutput(command, args, cwd) {
+function runForOutput(command, args, cwd, env = lifecycleEnv()) {
   const result = crossSpawn.sync(command, args, {
     cwd,
-    env: lifecycleEnv(),
+    env,
     encoding: "utf8",
   });
 
@@ -381,10 +387,10 @@ function runForOutput(command, args, cwd) {
   return result.stdout.trim();
 }
 
-function runForCombinedOutput(command, args, cwd) {
+function runForCombinedOutput(command, args, cwd, env = lifecycleEnv()) {
   const result = crossSpawn.sync(command, args, {
     cwd,
-    env: lifecycleEnv(),
+    env,
     encoding: "utf8",
   });
 
@@ -1011,11 +1017,11 @@ export function createLifecycleIntegration() {
         );
         const managerFiles = {
           ".husky/pre-commit":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues precommit || exit $?\nnode_modules/.bin/lifecycle-husky-probe husky pre-commit "$@"\n',
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues precommit || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-commit "$@"\n',
           ".husky/pre-push":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues prepush "$@" || exit $?\nnode_modules/.bin/lifecycle-husky-probe husky pre-push "$@"\n',
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues prepush "$@" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-push "$@"\n',
           ".husky/commit-msg":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues commit-msg "$1" || exit $?\nnode_modules/.bin/lifecycle-husky-probe husky commit-msg "$@"\n',
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues commit-msg "$1" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky commit-msg "$@"\n',
           "lefthook.yml": [
             "pre-commit:",
             "  commands:",
@@ -1083,9 +1089,10 @@ export function createLifecycleIntegration() {
           "utf8",
         );
         const probeFiles = {
-          "node_modules/.bin/lifecycle-husky-probe": probeSource,
-          "node_modules/.bin/lefthook": managerDispatchHarness,
-          "node_modules/.bin/python3": managerDispatchHarness,
+          ".lifecycle-manager-bin/lifecycle-husky-probe": probeSource,
+          ".lifecycle-manager-bin/lefthook": managerDispatchHarness,
+          ".lifecycle-manager-bin/lefthook.cmd": '@node "%~dp0lefthook" %*\r\n',
+          ".lifecycle-manager-bin/python3": managerDispatchHarness,
         };
         const cliTracePath = path.join(repoDir, ".lifecycle-cli-trace.mjs");
         const cliTraceSource = [
@@ -1138,7 +1145,7 @@ export function createLifecycleIntegration() {
                 manager === "lefthook"
                   ? lefthookRunner(name)
                   : preCommitRunner(name, {
-                      installPython: "node_modules/.bin/python3",
+                      installPython: ".lifecycle-manager-bin/python3",
                       windowsLauncher: process.platform === "win32",
                     });
             }
@@ -1527,6 +1534,7 @@ export function createLifecycleIntegration() {
             previewCommand,
             previewArgs,
             repoDir,
+            managerLifecycleEnv(repoDir, competingManagerBin),
           );
           assertLifecycle(
             preview.includes(`${manager} coexistence snippets`),
@@ -1538,7 +1546,12 @@ export function createLifecycleIntegration() {
             "init",
             `--integration=${manager}`,
           ]);
-          run(initCommand, initArgs, repoDir);
+          run(
+            initCommand,
+            initArgs,
+            repoDir,
+            managerLifecycleEnv(repoDir, competingManagerBin),
+          );
           const integratedPackage = readJson(
             path.join(repoDir, "package.json"),
           );
@@ -1559,7 +1572,12 @@ export function createLifecycleIntegration() {
             path.join(repoDir, "package.json"),
             "utf8",
           );
-          run(initCommand, initArgs, repoDir);
+          run(
+            initCommand,
+            initArgs,
+            repoDir,
+            managerLifecycleEnv(repoDir, competingManagerBin),
+          );
           assertLifecycle(
             fs.readFileSync(path.join(repoDir, "package.json"), "utf8") ===
               packageAfterIntegration,
@@ -1571,7 +1589,12 @@ export function createLifecycleIntegration() {
             "doctor",
             `--integration=${manager}`,
           ]);
-          run(doctorCommand, doctorArgs, repoDir);
+          run(
+            doctorCommand,
+            doctorArgs,
+            repoDir,
+            managerLifecycleEnv(repoDir, competingManagerBin),
+          );
           assertFilesUnchanged(ownedFiles, `${manager} doctor`);
           executeManagerRunners(manager, hooksPath);
           executeConfiguredManagerEntries(manager, hooksPath);
@@ -1583,6 +1606,7 @@ export function createLifecycleIntegration() {
             integrationUninstallCommand,
             integrationUninstallArgs,
             repoDir,
+            managerLifecycleEnv(repoDir, competingManagerBin),
           );
           for (const detectedManager of ["husky", "lefthook", "pre-commit"]) {
             assertLifecycle(
@@ -1615,9 +1639,9 @@ export function createLifecycleIntegration() {
         fs.rmSync(path.join(repoDir, ".lifecycle-hooks"), { recursive: true });
         fs.rmSync(path.join(repoDir, "lefthook.yml"));
         fs.rmSync(path.join(repoDir, ".pre-commit-config.yaml"));
-        for (const relativePath of Object.keys(probeFiles)) {
-          fs.rmSync(path.join(repoDir, relativePath));
-        }
+        fs.rmSync(path.join(repoDir, ".lifecycle-manager-bin"), {
+          recursive: true,
+        });
         fs.rmSync(cliTracePath);
         run("git", ["config", "--unset", "core.hooksPath"], repoDir);
       },

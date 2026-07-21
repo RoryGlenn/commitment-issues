@@ -816,7 +816,7 @@ test("hook path probes handle unset, empty, and failed Git output", (t) => {
   const missingGit = { ...process.env, PATH: path.join(dir, "missing-bin") };
   assert.match(
     hooksPathConfigState(dir, missingGit).error,
-    /spawn.*git.*ENOENT/iu,
+    /(?:spawn.*git.*ENOENT|'git' is not recognized)/iu,
   );
 });
 
@@ -3055,7 +3055,9 @@ test("pre-commit runner words reject shell expansion and preserve safe quoting",
   fs.writeFileSync(absolutePython, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   fs.writeFileSync(
     wrapper,
-    preCommitRunner("pre-commit", { installPython: absolutePython }),
+    preCommitRunner("pre-commit", {
+      installPython: absolutePython.replaceAll("\\", "/"),
+    }),
     { mode: 0o755 },
   );
   assert.equal(
@@ -3112,7 +3114,9 @@ test("pre-commit runtime inspection fails closed after execute access succeeds",
   writeCrossPlatformShim(fallbackDir, "python3", "process.exit(0);\n");
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
-    preCommitRunner("pre-commit", { installPython: absolutePython }),
+    preCommitRunner("pre-commit", {
+      installPython: absolutePython.replaceAll("\\", "/"),
+    }),
     { mode: 0o755 },
   );
   assert.equal(
@@ -3371,7 +3375,7 @@ test("manager runner inspection verifies Git's effective executable wrappers", (
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
     lefthookRunner("pre-commit", {
-      embeddedExecutable: path.join(outside, "lefthook"),
+      embeddedExecutable: path.join(outside, "lefthook").replaceAll("\\", "/"),
     }),
     { mode: 0o755 },
   );
@@ -4024,6 +4028,12 @@ test("Husky runner inspection verifies every effective wrapper fail-closed", (t)
     );
     fs.chmodSync(wrapper, 0o755);
   }
+
+  // Keep the wrapper valid before isolating shared-runtime failures. The
+  // POSIX-only mode checks above rewrite it, while Windows skips those checks.
+  fs.writeFileSync(wrapper, '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n', {
+    mode: 0o755,
+  });
 
   fs.writeFileSync(path.join(hooksDir, "h"), "# foreign runtime\n");
   assert.deepEqual(

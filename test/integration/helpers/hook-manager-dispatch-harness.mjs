@@ -8,7 +8,9 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const packageRequire = createRequire(
-  path.join(cwd, "node_modules", "commitment-issues", "package.json"),
+  fs.realpathSync.native(
+    path.join(cwd, "node_modules", "commitment-issues", "package.json"),
+  ),
 );
 const crossSpawn = packageRequire("cross-spawn");
 const yaml = packageRequire("js-yaml");

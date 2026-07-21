@@ -51,11 +51,22 @@ export function fsFailurePreload(tempDir) {
       'import path from "node:path";',
       "function canonical(filePath) {",
       "  const resolved = path.resolve(filePath);",
-      "  let canonicalPath;",
-      "  try {",
-      "    canonicalPath = fs.realpathSync.native(resolved);",
-      "  } catch {",
-      "    canonicalPath = resolved;",
+      "  let current = resolved;",
+      "  const missingSegments = [];",
+      "  let canonicalPath = resolved;",
+      "  for (;;) {",
+      "    try {",
+      "      canonicalPath = path.join(",
+      "        fs.realpathSync.native(current),",
+      "        ...missingSegments,",
+      "      );",
+      "      break;",
+      "    } catch {",
+      "      const parent = path.dirname(current);",
+      "      if (parent === current) break;",
+      "      missingSegments.unshift(path.basename(current));",
+      "      current = parent;",
+      "    }",
       "  }",
       '  return process.platform === "win32"',
       "    ? canonicalPath.toLowerCase()",
@@ -186,11 +197,17 @@ export function writeCrossPlatformShim(binDir, name, shimBody) {
   const shimPath = path.join(binDir, `${name}-shim.mjs`);
   fs.writeFileSync(shimPath, shimBody);
   const unix = path.join(binDir, name);
-  fs.writeFileSync(unix, `#!/bin/sh\nexec node "${shimPath}" "$@"\n`);
+  fs.writeFileSync(unix, '#!/bin/sh\nexec node "${0}-shim.mjs" "$@"\n');
   fs.chmodSync(unix, 0o755);
   fs.writeFileSync(
     path.join(binDir, `${name}.cmd`),
-    `@node "${shimPath}" %*\r\n`,
+    [
+      "@echo off",
+      "setlocal DisableDelayedExpansion",
+      'node "%~dpn0-shim.mjs" %*',
+      "exit /b %ERRORLEVEL%",
+      "",
+    ].join("\r\n"),
   );
 }
 
