@@ -23,6 +23,9 @@ secret, branch, and commit-shape findings. Pushes run related tests in advisory
 mode when matching files exist. Findings warn without blocking by default, and
 routine success/no-op hook output stays quiet.
 
+Temporary debug-artifact scanning is additionally opt-in with
+`scanDebugArtifacts: true` and remains advisory even when enabled.
+
 Blocking is separate and explicit for protected branches, secrets, push-time
 tests, and optional commit-message linting. Local hooks remain bypassable with
 Git's standard `--no-verify`; policy that must be universal belongs in CI or
@@ -35,6 +38,27 @@ A new local hook should not unexpectedly stop an established workflow. Teams
 can observe findings, tune exemptions, and enable only the gates they trust.
 Automatic changes remain separate commands, so a warning does not rewrite a
 working tree or commit.
+
+## How do I catch temporary debug statements without flagging examples?
+
+Set `scanDebugArtifacts: true`. The check examines only lines added to the
+staged patch and recognizes a small, language-scoped list: stand-alone
+`console.log`, `debugger`, Python `print`/`pdb.set_trace`, Ruby `binding.pry`,
+and comment-only `TODO remove`/`FIXME temporary` markers. Removed, unchanged,
+same-line quoted, comment-prefixed, inline-comment, prose, and unsupported-file
+examples do not match. Because the zero-context diff does not reconstruct a
+language parser's lexical state, a stand-alone-looking line inside a multiline
+block comment, template string, or triple-quoted string can still warn.
+
+Documentation, fixtures, snapshots, and the effective `generatedPaths` are
+exempt by default. Set `debugArtifactExempt` to replace that list with the
+repository's intentional paths—for example, a CLI whose `print(...)` output is
+product behavior or a source fixture containing a multiline example. An empty
+list explicitly scans supported files in normally exempt locations. The setting
+accepts path globs only, never custom regular expressions or commands.
+The finding cannot block a commit, and an unavailable Git patch becomes a
+visible advisory instead of a silent success. See
+[Optional temporary debug-artifact advisory](configuration.md#optional-temporary-debug-artifact-advisory).
 
 ## What does `init` change?
 

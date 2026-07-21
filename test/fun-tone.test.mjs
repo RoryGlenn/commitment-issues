@@ -212,6 +212,21 @@ test("fun tone rewrites the possible secrets message", () => {
   );
 });
 
+test("fun tone rewrites debug-artifact findings and unavailable scans", () => {
+  assert.match(
+    funText("1 temporary debug artifact staged"),
+    /1 temporary debug artifact hoping nobody notices/,
+  );
+  assert.match(
+    funText("3 temporary debug artifacts staged"),
+    /3 temporary debug artifacts hoping nobody notices/,
+  );
+  assert.match(
+    funText("Debug artifact scan unavailable"),
+    /could not get a straight answer from Git/,
+  );
+});
+
 test("fun tone passes unrecognized messages through unchanged", () => {
   assert.match(
     funText("something completely bespoke happened"),

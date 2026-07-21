@@ -174,7 +174,7 @@ function parsePatchTarget(header) {
     return { valid: true, file: null };
   }
   const file = decoded.startsWith("b/") ? decoded.slice(2) : decoded;
-  return { valid: file.length > 0, file: normalizeRepoPath(file) };
+  return { valid: file.length > 0, file };
 }
 
 /**
@@ -195,19 +195,19 @@ export function isEnvFile(file) {
 }
 
 /**
- * Inspect a `git diff --cached -U0` unified diff for added lines matching the
- * curated secret patterns. Structural validation lets blocking callers fail
- * closed when successful Git output is not actually a complete patch.
+ * Parse the added lines from a `git diff --cached -U0` unified diff. Structural
+ * validation lets callers distinguish complete patches from truncated or
+ * malformed output while sharing one normalized pathname implementation.
  * @param {string} diffText - Unified diff output.
- * @returns {{findings: Array<{file: string, line: number, label: string}>, valid: boolean}} Findings and structural validity.
+ * @returns {{addedLines: Array<{file: string, line: number, content: string}>, valid: boolean}}
  */
-export function inspectDiffForSecrets(diffText) {
-  const findings = [];
+export function inspectAddedLines(diffText) {
+  const addedLines = [];
   if (typeof diffText !== "string") {
-    return { findings, valid: false };
+    return { addedLines, valid: false };
   }
   if (diffText === "") {
-    return { findings, valid: true };
+    return { addedLines, valid: true };
   }
 
   let currentFile = null;
@@ -269,10 +269,11 @@ export function inspectDiffForSecrets(diffText) {
       if (newRemaining === 0 || currentFile === null) {
         valid = false;
       } else {
-        const label = matchSecret(rawLine.slice(1));
-        if (label) {
-          findings.push({ file: currentFile, line: newLine, label });
-        }
+        addedLines.push({
+          file: currentFile,
+          line: newLine,
+          content: rawLine.slice(1),
+        });
       }
       newLine += 1;
       newRemaining -= 1;
@@ -303,7 +304,66 @@ export function inspectDiffForSecrets(diffText) {
   }
   finishHunk();
 
-  return { findings, valid: valid && sawDiff };
+  return { addedLines, valid: valid && sawDiff };
+}
+
+/**
+ * Match already-validated added lines against the curated secret patterns.
+ * This seam lets multiple staged-line checks share one safe Git patch parse.
+ * @param {Array<{file: string, line: number, content: string}>} addedLines - Parsed additions.
+ * @returns {Array<{file: string, line: number, label: string}>} Secret findings.
+ */
+export function secretFindingsForAddedLines(addedLines) {
+  const findings = [];
+  for (const addedLine of addedLines) {
+    const label = matchSecret(addedLine.content);
+    if (label) {
+      findings.push({
+        file: addedLine.file,
+        line: addedLine.line,
+        label,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
+ * Inspect a staged unified diff for added-line secret findings.
+ * @param {string} diffText - Unified diff output.
+ * @returns {{findings: Array<{file: string, line: number, label: string}>, valid: boolean}}
+ */
+export function inspectDiffForSecrets(diffText) {
+  const inspection = inspectAddedLines(diffText);
+  return {
+    findings: secretFindingsForAddedLines(inspection.addedLines),
+    valid: inspection.valid,
+  };
+}
+
+/**
+ * Normalize a staged-diff process result and validate its patch structure.
+ * Added lines contain exact decoded Git repository paths and are safe to share
+ * with every deterministic staged-line check.
+ * @param {{error?: Error|null, status?: number|null, stdout?: string}} result - Captured Git result.
+ * @returns {{addedLines: Array<{file: string, line: number, content: string}>, inspected: boolean, outcome: "success"|"spawn-error"|"nonzero"|"malformed"}}
+ */
+export function inspectStagedDiffResult(result) {
+  if (result?.error) {
+    return { addedLines: [], inspected: false, outcome: "spawn-error" };
+  }
+  if (result?.status !== 0) {
+    return { addedLines: [], inspected: false, outcome: "nonzero" };
+  }
+  const inspection = inspectAddedLines(result.stdout);
+  if (!inspection.valid) {
+    return { addedLines: [], inspected: false, outcome: "malformed" };
+  }
+  return {
+    addedLines: inspection.addedLines,
+    inspected: true,
+    outcome: "success",
+  };
 }
 
 /**
@@ -312,20 +372,11 @@ export function inspectDiffForSecrets(diffText) {
  * @returns {{findings: Array<{file: string, line: number, label: string}>, inspected: boolean, outcome: "success"|"spawn-error"|"nonzero"|"malformed"}}
  */
 export function inspectSecretDiffResult(result) {
-  if (result?.error) {
-    return { findings: [], inspected: false, outcome: "spawn-error" };
-  }
-  if (result?.status !== 0) {
-    return { findings: [], inspected: false, outcome: "nonzero" };
-  }
-  const inspection = inspectDiffForSecrets(result.stdout);
-  if (!inspection.valid) {
-    return { findings: [], inspected: false, outcome: "malformed" };
-  }
+  const inspection = inspectStagedDiffResult(result);
   return {
-    findings: inspection.findings,
-    inspected: true,
-    outcome: "success",
+    findings: secretFindingsForAddedLines(inspection.addedLines),
+    inspected: inspection.inspected,
+    outcome: inspection.outcome,
   };
 }
 

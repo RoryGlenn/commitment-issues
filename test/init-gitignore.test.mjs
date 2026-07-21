@@ -88,6 +88,14 @@ test(
     const packageBefore = readFile(tempDir, "package.json");
     fs.chmodSync(gitignorePath, 0o000);
 
+    try {
+      fs.accessSync(gitignorePath, fs.constants.R_OK);
+      t.skip("this platform does not enforce the unreadable mode bit");
+      return;
+    } catch {
+      // Expected on platforms with POSIX-style read permissions.
+    }
+
     const result = runInit(tempDir);
     const output = `${result.stdout}${result.stderr}`;
 

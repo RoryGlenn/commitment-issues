@@ -97,6 +97,7 @@ Read via `loadPrecommitConfig()`. The supported keys are grouped by behavior:
 - Commit messages: nested `commitMessage` settings (enabled and
   blockOnFailure).
 - Secret scanning: `scanSecrets`, `blockOnSecrets`, and `secretExempt`.
+- Debug-artifact advisory: `scanDebugArtifacts` and `debugArtifactExempt`.
 - Shared behavior: `timeoutMs`, `tone`, `hookOutput`, and
   `showWelcomeOnFirstCommit`.
 

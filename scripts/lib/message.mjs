@@ -142,6 +142,14 @@ function funIssueMessage(issue, message) {
     return `${count} possible ${plural(count, "secret")} this commit can't keep`;
   }
 
+  const debugArtifactMatch = issue.message.match(
+    /^(\d+) temporary debug artifact(s)? staged$/,
+  );
+  if (debugArtifactMatch) {
+    const count = Number(debugArtifactMatch[1]);
+    return `${count} temporary debug ${plural(count, "artifact")} hoping nobody notices`;
+  }
+
   return message;
 }
 
@@ -158,6 +166,8 @@ const FUN_EXACT_MESSAGES = {
   "Unable to run staged tests": "The staged tests won't even pick up the phone",
   "Staged file-size check unavailable":
     "The staged files would not say how much baggage they are carrying",
+  "Debug artifact scan unavailable":
+    "The debug-artifact check could not get a straight answer from Git",
 };
 
 function issueMessage(issue, tone = "standard") {

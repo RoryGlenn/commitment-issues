@@ -163,11 +163,11 @@ made absolute so Node cannot interpret a repository filename as an option.
 
 ## What happens on commit and push?
 
-| Action         | Default behavior                                                                            | Stricter option                                                |
-| -------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `git commit`   | Reports lint, formatting, missing-test, test, branch, and commit-shape issues               | Enable `runStagedTests` to run staged-related tests            |
-| `git push`     | Runs pushed-file tests in advisory mode after `init`; warns when pushing a protected branch | Enable `blockPushOnTestFailure` to stop pushes on test failure |
-| commit message | No check until `commitMessage.enabled` is true; then warns on commitlint failures           | Set `commitMessage.blockOnFailure` to stop the commit          |
+| Action         | Default behavior                                                                                        | Stricter option                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `git commit`   | Reports lint, formatting, missing-test, test, branch, and commit-shape issues; debug scanning is opt-in | Enable `runStagedTests` to run staged-related tests            |
+| `git push`     | Runs pushed-file tests in advisory mode after `init`; warns when pushing a protected branch             | Enable `blockPushOnTestFailure` to stop pushes on test failure |
+| commit message | No check until `commitMessage.enabled` is true; then warns on commitlint failures                       | Set `commitMessage.blockOnFailure` to stop the commit          |
 
 ## Active flow
 
@@ -325,6 +325,10 @@ Beyond tool checks, the hooks run instant, git-only advisory guards. All of them
 - **Large files** — staged files over `maxFileSizeMb` (default 5) are listed with a Git LFS pointer. Set to `0` to disable.
 - **Generated files** — staged paths matching `generatedPaths` (default: `dist`, `build`, `coverage`, `node_modules`, `.DS_Store`, `__pycache__` anywhere in the tree) are flagged as usually-ignored artifacts. Setting `generatedPaths` replaces the default list.
 - **Staged secrets** — lines _added_ by the staged diff are scanned against a curated, high-precision credential set (AWS access keys, private-key headers, GitHub/Slack/npm/Stripe live/Google API tokens, URLs with embedded passwords), and staged dotenv files are flagged (`.env.example`/`.env.sample`/`.env.template` are ignored). Known documentation examples and placeholder passwords (`${DB_PASS}`, `<password>`, `changeme`…) never fire. Opt into hard blocking with `blockOnSecrets: true`; exempt fixture paths with `secretExempt` globs; disable with `scanSecrets: false`. Advisory mode warns and allows the commit if Git cannot produce a valid staged patch. Blocking mode fails closed on a Git launch failure, nonzero result, or malformed patch because possible secrets could not be ruled out. Human and JSON output distinguish an unavailable scan from a detected secret and show `git commit --no-verify` as the one-time bypass. A secret that reached a commit should be rotated even if the commit is stopped.
+- **Temporary debug artifacts** — disabled until `scanDebugArtifacts: true`.
+  The enabled check scans only added staged lines, reports one aggregate
+  advisory with file, line, and rule names, and never blocks. It shares the
+  staged-patch parser and Git invocation with secret scanning.
 
 ```json
 {
@@ -336,6 +340,68 @@ Beyond tool checks, the hooks run instant, git-only advisory guards. All of them
   }
 }
 ```
+
+## Optional temporary debug-artifact advisory
+
+Enable the check after the team has reviewed its deliberately narrow rule set:
+
+```json
+{
+  "precommitChecks": {
+    "scanDebugArtifacts": true,
+    "debugArtifactExempt": [
+      "docs/**",
+      "test/fixtures/**",
+      "dist/**",
+      "src/intentional-console/**"
+    ]
+  }
+}
+```
+
+The supported rules and stable JSON rule IDs are:
+
+| Rule ID                   | High-precision added-line form                 | Files                                                                                  |
+| ------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `javascript.console-log`  | A complete stand-alone `console.log(...)` call | JS module/script family (`.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.mts`, `.cts`, `.tsx`) |
+| `javascript.debugger`     | A complete stand-alone `debugger` statement    | JS module/script family (`.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.mts`, `.cts`, `.tsx`) |
+| `python.print`            | A complete stand-alone `print(...)` call       | Python                                                                                 |
+| `python.pdb-set-trace`    | A complete stand-alone `pdb.set_trace()` call  | Python                                                                                 |
+| `ruby.binding-pry`        | A complete stand-alone `binding.pry` call      | Ruby and Rakefiles                                                                     |
+| `comment.todo-remove`     | A comment-only `TODO … remove` marker          | Files above                                                                            |
+| `comment.fixme-temporary` | A comment-only `FIXME … temporary` marker      | Files above                                                                            |
+
+False-positive policy is conservative at the physical-line level: executable
+rules must occupy one whole added line (apart from indentation, a terminator,
+or trailing comment), and they are limited to the language shown. Same-line
+quoted examples, prose, comment-prefixed statements, inline comments after
+code, unsupported file types, removed lines, and unchanged context do not
+match. The zero-context patch does not contain enough lexical state to prove
+whether a stand-alone-looking line is inside a multiline block comment,
+JavaScript template string, Python triple-quoted string, or similar construct,
+so those lines can still produce an advisory. `TODO remove` and `FIXME
+temporary` are the only intentional comment rules because the wording itself
+declares temporary work. This favors missing unusual debug syntax over noisy
+warnings without claiming language-parser precision. Legitimate CLI output,
+committed debugging tools, and multiline source examples should use a path
+exemption.
+
+When `debugArtifactExempt` is omitted, the built-in list excludes `docs` plus
+fixture and snapshot directories/files, and composes those entries with the
+effective `generatedPaths` list. That means a repository which replaces the
+generated-file defaults also exempts its replacement paths here. Supplying
+`debugArtifactExempt` **replaces** the complete composed list. Include any
+defaults the repository wants to retain; an explicit empty list scans supported
+files in those locations. Globs are deterministic repository-relative paths,
+not regular expressions or shell commands.
+
+A Git launch failure, nonzero result, or malformed staged patch produces the
+separate `debug-artifacts.unavailable` advisory and still exits `0`. Detected
+artifacts use `debug-artifacts.detected`. Human output aggregates every match
+and all other checks into the command's one final box. JSON uses the stable
+`debug-artifacts` check ID, exposes the applicable subtype as
+`checks[].details.findingId`, and publishes structured `file`, `line`, `ruleId`,
+and `label` entries in the same extensible details object.
 
 ## Optional commit-message linting
 
@@ -407,29 +473,31 @@ successfully from install-time `doctor --quiet`.
 
 All options are optional and use the same types in either configuration file:
 
-| Key                        | Type                            | Default              | Description                                                                                                    |
-| -------------------------- | ------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `testExempt`               | string[]                        | `[]`                 | Glob patterns for files excluded from the missing-test check.                                                  |
-| `requireTests`             | boolean                         | `true`               | Set `false` to disable the missing-test check.                                                                 |
-| `runStagedTests`           | boolean                         | `false`              | Run tests for staged files at commit time.                                                                     |
-| `advisePushTests`          | boolean                         | `true` after `init`  | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
-| `blockPushOnTestFailure`   | boolean                         | `false`              | Run the pushed files' tests at `git push` and block on failure.                                                |
-| `testCommand`              | string[]                        | `["node", "--test"]` | Executable and options for staged/push tests; discovered paths are appended as argv and must be accepted.      |
-| `timeoutMs`                | number                          | `120000`             | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
-| `tone`                     | `"standard"` or `"fun"`         | `"standard"`         | Output tone for advisory pre-commit messages.                                                                  |
-| `hookOutput`               | `"problems-only"` or `"normal"` | `"problems-only"`    | Suppress final success/info hook boxes, or preserve every human-readable hook state.                           |
-| `showWelcomeOnFirstCommit` | boolean                         | `true`               | Show the Commit Owl onboarding message once per clone; set `false` for completely silent successful hooks.     |
-| `protectedBranches`        | string[]                        | `["main", "master"]` | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.            |
-| `blockProtectedBranches`   | boolean                         | `false`              | Block (instead of warn about) commits and pushes to protected branches.                                        |
-| `adviseBehindUpstream`     | boolean                         | `true`               | Warn at commit time when the branch is behind its upstream (as of the last fetch).                             |
-| `maxCommitFiles`           | number                          | `30`                 | Warn when a commit stages more than this many files. `0` disables.                                             |
-| `maxCommitLines`           | number                          | `2000`               | Warn when a commit changes more than this many lines. `0` disables.                                            |
-| `maxFileSizeMb`            | number                          | `5`                  | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
-| `generatedPaths`           | string[]                        | build-artifact globs | Globs flagged as generated files when staged. Replaces the default list.                                       |
-| `scanSecrets`              | boolean                         | `true`               | Scan added staged lines and dotenv files for likely credentials.                                               |
-| `blockOnSecrets`           | boolean                         | `false`              | Block on a secret finding or when the staged patch cannot be safely inspected.                                 |
-| `secretExempt`             | string[]                        | `[]`                 | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
-| `commitMessage`            | object                          | disabled             | Optional project-local commitlint integration; see the nested keys above.                                      |
+| Key                        | Type                            | Default                      | Description                                                                                                    |
+| -------------------------- | ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `testExempt`               | string[]                        | `[]`                         | Glob patterns for files excluded from the missing-test check.                                                  |
+| `requireTests`             | boolean                         | `true`                       | Set `false` to disable the missing-test check.                                                                 |
+| `runStagedTests`           | boolean                         | `false`                      | Run tests for staged files at commit time.                                                                     |
+| `advisePushTests`          | boolean                         | `true` after `init`          | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
+| `blockPushOnTestFailure`   | boolean                         | `false`                      | Run the pushed files' tests at `git push` and block on failure.                                                |
+| `testCommand`              | string[]                        | `["node", "--test"]`         | Executable and options for staged/push tests; discovered paths are appended as argv and must be accepted.      |
+| `timeoutMs`                | number                          | `120000`                     | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
+| `tone`                     | `"standard"` or `"fun"`         | `"standard"`                 | Output tone for advisory pre-commit messages.                                                                  |
+| `hookOutput`               | `"problems-only"` or `"normal"` | `"problems-only"`            | Suppress final success/info hook boxes, or preserve every human-readable hook state.                           |
+| `showWelcomeOnFirstCommit` | boolean                         | `true`                       | Show the Commit Owl onboarding message once per clone; set `false` for completely silent successful hooks.     |
+| `protectedBranches`        | string[]                        | `["main", "master"]`         | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.            |
+| `blockProtectedBranches`   | boolean                         | `false`                      | Block (instead of warn about) commits and pushes to protected branches.                                        |
+| `adviseBehindUpstream`     | boolean                         | `true`                       | Warn at commit time when the branch is behind its upstream (as of the last fetch).                             |
+| `maxCommitFiles`           | number                          | `30`                         | Warn when a commit stages more than this many files. `0` disables.                                             |
+| `maxCommitLines`           | number                          | `2000`                       | Warn when a commit changes more than this many lines. `0` disables.                                            |
+| `maxFileSizeMb`            | number                          | `5`                          | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
+| `generatedPaths`           | string[]                        | build-artifact globs         | Globs flagged as generated files when staged. Replaces the default list.                                       |
+| `scanDebugArtifacts`       | boolean                         | `false`                      | Scan added staged lines for curated temporary debug artifacts; always advisory.                                |
+| `debugArtifactExempt`      | string[]                        | docs/fixture/effective globs | Repository-relative exemptions. An explicit list replaces the composed defaults.                               |
+| `scanSecrets`              | boolean                         | `true`                       | Scan added staged lines and dotenv files for likely credentials.                                               |
+| `blockOnSecrets`           | boolean                         | `false`                      | Block on a secret finding or when the staged patch cannot be safely inspected.                                 |
+| `secretExempt`             | string[]                        | `[]`                         | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
+| `commitMessage`            | object                          | disabled                     | Optional project-local commitlint integration; see the nested keys above.                                      |
 
 Unrecognized configuration keys, including nested `commitMessage` keys, are ignored and named with their effective source in diagnostics from hooks, `init`, and `doctor` — so typos like `requireTest` or `commitMessage.enable` cannot silently disable, enable, or enforce a check.
 

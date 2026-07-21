@@ -47,7 +47,26 @@ top-level contract and each check's `id` and `status` as the stable control
 surface. New check IDs and new keys inside `details` may be added without a
 schema-version change. Consumers should ignore checks they do not recognize.
 The `check` field on a finding is its broad category (for example, `format` or
-`tests`), not a foreign key to one specific check entry.
+`tests`), not a foreign key to one specific check entry. Version 1 findings keep
+their original strict top-level shape; check-specific subtype identity belongs
+inside the additive `checks[].details` surface.
+
+The opt-in debug-artifact check uses check ID `debug-artifacts`, publishes
+`debug-artifacts.detected` or `debug-artifacts.unavailable` as
+`checks[].details.findingId`, and includes stable rule IDs inside
+`checks[].details.findings`. A detected entry has this shape:
+
+```json
+{
+  "file": "src/app.py",
+  "line": 12,
+  "ruleId": "python.pdb-set-trace",
+  "label": "pdb.set_trace call"
+}
+```
+
+The human-facing aggregate remains one finding even when this details array has
+multiple locations.
 
 Example advisory result (abridged):
 

@@ -144,6 +144,8 @@ test("isTestExemptFile honors package.json testExempt globs", () => {
 
 test("globToRegExp supports *, ** and ?", () => {
   assert.match("src/legacy/old.js", globToRegExp("src/legacy/**"));
+  assert.match("docs/line\nbreak.js", globToRegExp("docs/**"));
+  assert.match("a/line\nbreak/file.js", globToRegExp("**/file.js"));
   assert.match("Button.stories.tsx", globToRegExp("*.stories.tsx"));
   assert.doesNotMatch(
     "src/ui/Button.stories.tsx",
@@ -387,7 +389,9 @@ test("mutable project file writes and removals reject invalid or replaced state"
   const replacedState = inspectMutableProjectFile(replaced);
   const missingState = inspectMutableProjectFile(missing);
   const unsafeState = inspectMutableProjectFile(unsafe);
-  fs.rmSync(replaced);
+  // Keep the original inode allocated so a fast filesystem cannot immediately
+  // reuse it for the replacement and turn this identity-race fixture flaky.
+  fs.renameSync(replaced, `${replaced}.original`);
   fs.writeFileSync(replaced, "after\n");
 
   assert.throws(

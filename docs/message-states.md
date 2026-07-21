@@ -208,6 +208,13 @@ Shown when the pre-commit hook finds no advisory issues.
 
 Shown when commit-time checks find advisory issues such as formatting drift, lint issues, or missing tests. The commit still continues, and `npm run commit:fix` is offered when amending the latest commit is safe.
 
+When `scanDebugArtifacts` is enabled, every non-exempt added-line match joins
+this same suggestions box as one “temporary debug artifacts staged” finding.
+Its detail lines name each file, line, and curated rule. A failed or malformed
+staged-diff inspection instead contributes one “Debug artifact scan
+unavailable” advisory. Both states allow the commit and never create a second
+box or prompt.
+
 ### Missing tests
 
 <p>

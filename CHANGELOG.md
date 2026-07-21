@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   changes, untracked files, and recent branch switches without executing a
   recovery operation or displaying commands that discard work or force
   history changes.
+- Added an opt-in, advisory-only staged debug-artifact check with curated
+  language-scoped rules for common JavaScript, Python, Ruby, and explicit
+  temporary-comment markers. It scans only added lines through the existing
+  structurally validated Git patch parser, excludes documentation, fixtures,
+  snapshots, and effective generated paths by default, supports deterministic
+  path-glob exemptions, aggregates human output, and publishes stable JSON
+  check, subtype, and rule identifiers without changing the strict schema-v1
+  finding shape. Unavailable or malformed diffs warn and still allow the
+  commit.
 - Added a tested, fail-closed pull-request change classifier. Pure
   documentation and metadata changes retain DCO, static quality, formatting,
   dependency audit, and focused documentation, schema, link, asset, release,
