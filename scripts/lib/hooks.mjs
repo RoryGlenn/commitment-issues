@@ -293,7 +293,7 @@ function managerInvocation(name) {
 }
 
 function localHookInvocation(name) {
-  const command = `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`;
+  const command = `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
   return name === "pre-push"
     ? `${command} "$@"`
     : name === "commit-msg"
@@ -587,8 +587,8 @@ function lefthookSnippet(name) {
   // command.
   const command =
     name === "commit-msg"
-      ? `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]} --git-path`
-      : `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`;
+      ? `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]} --git-path`
+      : `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
   const lines = [
     `${name}:`,
     "  commands:",
@@ -606,7 +606,7 @@ function preCommitSnippet(name) {
   return [
     `      - id: ${id}`,
     `        name: ${BIN} ${name}`,
-    `        entry: ${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`,
+    `        entry: ${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`,
     "        language: system",
     `        pass_filenames: ${name === "commit-msg" ? "true" : "false"}`,
     "        always_run: true",
@@ -1241,8 +1241,8 @@ function hasLefthookCommand(content, name) {
   const commandBlock = yamlBlock(commandsBlock, commandIndices[0]);
   const command =
     name === "commit-msg"
-      ? `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]} --git-path`
-      : `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`;
+      ? `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]} --git-path`
+      : `${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`;
   const runLine = `run: ${command}`;
   const properties = directYamlPropertyEntries(commandBlock);
   const allowedCommandProperties = new Set(
@@ -1332,7 +1332,7 @@ function hasPreCommitCommand(content, name, document) {
   const properties = directYamlPropertyEntries(matchingBlocks[0]);
   const required = [
     ["name", `name: ${BIN} ${name}`],
-    ["entry", `entry: ${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`],
+    ["entry", `entry: ${LOCAL_BIN} hook ${HOOK_SUBCOMMANDS[name]}`],
     ["language", "language: system"],
     [
       "pass_filenames",
@@ -2492,6 +2492,9 @@ export function effectiveHooksDir(cwd = process.cwd(), env = process.env) {
  *   wired                  → our exact generated body; healthy
  *   stale-wired            → exact older generated body; safe to refresh
  *   custom-with-command    → user's own hook that still calls us; healthy
+ *   custom-with-legacy-command → user's hook calls the public check directly;
+ *                            preserve it but require the managed dispatcher so
+ *                            hook-only bypass variables remain authoritative
  *   non-executable         → hook contents may be wired, but Git will not run
  *                            the file on POSIX
  *   uninspectable          → the path exists but cannot be safely read as a
@@ -2504,7 +2507,7 @@ export function effectiveHooksDir(cwd = process.cwd(), env = process.env) {
  *   participate in health classification. Ownership-only callers can disable
  *   this while comparing generated/custom hook contents, and uninstall can
  *   recognize a historical global command solely for manual cleanup.
- * @returns {"missing"|"wired"|"stale-wired"|"custom-with-command"|"non-executable"|"uninspectable"|"custom-without-command"} Classification.
+ * @returns {"missing"|"wired"|"stale-wired"|"custom-with-command"|"custom-with-legacy-command"|"non-executable"|"uninspectable"|"custom-without-command"} Classification.
  */
 export function classifyHook(
   hooksDir,
@@ -2527,10 +2530,32 @@ export function classifyHook(
   if (STALE_GENERATED_HOOK_BODIES[name]?.includes(content)) {
     return "stale-wired";
   }
-  return hasExecutableHookCommand(content, name) ||
+  if (
+    hasExecutableHookCommand(content, name) ||
     (recognizeLegacyCommand && hasLegacyExecutableHookCommand(content, name))
-    ? "custom-with-command"
+  ) {
+    return "custom-with-command";
+  }
+  return hasLegacyLocalHookCommand(content, name)
+    ? "custom-with-legacy-command"
     : "custom-without-command";
+}
+
+function hasLegacyLocalHookCommand(content, name) {
+  const command = `${LOCAL_BIN} ${HOOK_SUBCOMMANDS[name]}`;
+  const invocation =
+    name === "pre-push"
+      ? `${command} "$@"`
+      : name === "commit-msg"
+        ? `${command} "$1"`
+        : command;
+  return [
+    `${invocation} || exit $?`,
+    `command ${invocation} || exit $?`,
+    `exec ${invocation}`,
+  ].some((expected) =>
+    hasExecutableShellCommand(content, expected, { requireShebang: true }),
+  );
 }
 
 function hasLegacyExecutableHookCommand(content, name) {

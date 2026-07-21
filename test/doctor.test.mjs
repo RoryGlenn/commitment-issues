@@ -105,9 +105,9 @@ function managerFixture(tempDir, manager) {
       ".husky/_/pre-commit": '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n',
       ".husky/_/pre-push": '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n',
       ".husky/pre-commit":
-        "node_modules/.bin/commitment-issues precommit || exit $?\necho custom\n",
+        "node_modules/.bin/commitment-issues hook precommit || exit $?\necho custom\n",
       ".husky/pre-push":
-        'node_modules/.bin/commitment-issues prepush "$@" || exit $?\necho still-custom\n',
+        'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\necho still-custom\n',
     };
     for (const [filePath, content] of Object.entries(files)) {
       writeFile(path.join(tempDir, filePath), content);
@@ -124,11 +124,11 @@ function managerFixture(tempDir, manager) {
       "    existing:",
       "      run: echo existing",
       "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues precommit",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
       "pre-push:",
       "  commands:",
       "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues prepush",
+      "      run: node_modules/.bin/commitment-issues hook prepush",
       "      use_stdin: true",
       "",
     ].join("\n");
@@ -159,14 +159,14 @@ function managerFixture(tempDir, manager) {
     "        language: system",
     "      - id: commitment-issues-pre-commit",
     "        name: commitment-issues pre-commit",
-    "        entry: node_modules/.bin/commitment-issues precommit",
+    "        entry: node_modules/.bin/commitment-issues hook precommit",
     "        language: system",
     "        pass_filenames: false",
     "        always_run: true",
     "        stages: [pre-commit]",
     "      - id: commitment-issues-pre-push",
     "        name: commitment-issues pre-push",
-    "        entry: node_modules/.bin/commitment-issues prepush",
+    "        entry: node_modules/.bin/commitment-issues hook prepush",
     "        language: system",
     "        pass_filenames: false",
     "        always_run: true",
@@ -225,9 +225,9 @@ test("doctor recognizes healthy Husky v8 direct hooks", (t) => {
   fs.mkdirSync(hooksDir, { recursive: true });
   const hooks = {
     "pre-commit":
-      "#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+      "#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
     "pre-push":
-      '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
+      '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
   };
   for (const [name, content] of Object.entries(hooks)) {
     writeFile(path.join(hooksDir, name), content);
@@ -374,8 +374,8 @@ test("doctor reports exact missing manager snippets but never installs them", (t
     "pre-push:",
     "  commands:",
     "    commitment-issues:",
-    "      run: node_modules/.bin/commitment-issues prepush",
-    "      use_stdin: false",
+    "      run: node_modules/.bin/commitment-issues hook prepush",
+    "      use_stdin: true",
     "",
   ].join("\n");
   writeFile(path.join(tempDir, "lefthook.yml"), config);
@@ -384,8 +384,15 @@ test("doctor reports exact missing manager snippets but never installs them", (t
   const output = `${result.stdout}${result.stderr}`;
   assert.equal(result.status, 1);
   assert.match(output, /lefthook integration needs attention/i);
-  assert.match(output, /missing hook entries: pre-commit, pre-push/);
-  assert.match(output, /use_stdin: true/);
+  assert.match(output, /missing hook entries: pre-commit/);
+  assert.match(
+    output,
+    /run: node_modules\/\.bin\/commitment-issues hook precommit/,
+  );
+  assert.doesNotMatch(
+    output,
+    /run: node_modules\/\.bin\/commitment-issues hook prepush/,
+  );
   assert.match(output, /Manager-owned files were left unchanged/);
   assert.equal(
     fs.readFileSync(path.join(tempDir, "lefthook.yml"), "utf8"),
@@ -419,7 +426,7 @@ test("doctor gives guarded-entry guidance for missing Husky manager hooks", (t) 
   );
   assert.match(
     output,
-    /node_modules\/.bin\/commitment-issues precommit \|\| exit \$\?/,
+    /node_modules\/.bin\/commitment-issues hook precommit \|\| exit \$\?/,
   );
   assert.doesNotMatch(output, /integration is healthy/i);
   assert.equal(
@@ -735,7 +742,7 @@ test("doctor explains every manager activation failure without writing", (t) => 
   writeFile(
     path.join(dirs[5], "lefthook.yml"),
     files["lefthook.yml"].replace(
-      "      run: node_modules/.bin/commitment-issues precommit",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
       "      run: echo other",
     ),
   );
@@ -872,7 +879,7 @@ test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t
   assert.match(unwiredOutput, /commit-msg/);
   assert.match(
     compactTerminalBoxText(unwiredOutput),
-    /node_modules\/\.bin\/commitment-issues\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
+    /node_modules\/\.bin\/commitment-issues\s*hook\s*commit-msg\s*"\$1"\s*\|\|\s*exit\s*\$\?/,
   );
   assert.equal(
     fs.readFileSync(gitHook(tempDir, "commit-msg"), "utf8"),
@@ -881,7 +888,7 @@ test("doctor preserves custom commit-msg hooks and requires safe forwarding", (t
 
   fs.writeFileSync(
     gitHook(tempDir, "commit-msg"),
-    'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?\necho custom\n',
+    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\necho custom\n',
   );
   const safe = runDoctor(tempDir);
   assert.equal(safe.status, 0);
@@ -977,7 +984,7 @@ test("doctor reports and preserves a customized pre-push hook without forwarded 
   assert.equal(fs.readFileSync(hookPath, "utf8"), custom);
 });
 
-test("doctor respects live husky-era wiring and only nudges", (t) => {
+test("doctor requires live husky-era wiring to adopt managed bypasses", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
@@ -986,13 +993,36 @@ test("doctor respects live husky-era wiring and only nudges", (t) => {
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
-  // The user may be keeping husky deliberately; a working setup is healthy.
-  assert.equal(result.status, 0);
-  assert.match(output, /Git hooks are healthy/);
-  assert.match(output, /husky-era wiring/);
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(output, /Git hooks are healthy/);
+  assert.match(output, /core\.hooksPath points somewhere else/);
   assert.match(output, /commitment-issues init/);
   assert.equal(hooksPath(tempDir), ".husky/_");
   assert.ok(fs.existsSync(path.join(tempDir, ".husky", "pre-commit")));
+});
+
+test("doctor recognizes managed live husky-era wiring", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  wireHuskyEra(tempDir, { live: true });
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-commit"),
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
+  );
+  fs.writeFileSync(
+    path.join(tempDir, ".husky", "pre-push"),
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
+  );
+
+  const result = runDoctor(tempDir);
+  const output = `${result.stdout}${result.stderr}`;
+
+  assert.equal(result.status, 0);
+  assert.match(output, /Git hooks are healthy/);
+  assert.match(output, /This is husky-era wiring/);
+  assert.match(output, /npx commitment-issues init/);
+  assert.equal(hooksPath(tempDir), ".husky/_");
 });
 
 test("doctor reports live husky-era hooks that never invoke commitment-issues", (t) => {
@@ -1078,12 +1108,12 @@ test("doctor --quiet warns in one line about stranded .husky hooks", (t) => {
   assert.match(output, /\.husky\/commit-msg no longer run/);
 });
 
-test("doctor accepts a custom hook that still invokes commitment-issues", (t) => {
+test("doctor rejects legacy direct custom hooks without managed bypasses", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
   runDoctor(tempDir); // establish healthy wiring + exact hook bodies
-  // A user adds their own line but keeps our subcommand — still healthy.
+  // A direct public command still runs, but it cannot honor hook-only bypasses.
   fs.writeFileSync(
     gitHook(tempDir, "pre-commit"),
     "node_modules/.bin/commitment-issues precommit || exit $?\necho running my own lint step\n",
@@ -1092,8 +1122,10 @@ test("doctor accepts a custom hook that still invokes commitment-issues", (t) =>
   const result = runDoctor(tempDir);
   const output = `${result.stdout}${result.stderr}`;
 
-  assert.equal(result.status, 0);
-  assert.match(output, /Git hooks are healthy/);
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(output, /Git hooks are healthy/);
+  assert.match(output, /outdated direct wiring/i);
+  assert.match(compactTerminalBoxText(output), /hook\s*precommit/);
 });
 
 test("doctor rejects inert command mentions without changing custom hooks", (t) => {
@@ -1293,11 +1325,11 @@ test("doctor treats a wired foreign core.hooksPath as healthy", (t) => {
   fs.mkdirSync(path.join(tempDir, "githooks"), { recursive: true });
   fs.writeFileSync(
     path.join(tempDir, "githooks", "pre-commit"),
-    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
   );
   fs.writeFileSync(
     path.join(tempDir, "githooks", "pre-push"),
-    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
   );
   fs.chmodSync(path.join(tempDir, "githooks", "pre-commit"), 0o755);
   fs.chmodSync(path.join(tempDir, "githooks", "pre-push"), 0o755);
@@ -1321,8 +1353,14 @@ test("doctor resolves a tilde-based core.hooksPath through Git", (t) => {
 
   const hooksDir = path.join(homeDir, "shared hooks");
   for (const [name, command] of [
-    ["pre-commit", "node_modules/.bin/commitment-issues precommit || exit $?"],
-    ["pre-push", 'node_modules/.bin/commitment-issues prepush "$@" || exit $?'],
+    [
+      "pre-commit",
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
+    ],
+    [
+      "pre-push",
+      'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?',
+    ],
   ]) {
     writeFile(path.join(hooksDir, name), `#!/bin/sh\n${command}\n`);
     fs.chmodSync(path.join(hooksDir, name), 0o755);
@@ -1356,7 +1394,7 @@ test("doctor reports an unwired foreign core.hooksPath without touching it", (t)
 
   assert.equal(result.status, 1);
   assert.match(output, /core\.hooksPath points somewhere else/);
-  assert.match(output, /commitment-issues precommit/);
+  assert.match(output, /commitment-issues hook precommit/);
   assert.equal(hooksPath(tempDir), "githooks");
   assert.equal(fs.existsSync(gitHook(tempDir, "pre-commit")), false);
 });

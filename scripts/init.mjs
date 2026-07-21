@@ -664,6 +664,7 @@ if (
 ) {
   const hooksDir = gitHooksDir();
   const unwiredHooks = [];
+  const legacyHooks = [];
   const nonExecutableHooks = [];
   const uninspectableHooks = [];
   const failedHooks = [];
@@ -699,6 +700,8 @@ if (
         }
       } else if (status === "custom-without-command") {
         unwiredHooks.push(name);
+      } else if (status === "custom-with-legacy-command") {
+        legacyHooks.push(name);
       } else if (status === "non-executable") {
         nonExecutableHooks.push(name);
       } else if (status === "uninspectable") {
@@ -712,6 +715,16 @@ if (
       "Existing git hooks were left unchanged but do not run commitment-issues.",
       "Make each guarded command the first substantive line; keep later hook logic:",
       ...unwiredHooks.map(
+        (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
+      ),
+    );
+  }
+
+  if (legacyHooks.length > 0) {
+    warnings.push(
+      "Existing git hooks use direct check commands that bypass the managed hook contract.",
+      "Replace each first substantive command so hook-only skip variables stay effective:",
+      ...legacyHooks.map(
         (name) => `  .git/hooks/${name}: ${hookInvocation(name)}`,
       ),
     );
@@ -749,6 +762,7 @@ if (
     hooksDir !== null &&
     hooksPathRetired &&
     unwiredHooks.length === 0 &&
+    legacyHooks.length === 0 &&
     nonExecutableHooks.length === 0 &&
     uninspectableHooks.length === 0 &&
     failedHooks.length === 0;

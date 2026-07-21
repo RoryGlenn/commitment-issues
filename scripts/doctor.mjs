@@ -378,11 +378,15 @@ if (integrationManager) {
     );
   }
 
+  const inactive = report.hooks.filter(({ status }) => status !== "wired");
   const snippets =
     report.status === "uninspectable"
       ? []
-      : hookManagerSnippets(integrationManager, hookNames, report.destination);
-  const inactive = report.hooks.filter(({ status }) => status !== "wired");
+      : hookManagerSnippets(
+          integrationManager,
+          inactive.map(({ name }) => name),
+          report.destination,
+        );
   const missingEvidence = selectedEvidence.length === 0;
   const inactiveRunners = runnerReport.hooks.filter(
     ({ status }) => status !== "wired",
@@ -554,6 +558,7 @@ if (hooksPathState.present && (!huskyEraHooksPath || huskyEraLive)) {
     [
       "missing",
       "custom-without-command",
+      "custom-with-legacy-command",
       "non-executable",
       "uninspectable",
     ].includes(report.status),
@@ -652,6 +657,9 @@ const staleHooks = hookReports
 const unwiredHooks = hookReports
   .filter((report) => report.status === "custom-without-command")
   .map((report) => report.name);
+const legacyHooks = hookReports
+  .filter((report) => report.status === "custom-with-legacy-command")
+  .map((report) => report.name);
 const nonExecutableHooks = hookReports
   .filter((report) => report.status === "non-executable")
   .map((report) => report.name);
@@ -672,6 +680,13 @@ if (staleHooks.length > 0) {
 if (unwiredHooks.length > 0) {
   problems.push(
     `hook(s) not invoking commitment-issues: ${unwiredHooks
+      .map((name) => displayHookPath(hooksDir, name))
+      .join(", ")}`,
+  );
+}
+if (legacyHooks.length > 0) {
+  problems.push(
+    `hook(s) using direct checks without managed bypasses: ${legacyHooks
       .map((name) => displayHookPath(hooksDir, name))
       .join(", ")}`,
   );
@@ -795,12 +810,14 @@ if (
 // exits non-zero because the tool is genuinely not wired in.
 if (
   unwiredHooks.length > 0 ||
+  legacyHooks.length > 0 ||
   nonExecutableHooks.length > 0 ||
   uninspectableHooks.length > 0
 ) {
   if (quiet) {
     const inactivePaths = [
       ...unwiredHooks,
+      ...legacyHooks,
       ...nonExecutableHooks,
       ...uninspectableHooks,
     ].map((name) => displayHookPath(hooksDir, name));
@@ -819,12 +836,19 @@ if (
           ? "A git hook could not be inspected."
           : nonExecutableHooks.length > 0
             ? "A git hook is inactive."
-            : "A git hook does not invoke commitment-issues.",
+            : legacyHooks.length > 0
+              ? "A git hook uses outdated direct wiring."
+              : "A git hook does not invoke commitment-issues.",
       ),
       "",
       ...unwiredHooks.map((name) =>
         pc.dim(
           `${escapeTerminalText(displayHookPath(hooksDir, name))} never runs \`${escapeTerminalText(hookInvocation(name))}\`.`,
+        ),
+      ),
+      ...legacyHooks.map((name) =>
+        pc.dim(
+          `${escapeTerminalText(displayHookPath(hooksDir, name))} must use ${escapeTerminalText(hookInvocation(name))} so hook-only bypasses stay effective.`,
         ),
       ),
       ...nonExecutableHooks.flatMap((name) => [
@@ -841,7 +865,7 @@ if (
         ),
       ),
       "",
-      ...(unwiredHooks.length > 0
+      ...(unwiredHooks.length > 0 || legacyHooks.length > 0
         ? [
             pc.dim(
               "Make the command above the first substantive line in each unwired",

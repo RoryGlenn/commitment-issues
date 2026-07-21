@@ -237,9 +237,10 @@ The manager entrypoints preserve these inputs:
 | pre-commit | complete documented `PRE_COMMIT_*` range environment | filename supplied by the framework                          |
 
 Manager-native skip and bypass behavior stays authoritative. The entry scripts
-also honor `COMMITMENT_ISSUES=0` and legacy `HUSKY=0` when a manager calls them
-directly. Advisory outcomes exit 0; configured blocking outcomes retain their
-normal nonzero status.
+use the package's hidden `hook` dispatcher so `COMMITMENT_ISSUES=0` and legacy
+`HUSKY=0` apply to automatic manager calls without suppressing an explicit
+human invocation of `precommit`, `prepush`, or `commit-msg`. Advisory outcomes
+exit 0; configured blocking outcomes retain their normal nonzero status.
 
 The first eligible clean or informational human-readable pre-commit invocation
 shows a default-on contributor welcome, then records

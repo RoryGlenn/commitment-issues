@@ -110,9 +110,9 @@ first substantive command. Only a direct `.husky` v8 hook may put the exact
 Husky v8 runtime source line first. Leave unrelated commands after it:
 
 ```sh
-node_modules/.bin/commitment-issues precommit || exit $?
-node_modules/.bin/commitment-issues prepush "$@" || exit $?
-node_modules/.bin/commitment-issues commit-msg "$1" || exit $?
+node_modules/.bin/commitment-issues hook precommit || exit $?
+node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
+node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
 ```
 
 This ordering lets the verifier prove the hook reaches Commitment Issues and

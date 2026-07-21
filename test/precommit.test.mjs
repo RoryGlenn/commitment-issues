@@ -35,7 +35,7 @@ test("manager-composed pre-commit honors the project-wide skip switch", (t) => {
 
   const result = spawnSync(
     process.execPath,
-    [path.join(tempDir, "scripts", "precommit.mjs")],
+    [path.join(tempDir, "scripts", "cli.mjs"), "hook", "precommit"],
     {
       cwd: tempDir,
       encoding: "utf8",
@@ -44,6 +44,27 @@ test("manager-composed pre-commit honors the project-wide skip switch", (t) => {
   );
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`, "");
+});
+
+test("explicit precommit still runs when hook-only skips are configured", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, { requireTests: false });
+  writeFile(path.join(tempDir, "src", "broken.json"), '{"value":1}\n');
+  run("git", ["add", "src/broken.json"], tempDir);
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(tempDir, "scripts", "cli.mjs"), "precommit", "--json"],
+    {
+      cwd: tempDir,
+      encoding: "utf8",
+      env: { ...process.env, COMMITMENT_ISSUES: "0", HUSKY: "0" },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).command, "precommit");
 });
 
 test("shows commit:fix for fully auto-fixable warnings", (t) => {

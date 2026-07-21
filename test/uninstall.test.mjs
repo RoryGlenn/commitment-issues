@@ -328,6 +328,21 @@ test("uninstall preserves customized commit-msg hooks for manual cleanup", (t) =
   assert.equal(readFile(tempDir, ".git/hooks/commit-msg"), customHook);
 });
 
+test("uninstall reports legacy local hook commands for manual cleanup", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const legacyHook =
+    "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\necho custom\n";
+  writeFile(gitHook(tempDir, "pre-commit"), legacyHook);
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /pre-commit is customized/);
+  assert.match(output, /remove its commitment-issues command manually/i);
+  assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), legacyHook);
+});
+
 test("uninstall dry-run consolidates customized-hook cleanup", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -733,11 +748,11 @@ const coexistenceFixtures = {
       "pre-commit:",
       "  commands:",
       "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues precommit",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
       "pre-push:",
       "  commands:",
       "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues prepush",
+      "      run: node_modules/.bin/commitment-issues hook prepush",
       "      use_stdin: true",
       "",
     ].join("\n"),
@@ -750,7 +765,7 @@ const coexistenceFixtures = {
       "    hooks:",
       "      - id: commitment-issues-pre-commit",
       "        name: commitment-issues pre-commit",
-      "        entry: node_modules/.bin/commitment-issues precommit",
+      "        entry: node_modules/.bin/commitment-issues hook precommit",
       "        language: system",
       "        pass_filenames: false",
       "        always_run: true",

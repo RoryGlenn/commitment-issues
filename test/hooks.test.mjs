@@ -52,7 +52,7 @@ function quoteShellWord(value) {
 }
 
 function localHookInvocation(name) {
-  const command = `node_modules/.bin/commitment-issues ${
+  const command = `node_modules/.bin/commitment-issues hook ${
     name === "pre-commit"
       ? "precommit"
       : name === "pre-push"
@@ -104,6 +104,17 @@ for (const name of ["pre-commit", "pre-push"]) {
     fs.chmodSync(hookPath, 0o755);
     assert.equal(classifyHook(hooksDir, name), "custom-with-command");
     assert.equal(fs.readFileSync(hookPath, "utf8"), documentedBody);
+
+    const legacyLocalInvocation =
+      name === "pre-commit"
+        ? "node_modules/.bin/commitment-issues precommit"
+        : 'node_modules/.bin/commitment-issues prepush "$@"';
+    fs.writeFileSync(
+      hookPath,
+      `#!/bin/sh\n${legacyLocalInvocation} || exit $?\n`,
+    );
+    fs.chmodSync(hookPath, 0o755);
+    assert.equal(classifyHook(hooksDir, name), "custom-with-legacy-command");
 
     const malformedHeredoc = `#!/bin/sh\ncat << ;\n${expectedCommand}\n`;
     fs.writeFileSync(hookPath, malformedHeredoc);
@@ -278,7 +289,7 @@ test(
     const hookPath = path.join(hooksDir, "pre-commit");
     fs.writeFileSync(
       hookPath,
-      "#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+      "#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
       { mode: 0o755 },
     );
     const originalPath = process.env.PATH;
@@ -318,7 +329,7 @@ test(
     const hookPath = path.join(hooksDir, "pre-commit");
     fs.writeFileSync(
       hookPath,
-      "#!/bin/sh\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+      "#!/bin/sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
       { mode: 0o755 },
     );
 
@@ -379,7 +390,7 @@ test(
     fs.chmodSync(path.join(usrBin, "bash.exe"), 0o755);
     fs.writeFileSync(
       hookPath,
-      "#!/bin/bash\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+      "#!/bin/bash\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
       { mode: 0o755 },
     );
     assert.equal(classifyHook(hooksDir, "pre-commit"), "custom-with-command");
@@ -1088,6 +1099,13 @@ test("custom commit-msg hooks require the safely quoted invocation", () => {
       '#!/bin/sh\nnode_modules/.bin/commitment-issues commit-msg "$1" || exit $?\necho custom\n',
     );
     fs.chmodSync(hookPath, 0o755);
+    assert.equal(classifyHook(dir, "commit-msg"), "custom-with-legacy-command");
+
+    fs.writeFileSync(
+      hookPath,
+      '#!/bin/sh\nnode_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\necho custom\n',
+    );
+    fs.chmodSync(hookPath, 0o755);
     assert.equal(classifyHook(dir, "commit-msg"), "custom-with-command");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -1494,7 +1512,7 @@ test("Husky inspection rejects a linked manager root before reading it", (t) => 
   fs.mkdirSync(path.join(outside, "_"), { recursive: true });
   fs.writeFileSync(
     path.join(outside, "pre-commit"),
-    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
   );
   fs.symlinkSync(outside, path.join(dir, ".husky"), "dir");
   run("git", ["config", "core.hooksPath", ".husky/_"], dir);
@@ -1653,7 +1671,7 @@ test("hook-manager inspection fails closed on exceptional and incomplete paths",
   const hookPath = path.join(dir, ".husky", "pre-commit");
   fs.writeFileSync(
     hookPath,
-    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
   );
   const originalRead = fs.readFileSync;
   fs.readFileSync = (...args) => {
@@ -1716,15 +1734,15 @@ test("manager snippets are static, local-only, and preserve hook inputs", () => 
   );
   assert.equal(
     husky[0].content,
-    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+    "node_modules/.bin/commitment-issues hook precommit || exit $?\n",
   );
-  assert.match(husky[1].content, /prepush "\$@"/u);
-  assert.match(husky[2].content, /commit-msg "\$1"/u);
+  assert.match(husky[1].content, /hook prepush "\$@"/u);
+  assert.match(husky[2].content, /hook commit-msg "\$1"/u);
 
   const lefthook = hookManagerSnippets("lefthook", names, "custom.yaml");
   assert.ok(lefthook.every(({ destination }) => destination === "custom.yaml"));
-  assert.match(lefthook[1].content, /run: .* prepush$/mu);
-  assert.match(lefthook[2].content, /commit-msg --git-path/u);
+  assert.match(lefthook[1].content, /run: .* hook prepush$/mu);
+  assert.match(lefthook[2].content, /hook commit-msg --git-path/u);
   assert.ok(lefthook.every(({ content }) => !/[{}]/u.test(content)));
   assert.match(lefthook[1].content, /use_stdin: true/u);
   assert.doesNotMatch(lefthook[0].content, /use_stdin/u);
@@ -1786,19 +1804,19 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
     path.join(dir, ".husky", "pre-commit"),
     [
       "#!/bin/sh",
-      "# node_modules/.bin/commitment-issues precommit",
-      "node_modules/.bin/commitment-issues precommit || exit $?",
+      "# node_modules/.bin/commitment-issues hook precommit",
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
       "echo existing hook",
       "",
     ].join("\n"),
   );
   fs.writeFileSync(
     path.join(dir, ".husky", "pre-push"),
-    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
   );
   fs.writeFileSync(
     path.join(dir, ".husky", "commit-msg"),
-    'node_modules/.bin/commitment-issues commit-msg "$1" || exit $?\n',
+    'node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\n',
   );
   assert.equal(
     inspectHookManager("husky", ["pre-commit"], dir).status,
@@ -1811,8 +1829,17 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
   );
 
   fs.writeFileSync(
+    path.join(dir, ".husky", "pre-commit"),
+    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+  );
+  assert.equal(
+    inspectHookManager("husky", ["pre-commit"], dir).status,
+    "missing",
+  );
+
+  fs.writeFileSync(
     path.join(outside, "pre-push"),
-    'node_modules/.bin/commitment-issues prepush "$@" || exit $?\n',
+    'node_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n',
   );
   fs.rmSync(path.join(dir, ".husky", "pre-push"));
   fs.symlinkSync(
@@ -1826,14 +1853,15 @@ test("Husky integration inspection accepts only active exact invocations", (t) =
 
   fs.writeFileSync(
     path.join(dir, ".husky", "pre-commit"),
-    'example="\nnode_modules/.bin/commitment-issues precommit\n"\n',
+    'example="\nnode_modules/.bin/commitment-issues hook precommit\n"\n',
   );
   assert.equal(
     inspectHookManager("husky", ["pre-commit"], dir).status,
     "missing",
   );
 
-  const invocation = "node_modules/.bin/commitment-issues precommit || exit $?";
+  const invocation =
+    "node_modules/.bin/commitment-issues hook precommit || exit $?";
   for (const content of [
     ["#!/bin/sh", "false &&", invocation, ""].join("\n"),
     ["#!/bin/sh", "true ||", invocation, ""].join("\n"),
@@ -1867,7 +1895,7 @@ test("Husky v9 rejects a stale v8 source prelude that breaks the real hook", (t)
     [
       "#!/usr/bin/env sh",
       '. "$(dirname -- "$0")/_/husky.sh"',
-      "node_modules/.bin/commitment-issues precommit || exit $?",
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
       "",
     ].join("\n"),
   );
@@ -1977,7 +2005,7 @@ test("Lefthook integration inspection requires the command and pre-push stdin", 
       "pre-commit:",
       "  examples:",
       "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues precommit",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
       "",
     ].join("\n"),
   );
@@ -1993,7 +2021,7 @@ test("Lefthook integration inspection requires the command and pre-push stdin", 
       "  commands:",
       "    commitment-issues:",
       "      notes: |",
-      "        run: node_modules/.bin/commitment-issues precommit",
+      "        run: node_modules/.bin/commitment-issues hook precommit",
       "",
     ].join("\n"),
   );
@@ -2008,7 +2036,7 @@ test("Lefthook integration inspection requires the command and pre-push stdin", 
       "pre-commit:",
       "  commands:",
       "    commitment-issues:",
-      "      run: node_modules/.bin/commitment-issues precommit",
+      "      run: node_modules/.bin/commitment-issues hook precommit",
       "      run: echo duplicate",
       "",
     ].join("\n"),
@@ -2291,7 +2319,7 @@ test("pre-commit integration inspection validates complete local hook entries", 
   const targetHook = {
     id: "commitment-issues-pre-commit",
     name: "commitment-issues pre-commit",
-    entry: "node_modules/.bin/commitment-issues precommit",
+    entry: "node_modules/.bin/commitment-issues hook precommit",
     language: "system",
     pass_filenames: false,
     always_run: true,
@@ -2497,7 +2525,7 @@ test("pre-commit integration inspection validates complete local hook entries", 
       "    hooks:",
       "      - id: commitment-issues-pre-commit",
       "        notes: |",
-      "          entry: node_modules/.bin/commitment-issues precommit",
+      "          entry: node_modules/.bin/commitment-issues hook precommit",
       "          language: system",
       "          pass_filenames: false",
       "          always_run: true",
@@ -4105,7 +4133,7 @@ test("Husky v8 direct hook paths do not require the v9 runtime", (t) => {
       path.join(hooksDir, name),
       [
         "#!/usr/bin/env sh",
-        `node_modules/.bin/commitment-issues ${command} || exit $?`,
+        `node_modules/.bin/commitment-issues hook ${command} || exit $?`,
         "",
       ].join("\n"),
       { mode: 0o755 },
@@ -4121,7 +4149,7 @@ test("Husky v8 direct hook paths do not require the v9 runtime", (t) => {
   const preCommitBody = fs.readFileSync(preCommitPath, "utf8");
   fs.writeFileSync(
     preCommitPath,
-    "#!/bin/false\nnode_modules/.bin/commitment-issues precommit || exit $?\n",
+    "#!/bin/false\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n",
     { mode: 0o755 },
   );
   assert.equal(
@@ -4176,7 +4204,7 @@ test("Husky v8 direct hooks require a valid runtime only when sourced", (t) => {
     [
       "#!/usr/bin/env sh",
       '. "$(dirname -- "$0")/_/husky.sh"',
-      "node_modules/.bin/commitment-issues precommit || exit $?",
+      "node_modules/.bin/commitment-issues hook precommit || exit $?",
       "",
     ].join("\n"),
     { mode: 0o755 },

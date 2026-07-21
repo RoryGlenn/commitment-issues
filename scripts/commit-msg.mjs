@@ -20,12 +20,6 @@ import {
 } from "./lib/local-tool.mjs";
 import { run, spawnAsync } from "./lib/process.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
-import { hooksDisabled } from "./lib/hooks.mjs";
-
-if (hooksDisabled()) {
-  process.exit(0);
-}
-
 const config = loadPrecommitConfig();
 const hookOutput = resolveHookOutput(config);
 for (const message of precommitConfigWarningMessages(config)) {

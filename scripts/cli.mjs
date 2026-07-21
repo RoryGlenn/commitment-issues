@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { enforceSupportedNodeVersion } from "./lib/runtime.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
+import { hooksDisabled } from "./lib/hooks.mjs";
 
 // Single entry point for the `commitment-issues` bin. It dispatches a
 // subcommand to the matching script that lives alongside it inside the
@@ -85,6 +86,7 @@ const COMMANDS = {
       },
     ],
   },
+  hook: { file: null, visibility: "hidden", options: [] },
   precommit: {
     file: "precommit.mjs",
     visibility: "primary",
@@ -300,7 +302,9 @@ if (subcommand === "help") {
 }
 
 const commandName = subcommand === "help" ? rest[0] : subcommand;
-const command = COMMANDS[commandName];
+const command = Object.hasOwn(COMMANDS, commandName)
+  ? COMMANDS[commandName]
+  : undefined;
 if (!command || (subcommand === "help" && command.visibility === "hidden")) {
   const suggestion = closestCommand(commandName);
   const hint = suggestion ? ` Did you mean '${suggestion}'?` : "";
@@ -321,6 +325,28 @@ if (
 }
 
 const commandArgs = rest;
+
+if (commandName === "hook") {
+  const [hookName, ...hookArgs] = commandArgs;
+  const hookFile = new Map([
+    ["precommit", "precommit.mjs"],
+    ["prepush", "prepush.mjs"],
+    ["commit-msg", "commit-msg.mjs"],
+  ]).get(hookName);
+  if (!hookFile) {
+    console.error(
+      escapeTerminalText(
+        `commitment-issues hook: expected precommit, prepush, or commit-msg; received '${hookName ?? ""}'`,
+      ),
+    );
+    process.exit(1);
+  }
+  if (hooksDisabled()) process.exit(0);
+  const hookTarget = path.join(scriptsDir, hookFile);
+  process.argv = [process.argv[0], hookTarget, ...hookArgs];
+  await import(pathToFileURL(hookTarget).href);
+  process.exit(0);
+}
 
 if (
   commandArgs.some((arg) => arg === "--json" || /^--json=/.test(arg)) &&

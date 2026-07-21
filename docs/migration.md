@@ -70,13 +70,13 @@ precede it:
 
 ```sh
 # .husky/pre-commit
-node_modules/.bin/commitment-issues precommit || exit $?
+node_modules/.bin/commitment-issues hook precommit || exit $?
 
 # .husky/pre-push
-node_modules/.bin/commitment-issues prepush "$@" || exit $?
+node_modules/.bin/commitment-issues hook prepush "$@" || exit $?
 
 # .husky/commit-msg — only when commitMessage.enabled is true
-node_modules/.bin/commitment-issues commit-msg "$1" || exit $?
+node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?
 ```
 
 The quoted arguments preserve Git's remote and message-file values. `|| exit
@@ -123,16 +123,16 @@ top-level hook and `commands` mapping. Do not duplicate a hook key or the
 pre-commit:
   commands:
     commitment-issues:
-      run: node_modules/.bin/commitment-issues precommit
+      run: node_modules/.bin/commitment-issues hook precommit
 pre-push:
   commands:
     commitment-issues:
-      run: node_modules/.bin/commitment-issues prepush
+      run: node_modules/.bin/commitment-issues hook prepush
       use_stdin: true
 commit-msg: # only when commitMessage.enabled is true
   commands:
     commitment-issues:
-      run: node_modules/.bin/commitment-issues commit-msg --git-path
+      run: node_modules/.bin/commitment-issues hook commit-msg --git-path
 ```
 
 These commands are static: no Git-provided value or Lefthook positional
@@ -183,14 +183,14 @@ repos:
     hooks:
       - id: commitment-issues-pre-commit
         name: commitment-issues pre-commit
-        entry: node_modules/.bin/commitment-issues precommit
+        entry: node_modules/.bin/commitment-issues hook precommit
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
       - id: commitment-issues-pre-push
         name: commitment-issues pre-push
-        entry: node_modules/.bin/commitment-issues prepush
+        entry: node_modules/.bin/commitment-issues hook prepush
         language: system
         pass_filenames: false
         always_run: true
@@ -198,7 +198,7 @@ repos:
       # Add only when commitMessage.enabled is true:
       - id: commitment-issues-commit-msg
         name: commitment-issues commit-msg
-        entry: node_modules/.bin/commitment-issues commit-msg
+        entry: node_modules/.bin/commitment-issues hook commit-msg
         language: system
         pass_filenames: true
         always_run: true

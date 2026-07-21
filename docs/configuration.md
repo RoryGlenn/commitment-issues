@@ -525,7 +525,9 @@ Conventional Commits ruleset.
 The generated `.git/hooks/commit-msg` body invokes
 `commitment-issues commit-msg "$1"`, preserving the message-file path as one
 literal argument. If a custom commit-msg hook already exists, `init` and
-`doctor` leave it unchanged and show that exact command for manual composition.
+`doctor` leave it unchanged and show the bypass-aware guarded command
+`node_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?` for
+manual composition.
 Git's `git commit --no-verify` bypasses the hook in the standard way.
 Lefthook coexistence uses the separate static `commit-msg --git-path` form;
 Commitment Issues then resolves this worktree's `MERGE_MSG` during a direct

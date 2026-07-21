@@ -186,7 +186,10 @@ function inspectHookDirectory(directory, { preserveOwnedBy = null } = {}) {
       } else {
         hookCandidates.push(hookPath);
       }
-    } else if (status === "custom-with-command") {
+    } else if (
+      status === "custom-with-command" ||
+      status === "custom-with-legacy-command"
+    ) {
       manualCleanup.push(
         `${displayPath(hookPath)} is customized; remove its ${BIN} command manually.`,
       );

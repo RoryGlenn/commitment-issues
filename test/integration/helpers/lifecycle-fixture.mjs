@@ -1040,25 +1040,25 @@ export function createLifecycleIntegration() {
         );
         const managerFiles = {
           ".husky/pre-commit":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues precommit || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-commit "$@"\n',
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook precommit || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-commit "$@"\n',
           ".husky/pre-push":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues prepush "$@" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-push "$@"\n',
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook prepush "$@" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky pre-push "$@"\n',
           ".husky/commit-msg":
-            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues commit-msg "$1" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky commit-msg "$@"\n',
+            '#!/usr/bin/env sh\nnode_modules/.bin/commitment-issues hook commit-msg "$1" || exit $?\n.lifecycle-manager-bin/lifecycle-husky-probe husky commit-msg "$@"\n',
           "lefthook.yml": [
             "pre-commit:",
             "  commands:",
             "    commitment-issues:",
-            "      run: node_modules/.bin/commitment-issues precommit",
+            "      run: node_modules/.bin/commitment-issues hook precommit",
             "pre-push:",
             "  commands:",
             "    commitment-issues:",
-            "      run: node_modules/.bin/commitment-issues prepush",
+            "      run: node_modules/.bin/commitment-issues hook prepush",
             "      use_stdin: true",
             "commit-msg:",
             "  commands:",
             "    commitment-issues:",
-            "      run: node_modules/.bin/commitment-issues commit-msg --git-path",
+            "      run: node_modules/.bin/commitment-issues hook commit-msg --git-path",
             "",
           ].join("\n"),
           ".pre-commit-config.yaml": [
@@ -1068,7 +1068,7 @@ export function createLifecycleIntegration() {
             ...["pre-commit", "pre-push", "commit-msg"].flatMap((name) => [
               `      - id: commitment-issues-${name}`,
               `        name: commitment-issues ${name}`,
-              `        entry: node_modules/.bin/commitment-issues ${HOOK_SUBCOMMANDS[name].split(" ")[0]}`,
+              `        entry: node_modules/.bin/commitment-issues hook ${HOOK_SUBCOMMANDS[name].split(" ")[0]}`,
               "        language: system",
               `        pass_filenames: ${name === "commit-msg" ? "true" : "false"}`,
               "        always_run: true",
@@ -1394,17 +1394,17 @@ export function createLifecycleIntegration() {
               const expectedCliArgs =
                 manager === "lefthook"
                   ? name === "commit-msg"
-                    ? ["commit-msg", "--git-path"]
-                    : [HOOK_SUBCOMMANDS[name]]
+                    ? ["hook", "commit-msg", "--git-path"]
+                    : ["hook", HOOK_SUBCOMMANDS[name]]
                   : manager === "pre-commit"
                     ? name === "commit-msg"
-                      ? ["commit-msg", ...hookArgs]
-                      : [HOOK_SUBCOMMANDS[name]]
+                      ? ["hook", "commit-msg", ...hookArgs]
+                      : ["hook", HOOK_SUBCOMMANDS[name]]
                     : name === "pre-push"
-                      ? ["prepush", ...hookArgs]
+                      ? ["hook", "prepush", ...hookArgs]
                       : name === "commit-msg"
-                        ? ["commit-msg", ...hookArgs]
-                        : ["precommit"];
+                        ? ["hook", "commit-msg", ...hookArgs]
+                        : ["hook", "precommit"];
               const cliRecords = readJsonLines(cliLogPath);
               assertLifecycle(
                 cliRecords.length === 1,

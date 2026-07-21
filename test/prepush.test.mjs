@@ -39,7 +39,7 @@ test("manager-composed pre-push honors the legacy Husky skip switch", (t) => {
   t.after(() => cleanupTempRepo(tempDir));
   const result = spawnSync(
     process.execPath,
-    [path.join(tempDir, "scripts", "prepush.mjs")],
+    [path.join(tempDir, "scripts", "cli.mjs"), "hook", "prepush"],
     {
       cwd: tempDir,
       encoding: "utf8",
@@ -49,6 +49,30 @@ test("manager-composed pre-push honors the legacy Husky skip switch", (t) => {
   );
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`, "");
+});
+
+test("explicit pre-push runs under hook-only skip variables", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+
+  for (const skippedBy of ["COMMITMENT_ISSUES", "HUSKY"]) {
+    const result = spawnSync(
+      process.execPath,
+      [path.join(tempDir, "scripts", "cli.mjs"), "prepush", "--json"],
+      {
+        cwd: tempDir,
+        encoding: "utf8",
+        input: "",
+        env: {
+          ...process.env,
+          COMMITMENT_ISSUES: skippedBy === "COMMITMENT_ISSUES" ? "0" : "1",
+          HUSKY: skippedBy === "HUSKY" ? "0" : "1",
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).command, "prepush");
+  }
 });
 
 function setConfig(tempDir, precommitChecks) {

@@ -63,11 +63,6 @@ import {
 import { devInstallCommand, runScript } from "./lib/package-manager.mjs";
 import { showWelcomeOnFirstCommit } from "./lib/welcome.mjs";
 import { escapeTerminalText } from "./lib/terminal.mjs";
-import { hooksDisabled } from "./lib/hooks.mjs";
-
-if (hooksDisabled()) {
-  process.exit(0);
-}
 import {
   allowedStatus,
   createJsonOutput,

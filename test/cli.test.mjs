@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import {
   cleanupTempRepo,
   createTempRepo,
@@ -313,10 +314,56 @@ test("cli errors on an unknown command", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
 
-  const result = cli(tempDir, ["bogus"]);
-  assert.equal(result.status, 1);
-  assert.match(combinedOutput(result), /unknown command 'bogus'/);
-  assert.doesNotMatch(combinedOutput(result), /Did you mean/);
+  for (const name of ["bogus", "__proto__", "constructor", "toString"]) {
+    const result = cli(tempDir, [name]);
+    assert.equal(result.status, 1);
+    assert.match(combinedOutput(result), /unknown command/);
+    assert.doesNotMatch(combinedOutput(result), /TypeError|at path\.join/);
+  }
+});
+
+test("hook dispatch is hidden, validated, and owns bypass handling", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const help = cli(tempDir, ["help", "hook"]);
+  assert.equal(help.status, 1);
+  assert.match(combinedOutput(help), /unknown command 'hook'/);
+
+  const missing = cli(tempDir, ["hook"]);
+  assert.equal(missing.status, 1);
+  assert.match(
+    combinedOutput(missing),
+    /expected precommit, prepush, or commit-msg; received ''/,
+  );
+
+  for (const invalidName of [
+    "bogus\nname",
+    "__proto__",
+    "constructor",
+    "toString",
+  ]) {
+    const invalid = cli(tempDir, ["hook", invalidName]);
+    assert.equal(invalid.status, 1);
+    assert.match(
+      combinedOutput(invalid),
+      /expected precommit, prepush, or commit-msg/,
+    );
+    assert.doesNotMatch(combinedOutput(invalid), /TypeError|at path\.join/);
+  }
+
+  const env = { ...process.env, COMMITMENT_ISSUES: "0" };
+  const invoke = (args) =>
+    spawnSync(
+      process.execPath,
+      [path.join(tempDir, "scripts", "cli.mjs"), ...args],
+      { cwd: tempDir, encoding: "utf8", env },
+    );
+  const direct = invoke(["precommit", "--unknown"]);
+  assert.equal(direct.status, 1);
+  assert.match(combinedOutput(direct), /unknown option '--unknown'/);
+  const hook = invoke(["hook", "precommit", "--unknown"]);
+  assert.equal(hook.status, 0);
+  assert.equal(combinedOutput(hook), "");
 });
 
 test("cli suggests the closest command for a likely typo", (t) => {

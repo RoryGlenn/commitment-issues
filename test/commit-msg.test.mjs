@@ -35,7 +35,7 @@ test("manager-composed commit-msg honors the project-wide skip switch", (t) => {
   });
   const result = spawnSync(
     process.execPath,
-    [path.join(tempDir, "scripts", "commit-msg.mjs")],
+    [path.join(tempDir, "scripts", "cli.mjs"), "hook", "commit-msg"],
     {
       cwd: tempDir,
       encoding: "utf8",
@@ -44,6 +44,43 @@ test("manager-composed commit-msg honors the project-wide skip switch", (t) => {
   );
   assert.equal(result.status, 0);
   assert.equal(`${result.stdout}${result.stderr}`, "");
+});
+
+test("explicit commit-msg runs under hook-only skip variables", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  setPrecommitConfig(tempDir, {
+    commitMessage: { enabled: true, blockOnFailure: true },
+  });
+  const messagePath = path.join(tempDir, "MESSAGE");
+  writeFile(messagePath, "feat: verify direct command\n");
+  installFakeCommitlint(tempDir);
+
+  for (const skippedBy of ["COMMITMENT_ISSUES", "HUSKY"]) {
+    const logPath = path.join(tempDir, `${skippedBy}.jsonl`);
+    const result = spawnSync(
+      process.execPath,
+      [path.join(tempDir, "scripts", "cli.mjs"), "commit-msg", messagePath],
+      {
+        cwd: tempDir,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          COMMITMENT_ISSUES: skippedBy === "COMMITMENT_ISSUES" ? "0" : "1",
+          HUSKY: skippedBy === "HUSKY" ? "0" : "1",
+          FAKE_COMMITLINT_LOG: logPath,
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.existsSync(logPath), true);
+    const [args] = fs
+      .readFileSync(logPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    assert.deepEqual(args.slice(-2), ["--edit", messagePath]);
+  }
 });
 
 function localBinDir(tempDir) {
