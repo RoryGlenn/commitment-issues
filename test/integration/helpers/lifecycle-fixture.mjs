@@ -1154,7 +1154,7 @@ export function createLifecycleIntegration() {
         const probeFiles = {
           ".lifecycle-manager-bin/lifecycle-husky-probe": probeSource,
           ".lifecycle-manager-bin/lefthook": managerDispatchHarness,
-          ".lifecycle-manager-bin/lefthook.cmd": '@node "%~dp0lefthook" %*\r\n',
+          ".lifecycle-manager-bin/lefthook.bat": '@node "%~dp0lefthook" %*\r\n',
           ".lifecycle-manager-bin/python3": managerDispatchHarness,
         };
         const cliTracePath = path.join(repoDir, ".lifecycle-cli-trace.mjs");

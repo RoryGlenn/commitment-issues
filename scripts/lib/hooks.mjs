@@ -344,9 +344,9 @@ function lefthookInvocation(name, { guarded = true, legacy = false } = {}) {
     name === "commit-msg" ? "" : "COMMITMENT_ISSUES_LEFTHOOK_FILE={files} ";
   const invocation = `${fileSentinel}${command}`;
   if (!guarded) return invocation;
-  const candidateCommand = `${fileSentinel}exec "$commitment_issues_bin" ${
-    legacy ? "" : "hook "
-  }${HOOK_SUBCOMMANDS[name]}${name === "commit-msg" ? " --git-path" : ""}`;
+  const candidateCommand = `${fileSentinel}exec "$commitment_issues_bin" hook ${
+    HOOK_SUBCOMMANDS[name]
+  }${name === "commit-msg" ? " --git-path" : ""}`;
   return localBinCandidateLoop(candidateCommand);
 }
 
@@ -354,7 +354,7 @@ function preCommitInvocation(name, { guarded = true, legacy = false } = {}) {
   const command = `${LOCAL_BIN} ${legacy ? "" : "hook "}${HOOK_SUBCOMMANDS[name]}`;
   return guarded
     ? `sh -c '${localBinCandidateLoop(
-        `exec "$commitment_issues_bin" ${legacy ? "" : "hook "}${HOOK_SUBCOMMANDS[name]} "$@"`,
+        `exec "$commitment_issues_bin" hook ${HOOK_SUBCOMMANDS[name]} "$@"`,
       )}' --`
     : command;
 }
