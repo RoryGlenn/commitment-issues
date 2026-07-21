@@ -719,7 +719,7 @@ function assertPackageDependencyRemoved(repoDir) {
     !Object.hasOwn(pkg.devDependencies ?? {}, "commitment-issues"),
     `${packageManager} should remove commitment-issues from devDependencies`,
   );
-  for (const suffix of ["", ".exe", ".cmd", ".bat", ".com", ".ps1"]) {
+  for (const suffix of ["", ".exe", ".bunx", ".cmd", ".bat", ".com", ".ps1"]) {
     assertLifecycle(
       !fs.existsSync(
         path.join(
