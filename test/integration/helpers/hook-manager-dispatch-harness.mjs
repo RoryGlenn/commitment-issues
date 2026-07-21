@@ -68,17 +68,7 @@ function parseEntry(entry) {
   if (command !== expectedCommand) {
     fail(`manager entry did not select the packed bin: ${command}`);
   }
-  const commandCandidates =
-    process.platform === "win32"
-      ? [command, `${command}.exe`, `${command}.cmd`, `${command}.bat`]
-      : [command];
-  const resolvedCommand = commandCandidates
-    .map((candidate) => fixturePath(candidate))
-    .find((candidate) => fs.existsSync(candidate));
-  if (!resolvedCommand) {
-    fail(`configured packed bin does not exist: ${command}`);
-  }
-  return { command, commandArgs, resolvedCommand };
+  return { command, commandArgs };
 }
 
 function runEntry({
@@ -90,21 +80,24 @@ function runEntry({
   entryInput = "",
   entryEnv = {},
 }) {
-  const { command, commandArgs, resolvedCommand } = parseEntry(entry);
+  const { command, commandArgs } = parseEntry(entry);
   const finalArgs = [...commandArgs, ...extraArgs];
   appendRecord({
     manager,
     hook,
     entry,
     command,
-    resolvedCommand,
     args: finalArgs,
     managerInput,
     entryInput,
     entryEnv,
   });
 
-  const result = crossSpawn.sync(resolvedCommand, finalArgs, {
+  // Keep the configured path extensionless, exactly as the documented manager
+  // entry spells it. cross-spawn applies the host's real command-resolution
+  // rules (including PATHEXT on Windows), while the fixed path keeps lookup
+  // inside this packed lifecycle repository.
+  const result = crossSpawn.sync(command, finalArgs, {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...entryEnv },

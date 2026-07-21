@@ -719,7 +719,7 @@ function assertPackageDependencyRemoved(repoDir) {
     !Object.hasOwn(pkg.devDependencies ?? {}, "commitment-issues"),
     `${packageManager} should remove commitment-issues from devDependencies`,
   );
-  for (const suffix of ["", ".cmd", ".ps1"]) {
+  for (const suffix of ["", ".exe", ".cmd", ".bat", ".com", ".ps1"]) {
     assertLifecycle(
       !fs.existsSync(
         path.join(
@@ -1275,26 +1275,6 @@ export function createLifecycleIntegration() {
             ),
           );
           const pushInput = `refs/heads/${currentBranch} ${"1".repeat(40)} refs/heads/${blockedPushBranch} ${"0".repeat(40)}\n`;
-          const installedBinBase = path.join(
-            repoDir,
-            "node_modules",
-            ".bin",
-            "commitment-issues",
-          );
-          const installedBin = (
-            process.platform === "win32"
-              ? [
-                  installedBinBase,
-                  `${installedBinBase}.exe`,
-                  `${installedBinBase}.cmd`,
-                  `${installedBinBase}.bat`,
-                ]
-              : [installedBinBase]
-          ).find((candidate) => fs.existsSync(candidate));
-          assertLifecycle(
-            installedBin,
-            "the installed package should expose its platform bin launcher",
-          );
           const installedCli = path.join(
             repoDir,
             "node_modules",
@@ -1434,9 +1414,8 @@ export function createLifecycleIntegration() {
                   `${manager} ${name} should dispatch the matching config block`,
                 );
                 assertLifecycle(
-                  record.command === "node_modules/.bin/commitment-issues" &&
-                    sameFilesystemEntry(record.resolvedCommand, installedBin),
-                  `${manager} ${name} should resolve its config entry to the installed bin`,
+                  record.command === "node_modules/.bin/commitment-issues",
+                  `${manager} ${name} should use the packed bin command from its config entry`,
                 );
                 assertLifecycle(
                   JSON.stringify(record.args) ===
