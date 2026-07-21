@@ -55,6 +55,9 @@ They are evidence, not living descriptions of later code.
   feature-complete maintenance-mode gates
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
   health, package contents, and release housekeeping
+- [Semantic project graph](semantic-graph.md) and
+  [schema](semantic-graph.schema.json) — repository-only impact navigation,
+  evidence, certainty, cache identity, and drift checks
 - [Runtime coverage policy](branch-coverage.md)
 - [Hook performance and scaling](performance.md)
 - [CI performance baseline](ci-performance.md)

@@ -705,6 +705,34 @@ production-readiness workstream #130 is consolidated in the
   high-severity advisories. Unit: `test/ci-policy.test.mjs`; automation:
   `.github/dependabot.yml` and `.github/workflows/repo-health.yml`.
 
+### Semantic maintainer graph
+
+- **SEM-001** — the repository-only graph compiler derives commands, hooks,
+  configuration, ESM imports/exports, tests, Markdown references, package
+  files, and high-level capability membership with stable node identifiers and
+  evidence-bearing edges. Unit/repository: `test/semantic-graph.test.mjs`.
+- **SEM-002** — static relationships use Espree rather than regular-expression
+  parsing; literal dynamic imports are resolved, while computed imports,
+  malformed source, unsupported extensions, and missing targets remain honest
+  diagnostics rather than guessed edges. Unit:
+  `test/semantic-graph.test.mjs`.
+- **SEM-003** — source identity covers `HEAD`, staged and tracked worktree
+  diffs, and current tracked-file contents. A cache below Git's common
+  directory is accepted only for the exact fingerprint; stale, invalid,
+  linked, and non-regular cache paths cannot be presented as current. Unit and
+  subprocess: `test/semantic-graph.test.mjs`.
+- **SEM-004** — focused tree and impact queries return deterministic human and
+  JSON neighborhoods with selected-versus-indexable-text byte measurements;
+  binary assets cannot inflate the context-reduction baseline. They do not run
+  from normal hooks or enter the npm package. Unit, subprocess, and package
+  boundary: `test/semantic-graph.test.mjs` and
+  `test/metadata.test.mjs`.
+- **SEM-005** — the accuracy check rejects dangling/unsupported claims, stale
+  capability declarations, public commands without dispatch/test/docs, config
+  keys without test/docs, missing package files, and nondeterministic builds;
+  genuine warnings and missing caches remain non-failing. Unit/repository:
+  `test/semantic-graph.test.mjs`.
+
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
 
 ## Manual and production validation
