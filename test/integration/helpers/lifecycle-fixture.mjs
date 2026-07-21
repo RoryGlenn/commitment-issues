@@ -379,6 +379,7 @@ function managerLifecycleEnv(repoDir, competingManagerBin) {
   ]
     .filter(Boolean)
     .join(path.delimiter);
+  env.LEFTHOOK_BIN = path.join(fixtureManagerBin, "lefthook");
   return env;
 }
 
