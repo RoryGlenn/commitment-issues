@@ -3130,7 +3130,17 @@ test("pre-commit runtime inspection fails closed after execute access succeeds",
     "wired",
   );
 
-  delete process.env.PATH;
+  const gitOnlyPath = path.join(dir, ".git-only-path");
+  fs.mkdirSync(gitOnlyPath);
+  if (process.platform === "win32") {
+    fs.writeFileSync(
+      path.join(gitOnlyPath, "git.cmd"),
+      `@"${REAL_GIT}" %*\r\n`,
+    );
+  } else {
+    fs.symlinkSync(REAL_GIT, path.join(gitOnlyPath, "git"));
+  }
+  process.env.PATH = gitOnlyPath;
   fs.writeFileSync(
     path.join(hooksDir, "pre-commit"),
     preCommitRunner("pre-commit", {
