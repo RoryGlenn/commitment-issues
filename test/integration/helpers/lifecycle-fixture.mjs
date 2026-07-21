@@ -727,8 +727,8 @@ function assertPackageDependencyRemoved(repoDir) {
   const binDir = path.join(repoDir, "node_modules", ".bin");
   const bunWindowsShim =
     packageManager === "bun" && process.platform === "win32";
-  const suffixes = ["", ".bunx", ".cmd", ".bat", ".com", ".ps1"];
-  if (!bunWindowsShim) suffixes.push(".exe");
+  const suffixes = ["", ".cmd", ".bat", ".com", ".ps1"];
+  if (!bunWindowsShim) suffixes.push(".exe", ".bunx");
 
   for (const suffix of suffixes) {
     assertLifecycle(
@@ -737,9 +737,10 @@ function assertPackageDependencyRemoved(repoDir) {
     );
   }
 
-  // Bun's Windows launcher is a generic .exe paired with package-specific
-  // .bunx metadata. Bun may retain that generic launcher after removal; with
-  // the metadata and package gone, it must fail closed instead of dispatching.
+  // Bun's Windows launcher is a generic .exe paired with .bunx target
+  // metadata. Windows can retain that pair after `bun remove` even though the
+  // package itself is gone. Prove the residual launcher is inert instead of
+  // treating Bun's package-manager cleanup behavior as product behavior.
   if (bunWindowsShim) {
     const launcher = path.join(binDir, "commitment-issues.exe");
     if (fs.existsSync(launcher)) {
