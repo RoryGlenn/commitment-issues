@@ -68,8 +68,14 @@ function parseEntry(entry) {
   if (command !== expectedCommand) {
     fail(`manager entry did not select the packed bin: ${command}`);
   }
-  const resolvedCommand = fixturePath(command);
-  if (!fs.existsSync(resolvedCommand)) {
+  const commandCandidates =
+    process.platform === "win32"
+      ? [command, `${command}.exe`, `${command}.cmd`, `${command}.bat`]
+      : [command];
+  const resolvedCommand = commandCandidates
+    .map((candidate) => fixturePath(candidate))
+    .find((candidate) => fs.existsSync(candidate));
+  if (!resolvedCommand) {
     fail(`configured packed bin does not exist: ${command}`);
   }
   return { command, commandArgs, resolvedCommand };
@@ -98,7 +104,7 @@ function runEntry({
     entryEnv,
   });
 
-  const result = crossSpawn.sync(command, finalArgs, {
+  const result = crossSpawn.sync(resolvedCommand, finalArgs, {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...entryEnv },
