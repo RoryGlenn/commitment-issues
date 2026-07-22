@@ -824,7 +824,9 @@ does not print another snippet. Repeated current entries must likewise be
 reduced to one. A Commitment Issues command under the wrong hook stage is
 labelled for relocation to its matching stage rather than being hidden by a
 healthy entry or duplicated under a new key. Older direct calls also need the
-`hook` subcommand inserted during that move.
+`hook` subcommand inserted during that move. When no current or older command
+exists for the hook's own stage, the missing guarded snippet is printed as a
+separate required step.
 
 The health state requires an exact unconditional Commitment Issues entry:
 duplicate Lefthook hook/command keys, duplicate pre-commit IDs, wrong or

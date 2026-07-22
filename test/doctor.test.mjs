@@ -475,6 +475,26 @@ test("doctor preserves cross-stage manager commands for in-place migration", (t)
   assert.equal(readFile(tempDir, ".husky/pre-push"), crossStage);
 });
 
+test("doctor prints the missing snippet for a cross-stage-only manager hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  managerFixture(tempDir, "lefthook");
+  const misplaced = hookManagerSnippets("lefthook", [
+    "pre-commit",
+  ])[0].content.replace("pre-commit:\n", "pre-push:\n");
+  writeFile(path.join(tempDir, "lefthook.yml"), misplaced);
+
+  const result = runDoctor(tempDir, ["--integration=lefthook"]);
+  const output = compactTerminalBoxText(`${result.stdout}${result.stderr}`);
+
+  assert.equal(result.status, 1);
+  assert.match(output, /commands target the wrong hook stage/i);
+  assert.match(output, /Merge each missing entry/i);
+  assert.match(output, /pre-push; add missing entry/i);
+  assert.match(output, /hook prepush/iu);
+  assert.equal(readFile(tempDir, "lefthook.yml"), misplaced);
+});
+
 test("doctor gives guarded-entry guidance for missing Husky manager hooks", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));

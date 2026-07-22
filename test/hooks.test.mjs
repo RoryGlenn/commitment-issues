@@ -446,8 +446,12 @@ test(
       process.env.PATH = originalPath;
     });
 
-    fs.copyFileSync("/bin/sh", path.join(usrBin, "sh.exe"));
-    fs.chmodSync(path.join(usrBin, "sh.exe"), 0o755);
+    const writeBundledShell = (destination) => {
+      fs.writeFileSync(destination, '#!/bin/sh\nexec /bin/sh "$@"\n', {
+        mode: 0o755,
+      });
+    };
+    writeBundledShell(path.join(usrBin, "sh.exe"));
     assert.equal(classifyHook(hooksDir, "pre-commit"), "custom-with-command");
 
     fs.writeFileSync(
@@ -458,8 +462,7 @@ test(
     assert.equal(classifyHook(hooksDir, "pre-commit"), "custom-with-command");
 
     fs.rmSync(path.join(usrBin, "sh.exe"));
-    fs.copyFileSync("/bin/sh", path.join(fallbackBin, "sh.exe"));
-    fs.chmodSync(path.join(fallbackBin, "sh.exe"), 0o755);
+    writeBundledShell(path.join(fallbackBin, "sh.exe"));
     assert.equal(classifyHook(hooksDir, "pre-commit"), "custom-with-command");
 
     fs.rmSync(path.join(fallbackBin, "sh.exe"));
@@ -493,8 +496,11 @@ test(
       `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(execPath)}\n`,
       { mode: 0o755 },
     );
-    fs.copyFileSync("/bin/sh", path.join(usrBin, "bash.exe"));
-    fs.chmodSync(path.join(usrBin, "bash.exe"), 0o755);
+    fs.writeFileSync(
+      path.join(usrBin, "bash.exe"),
+      '#!/bin/sh\nexec /bin/bash "$@"\n',
+      { mode: 0o755 },
+    );
     fs.writeFileSync(
       hookPath,
       `#!/bin/bash\n${hookInvocation("pre-commit")}\n`,
@@ -2637,6 +2643,22 @@ test("Lefthook inspection inventories commands independently of command keys", (
   fs.writeFileSync(
     path.join(dir, "lefthook.yml"),
     [
+      "pre-push:",
+      "  commands:",
+      "    misplaced:",
+      `      run: ${currentPreCommit}`,
+      "",
+    ].join("\n"),
+  );
+  assert.deepEqual(inspectHookManager("lefthook", ["pre-push"], dir).hooks[0], {
+    name: "pre-push",
+    status: "cross-stage",
+    needsOwnStageEntry: true,
+  });
+
+  fs.writeFileSync(
+    path.join(dir, "lefthook.yml"),
+    [
       "pre-commit:",
       "  commands:",
       "    renamed-entry:",
@@ -2725,6 +2747,23 @@ test("pre-commit inspection inventories commands independently of hook ids", (t)
       status: "cross-stage",
     });
   }
+
+  fs.writeFileSync(
+    path.join(dir, ".pre-commit-config.yaml"),
+    `repos:\n  - repo: local\n    hooks:\n${extraHook({
+      id: "misplaced-only",
+      entry: currentPreCommit,
+      stages: "pre-push",
+    })}`,
+  );
+  assert.deepEqual(
+    inspectHookManager("pre-commit", ["pre-push"], dir).hooks[0],
+    {
+      name: "pre-push",
+      status: "cross-stage",
+      needsOwnStageEntry: true,
+    },
+  );
 
   const renamedOnly = `repos:\n  - repo: local\n    hooks:\n${extraHook({
     id: "renamed-only",

@@ -382,7 +382,10 @@ if (integrationManager) {
   const duplicates = inactive.filter(({ status }) => status === "duplicate");
   const legacy = inactive.filter(({ status }) => status === "legacy");
   const crossStage = inactive.filter(({ status }) => status === "cross-stage");
-  const missing = inactive.filter(({ status }) => status === "missing");
+  const missing = inactive.filter(
+    ({ status, needsOwnStageEntry }) =>
+      status === "missing" || needsOwnStageEntry,
+  );
   const snippets =
     report.status === "uninspectable"
       ? []
@@ -390,8 +393,9 @@ if (integrationManager) {
           integrationManager,
           inactive
             .filter(
-              ({ status }) =>
-                status !== "duplicate" && status !== "cross-stage",
+              ({ status, needsOwnStageEntry }) =>
+                status !== "duplicate" &&
+                (status !== "cross-stage" || needsOwnStageEntry),
             )
             .map(({ name }) => name),
           report.destination,

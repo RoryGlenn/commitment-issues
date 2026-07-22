@@ -507,8 +507,9 @@ if (integrationManager) {
           integrationManager,
           inactive
             .filter(
-              ({ status }) =>
-                status !== "duplicate" && status !== "cross-stage",
+              ({ status, needsOwnStageEntry }) =>
+                status !== "duplicate" &&
+                (status !== "cross-stage" || needsOwnStageEntry),
             )
             .map(({ name }) => name),
           integrationReport.destination,
@@ -919,7 +920,8 @@ const integrationSections =
             ]
           : []),
         ...(integrationReport.hooks.some(
-          ({ status }) => status === "missing",
+          ({ status, needsOwnStageEntry }) =>
+            status === "missing" || needsOwnStageEntry,
         ) && integrationManager === "pre-commit"
           ? [
               pc.dim(
@@ -927,14 +929,18 @@ const integrationSections =
               ),
             ]
           : integrationReport.hooks.some(
-                ({ status }) => status === "missing",
+                ({ status, needsOwnStageEntry }) =>
+                  status === "missing" || needsOwnStageEntry,
               ) && integrationManager === "lefthook"
             ? [
                 pc.dim(
                   "Merge each command under the matching top-level hook; do not duplicate an existing hook key.",
                 ),
               ]
-            : integrationReport.hooks.some(({ status }) => status === "missing")
+            : integrationReport.hooks.some(
+                  ({ status, needsOwnStageEntry }) =>
+                    status === "missing" || needsOwnStageEntry,
+                )
               ? [
                   pc.dim(
                     "Place each missing guarded line before unrelated substantive commands; an exact Husky v8 source may precede it.",

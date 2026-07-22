@@ -368,6 +368,19 @@ test("init distinguishes legacy, duplicate, and cross-stage manager entries", (t
   assert.match(crossOutput, /older direct call.*insert `hook`/i);
   assert.doesNotMatch(crossOutput, /could not be inspected|replace each path/i);
   assert.equal(readFile(tempDir, ".husky/pre-push"), crossStagePrePush);
+
+  writeFile(
+    path.join(tempDir, ".husky", "pre-push"),
+    "node_modules/.bin/commitment-issues precommit || exit $?\n",
+  );
+  const crossStageOnly = runInit(tempDir, ["--integration=husky"]);
+  const crossStageOnlyOutput = compactTerminalBoxText(
+    `${crossStageOnly.stdout}${crossStageOnly.stderr}`,
+  );
+  assert.equal(crossStageOnly.status, 0);
+  assert.match(crossStageOnlyOutput, /command targets another hook stage/i);
+  assert.match(crossStageOnlyOutput, /pre-push; add missing entry/i);
+  assert.match(crossStageOnlyOutput, /hook prepush/iu);
 });
 
 test("init omits Husky-only ordering guidance for Lefthook duplicates", (t) => {

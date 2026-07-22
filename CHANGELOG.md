@@ -94,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remain valid unless they explicitly source an invalid `_/husky.sh` runtime.
   Active older direct, duplicate, and cross-stage Commitment Issues calls are
   reported for targeted replacement, removal, or relocation instead of being
-  hidden by a healthy guarded entry.
+  hidden by a healthy guarded entry. A cross-stage-only hook also retains its
+  missing own-stage snippet so relocation alone is not presented as complete.
   Init and doctor now print remediation snippets only for inactive hook
   entries, so fully wired integrations are not told to add duplicates.
   Uninstall cleanup guidance also recognizes exact current and pre-dispatch

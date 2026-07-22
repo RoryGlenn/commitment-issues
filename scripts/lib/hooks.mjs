@@ -1695,6 +1695,8 @@ function inspectYamlIntegration(
       );
       return commands.current || commands.legacy;
     });
+    const needsOwnStageEntry =
+      crossStage && inventory.current === 0 && inventory.legacy === 0;
     return {
       name,
       status: crossStage
@@ -1707,6 +1709,7 @@ function inspectYamlIntegration(
             : wired
               ? "wired"
               : "missing",
+      ...(needsOwnStageEntry ? { needsOwnStageEntry: true } : {}),
     };
   });
   return {
@@ -1725,7 +1728,7 @@ function inspectYamlIntegration(
  * @param {string} manager - Explicit supported manager.
  * @param {string[]} hookNames - Required hook names.
  * @param {string} [cwd] - Project root.
- * @returns {{manager: string, destination: string|null, status: string, hooks: Array<{name: string, status: string}>}}
+ * @returns {{manager: string, destination: string|null, status: string, hooks: Array<{name: string, status: string, needsOwnStageEntry?: boolean}>}}
  */
 function inspectHookManagerState(
   manager,
@@ -1796,6 +1799,8 @@ function inspectHookManagerState(
         (hasActiveManagerHookCommand(file.content, directName, options) ||
           hasActiveLegacyManagerHookCommand(file.content, directName, options)),
     );
+    const needsOwnStageEntry =
+      crossStage && !wired && currentCount === 0 && !legacy;
     return {
       name,
       status: crossStage
@@ -1807,6 +1812,7 @@ function inspectHookManagerState(
             : wired
               ? "wired"
               : "missing",
+      ...(needsOwnStageEntry ? { needsOwnStageEntry: true } : {}),
     };
   });
   return {
@@ -1833,7 +1839,7 @@ export function inspectHookManager(manager, hookNames, cwd = process.cwd()) {
  * @param {string} manager - Explicit supported manager.
  * @param {string[]} hookNames - Hook names to inventory for cleanup guidance.
  * @param {string} [cwd] - Project root.
- * @returns {{manager: string, destination: string|null, status: string, hooks: Array<{name: string, status: string}>}}
+ * @returns {{manager: string, destination: string|null, status: string, hooks: Array<{name: string, status: string, needsOwnStageEntry?: boolean}>}}
  */
 export function inspectHookManagerForCleanup(
   manager,
