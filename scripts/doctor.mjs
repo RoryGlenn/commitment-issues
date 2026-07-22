@@ -379,12 +379,25 @@ if (integrationManager) {
   }
 
   const inactive = report.hooks.filter(({ status }) => status !== "wired");
+  const duplicates = inactive.filter(({ status }) => status === "duplicate");
+  const legacy = inactive.filter(({ status }) => status === "legacy");
+  const crossStage = inactive.filter(({ status }) => status === "cross-stage");
+  const missing = inactive.filter(
+    ({ status, needsOwnStageEntry }) =>
+      status === "missing" || needsOwnStageEntry,
+  );
   const snippets =
     report.status === "uninspectable"
       ? []
       : hookManagerSnippets(
           integrationManager,
-          inactive.map(({ name }) => name),
+          inactive
+            .filter(
+              ({ status, needsOwnStageEntry }) =>
+                status !== "duplicate" &&
+                (status !== "cross-stage" || needsOwnStageEntry),
+            )
+            .map(({ name }) => name),
           report.destination,
         );
   const missingEvidence = selectedEvidence.length === 0;
@@ -397,28 +410,73 @@ if (integrationManager) {
       ? "the manager configuration could not be inspected safely"
       : missingEvidence
         ? `no active ${integrationManager} configuration was detected`
-        : inactive.length > 0
-          ? `missing hook entries: ${inactive.map(({ name }) => name).join(", ")}`
-          : runnerReport.status === "uninspectable"
-            ? `Git's effective ${integrationManager} hook wrappers could not be inspected safely`
-            : runnerReport.status === "foreign"
-              ? `Git's effective ${integrationManager} hook wrappers are customized or unsupported: ${inactiveRunners.map(({ name }) => name).join(", ")}`
-              : `Git's effective hooks do not dispatch to ${integrationManager}: ${inactiveRunners.map(({ name }) => name).join(", ")}`;
+        : duplicates.length > 0
+          ? `duplicate Commitment Issues entries must be reduced to one: ${duplicates.map(({ name }) => name).join(", ")}`
+          : crossStage.length > 0
+            ? `Commitment Issues commands target the wrong hook stage: ${crossStage.map(({ name }) => name).join(", ")}`
+            : legacy.length > 0
+              ? `older direct hook entries must be replaced: ${legacy.map(({ name }) => name).join(", ")}`
+              : missing.length > 0
+                ? `missing hook entries: ${missing.map(({ name }) => name).join(", ")}`
+                : runnerReport.status === "uninspectable"
+                  ? `Git's effective ${integrationManager} hook wrappers could not be inspected safely`
+                  : runnerReport.status === "foreign"
+                    ? `Git's effective ${integrationManager} hook wrappers are customized or unsupported: ${inactiveRunners.map(({ name }) => name).join(", ")}`
+                    : `Git's effective hooks do not dispatch to ${integrationManager}: ${inactiveRunners.map(({ name }) => name).join(", ")}`;
   const configRemediation =
     report.status === "wired" || report.status === "uninspectable"
       ? []
       : [
           "",
-          pc.dim(
-            integrationManager === "husky"
-              ? "Place each missing guarded entry before unrelated substantive commands:"
-              : "Merge the missing entries without replacing existing commands:",
-          ),
-          ...snippets.flatMap(({ name, destination, content }) => [
-            "",
-            pc.dim(`${destination} (${name}):`),
-            ...content.trimEnd().split("\n"),
-          ]),
+          ...(duplicates.length > 0
+            ? [
+                pc.dim(
+                  "Remove duplicate Commitment Issues entries; keep one exact hook-dispatch entry for each hook:",
+                ),
+                ...duplicates.map(({ name }) => pc.dim(`  ${name}`)),
+                ...(integrationManager === "husky"
+                  ? [
+                      pc.dim(
+                        "Make each retained hook-dispatch entry the first substantive command.",
+                      ),
+                    ]
+                  : []),
+              ]
+            : []),
+          ...(legacy.length > 0
+            ? [
+                pc.dim(
+                  "Replace each older direct entry in place; preserve unrelated siblings and ordering, and do not keep both forms:",
+                ),
+              ]
+            : []),
+          ...(crossStage.length > 0
+            ? [
+                pc.dim(
+                  "Preserve unrelated commands and move each Commitment Issues entry to its matching hook stage. For an older direct call, also insert `hook` before its subcommand; keep arguments and relative ordering:",
+                ),
+                ...crossStage.map(({ name }) => pc.dim(`  ${name}`)),
+              ]
+            : []),
+          ...(missing.length > 0
+            ? [
+                pc.dim(
+                  integrationManager === "husky"
+                    ? "Place each missing guarded entry before unrelated substantive commands:"
+                    : "Merge each missing entry without replacing existing commands:",
+                ),
+              ]
+            : []),
+          ...snippets.flatMap(({ name, destination, content }) => {
+            const status = inactive.find((hook) => hook.name === name)?.status;
+            return [
+              "",
+              pc.dim(
+                `${destination} (${name}; ${status === "legacy" ? "replace older entry" : "add missing entry"}):`,
+              ),
+              ...content.trimEnd().split("\n"),
+            ];
+          }),
         ];
   const unsafeManagerInspection =
     report.status === "uninspectable" ||

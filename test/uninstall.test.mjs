@@ -332,6 +332,20 @@ test("uninstall preserves customized commit-msg hooks for manual cleanup", (t) =
   assert.equal(readFile(tempDir, ".git/hooks/commit-msg"), customHook);
 });
 
+test("uninstall reports a displaced managed dispatcher in a native hook", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  const customHook = `#!/bin/sh\necho custom\n${hookInvocation("pre-commit")}\n`;
+  writeFile(gitHook(tempDir, "pre-commit"), customHook);
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /Manual cleanup still needed/);
+  assert.match(output, /\.git\/hooks\/pre-commit is customized/);
+  assert.equal(readFile(tempDir, ".git/hooks/pre-commit"), customHook);
+});
+
 test("uninstall reports legacy local hook commands for manual cleanup", (t) => {
   const tempDir = createTempRepo();
   t.after(() => cleanupTempRepo(tempDir));
@@ -873,6 +887,26 @@ for (const [manager, fixture] of Object.entries(coexistenceFixtures)) {
     });
   });
 }
+
+test("uninstall reports a displaced dispatcher in inactive Husky hooks", (t) => {
+  const tempDir = createTempRepo();
+  t.after(() => cleanupTempRepo(tempDir));
+  writePackage(tempDir, {
+    name: "inactive-husky-consumer",
+    version: "1.0.0",
+    devDependencies: { husky: "9.1.7" },
+  });
+  const customHook = `#!/bin/sh\necho custom\n${hookInvocation("pre-commit")}\n`;
+  writeFile(path.join(tempDir, ".husky", "pre-commit"), customHook);
+
+  const result = runScript(tempDir, "uninstall");
+  const output = `${result.stdout}${result.stderr}`;
+  assert.equal(result.status, 0);
+  assert.match(output, /Manual cleanup still needed/);
+  assert.match(output, /husky configuration is user-owned/i);
+  assert.match(output, /pre-commit entry manually/i);
+  assert.equal(readFile(tempDir, ".husky/pre-commit"), customHook);
+});
 
 test("uninstall preserves ambiguous manager configuration for manual cleanup", (t) => {
   const tempDir = createTempRepo();

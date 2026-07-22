@@ -54,9 +54,8 @@ Global installation and a registry-downloading one-shot runner are not
 supported. Generated hooks deliberately invoke
 `node_modules/.bin/commitment-issues` and self-neutralize when that project-local
 entry is gone; they never fall through to a global binary.
-Manager-coexistence snippets apply the same local-only rule across the exact
-extensionless, `.exe`, `.cmd`, and `.bat` launcher candidates so Bun's Windows
-launcher works without making PATH/global fallback part of the contract.
+Coexistence snippets apply the same local-only rule, including Bun's Windows
+launcher.
 
 ## Install and lifecycle modes
 
@@ -81,24 +80,12 @@ adds or composes `commitment-issues doctor --quiet` in the consuming project's
 hooks. Projects that disable scripts retain an explicit, local recovery path
 without executing package code during dependency installation.
 
-Coexistence setup instead composes
-`commitment-issues doctor --quiet --integration=<manager>`. The install-time
-check never edits manager files and still exits zero when it must warn. All
-manager snippets use the project-relative local bin, so the existing supported
-spaces, Unicode, worktree, shell, and `node-modules` workspace boundaries apply.
-
-The verified manager boundary is exact rather than forward-compatible by
-assumption: Husky 8.0.1–8.0.3 and 9.0.2–9.1.7 dispatcher/runtime shapes,
-Lefthook's canonical 2.1.10 wrapper with one of the six documented main YAML
-names, and the supported pre-commit 3.2+ wrapper with either
-`.pre-commit-config.yaml` or `.yml`. Husky 8.0.0/9.0.1, customized or newer
-wrappers, and Lefthook local, JSON/JSONC/TOML, extended/remote,
-overridden, advanced-YAML, or top-level global-option configs require manual
-review. The hook environment must still make `node` available. Lefthook and
-pre-commit must also resolve a reviewed-identity manager runtime; Husky uses its
-inspected repository-local dispatcher. The project-local bin path does not
-replace those runtime requirements. See the
-[full coexistence contract](migration.md#keep-an-existing-hook-manager).
+Coexistence instead composes
+`doctor --quiet --integration=<manager>`: installs warn without editing manager
+files or failing. The same spaces, Unicode, worktree, shell, and workspace
+boundaries apply; hooks still need `node` and the selected manager runtime.
+Supported config/wrapper versions and manual-review cases are in the
+[coexistence contract](migration.md#keep-an-existing-hook-manager).
 
 Cross-version evidence downloads only immutable release artifacts whose
 SHA-256 values are pinned in the

@@ -110,26 +110,12 @@ npx --no-install commitment-issues init --integration=husky
 npx --no-install commitment-issues doctor --integration=husky
 ```
 
-Replace `husky` with `lefthook` or `pre-commit`. The initializer updates only
-Commitment Issues' package settings and package-owned `.gitignore` defaults,
-then prints exact manager-native snippets; it never writes, reorders, or
-deletes the manager's hooks/config. Bare
-`--integration` auto-detects only when exactly one owner is evident. See the
+Replace `husky` with `lefthook` or `pre-commit`. This mode prints exact
+project-local snippets and verifies the manager config plus its installed
+dispatcher without editing manager-owned files. Bare `--integration` works
+only when one owner is evident; ambiguous or unsupported layouts require
+manual review. See the
 [coexistence contracts](docs/migration.md#keep-an-existing-hook-manager).
-Doctor validates both the manager entry and Git's effective installed wrapper;
-configuration alone is not reported as active. Lefthook entries stay static:
-pre-push uses its stdin stream and optional commit-msg path resolution happens
-inside Commitment Issues rather than in manager shell configuration.
-
-Verification is deliberately conservative. Lefthook inspection supports only
-the six main YAML names documented in the migration guide; local, JSON, JSONC,
-TOML, extended, overridden, advanced-YAML, or global-option configurations
-require manual review. The installed dispatcher must also match Husky
-8.0.1–8.0.3 or 9.0.2–9.1.7, Lefthook 2.1.10, or the supported pre-commit
-template, and its filesystem/PATH runtime must have the expected Lefthook or
-Python identity. The selected YAML document is validated as a whole, including
-unrelated hooks and nested jobs. Customized or newer wrapper/config shapes are
-preserved and reported instead of being guessed healthy.
 
 Then commit and push normally:
 
@@ -215,9 +201,8 @@ repository. Existing custom hooks and foreign `core.hooksPath` values are
 preserved and reported for manual composition.
 
 With `--integration=<manager>`, it writes no native or manager-owned hook
-files. It prints static project-local snippets, configures install-time doctor
-to verify the selected manager without repairing native hooks, and preserves
-the manager's ordering, skip controls, and unrelated commands.
+files. It prints project-local snippets and configures install-time doctor to
+verify the selected manager while preserving its unrelated behavior.
 
 [Read the complete lifecycle and safety model](docs/how-it-works.md).
 
