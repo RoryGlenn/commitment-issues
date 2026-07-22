@@ -916,7 +916,6 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
     );
   }
   for (const semanticContextFile of [
-    ".agents/semantic-context.md",
     ".claude/settings.json",
     ".codex/hooks.json",
     "CLAUDE.md",

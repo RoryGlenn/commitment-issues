@@ -6,7 +6,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import {
-  resolveSemanticNode,
+  buildSemanticGraph,
+  readRepositorySourceState,
   semanticGraphLocalDirectory,
   validateSemanticGraph,
 } from "./semantic-graph.mjs";
@@ -101,6 +102,35 @@ function sortedUnique(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
+function resolveExactContextNode(graph, query) {
+  const normalizedPath = query.replaceAll("\\", "/");
+  const idMatch = graph.nodes.find((node) => node.id === query);
+  if (idMatch) return idMatch;
+  const pathMatches = graph.nodes.filter(
+    (node) => node.path === normalizedPath,
+  );
+  if (pathMatches.length === 1) return pathMatches[0];
+  const labelMatches = graph.nodes.filter((node) => node.label === query);
+  const semanticLabelMatches = labelMatches.filter((node) =>
+    ["capability", "command", "hook", "config-key", "package"].includes(
+      node.kind,
+    ),
+  );
+  const matches =
+    pathMatches.length > 1
+      ? pathMatches
+      : semanticLabelMatches.length > 0
+        ? semanticLabelMatches
+        : labelMatches;
+  if (matches.length === 1) return matches[0];
+  if (matches.length === 0) {
+    throw new Error(`No semantic graph node exactly matches '${query}'.`);
+  }
+  throw new Error(
+    `Semantic graph query '${query}' is ambiguous: ${matches.map((node) => node.id).join(", ")}`,
+  );
+}
+
 function resolveFocuses(graph, focuses) {
   const resolved = [];
   const diagnostics = [];
@@ -108,7 +138,7 @@ function resolveFocuses(graph, focuses) {
   for (const query of sortedUnique(focuses.map((value) => value.trim()))) {
     if (!query) continue;
     try {
-      const node = resolveSemanticNode(graph, query);
+      const node = resolveExactContextNode(graph, query);
       if (!resolvedIds.has(node.id)) {
         resolved.push({ query, id: node.id });
         resolvedIds.add(node.id);
@@ -204,20 +234,12 @@ function payloadFor({
   status,
   contextDiagnostics,
   omittedNodes,
-  distances = new Map(),
-  targetIds = new Set(),
 }) {
   const nodes = graph.nodes
     .filter((node) => selectedIds.has(node.id))
     .map(publicNode);
   const edges = graph.edges
-    .filter(
-      (edge) =>
-        selectedIds.has(edge.from) &&
-        selectedIds.has(edge.to) &&
-        (distances.get(edge.from) !== distances.get(edge.to) ||
-          (targetIds.has(edge.from) && targetIds.has(edge.to))),
-    )
+    .filter((edge) => selectedIds.has(edge.from) && selectedIds.has(edge.to))
     .map(publicEdge);
   const fileMetrics = selectedFileMetrics(nodes, graph.nodes);
   const selectedPaths = new Set(
@@ -400,11 +422,7 @@ export function buildSemanticContext(graph, focuses, rawOptions = {}) {
 
   const targetIds = sortedUnique(focusResult.resolved.map((entry) => entry.id));
   const targets = new Set(targetIds);
-  const { candidates, distances } = neighborhood(
-    graph,
-    targetIds,
-    options.depth,
-  );
+  const { candidates } = neighborhood(graph, targetIds, options.depth);
   const selectedIds = new Set(targetIds);
   const omittedIds = new Set();
   const targetMetrics = selectedFileMetrics(
@@ -453,8 +471,6 @@ export function buildSemanticContext(graph, focuses, rawOptions = {}) {
       status: "complete",
       contextDiagnostics: [],
       omittedNodes: 0,
-      distances,
-      targetIds: targets,
     });
     if (byteLength(envelopeFor(tentative)) > options.maxOutputBytes - 512) {
       omittedIds.add(node.id);
@@ -482,8 +498,6 @@ export function buildSemanticContext(graph, focuses, rawOptions = {}) {
     status,
     contextDiagnostics,
     omittedNodes: omittedIds.size,
-    distances,
-    targetIds: targets,
   });
   let envelope = envelopeFor(payload);
 
@@ -512,8 +526,6 @@ export function buildSemanticContext(graph, focuses, rawOptions = {}) {
       status,
       contextDiagnostics: [diagnosticEntry],
       omittedNodes: omittedIds.size,
-      distances,
-      targetIds: targets,
     });
     envelope = envelopeFor(payload);
   }
@@ -552,15 +564,56 @@ export function extractExplicitSemanticFocuses(graph, prompt = "") {
   }
   for (const match of prompt.matchAll(/`([^`\r\n]+)`/gu)) {
     const candidate = match[1].trim();
-    try {
-      resolveSemanticNode(graph, candidate);
+    const normalizedPath = candidate.replaceAll("\\", "/");
+    if (
+      graph.nodes.some(
+        (node) =>
+          node.id === candidate ||
+          node.path === normalizedPath ||
+          node.label === candidate,
+      )
+    ) {
       focuses.push(candidate);
-    } catch {
-      // Ordinary code spans are not semantic declarations. Explicit semantic
-      // markers remain in the list so invalid requests produce diagnostics.
     }
   }
   return sortedUnique(focuses.filter(Boolean));
+}
+
+/**
+ * Build a graph only from a source identity that remains stable for the whole
+ * compilation attempt. A concurrent edit retries against the newer identity;
+ * persistent drift fails closed instead of mislabeling the graph.
+ *
+ * @param {string} root - Repository root.
+ * @param {{maxAttempts?: number, readSourceState?: Function, buildGraph?: Function}} [options]
+ * @returns {object} Semantic graph tied to a stable observed source identity.
+ */
+export function buildCurrentSemanticGraph(root, options = {}) {
+  const maxAttempts = normalizePositiveInteger(
+    options.maxAttempts,
+    3,
+    "maxAttempts",
+    1,
+  );
+  const readSourceState = options.readSourceState ?? readRepositorySourceState;
+  const buildGraph = options.buildGraph ?? buildSemanticGraph;
+  let sourceState = readSourceState(root);
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const graph = buildGraph(root, { sourceState });
+    const observedAfterBuild = readSourceState(root);
+    if (
+      observedAfterBuild.fingerprint === sourceState.fingerprint &&
+      graph?.source?.fingerprint === sourceState.fingerprint
+    ) {
+      return graph;
+    }
+    sourceState = observedAfterBuild;
+  }
+
+  throw new Error(
+    `Semantic graph source changed during ${maxAttempts} compilation attempt${maxAttempts === 1 ? "" : "s"}.`,
+  );
 }
 
 export function formatSemanticContextForHook(envelope) {

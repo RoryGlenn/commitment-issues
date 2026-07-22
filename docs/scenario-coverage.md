@@ -734,19 +734,23 @@ production-readiness workstream #130 is consolidated in the
   `test/semantic-graph.test.mjs`.
 - **SEM-006** — Codex and Claude project hooks call one repository-local
   adapter and receive byte-identical normalized context for the same source,
-  focus, event, and limits. Session startup loads a bounded capability map;
-  prompt submission requires an exact semantic marker or resolvable backticked
-  graph identifier. Unit/subprocess: `test/semantic-context.test.mjs`.
+  focus, event, and limits. Session startup loads a bounded depth-zero
+  capability index; prompt submission requires a case-sensitive exact semantic
+  marker or resolvable backticked identifier, label, or path. Ambiguous exact
+  paths fail explicitly. Unit/subprocess: `test/semantic-context.test.mjs`.
 - **SEM-007** — multi-focus selection is deterministic and enforces depth,
-  file-count, selected-source-byte, inner-context-byte, and complete-host-output
-  limits. Omitted nodes produce `truncated`; missing, ambiguous, invalid, or
-  over-budget inputs are never labeled complete. Unit:
-  `test/semantic-context.test.mjs`.
+  file-count, selected-source-byte, inner-context-byte, model-visible-context,
+  and complete-host-output limits, including unavailable fallbacks. Every edge
+  between selected nodes is retained. Omitted nodes produce `truncated`;
+  missing, ambiguous, invalid, or over-budget inputs are never labeled
+  complete. Unit: `test/semantic-context.test.mjs`.
 - **SEM-008** — every delivered envelope carries the current graph fingerprint
-  and a verified SHA-256 payload digest. The latest local receipt is written
-  atomically below Git's common directory only after stdout emission, hashes
-  the session identifier, excludes prompt/repository content, and explicitly
-  claims only `emitted-to-host`. Unit/worktree/subprocess:
+  and a verified SHA-256 payload digest. Compilation compares source identity
+  before and after every attempt, retries drift, and fails closed if the
+  checkout does not stabilize. The latest local receipt is written atomically
+  below Git's common directory only after stdout emission, hashes the session
+  identifier, excludes prompt/repository content, and explicitly claims only
+  `emitted-to-host`. Unit/worktree/subprocess:
   `test/semantic-context.test.mjs`.
 - **SEM-009** — graph strings are delimited and labeled as untrusted data;
   hostile paths, labels, and prompt text remain JSON data and are never
@@ -754,9 +758,10 @@ production-readiness workstream #130 is consolidated in the
   rejected. Unit/security: `test/semantic-context.test.mjs`.
 - **SEM-010** — the gateway, adapters, host configuration, receipts, and
   protocol documentation remain repository-only and absent from the npm
-  package. Codex and Claude share one checked-in semantic policy, while docs
-  state that host emission cannot prove model comprehension. Unit/package:
-  `test/semantic-context.test.mjs` and `test/metadata.test.mjs`.
+  package. The shared semantic policy is directly present in `AGENTS.md`, and
+  `CLAUDE.md` imports that file, so neither host depends on following a policy
+  link. Docs state that host emission cannot prove model comprehension.
+  Unit/package: `test/semantic-context.test.mjs` and `test/metadata.test.mjs`.
 
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
 

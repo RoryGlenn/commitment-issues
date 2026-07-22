@@ -5,14 +5,11 @@
 import process from "node:process";
 import {
   buildSemanticContext,
+  buildCurrentSemanticGraph,
   findSemanticRepositoryRoot,
   readSemanticContextReceipt,
   verifySemanticContextDigest,
 } from "./lib/semantic-context.mjs";
-import {
-  buildSemanticGraph,
-  readRepositorySourceState,
-} from "./lib/semantic-graph.mjs";
 
 function usage() {
   return `Semantic context gateway
@@ -85,8 +82,7 @@ function validateContextArgs(args) {
 }
 
 function buildCurrentGraph(root) {
-  const sourceState = readRepositorySourceState(root);
-  return buildSemanticGraph(root, { sourceState });
+  return buildCurrentSemanticGraph(root);
 }
 
 function contextCommand(root, args, json) {

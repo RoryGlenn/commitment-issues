@@ -13,11 +13,11 @@ import {
   SEMANTIC_CONTEXT_SCHEMA_VERSION,
   SEMANTIC_CONTEXT_STATUSES,
   buildSemanticContext,
+  buildCurrentSemanticGraph,
   createSemanticContextReceipt,
   extractExplicitSemanticFocuses,
   formatSemanticContextForHook,
   readSemanticContextReceipt,
-  semanticContextReceiptPath,
   verifySemanticContextDigest,
   writeSemanticContextReceipt,
 } from "../tools/lib/semantic-context.mjs";
@@ -226,9 +226,37 @@ test("multi-focus context is deterministic, current, and digest-verifiable", (t)
   assert.equal(commandOnly.retrieval.selectedBytes, moduleBytes);
 });
 
+test("complete context retains every relationship between selected nodes", (t) => {
+  const { graph } = fixtureGraph(t);
+  const context = buildSemanticContext(graph, ["capability:push-inspection"], {
+    depth: 1,
+    maxFiles: 20,
+    maxSelectedBytes: 100_000,
+    maxOutputBytes: 9_000,
+  });
+
+  assert.equal(context.status, "complete");
+  assert.ok(
+    context.edges.some(
+      (edge) =>
+        edge.from === "hook:pre-push" &&
+        edge.type === "dispatches-to" &&
+        edge.to === "command:prepush",
+    ),
+    "same-depth relationships must not disappear from a complete envelope",
+  );
+  const selectedIds = new Set(context.nodes.map((node) => node.id));
+  assert.equal(
+    context.edges.length,
+    graph.edges.filter(
+      (edge) => selectedIds.has(edge.from) && selectedIds.has(edge.to),
+    ).length,
+  );
+});
+
 test("context limits are hard and partial output is never labeled complete", (t) => {
   const { graph } = fixtureGraph(t);
-  const bounded = buildSemanticContext(graph, ["push-inspection"], {
+  const bounded = buildSemanticContext(graph, ["capability:push-inspection"], {
     depth: 2,
     maxFiles: 1,
     maxSelectedBytes: 1,
@@ -247,7 +275,7 @@ test("context limits are hard and partial output is never labeled complete", (t)
 
   const impossible = buildSemanticContext(
     graph,
-    ["scripts/prepush.mjs", "test/prepush.test.mjs"],
+    ["module:scripts/prepush.mjs", "test:test/prepush.test.mjs"],
     { maxFiles: 1, maxSelectedBytes: 100_000, maxOutputBytes: 2_048 },
   );
   assert.equal(impossible.status, "unavailable");
@@ -270,6 +298,17 @@ test("missing and ambiguous focuses are explicit", (t) => {
   assert.deepEqual(missing.nodes, []);
   assert.ok(
     missing.diagnostics.some((entry) => entry.code === "context.focus-missing"),
+  );
+
+  const ambiguousPath = buildSemanticContext(graph, ["scripts/prepush.mjs"]);
+  assert.equal(ambiguousPath.status, "ambiguous");
+  assert.ok(
+    ambiguousPath.diagnostics.some(
+      (entry) =>
+        entry.code === "context.focus-ambiguous" &&
+        entry.message.includes("command:prepush") &&
+        entry.message.includes("module:scripts/prepush.mjs"),
+    ),
   );
 
   const ambiguousGraph = structuredClone(graph);
@@ -314,6 +353,13 @@ test("prompt focus extraction is exact and does not use fuzzy matching", (t) => 
     [],
   );
   assert.deepEqual(
+    extractExplicitSemanticFocuses(
+      graph,
+      "`PREPUSH`; `Scripts/Prepush.mjs`; `README.MD`",
+    ),
+    [],
+  );
+  assert.deepEqual(
     extractExplicitSemanticFocuses(graph, "[[semantic:missing-node]]"),
     ["missing-node"],
   );
@@ -321,7 +367,9 @@ test("prompt focus extraction is exact and does not use fuzzy matching", (t) => 
 
 test("gateway source identity follows clean, worktree, and staged state without trusting cache", (t) => {
   const { fixture, graph: cleanGraph } = fixtureGraph(t);
-  const clean = buildSemanticContext(cleanGraph, ["push-inspection"]);
+  const clean = buildSemanticContext(cleanGraph, [
+    "capability:push-inspection",
+  ]);
   writeSemanticGraphCache(fixture, cleanGraph);
 
   fs.appendFileSync(
@@ -329,20 +377,24 @@ test("gateway source identity follows clean, worktree, and staged state without 
     "\nTracked worktree change.\n",
   );
   const worktreeGraph = buildSemanticGraph(fixture);
-  const worktree = buildSemanticContext(worktreeGraph, ["push-inspection"]);
+  const worktree = buildSemanticContext(worktreeGraph, [
+    "capability:push-inspection",
+  ]);
   assert.notEqual(worktree.source.fingerprint, clean.source.fingerprint);
   assert.equal(worktree.source.dirty, true);
 
   git(fixture, ["add", "docs/guide.md"]);
   const stagedGraph = buildSemanticGraph(fixture);
-  const staged = buildSemanticContext(stagedGraph, ["push-inspection"]);
+  const staged = buildSemanticContext(stagedGraph, [
+    "capability:push-inspection",
+  ]);
   assert.notEqual(staged.source.fingerprint, worktree.source.fingerprint);
   assert.equal(staged.source.dirty, true);
 
   fs.writeFileSync(semanticGraphCachePath(fixture), "{}\n");
   const result = spawnSync(
     process.execPath,
-    [cli, "context", "--focus", "push-inspection", "--json"],
+    [cli, "context", "--focus", "capability:push-inspection", "--json"],
     { cwd: fixture, encoding: "utf8" },
   );
   assert.equal(result.status, 0, result.stderr);
@@ -350,6 +402,39 @@ test("gateway source identity follows clean, worktree, and staged state without 
   assert.equal(fromCli.source.fingerprint, staged.source.fingerprint);
   assert.notEqual(fromCli.source.fingerprint, clean.source.fingerprint);
   assert.equal(verifySemanticContextDigest(fromCli), true);
+});
+
+test("current graph retries source drift and fails closed when drift persists", () => {
+  const sourceA = { fingerprint: "a".repeat(64) };
+  const sourceB = { fingerprint: "b".repeat(64) };
+  const observed = [sourceA, sourceB, sourceB];
+  const built = [];
+  const graph = buildCurrentSemanticGraph("fixture", {
+    maxAttempts: 2,
+    readSourceState: () => observed.shift(),
+    buildGraph: (_root, { sourceState }) => {
+      built.push(sourceState.fingerprint);
+      return { source: { fingerprint: sourceState.fingerprint } };
+    },
+  });
+  assert.deepEqual(built, [sourceA.fingerprint, sourceB.fingerprint]);
+  assert.equal(graph.source.fingerprint, sourceB.fingerprint);
+
+  let reads = 0;
+  assert.throws(
+    () =>
+      buildCurrentSemanticGraph("fixture", {
+        maxAttempts: 2,
+        readSourceState: () => {
+          reads += 1;
+          return reads % 2 === 1 ? sourceA : sourceB;
+        },
+        buildGraph: (_root, { sourceState }) => ({
+          source: { fingerprint: sourceState.fingerprint },
+        }),
+      }),
+    /source changed during 2 compilation attempts/u,
+  );
 });
 
 test("Codex and Claude adapters emit byte-identical bounded session context", (t) => {
@@ -362,8 +447,10 @@ test("Codex and Claude adapters emit byte-identical bounded session context", (t
   };
   const codex = runHook(fixture, "codex", hookInput);
   assert.equal(codex.status, 0, codex.stderr);
-  assert.ok(Buffer.byteLength(codex.stdout) <= 9_000);
+  assert.ok(Buffer.byteLength(codex.stdout) <= 3_000);
   const codexContext = parseHookOutput(codex.stdout);
+  assert.ok(Buffer.byteLength(codexContext.additionalContext) <= 2_400);
+  assert.equal(codexContext.envelope.request.depth, 0);
   const codexReceipt = readSemanticContextReceipt(fixture);
   assert.equal(codexReceipt.status, "present");
   assert.equal(codexReceipt.receipt.adapter, "codex");
@@ -391,6 +478,20 @@ test("Codex and Claude adapters emit byte-identical bounded session context", (t
   );
   assert.deepEqual(claudeContext.envelope, codexContext.envelope);
   assert.equal(verifySemanticContextDigest(claudeContext.envelope), true);
+
+  const outsideRepository = fs.mkdtempSync(
+    path.join(os.tmpdir(), "commitment-issues-context-outside-"),
+  );
+  t.after(() => fs.rmSync(outsideRepository, { recursive: true, force: true }));
+  const unavailable = runHook(fixture, "codex", {
+    ...hookInput,
+    cwd: outsideRepository,
+  });
+  assert.equal(unavailable.status, 0, unavailable.stderr);
+  assert.ok(Buffer.byteLength(unavailable.stdout) <= 3_000);
+  const unavailableContext = parseHookOutput(unavailable.stdout);
+  assert.ok(Buffer.byteLength(unavailableContext.additionalContext) <= 2_400);
+  assert.equal(unavailableContext.envelope.status, "unavailable");
 });
 
 test("prompt hooks stay silent without exact focus and deliver explicit focus", (t) => {
@@ -498,12 +599,14 @@ test("receipts are validated, atomic, worktree-shared, and refuse unsafe paths",
   t.after(() => fs.rmSync(linked, { recursive: true, force: true }));
   git(fixture, ["worktree", "add", "--detach", linked]);
   assert.equal(
-    fs.realpathSync(semanticContextReceiptPath(linked)),
-    fs.realpathSync(receiptPath),
-  );
-  assert.equal(
     readSemanticContextReceipt(linked).receipt.contextDigest,
     receipt.contextDigest,
+  );
+  writeSemanticContextReceipt(linked, { ...receipt, adapter: "claude" });
+  assert.equal(
+    readSemanticContextReceipt(fixture).receipt.adapter,
+    "claude",
+    "the linked worktree must update the shared receipt",
   );
 
   fs.writeFileSync(
@@ -596,16 +699,17 @@ test("host configs, shared policy, and protocol schema stay aligned", () => {
   }
   for (const groups of Object.values(claude.hooks)) {
     for (const handler of groups.flatMap((group) => group.hooks)) {
-      assert.equal(handler.command, "node");
-      assert.deepEqual(handler.args.slice(-2), ["--adapter", "claude"]);
-      assert.doesNotMatch(handler.args.join(" "), /prompt|session_id/u);
+      assert.match(handler.command, /semantic-context-hook\.mjs/u);
+      assert.match(handler.command, /--adapter claude/u);
+      assert.equal(handler.args, undefined);
+      assert.doesNotMatch(handler.command, /prompt|session_id/u);
     }
   }
   const claudePolicy = fs.readFileSync(path.join(root, "CLAUDE.md"), "utf8");
   const agentsPolicy = fs.readFileSync(path.join(root, "AGENTS.md"), "utf8");
-  assert.match(claudePolicy, /^@AGENTS\.md$/mu);
-  assert.match(claudePolicy, /^@\.agents\/semantic-context\.md$/mu);
-  assert.match(agentsPolicy, /\.agents\/semantic-context\.md/u);
+  assert.equal(claudePolicy.trim(), "@AGENTS.md");
+  assert.match(agentsPolicy, /^## Semantic context policy$/mu);
+  assert.match(agentsPolicy, /<semantic-context-data>/u);
 
   const schema = JSON.parse(
     fs.readFileSync(path.join(root, "docs", "semantic-context.schema.json")),

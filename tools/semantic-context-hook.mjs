@@ -6,6 +6,7 @@ import fs from "node:fs";
 import process from "node:process";
 import {
   buildSemanticContext,
+  buildCurrentSemanticGraph,
   createSemanticContextReceipt,
   extractExplicitSemanticFocuses,
   findSemanticRepositoryRoot,
@@ -13,13 +14,10 @@ import {
   unavailableSemanticContext,
   writeSemanticContextReceipt,
 } from "./lib/semantic-context.mjs";
-import {
-  buildSemanticGraph,
-  readRepositorySourceState,
-} from "./lib/semantic-graph.mjs";
 
-const CONTEXT_OUTPUT_BYTES = 7_500;
-const HOST_OUTPUT_BYTES = 9_000;
+const CONTEXT_OUTPUT_BYTES = 2_300;
+const MODEL_CONTEXT_BYTES = 2_400;
+const HOST_OUTPUT_BYTES = 3_000;
 
 function adapterOption(args) {
   if (args.length !== 2 || args[0] !== "--adapter") {
@@ -48,8 +46,7 @@ function readHookInput() {
 }
 
 function buildGraph(root) {
-  const sourceState = readRepositorySourceState(root);
-  return buildSemanticGraph(root, { sourceState });
+  return buildCurrentSemanticGraph(root);
 }
 
 function hookFocuses(graph, hookInput) {
@@ -67,6 +64,37 @@ function hookFocuses(graph, hookInput) {
 
 function serializeResponse(response) {
   return `${JSON.stringify(response)}\n`;
+}
+
+function hookDelivery(hookEventName, envelope) {
+  const response = semanticHookResponse(hookEventName, envelope);
+  const output = serializeResponse(response);
+  return {
+    envelope,
+    output,
+    outputBytes: Buffer.byteLength(output),
+    modelContextBytes: Buffer.byteLength(
+      response.hookSpecificOutput.additionalContext,
+    ),
+  };
+}
+
+function deliveryFits(delivery) {
+  return (
+    delivery.modelContextBytes <= MODEL_CONTEXT_BYTES &&
+    delivery.outputBytes <= HOST_OUTPUT_BYTES
+  );
+}
+
+function unavailableHookDelivery(hookEventName, message) {
+  const delivery = hookDelivery(
+    hookEventName,
+    unavailableSemanticContext(message, { maxOutputBytes: 2_048 }),
+  );
+  if (!deliveryFits(delivery)) {
+    throw new Error("the bounded unavailable response exceeded host limits.");
+  }
+  return delivery;
 }
 
 function emitResponse(output) {
@@ -91,29 +119,24 @@ function boundedHookDelivery(graph, focuses, hookEventName) {
   let maxOutputBytes = CONTEXT_OUTPUT_BYTES;
   while (maxOutputBytes >= 2_048) {
     const envelope = buildSemanticContext(graph, focuses, {
-      depth: hookEventName === "SessionStart" ? 1 : 2,
+      depth: hookEventName === "SessionStart" ? 0 : 2,
       maxFiles: 30,
       maxSelectedBytes: 400_000,
       maxOutputBytes,
     });
-    const output = serializeResponse(
-      semanticHookResponse(hookEventName, envelope),
+    const delivery = hookDelivery(hookEventName, envelope);
+    if (deliveryFits(delivery)) return delivery;
+    maxOutputBytes -= Math.max(
+      64,
+      delivery.modelContextBytes - MODEL_CONTEXT_BYTES,
+      delivery.outputBytes - HOST_OUTPUT_BYTES,
     );
-    const outputBytes = Buffer.byteLength(output);
-    if (outputBytes <= HOST_OUTPUT_BYTES) {
-      return { envelope, output, outputBytes };
-    }
-    maxOutputBytes -= Math.max(256, outputBytes - HOST_OUTPUT_BYTES);
   }
 
-  const envelope = unavailableSemanticContext(
+  return unavailableHookDelivery(
+    hookEventName,
     "The semantic context gateway could not fit a safe host response.",
-    { maxOutputBytes: 2_048 },
   );
-  const output = serializeResponse(
-    semanticHookResponse(hookEventName, envelope),
-  );
-  return { envelope, output, outputBytes: Buffer.byteLength(output) };
 }
 
 function main() {
@@ -147,16 +170,9 @@ function main() {
       hookInput.hook_event_name,
     ));
   } catch {
-    envelope = unavailableSemanticContext(undefined, {
-      depth: 1,
-      maxFiles: 30,
-      maxSelectedBytes: 400_000,
-      maxOutputBytes: CONTEXT_OUTPUT_BYTES,
-    });
-    output = serializeResponse(
-      semanticHookResponse(hookInput.hook_event_name, envelope),
-    );
-    outputBytes = Buffer.byteLength(output);
+    ({ envelope, output, outputBytes } = unavailableHookDelivery(
+      hookInput.hook_event_name,
+    ));
   }
 
   outputBytes = emitResponse(output);

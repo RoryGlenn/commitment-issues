@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added a model-independent semantic context gateway for Codex and Claude.
-  Exact focus markers, bounded payloads, SHA-256 digests, explicit partial and
-  error states, and atomic local receipts make host emission verifiable without
-  claiming that a model understood the context.
+  Cross-version host configs deliver stable, bounded, integrity-checked context
+  from case-sensitive exact focuses and shared policy, with complete internal
+  edges and atomic receipts. Emission is verifiable; comprehension is not.
 - Added a repository-only semantic project graph for maintainers and coding
   agents. An Espree-backed compiler maps capabilities to commands, hooks,
   modules, exports, configuration, tests, canonical docs, and package files;
