@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/semantic-graph.schema.json",
+  "title": "Commitment Issues semantic project graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "source", "nodes", "edges", "diagnostics"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head",
+        "fingerprint",
+        "dirty",
+        "trackedFileCount",
+        "totalTrackedBytes",
+        "totalIndexableBytes"
+      ],
+      "properties": {
+        "head": { "type": ["string", "null"] },
+        "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "dirty": { "type": "boolean" },
+        "trackedFileCount": { "type": "integer", "minimum": 0 },
+        "totalTrackedBytes": { "type": "integer", "minimum": 0 },
+        "totalIndexableBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "capability",
+            "command",
+            "config-key",
+            "document",
+            "file",
+            "hook",
+            "module",
+            "package",
+            "symbol",
+            "test"
+          ]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "visibility": { "type": "string" },
+        "version": { "type": ["string", "null"] },
+        "description": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "type", "to", "certainty", "provenance", "evidence"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": [
+            "configured-by",
+            "dispatches-to",
+            "documented-by",
+            "exports",
+            "generates",
+            "implements",
+            "imports",
+            "ships-in-package",
+            "tested-by"
+          ]
+        },
+        "to": { "type": "string", "minLength": 1 },
+        "certainty": {
+          "enum": ["proven", "tool-reported", "declared", "inferred", "unknown"]
+        },
+        "provenance": {
+          "enum": [
+            "documentation",
+            "javascript-parser",
+            "package-manifest",
+            "project-registry",
+            "project-tool",
+            "semantic-manifest",
+            "test-convention"
+          ]
+        },
+        "evidence": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "detail"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "detail": { "type": "string", "minLength": 1 }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "severity"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["warning", "error"] },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

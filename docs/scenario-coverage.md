@@ -705,6 +705,64 @@ production-readiness workstream #130 is consolidated in the
   high-severity advisories. Unit: `test/ci-policy.test.mjs`; automation:
   `.github/dependabot.yml` and `.github/workflows/repo-health.yml`.
 
+### Semantic maintainer graph
+
+- **SEM-001** — the repository-only graph compiler derives commands, hooks,
+  configuration, ESM imports/exports, tests, Markdown references, package
+  files, and high-level capability membership with stable node identifiers and
+  evidence-bearing edges. Unit/repository: `test/semantic-graph.test.mjs`.
+- **SEM-002** — static relationships use Espree rather than regular-expression
+  parsing; literal dynamic imports are resolved, while computed imports,
+  malformed source, unsupported extensions, and missing targets remain honest
+  diagnostics rather than guessed edges. Unit:
+  `test/semantic-graph.test.mjs`.
+- **SEM-003** — source identity covers `HEAD`, staged and tracked worktree
+  diffs, and current tracked-file contents. A cache below Git's common
+  directory is accepted only for the exact fingerprint; stale, invalid,
+  linked, and non-regular cache paths cannot be presented as current. Unit and
+  subprocess: `test/semantic-graph.test.mjs`.
+- **SEM-004** — focused tree and impact queries return deterministic human and
+  JSON neighborhoods with selected-versus-indexable-text byte measurements;
+  binary assets cannot inflate the context-reduction baseline. They do not run
+  from normal hooks or enter the npm package. Unit, subprocess, and package
+  boundary: `test/semantic-graph.test.mjs` and
+  `test/metadata.test.mjs`.
+- **SEM-005** — the accuracy check rejects dangling/unsupported claims, stale
+  capability declarations, public commands without dispatch/test/docs, config
+  keys without test/docs, missing package files, and nondeterministic builds;
+  genuine warnings and missing caches remain non-failing. Unit/repository:
+  `test/semantic-graph.test.mjs`.
+- **SEM-006** — Codex and Claude project hooks call one repository-local
+  adapter and receive byte-identical normalized context for the same source,
+  focus, event, and limits. Session startup loads a bounded depth-zero
+  capability index; prompt submission requires a case-sensitive exact semantic
+  marker or resolvable backticked identifier, label, or path. Ambiguous exact
+  paths fail explicitly. Unit/subprocess: `test/semantic-context.test.mjs`.
+- **SEM-007** — multi-focus selection is deterministic and enforces depth,
+  file-count, selected-source-byte, inner-context-byte, model-visible-context,
+  and complete-host-output limits, including unavailable fallbacks. Every edge
+  between selected nodes is retained. Omitted nodes produce `truncated`;
+  missing, ambiguous, invalid, or over-budget inputs are never labeled
+  complete. Unit: `test/semantic-context.test.mjs`.
+- **SEM-008** — every delivered envelope carries the current graph fingerprint
+  and a verified SHA-256 payload digest. Compilation compares source identity
+  before and after every attempt, retries drift, and fails closed if the
+  checkout does not stabilize. The latest local receipt is written atomically
+  below Git's common directory only after stdout emission, hashes the session
+  identifier, excludes prompt/repository content, and explicitly claims only
+  `emitted-to-host`. Unit/worktree/subprocess:
+  `test/semantic-context.test.mjs`.
+- **SEM-009** — graph strings are delimited and labeled as untrusted data;
+  hostile paths, labels, and prompt text remain JSON data and are never
+  interpolated into adapter commands. Linked and non-regular receipt paths are
+  rejected. Unit/security: `test/semantic-context.test.mjs`.
+- **SEM-010** — the gateway, adapters, host configuration, receipts, and
+  protocol documentation remain repository-only and absent from the npm
+  package. The shared semantic policy is directly present in `AGENTS.md`, and
+  `CLAUDE.md` imports that file, so neither host depends on following a policy
+  link. Docs state that host emission cannot prove model comprehension.
+  Unit/package: `test/semantic-context.test.mjs` and `test/metadata.test.mjs`.
+
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
 
 ## Manual and production validation

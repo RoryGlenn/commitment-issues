@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a model-independent semantic context gateway for Codex and Claude.
+  Cross-version host configs deliver stable, bounded, integrity-checked context
+  from case-sensitive exact focuses and shared policy, with complete internal
+  edges and atomic receipts. Emission is verifiable; comprehension is not.
+- Added a repository-only semantic project graph for maintainers and coding
+  agents. An Espree-backed compiler maps capabilities to commands, hooks,
+  modules, exports, configuration, tests, canonical docs, and package files;
+  every relationship carries evidence and an explicit certainty. Deterministic
+  tree/impact JSON queries report bounded retrieval bytes, while source
+  fingerprints and drift checks reject stale caches and invalid claims. The
+  graph remains local, does not run in normal hooks, and is excluded from the
+  published npm package.
 - Added the beginner-friendly `panic` command: one deterministic, read-only
   view of the current Git state with explained inspection steps and narrowly
   gated, content-preserving unstage or previous-branch options. It covers

@@ -1,0 +1,32 @@
+{
+  "description": "Load bounded, current semantic context for coding-agent sessions.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/tools/semantic-context-hook.mjs\" --adapter codex",
+            "commandWindows": "powershell -NoProfile -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root 'tools/semantic-context-hook.mjs') --adapter codex\"",
+            "timeout": 15,
+            "statusMessage": "Loading semantic context"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/tools/semantic-context-hook.mjs\" --adapter codex",
+            "commandWindows": "powershell -NoProfile -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root 'tools/semantic-context-hook.mjs') --adapter codex\"",
+            "timeout": 15,
+            "statusMessage": "Loading focused semantic context"
+          }
+        ]
+      }
+    ]
+  }
+}

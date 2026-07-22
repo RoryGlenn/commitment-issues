@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "capabilities": [
+    {
+      "id": "setup-lifecycle",
+      "label": "Setup and lifecycle",
+      "description": "Install, inspect, repair, and remove the repository's native Git-hook integration without overwriting unrelated work.",
+      "members": ["command:init", "command:doctor", "command:uninstall"]
+    },
+    {
+      "id": "commit-inspection",
+      "label": "Commit inspection",
+      "description": "Inspect staged changes and commit messages before a commit while remaining advisory unless enforcement is explicitly configured.",
+      "members": [
+        "command:precommit",
+        "command:commit-msg",
+        "hook:pre-commit",
+        "hook:commit-msg"
+      ]
+    },
+    {
+      "id": "push-inspection",
+      "label": "Push inspection",
+      "description": "Select the pushed range, discover related tests, and report configured test results before work leaves the repository.",
+      "members": ["command:prepush", "hook:pre-push"]
+    },
+    {
+      "id": "safe-fixes",
+      "label": "Safe explicit fixes",
+      "description": "Apply requested fixes only when staged and Git-history state proves that user work will be preserved.",
+      "members": ["command:fix-staged", "command:commit-fix"]
+    },
+    {
+      "id": "git-recovery",
+      "label": "Git recovery guidance",
+      "description": "Explain a safe read-only starting point after a Git mistake without executing a recovery operation.",
+      "members": ["command:panic"]
+    },
+    {
+      "id": "compatibility-plumbing",
+      "label": "Compatibility plumbing",
+      "description": "Preserve callable package integration surfaces that are intentionally secondary to the primary developer actions.",
+      "members": ["command:fix-staged-js"]
+    },
+    {
+      "id": "semantic-context-delivery",
+      "label": "Semantic context delivery",
+      "description": "Deliver the same current, bounded semantic graph payload to supported coding-agent hosts and record an honest local emission receipt.",
+      "members": [
+        "module:tools/semantic-context.mjs",
+        "module:tools/semantic-context-hook.mjs"
+      ]
+    }
+  ]
+}
