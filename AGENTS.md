@@ -13,6 +13,8 @@ workflow.
   reference elsewhere.
 - Check [`docs/definition-of-done.md`](docs/definition-of-done.md) for the
   applicable change, release, promotion, or maintenance gate.
+- Follow [`.agents/semantic-context.md`](.agents/semantic-context.md) whenever a
+  host injects semantic graph context or a task requests focused graph data.
 - Read the matching repository skill before starting specialized work:
 
   | Work                                                                                       | Required repository guidance                                                                   |

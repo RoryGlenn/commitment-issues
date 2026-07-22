@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/tools/semantic-context-hook.mjs",
+              "--adapter",
+              "claude"
+            ],
+            "timeout": 15,
+            "statusMessage": "Loading semantic context"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/tools/semantic-context-hook.mjs",
+              "--adapter",
+              "claude"
+            ],
+            "timeout": 15,
+            "statusMessage": "Loading focused semantic context"
+          }
+        ]
+      }
+    ]
+  }
+}

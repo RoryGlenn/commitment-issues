@@ -41,6 +41,15 @@
       "label": "Compatibility plumbing",
       "description": "Preserve callable package integration surfaces that are intentionally secondary to the primary developer actions.",
       "members": ["command:fix-staged-js"]
+    },
+    {
+      "id": "semantic-context-delivery",
+      "label": "Semantic context delivery",
+      "description": "Deliver the same current, bounded semantic graph payload to supported coding-agent hosts and record an honest local emission receipt.",
+      "members": [
+        "module:tools/semantic-context.mjs",
+        "module:tools/semantic-context-hook.mjs"
+      ]
     }
   ]
 }

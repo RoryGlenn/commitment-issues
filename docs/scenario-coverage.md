@@ -732,6 +732,31 @@ production-readiness workstream #130 is consolidated in the
   keys without test/docs, missing package files, and nondeterministic builds;
   genuine warnings and missing caches remain non-failing. Unit/repository:
   `test/semantic-graph.test.mjs`.
+- **SEM-006** — Codex and Claude project hooks call one repository-local
+  adapter and receive byte-identical normalized context for the same source,
+  focus, event, and limits. Session startup loads a bounded capability map;
+  prompt submission requires an exact semantic marker or resolvable backticked
+  graph identifier. Unit/subprocess: `test/semantic-context.test.mjs`.
+- **SEM-007** — multi-focus selection is deterministic and enforces depth,
+  file-count, selected-source-byte, inner-context-byte, and complete-host-output
+  limits. Omitted nodes produce `truncated`; missing, ambiguous, invalid, or
+  over-budget inputs are never labeled complete. Unit:
+  `test/semantic-context.test.mjs`.
+- **SEM-008** — every delivered envelope carries the current graph fingerprint
+  and a verified SHA-256 payload digest. The latest local receipt is written
+  atomically below Git's common directory only after stdout emission, hashes
+  the session identifier, excludes prompt/repository content, and explicitly
+  claims only `emitted-to-host`. Unit/worktree/subprocess:
+  `test/semantic-context.test.mjs`.
+- **SEM-009** — graph strings are delimited and labeled as untrusted data;
+  hostile paths, labels, and prompt text remain JSON data and are never
+  interpolated into adapter commands. Linked and non-regular receipt paths are
+  rejected. Unit/security: `test/semantic-context.test.mjs`.
+- **SEM-010** — the gateway, adapters, host configuration, receipts, and
+  protocol documentation remain repository-only and absent from the npm
+  package. Codex and Claude share one checked-in semantic policy, while docs
+  state that host emission cannot prove model comprehension. Unit/package:
+  `test/semantic-context.test.mjs` and `test/metadata.test.mjs`.
 
 Explicit non-goals are per-package configuration/tool versions, build-system dependency-graph scheduling, and an exhaustive speculative matrix of custom hoisting layouts. The tested defaults form the support contract; reproducible gaps should add focused fixtures and issues.
 
