@@ -123,6 +123,10 @@ test("run validation requires immutable, unambiguous identity fields", () => {
     () => run({ trigger: "quarterly\n<!-- forged -->" }),
     /one line/u,
   );
+  assert.throws(
+    () => run({ trigger: "quarterly --!> forged" }),
+    /angle brackets/u,
+  );
   assert.throws(() => run({ repository: "not-a-repository" }), /owner\/name/u);
 });
 

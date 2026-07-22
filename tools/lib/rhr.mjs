@@ -22,9 +22,9 @@ function requiredString(value, label) {
 
 function singleLine(value, label) {
   const result = requiredString(value, label);
-  if (/\r|\n|<!--|-->/u.test(result)) {
+  if (/[\r\n<>]/u.test(result)) {
     throw new Error(
-      `${label} must be one line and cannot contain HTML comments.`,
+      `${label} must be one line and cannot contain angle brackets.`,
     );
   }
   return result;
