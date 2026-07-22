@@ -1,0 +1,102 @@
+name: RHR parent run
+description: Record one immutable Repository Health Review run.
+title: "[RHR]: "
+labels:
+  - maintenance
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prefer `node tools/rhr.mjs ...` to generate a complete run from the
+        versioned catalog with duplicate protection. Use this form only for a
+        manual or recovered parent record. Never reuse an earlier RHR issue.
+  - type: input
+    id: run-id
+    attributes:
+      label: Immutable run ID
+      description: Use RHR-YYYY-QN, RHR-YYYY-HN, or an uppercase event suffix.
+      placeholder: RHR-2026-Q3
+    validations:
+      required: true
+  - type: input
+    id: catalog-version
+    attributes:
+      label: Control catalog version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: start-date
+    attributes:
+      label: Start date
+      placeholder: YYYY-MM-DD
+    validations:
+      required: true
+  - type: input
+    id: completion-date
+    attributes:
+      label: Completion date
+      description: Leave pending until every domain and finding has a disposition.
+      placeholder: Pending or YYYY-MM-DD
+    validations:
+      required: true
+  - type: input
+    id: baseline
+    attributes:
+      label: Baseline commit SHA
+      description: Use the complete 40-character commit SHA.
+    validations:
+      required: true
+  - type: input
+    id: final-commit
+    attributes:
+      label: Final commit SHA
+      placeholder: Pending or complete 40-character SHA
+    validations:
+      required: true
+  - type: input
+    id: reviewer
+    attributes:
+      label: Reviewer or reviewers
+    validations:
+      required: true
+  - type: textarea
+    id: trigger-scope
+    attributes:
+      label: Trigger and scope
+      description: Explain why this review exists and name every included or omitted domain.
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Relevant tool and runtime versions
+      description: Record Node.js, package managers, GitHub runners, and other relevant versions.
+    validations:
+      required: true
+  - type: textarea
+    id: domains
+    attributes:
+      label: Linked domain issues
+      description: Add one task-list item for every included catalog domain.
+    validations:
+      required: true
+  - type: dropdown
+    id: health
+    attributes:
+      label: Health result
+      description: Health is independent from whether the review is complete.
+      options:
+        - Pending
+        - Green
+        - Amber
+        - Red
+    validations:
+      required: true
+  - type: textarea
+    id: closure
+    attributes:
+      label: Health rationale, findings, and revisit trigger
+      description: Summarize open findings by severity and disposition, then name the next date or event trigger.
+    validations:
+      required: true

@@ -1,0 +1,97 @@
+name: RHR domain execution
+description: Record one catalog domain performed for one RHR run.
+title: "[RHR Domain]: "
+labels:
+  - maintenance
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prefer the RHR generator so stable instructions come from the named
+        catalog version. This form supports manual recovery or a deliberately
+        scoped domain. Do not copy evidence from an earlier run.
+  - type: input
+    id: parent
+    attributes:
+      label: Parent RHR issue
+      placeholder: "#123"
+    validations:
+      required: true
+  - type: input
+    id: run-id
+    attributes:
+      label: Immutable run ID
+      placeholder: RHR-2026-Q3
+    validations:
+      required: true
+  - type: input
+    id: domain-id
+    attributes:
+      label: Catalog domain ID
+      placeholder: RHR-01
+    validations:
+      required: true
+  - type: input
+    id: catalog-version
+    attributes:
+      label: Control catalog version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: control
+    attributes:
+      label: Stable objective, scope, procedure, evidence, and pass criteria
+      description: Copy these fields from the exact named catalog version; do not invent a parallel procedure.
+    validations:
+      required: true
+  - type: input
+    id: owner-reviewer
+    attributes:
+      label: Domain owner and reviewer
+    validations:
+      required: true
+  - type: textarea
+    id: execution
+    attributes:
+      label: Dates and commit SHAs
+      description: Record start, completion, baseline, and final evidence commit.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Run evidence and exceptions
+      description: Include dated commands, results, run URLs, artifacts, observations, and not-applicable rationale.
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Separate finding issues
+      description: Link every unresolved finding with severity, owner, disposition, and risk-expiry fields.
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Domain result
+      options:
+        - Pending
+        - Pass
+        - Findings filed
+    validations:
+      required: true
+  - type: checkboxes
+    id: closure
+    attributes:
+      label: Domain closure
+      options:
+        - label: Every procedure step was performed or marked not applicable with rationale.
+          required: true
+        - label: Required evidence was recorded for this run.
+          required: true
+        - label: Every finding was fixed immediately or filed separately.
+          required: true
+        - label: The result, completion date, and final evidence commit are recorded.
+          required: true
