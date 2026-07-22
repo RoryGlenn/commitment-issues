@@ -55,6 +55,9 @@ They are evidence, not living descriptions of later code.
   feature-complete maintenance-mode gates
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
   health, package contents, and release housekeeping
+- [Repository Health Reviews](repository-health-reviews.md) and
+  [control catalog v1](rhr-control-catalog-v1.json) — repeatable maintainer-led
+  assessment lifecycle, stable controls, immutable runs, and finding ownership
 - [Semantic project graph](semantic-graph.md) and
   [schema](semantic-graph.schema.json) — repository-only impact navigation,
   evidence, certainty, cache identity, and drift checks

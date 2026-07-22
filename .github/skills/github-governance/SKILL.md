@@ -19,7 +19,8 @@ and Copilot guidance remain in `.github/`. `package.json` uses an exact file
 allowlist rather than broad directory entries, so neither location is included
 in the npm tarball. Present:
 
-`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, `CODEOWNERS`, `dependabot.yml`, `PULL_REQUEST_TEMPLATE.md`, `ISSUE_TEMPLATE/{bug_report,feature_request,question,config}.yml`.
+`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, `CODEOWNERS`, `dependabot.yml`, `PULL_REQUEST_TEMPLATE.md`, and
+`ISSUE_TEMPLATE/{bug_report,feature_request,question,rhr_parent,rhr_domain,rhr_finding,config}.yml`.
 
 If you add repository-only guidance anywhere, verify it is absent from
 `npm pack --dry-run`. Do not broaden the package allowlist merely to avoid

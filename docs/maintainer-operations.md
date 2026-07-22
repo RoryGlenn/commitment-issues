@@ -42,6 +42,13 @@ residual risk, and release a fix when users may be affected.
 
 ## Automated repository health
 
+Automated repository health and a
+[Repository Health Review](repository-health-reviews.md) are complementary.
+This section covers continuous and weekly drift detection. An RHR is the
+versioned, evidence-recording human assessment used quarterly, semiannually, or
+after a material event. A green workflow run is input to the applicable RHR
+domain; it is not a complete RHR by itself.
+
 Dependabot checks npm dependencies and GitHub Actions each Monday in the
 `America/New_York` time zone. Low-risk minor and patch updates are grouped to
 reduce pull request noise; grouped updates still require normal review. Routine
@@ -79,6 +86,13 @@ The workflow reports branches that have not changed in 90 days but does not
 delete them. Before deleting a branch, confirm that it has no open pull request
 and is merged or no longer needed. Prefer GitHub's **Automatically delete head
 branches** setting for merged pull requests.
+
+Preview or create an immutable parent plus one issue per control-catalog domain
+with `node tools/rhr.mjs ...`. Preview is the default; the explicit `--create`
+mode takes repeated historical-issue snapshots and refuses a partial run.
+`--resume` fills a confirmed interrupted run without duplicating a parent or
+domain. The complete start, evidence, finding, closure, health-rating, and
+revisit procedure is in the RHR guide.
 
 ## Demo asset verification
 

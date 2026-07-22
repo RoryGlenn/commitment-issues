@@ -1,0 +1,77 @@
+name: RHR finding
+description: Track a bug, risk, or improvement discovered during an RHR.
+title: "[RHR Finding]: "
+labels:
+  - maintenance
+body:
+  - type: input
+    id: run
+    attributes:
+      label: Parent RHR run
+      placeholder: "RHR-2026-Q3 — #123"
+    validations:
+      required: true
+  - type: input
+    id: domain
+    attributes:
+      label: Discovering domain
+      placeholder: "RHR-02 — #125"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+  - type: textarea
+    id: evidence-impact
+    attributes:
+      label: Evidence and impact
+      description: Include the affected baseline, reproduction or observation, and concrete impact. Report vulnerabilities privately.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Finding owner
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target date or milestone
+    validations:
+      required: true
+  - type: dropdown
+    id: disposition
+    attributes:
+      label: Disposition
+      options:
+        - Scheduled
+        - Deferred
+        - Risk accepted
+        - Fixed during review
+        - Duplicate
+        - Not reproducible
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Risk acceptance
+      description: When accepted, name the acceptance owner, rationale, compensating control, and expiry date. Otherwise write Not applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Remediation and verification
+      description: Link the fix and record independent verification, or state what evidence will be required before closure.
+    validations:
+      required: true

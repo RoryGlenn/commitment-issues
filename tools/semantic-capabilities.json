@@ -50,6 +50,12 @@
         "module:tools/semantic-context.mjs",
         "module:tools/semantic-context-hook.mjs"
       ]
+    },
+    {
+      "id": "repository-health-reviews",
+      "label": "Repository Health Reviews",
+      "description": "Preview, create, and safely resume immutable GitHub-native repository health review runs from a versioned control catalog.",
+      "members": ["module:tools/rhr.mjs"]
     }
   ]
 }

@@ -1,0 +1,623 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "1.0.0",
+  "repository": "RoryGlenn/commitment-issues",
+  "title": "Repository Health Review control catalog",
+  "sourceIssues": [
+    "https://github.com/RoryGlenn/commitment-issues/issues/101",
+    "https://github.com/RoryGlenn/commitment-issues/issues/130",
+    "https://github.com/RoryGlenn/commitment-issues/issues/131",
+    "https://github.com/RoryGlenn/commitment-issues/issues/132",
+    "https://github.com/RoryGlenn/commitment-issues/issues/133",
+    "https://github.com/RoryGlenn/commitment-issues/issues/134",
+    "https://github.com/RoryGlenn/commitment-issues/issues/135",
+    "https://github.com/RoryGlenn/commitment-issues/issues/136",
+    "https://github.com/RoryGlenn/commitment-issues/issues/137",
+    "https://github.com/RoryGlenn/commitment-issues/issues/138"
+  ],
+  "domains": [
+    {
+      "id": "RHR-01",
+      "title": "Core CLI and Git behavior",
+      "objective": "Verify that every public command, Git-state decision, configuration source, and hook lifecycle path remains correct, advisory-first, and safe for user work.",
+      "scope": [
+        "CLI commands, options, exit codes, human output, and JSON output",
+        "Git discovery, repository shapes, configuration precedence, and protected branches",
+        "Native and manager-composed hook install, repair, ownership, and removal",
+        "Safe staged fixes, commit amendment, secret scanning, and push-range selection"
+      ],
+      "procedure": [
+        "Inventory the current public commands, options, config keys, hooks, and exit contracts",
+        "Exercise empty, unborn, detached, bare, shallow, worktree, submodule, and multi-remote states",
+        "Exercise invalid arguments, failed Git calls, uninspectable paths, partial setup, repeated setup, repair, and removal",
+        "Compare observed behavior with configuration, external-interface, and lifecycle documentation",
+        "File every unresolved defect or unsafe ambiguity as a separate finding"
+      ],
+      "requiredEvidence": [
+        "Dated focused test results for every changed or suspect command path",
+        "Full npm test and packed npm lifecycle results",
+        "Command-to-documentation mapping and any explicit unsupported boundary",
+        "Links to findings, fixes, regression tests, and merged evidence commits"
+      ],
+      "passCriteria": [
+        "Every public command and option has an evidence-backed behavior mapping",
+        "Required repository and lifecycle edge cases are exercised meaningfully",
+        "Confirmed defects have regression tests and the smallest reliable fixes",
+        "Observable behavior, exit codes, and limitations agree with canonical documentation"
+      ],
+      "owner": "Product maintainer",
+      "cadence": {
+        "normal": "Every full RHR; continuously through required CI for automated checks",
+        "triggers": [
+          "New command, configuration key, hook, Git-state mutation, or integration manager",
+          "Change to setup, repair, uninstall, safe-fix, amend, or protected-branch behavior",
+          "Supported Node.js, Git, repository-shape, or process-execution boundary changes"
+        ]
+      },
+      "dependencies": [],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "npm test",
+          "npm run test:lifecycle:npm",
+          "Required CI OS and Node.js matrix"
+        ],
+        "manualEvidence": [
+          "Judgment about safe mutation, advisory defaults, and ambiguous ownership",
+          "Reconciliation of public contracts with current behavior"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #130",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/130"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/core-cli-git.md"
+        },
+        {
+          "label": "External interface",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/external-interface.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-02",
+      "title": "Security, secrets, paths, and subprocesses",
+      "objective": "Verify trust boundaries and failure behavior for untrusted repository content, paths, Git output, configuration, environment, local tools, workflows, and release credentials.",
+      "scope": [
+        "Subprocess argv, environment, cwd, timeouts, signals, and cleanup",
+        "Secret-diff parsing, staged-versus-unstaged separation, and enforcement decisions",
+        "Path traversal, symlinks, permissions, temporary files, and ownership checks",
+        "Dependencies, workflow permissions, action pins, fork safety, tokens, and supply-chain controls"
+      ],
+      "procedure": [
+        "Refresh the asset, actor, input, and trust-boundary inventory",
+        "Review every changed spawn and file operation for shell-free fixed-argv and fail-safe behavior",
+        "Exercise adversarial paths, malformed or failed Git output, binary data, Unicode, and secret edge cases",
+        "Review dependency advisories and live security controls without exposing vulnerability details publicly",
+        "File each unresolved risk with severity, impact, owner, and disposition"
+      ],
+      "requiredEvidence": [
+        "Threat-boundary map tied to current code and workflows",
+        "Regression results for every repaired vulnerability or bypass",
+        "npm audit, CodeQL, secret-scanning, and relevant live-setting evidence",
+        "Residual-risk records with compensating controls and expiry where accepted"
+      ],
+      "passCriteria": [
+        "No known shell interpolation, unsafe path traversal, or silent security downgrade remains undispositioned",
+        "Staged and unstaged content remain separated and user work remains preserved",
+        "Security failures produce the documented advisory or blocking decision",
+        "Every Critical or High risk is fixed or explicitly blocks a green result"
+      ],
+      "owner": "Security maintainer",
+      "cadence": {
+        "normal": "Every full RHR; continuous dependency and code-scanning surveillance",
+        "triggers": [
+          "Changes to process execution, parsing, paths, permissions, secrets, or local-tool resolution",
+          "Changes to workflow permissions, fork handling, tokens, releases, or repository security settings",
+          "New high-severity advisory, CodeQL alert, vulnerability report, or security boundary"
+        ]
+      },
+      "dependencies": [],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "npm audit --audit-level=high",
+          "Required CodeQL analysis and code-scanning ruleset",
+          "Secret, subprocess, path, and workflow-policy tests"
+        ],
+        "manualEvidence": [
+          "Threat-model and residual-risk judgment",
+          "Read-back of live GitHub security settings and private-reporting controls"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #131",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/131"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/security-secrets-paths-subprocesses.md"
+        },
+        {
+          "label": "Security assurance case",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/security/assurance-case.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-03",
+      "title": "Test quality and meaningful coverage",
+      "objective": "Verify that automated evidence exercises real behavior, fails for the defects it claims to catch, remains hermetic across platforms, and does not confuse 100% coverage with completeness.",
+      "scope": [
+        "Runtime units, CLI subprocesses, real-Git fixtures, property tests, and lifecycle integration",
+        "Coverage scope, exclusions, suppressions, ownership, and badge freshness",
+        "Mocks, cleanup, order dependence, inherited environment, platform assumptions, and flaky processes",
+        "Changed-file selection, deletions, renames, generated evidence, and CI-only execution"
+      ],
+      "procedure": [
+        "Map every current runtime module and maintenance tool to meaningful test ownership",
+        "Review new and changed assertions for behavioral outcomes rather than incidental execution",
+        "Exercise deletion, rename, unusual-path, failure, cleanup, and inherited-environment boundaries",
+        "Run repeated or reordered groups when state leakage or flakiness is plausible",
+        "Confirm practical regressions fail against the defective baseline before accepting a fix"
+      ],
+      "requiredEvidence": [
+        "100% line, branch, and function coverage results on the defined runtime denominator",
+        "Named test ownership for runtime and repository maintenance behavior",
+        "CI-equivalent COMMITMENT_ISSUES=0 test result",
+        "Flake, cleanup, platform, and coverage-suppression dispositions"
+      ],
+      "passCriteria": [
+        "Every production branch and documented critical scenario has a meaningful assertion or explicit manual owner",
+        "Coverage scope and exclusions remain exact, justified, and test-owned",
+        "No green-but-vacuous hook test, silent skip, state leak, or snapshot masking remains",
+        "Known evidence gaps are filed separately with an owner and target"
+      ],
+      "owner": "Test maintainer",
+      "cadence": {
+        "normal": "Every full RHR; required CI on every pull request",
+        "triggers": [
+          "Changes to test helpers, coverage policy, CI test selection, sharding, or lifecycle fixtures",
+          "New runtime module, maintenance tool, platform lane, suppression, or conditional skip",
+          "Flaky, CI-only, performance, leaked-process, or false-positive test behavior"
+        ]
+      },
+      "dependencies": ["RHR-01", "RHR-02"],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "npm test",
+          "COMMITMENT_ISSUES=0 npm test",
+          "npm run test:coverage and coverage badge check"
+        ],
+        "manualEvidence": [
+          "Assertion-quality and model-realism review",
+          "Risk-based selection of repeated, randomized, or platform-specific runs"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #132",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/132"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/test-quality-and-meaningful-coverage.md"
+        },
+        {
+          "label": "Runtime coverage policy",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/branch-coverage.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-04",
+      "title": "Terminal UX, JSON output, and generated states",
+      "objective": "Verify that every human and machine-readable outcome is accurate, accessible, compact, stable, and actionable across terminal capabilities without hiding product decisions in styling.",
+      "scope": [
+        "One-box human output, standard and fun tones, severity, quiet modes, and next-step wording",
+        "JSON schema, stdout and stderr separation, exit decisions, and compatibility",
+        "Color, NO_COLOR, redirection, width, Unicode, ASCII boundaries, and accessibility",
+        "Live message states, generated SVGs, terminal demo source, and visual fidelity"
+      ],
+      "procedure": [
+        "Inventory every public message and JSON state produced by current commands",
+        "Exercise narrow, color-disabled, redirected, malformed-terminal, and non-interactive cases",
+        "Validate structured output against the published schema and matching human decisions",
+        "Regenerate affected state assets from source and inspect rendered output",
+        "File wording, accessibility, schema, or visual drift as separate findings when not fixed immediately"
+      ],
+      "requiredEvidence": [
+        "Focused terminal, message, JSON, state-runner, and asset test results",
+        "Exact generated-asset equality or an explained reviewed visual change",
+        "Representative rendered output for any user-facing wording or layout change",
+        "Schema and documentation links for every new or changed public state"
+      ],
+      "passCriteria": [
+        "Human and JSON outcomes express the same status and enforcement decision",
+        "Every command renders at most one final box and remains usable without color",
+        "Malformed terminal dimensions and redirected output cannot crash or corrupt guidance",
+        "Generated evidence is current, accessible, and reviewed rather than threshold-forced"
+      ],
+      "owner": "User experience maintainer",
+      "cadence": {
+        "normal": "Every full RHR; generated-state and schema checks on every relevant pull request",
+        "triggers": [
+          "Changes to user-facing wording, tone transforms, JSON fields, exit semantics, or terminal rendering",
+          "New command state, generated message asset, demo scene, or supported terminal boundary",
+          "Reports of clipping, duplicate boxes, color inconsistency, or inaccessible output"
+        ]
+      },
+      "dependencies": ["RHR-03"],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "Message, terminal, UI, JSON-schema, and message-state tests",
+          "Generated SVG byte-equality checks",
+          "Render demo metadata and visual-comparison workflow"
+        ],
+        "manualEvidence": [
+          "Visual inspection of changed output at realistic widths",
+          "Accessibility and actionability judgment"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #133",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/133"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/terminal-ux-and-output-architecture.md"
+        },
+        {
+          "label": "Message-state gallery",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/message-states.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-05",
+      "title": "Package managers and cross-platform behavior",
+      "objective": "Verify the exact packed artifact through supported install, hook, workspace, upgrade, repair, and removal flows without claiming environments that lack evidence.",
+      "scope": [
+        "npm, pnpm, Yarn Classic, Yarn Berry node-modules, and Bun lifecycles",
+        "Minimum and current Node.js lines across Linux, macOS, and Windows",
+        "POSIX shells, Fish, PowerShell, Command Prompt, IDEs, and Git clients",
+        "Root and nested workspaces, linked worktrees, reinstall, upgrade, downgrade, and uninstall"
+      ],
+      "procedure": [
+        "Build or identify one exact packed artifact and record its identity",
+        "Run supported package-manager lifecycle lanes without source-checkout leakage",
+        "Exercise workspace, worktree, repeated install, migration, repair, and uninstall ownership",
+        "Classify each claimed environment as CI-verified, manually verified, unverified, or unsupported",
+        "Narrow documentation or file a finding when evidence does not support a claim"
+      ],
+      "requiredEvidence": [
+        "Exact tarball identity and package-manager lifecycle results",
+        "OS, Node.js, shell, workspace, and Git-client evidence matrix",
+        "Preservation evidence for unrelated scripts, hooks, and project files",
+        "Explicit unverified and unsupported rows with follow-up ownership"
+      ],
+      "passCriteria": [
+        "Every officially supported package-manager mode installs and executes the packed runtime",
+        "Public compatibility claims do not exceed automated or documented manual evidence",
+        "Setup, repair, migration, and removal preserve unrelated project-owned state",
+        "Unavailable GUI or platform lanes are marked unverified rather than passed"
+      ],
+      "owner": "Compatibility maintainer",
+      "cadence": {
+        "normal": "Every full RHR; weekly lifecycle drift checks and required compatibility CI",
+        "triggers": [
+          "Supported Node.js, package-manager, operating-system, shell, workspace, or Git-client changes",
+          "Package lifecycle, hook launcher, migration, upgrade, or uninstall changes",
+          "Upstream package-manager or runner behavior that changes the tested matrix"
+        ]
+      },
+      "dependencies": ["RHR-03"],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "Required OS, Node.js, package-manager, shell, and migration CI lanes",
+          "Weekly repository-health lifecycle lanes",
+          "Package and shell compatibility tests"
+        ],
+        "manualEvidence": [
+          "GUI Git-client and IDE-triggered Git operations",
+          "Support-claim classification and exact-artifact review"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #134",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/134"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/package-managers-and-cross-platform.md"
+        },
+        {
+          "label": "Compatibility reference",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/compatibility.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-06",
+      "title": "CI/CD and GitHub Actions",
+      "objective": "Verify that workflows, required checks, dependency automation, and live repository controls prove distinct useful behavior with least privilege and fail closed.",
+      "scope": [
+        "Workflow triggers, permissions, fork behavior, matrices, caches, artifacts, concurrency, and timeouts",
+        "Trusted change classification, DCO, quality, lifecycle, CodeQL, and CI Success aggregation",
+        "Dependabot, Scorecard, scheduled health, visual, and release automation",
+        "Live rulesets, required checks, review controls, code scanning, and security settings"
+      ],
+      "procedure": [
+        "Inventory every tracked workflow, action pin, automation config, and settings-owned control",
+        "Review untrusted expressions, checkout boundaries, permissions, credentials, caches, and artifacts",
+        "Verify every required dependency fails CI Success on skipped, cancelled, timed-out, or failed results",
+        "Read live rulesets and security settings without mutating shared infrastructure",
+        "File mismatches, weak smoke checks, redundant jobs, or unverified fork behavior separately"
+      ],
+      "requiredEvidence": [
+        "Workflow-to-support and behavior evidence matrix",
+        "actionlint, workflow-policy, required CI, CodeQL, and fork results",
+        "Live ruleset and security-control read-back",
+        "Documented disposition for every supplemental, skipped, or settings-owned control"
+      ],
+      "passCriteria": [
+        "The single CI Success context fails closed on every required dependency",
+        "Fork and pull-request execution cannot expose write tokens or trust proposed workflow code",
+        "Third-party actions and downloaded tools are immutably pinned and verified",
+        "Live required checks, review rules, code scanning, and documented governance agree"
+      ],
+      "owner": "Repository administrator",
+      "cadence": {
+        "normal": "Every full RHR; required CI and weekly or scheduled automation continuously",
+        "triggers": [
+          "Workflow, action, matrix, required-check, ruleset, branch-protection, or Dependabot changes",
+          "Repository permission, ownership, secret, environment, or security-setting changes",
+          "CI bypass, fork-safety, cache, artifact, or required-status incident"
+        ]
+      },
+      "dependencies": ["RHR-04", "RHR-05"],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "Required CI Success graph and workflow-policy tests",
+          "Scheduled CodeQL, Scorecard, repository-health, and Dependabot automation",
+          "Actionlint and high-severity dependency audit"
+        ],
+        "manualEvidence": [
+          "Live ruleset, security-setting, and permission read-back",
+          "Judgment about distinct evidence, fork trust, and settings-owned automation"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #135",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/135"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/ci-cd-and-github-actions.md"
+        },
+        {
+          "label": "Required CI workflow",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/.github/workflows/ci.yml"
+        }
+      ]
+    },
+    {
+      "id": "RHR-07",
+      "title": "Release, packaging, and upgrades",
+      "objective": "Verify that versioning, reviewed-mainline authority, the exact package artifact, trusted publishing, provenance, recovery, upgrades, and immutable release records agree.",
+      "scope": [
+        "Version, changelog, release notes, tags, ancestry, GitHub Releases, npm, and provenance",
+        "Exact package allowlist, runtime imports, executable modes, links, licenses, size, and dependencies",
+        "Fresh packed installation, setup, hooks, repair, repeated init, upgrade, downgrade, and uninstall",
+        "Collision preflight, partial-publication classification, retry, rollback, and fix-forward rules"
+      ],
+      "procedure": [
+        "Run release metadata and collision preflight without creating or moving a tag",
+        "Inspect one exact package manifest and exercise that artifact in clean repositories",
+        "Verify tag authority, workflow permissions, provenance subject, registry metadata, and immutable assets",
+        "Exercise or review partial-publication and upgrade or downgrade recovery scenarios",
+        "File every identity, byte, provenance, or recovery mismatch as a release finding"
+      ],
+      "requiredEvidence": [
+        "Exact candidate name, version, source commit, hashes, integrity, sizes, files, and toolchain",
+        "Fresh packed lifecycle and package-content validation results",
+        "Tag ancestry, trusted-publishing, provenance, registry, and GitHub Release evidence",
+        "Explicit retry, rollback, or new-patch decision for any partial state"
+      ],
+      "passCriteria": [
+        "Version, tag, reviewed source, changelog, package, provenance, npm, and GitHub Release identify one candidate",
+        "Every runtime dependency and shipped Markdown link exists in the exact tarball",
+        "No consumed tag, published version, or immutable asset is moved, reused, overwritten, or unpublished",
+        "No Critical or High release-integrity finding remains open"
+      ],
+      "owner": "Release maintainer",
+      "cadence": {
+        "normal": "Every full RHR and before each release candidate is authorized",
+        "triggers": [
+          "Version, tag, changelog, package contents, release workflow, provenance, or trusted-publisher changes",
+          "Dependency install lifecycle, upgrade, downgrade, retry, rollback, or recovery changes",
+          "Any partial publication, tag collision, artifact mismatch, or registry incident"
+        ]
+      },
+      "dependencies": ["RHR-06"],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "Release metadata, mainline ancestry, package, and recovery tests",
+          "npm pack manifest and packed lifecycle checks",
+          "Tag-triggered trusted-publishing and provenance workflow"
+        ],
+        "manualEvidence": [
+          "Explicit release authorization and collision review",
+          "Post-publication registry, signature, provenance, asset, and recovery verification"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #136",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/136"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/release-packaging-and-upgrades.md"
+        },
+        {
+          "label": "Release verification",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/release-verification.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-08",
+      "title": "Documentation, governance, and promotional assets",
+      "objective": "Verify that public and maintainer material matches merged behavior and evidence, governance is actionable, and promotional assets show the real product without unsupported claims.",
+      "scope": [
+        "README, changelog, user guides, contracts, audits, support, security, and release documentation",
+        "License, DCO, contribution policy, roles, sensitive access, continuity, and vulnerability reporting",
+        "Badges, links, examples, command output, support claims, and package documentation",
+        "Demo, before-and-after, Product Hunt media, source assets, accessibility, and rendering workflows"
+      ],
+      "procedure": [
+        "Inventory retained documents, community-health files, governance records, badges, links, and assets",
+        "Run documented commands where practical and compare output with current merged behavior",
+        "Reconcile support, security, privacy, compliance, governance, and release claims with evidence",
+        "Regenerate and visually inspect changed assets from their canonical source",
+        "File every contradiction, broken link, unsupported claim, or ownership gap separately"
+      ],
+      "requiredEvidence": [
+        "Document and community-health inventory with canonical ownership",
+        "Documentation, metadata, schema, link, asset, and package-boundary test results",
+        "Live governance, role, sensitive-access, or security evidence for external claims",
+        "Rendered review and source equality for changed promotional assets"
+      ],
+      "passCriteria": [
+        "Documented commands, outputs, supported boundaries, and limitations match current behavior",
+        "Security, governance, compliance, and support claims cite repository or external-control evidence",
+        "Every retained Markdown document is indexed and every shipped relative link resolves in the package",
+        "Changed assets are generated, accessible, visually reviewed, and not accepted through weaker thresholds"
+      ],
+      "owner": "Documentation and governance maintainer",
+      "cadence": {
+        "normal": "Every full RHR; static documentation and asset checks on every relevant pull request",
+        "triggers": [
+          "Public behavior, support boundary, governance, maintainer role, security claim, or release process changes",
+          "README, user documentation, package metadata, promotional messaging, or visual asset changes",
+          "Broken-link, misleading-copy, stale-evidence, accessibility, or continuity reports"
+        ]
+      },
+      "dependencies": ["RHR-07"],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "Documentation, metadata, schema, link, package, and asset policy tests",
+          "Generated asset equality and render workflows",
+          "DCO and governance invariants in required CI"
+        ],
+        "manualEvidence": [
+          "Claim-to-evidence reconciliation and plain-language review",
+          "Visual, accessibility, role, continuity, and live-control review"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #137",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/137"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/documentation-governance-and-promotional-assets.md"
+        },
+        {
+          "label": "Documentation index",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/index.md"
+        }
+      ]
+    },
+    {
+      "id": "RHR-09",
+      "title": "Independent final verification",
+      "objective": "Independently verify the final review baseline from a clean checkout, distrust earlier summaries until rechecked, and assign every remaining issue a health-impacting disposition.",
+      "scope": [
+        "Clean checkout, tracked inventory, integrated review range, worktree state, and final commit identity",
+        "Static quality, runtime tests, coverage, lifecycle, shell, migration, performance, and negative paths",
+        "Exact package artifact, clean installation, documentation, assets, security, and release controls",
+        "Required GitHub checks, open findings, risk acceptances, deferrals, and final health rationale"
+      ],
+      "procedure": [
+        "Start from a new clean checkout at the proposed final commit and inventory tracked files",
+        "Review integrated RHR changes and findings for regressions, contradictions, duplication, or stale evidence",
+        "Run the complete locally available verification and exact-artifact lifecycle suite",
+        "Read required CI and live-control results and classify every unavailable lane honestly",
+        "Set green, amber, or red independently from completion and record the rationale"
+      ],
+      "requiredEvidence": [
+        "Clean checkout path, final full SHA, tracked inventory, and clean worktree proof",
+        "Exact commands, versions, results, run URLs, artifacts, and hashes",
+        "Independent classification of every open finding and unavailable environment",
+        "Final health color, rationale, completion date, and revisit trigger"
+      ],
+      "passCriteria": [
+        "Every prior domain is complete and every finding has an owner and disposition",
+        "The final commit passes applicable local, hosted, artifact, documentation, security, and live-control checks",
+        "No Critical or High blocker is hidden by a completion decision",
+        "The parent can close with green, amber, or red because completion and health are recorded separately"
+      ],
+      "owner": "Independent reviewer",
+      "cadence": {
+        "normal": "At the end of every full RHR; after all scoped domains for a partial RHR",
+        "triggers": [
+          "Completion of a full RHR or release-readiness assessment",
+          "Material integrated change spanning multiple domains or security boundaries",
+          "Evidence that earlier domain reports may be stale, incomplete, or mutually inconsistent"
+        ]
+      },
+      "dependencies": [
+        "RHR-01",
+        "RHR-02",
+        "RHR-03",
+        "RHR-04",
+        "RHR-05",
+        "RHR-06",
+        "RHR-07",
+        "RHR-08"
+      ],
+      "automation": {
+        "status": "hybrid",
+        "continuousEvidence": [
+          "Complete required CI graph",
+          "Full local test, coverage, lifecycle, package, documentation, and asset gates",
+          "Release and security negative-path tests"
+        ],
+        "manualEvidence": [
+          "Independent clean-checkout review and integrated finding classification",
+          "Final health judgment, rationale, and revisit decision"
+        ]
+      },
+      "links": [
+        {
+          "label": "Source review #138",
+          "target": "https://github.com/RoryGlenn/commitment-issues/issues/138"
+        },
+        {
+          "label": "Historical completion report",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/independent-final-verification.md"
+        },
+        {
+          "label": "Definition of Done",
+          "target": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/definition-of-done.md"
+        }
+      ]
+    }
+  ]
+}
