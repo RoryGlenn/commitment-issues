@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 import {
+  collectIssuePages,
   createRhrRun,
   indexRunIssues,
   mergeParentDomainProgress,
@@ -83,6 +84,23 @@ test("catalog v1 preserves the nine production-readiness domains", () => {
   assert.deepEqual(
     validated.domains[8].dependencies,
     validated.domains.slice(0, 8).map((domain) => domain.id),
+  );
+});
+
+test("issue pagination works without gh --slurp support", async () => {
+  const requested = [];
+  const firstPage = Array.from({ length: 100 }, (_, number) => ({ number }));
+  const lastPage = [{ number: 100 }, { number: 101 }];
+  const issues = await collectIssuePages((page) => {
+    requested.push(page);
+    return page === 1 ? firstPage : lastPage;
+  });
+
+  assert.deepEqual(requested, [1, 2]);
+  assert.deepEqual(issues, [...firstPage, ...lastPage]);
+  await assert.rejects(
+    collectIssuePages(() => ({ issues: [] })),
+    /page 1 was not an array/u,
   );
 });
 

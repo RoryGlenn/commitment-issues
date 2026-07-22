@@ -7,6 +7,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  collectIssuePages,
   createRhrRun,
   previewRhrRun,
   validateCatalog,
@@ -125,13 +126,10 @@ function issueGateway(repository) {
     async listIssues() {
       const issues = new Map();
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        const pages = ghJson([
-          "api",
-          "--paginate",
-          "--slurp",
-          `${base}?state=all&per_page=100`,
-        ]);
-        for (const issue of pages.flat()) {
+        const snapshot = await collectIssuePages((page) =>
+          ghJson(["api", `${base}?state=all&per_page=100&page=${page}`]),
+        );
+        for (const issue of snapshot) {
           if (issue.pull_request) continue;
           issues.set(issue.number, {
             number: issue.number,

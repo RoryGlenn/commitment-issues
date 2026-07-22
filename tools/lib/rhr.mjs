@@ -37,6 +37,19 @@ function stringList(value, label) {
   return value.map((item, index) => singleLine(item, `${label}[${index}]`));
 }
 
+/** Collect every page from an API that uses a fixed page size. */
+export async function collectIssuePages(requestPage, pageSize = 100) {
+  const issues = [];
+  for (let page = 1; ; page += 1) {
+    const batch = await requestPage(page);
+    if (!Array.isArray(batch)) {
+      throw new Error(`GitHub issue page ${page} was not an array.`);
+    }
+    issues.push(...batch);
+    if (batch.length < pageSize) return issues;
+  }
+}
+
 function validDate(value, label) {
   const result = singleLine(value, label);
   const parsed = new Date(`${result}T00:00:00Z`);
