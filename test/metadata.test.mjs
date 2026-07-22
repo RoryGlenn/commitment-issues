@@ -915,6 +915,22 @@ test("npm package contains only reviewed runtime, docs, and assets within budget
       `${promotionalAsset} should remain repository-only`,
     );
   }
+  for (const semanticContextFile of [
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    "CLAUDE.md",
+    "docs/semantic-context.md",
+    "docs/semantic-context.schema.json",
+    "tools/lib/semantic-context.mjs",
+    "tools/semantic-context-hook.mjs",
+    "tools/semantic-context.mjs",
+  ]) {
+    assert.equal(
+      files.has(semanticContextFile),
+      false,
+      `${semanticContextFile} should remain repository-only`,
+    );
+  }
   assert.ok(
     [...files].every((file) =>
       file.startsWith("assets/") ? file.endsWith(".svg") : true,

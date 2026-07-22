@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RoryGlenn/commitment-issues/blob/main/docs/semantic-context.schema.json",
+  "title": "Commitment Issues semantic context protocol",
+  "oneOf": [{ "$ref": "#/$defs/context" }, { "$ref": "#/$defs/receipt" }],
+  "$defs": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "status",
+        "dataBoundary",
+        "source",
+        "request",
+        "nodes",
+        "edges",
+        "diagnostics",
+        "retrieval",
+        "integrity"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "semantic-context" },
+        "status": {
+          "enum": ["complete", "truncated", "ambiguous", "unavailable"]
+        },
+        "dataBoundary": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/source" },
+        "request": { "$ref": "#/$defs/request" },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "semantic-graph.schema.json#/$defs/node" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "semantic-graph.schema.json#/$defs/edge" }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "semantic-graph.schema.json#/$defs/diagnostic" }
+        },
+        "retrieval": { "$ref": "#/$defs/retrieval" },
+        "integrity": { "$ref": "#/$defs/integrity" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "fingerprint", "dirty"],
+      "properties": {
+        "head": { "type": ["string", "null"] },
+        "fingerprint": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dirty": { "type": ["boolean", "null"] }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "focuses",
+        "resolved",
+        "depth",
+        "maxFiles",
+        "maxSelectedBytes",
+        "maxOutputBytes"
+      ],
+      "properties": {
+        "focuses": { "type": "array", "items": { "type": "string" } },
+        "resolved": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["query", "id"],
+            "properties": {
+              "query": { "type": "string", "minLength": 1 },
+              "id": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "depth": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "maxFiles": { "type": "integer", "minimum": 1 },
+        "maxSelectedBytes": { "type": "integer", "minimum": 1 },
+        "maxOutputBytes": { "type": "integer", "minimum": 2048 }
+      }
+    },
+    "retrieval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectedFiles",
+        "selectedBytes",
+        "omittedNodes",
+        "totalTrackedFiles",
+        "totalTrackedBytes",
+        "totalIndexableBytes"
+      ],
+      "properties": {
+        "selectedFiles": { "type": "integer", "minimum": 0 },
+        "selectedBytes": { "type": "integer", "minimum": 0 },
+        "omittedNodes": { "type": "integer", "minimum": 0 },
+        "totalTrackedFiles": { "type": "integer", "minimum": 0 },
+        "totalTrackedBytes": { "type": "integer", "minimum": 0 },
+        "totalIndexableBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "payloadDigest", "payloadBytes"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "payloadDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "payloadBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "outcome",
+        "adapter",
+        "hookEvent",
+        "sessionDigest",
+        "sourceFingerprint",
+        "focuses",
+        "contextDigest",
+        "contextStatus",
+        "contextBytes",
+        "selectedFiles",
+        "selectedBytes",
+        "emittedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "semantic-context-delivery-receipt" },
+        "outcome": { "const": "emitted-to-host" },
+        "adapter": { "enum": ["claude", "codex"] },
+        "hookEvent": { "enum": ["SessionStart", "UserPromptSubmit"] },
+        "sessionDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sourceFingerprint": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "focuses": { "type": "array", "items": { "type": "string" } },
+        "contextDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "contextStatus": {
+          "enum": ["complete", "truncated", "ambiguous", "unavailable"]
+        },
+        "contextBytes": { "type": "integer", "minimum": 1 },
+        "selectedFiles": { "type": "integer", "minimum": 0 },
+        "selectedBytes": { "type": "integer", "minimum": 0 },
+        "emittedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

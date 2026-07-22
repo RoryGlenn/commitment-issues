@@ -7,6 +7,11 @@ implement them. Focused queries let maintainers and coding agents retrieve a
 small evidence-backed neighborhood instead of reading the whole repository to
 rediscover the same relationships.
 
+The [semantic context gateway](semantic-context.md) is the supported way to
+deliver bounded graph neighborhoods to Codex and Claude sessions. It adds host
+adapters, explicit output limits, integrity digests, and local delivery
+receipts without changing this graph's evidence model.
+
 It does not run during ordinary commits or pushes, is not installed in the npm
 package, and does not change the public product contract.
 
@@ -19,6 +24,7 @@ npm run semantic:build
 npm run semantic:check
 npm run semantic:tree -- --focus prepush
 npm run semantic:impact -- scripts/lib/files.mjs
+npm run semantic:context -- --focus prepush --json
 ```
 
 Add `--json` to any graph command for machine-readable output. Tree and impact

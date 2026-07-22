@@ -58,6 +58,9 @@ They are evidence, not living descriptions of later code.
 - [Semantic project graph](semantic-graph.md) and
   [schema](semantic-graph.schema.json) — repository-only impact navigation,
   evidence, certainty, cache identity, and drift checks
+- [Semantic context gateway](semantic-context.md) and
+  [protocol schema](semantic-context.schema.json) — model-independent focused
+  context delivery, deterministic limits, and local emission receipts
 - [Runtime coverage policy](branch-coverage.md)
 - [Hook performance and scaling](performance.md)
 - [CI performance baseline](ci-performance.md)

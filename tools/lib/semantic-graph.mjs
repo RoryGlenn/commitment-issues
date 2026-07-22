@@ -1336,8 +1336,12 @@ function gitCommonDirectory(root) {
   return path.isAbsolute(commonDir) ? commonDir : path.resolve(root, commonDir);
 }
 
+export function semanticGraphLocalDirectory(root) {
+  return path.join(gitCommonDirectory(root), CACHE_DIRECTORY);
+}
+
 export function semanticGraphCachePath(root) {
-  return path.join(gitCommonDirectory(root), CACHE_DIRECTORY, CACHE_FILENAME);
+  return path.join(semanticGraphLocalDirectory(root), CACHE_FILENAME);
 }
 
 function assertCachePathSafe(cachePath) {
