@@ -37,7 +37,9 @@ Release. New releases must have exact reviewed notes.
 
 ## npm package provenance
 
-Official npm releases should be published using npm trusted publishing and provenance when available.
+Official npm releases use staged trusted publishing with provenance. The CI
+identity may stage the exact candidate, but only a maintainer's explicit 2FA
+approval may make it public.
 
 Set the exact version you intend to verify; do not rely on the moving `latest`
 tag:
@@ -71,9 +73,9 @@ details when an attestation is available:
 
 ## SLSA provenance
 
-The project release workflow publishes through GitHub Actions using npm trusted
-publishing. npm associates the package with the GitHub workflow that produced
-it and exposes a registry provenance attestation.
+The project release workflow stages through GitHub Actions using npm trusted
+publishing. npm associates the approved package with the GitHub workflow that
+staged it and exposes a registry provenance attestation.
 
 Users should verify that:
 
@@ -188,6 +190,23 @@ then test semantic archive metadata and extracted contents. Record each
 candidate's digest, runner/pack host, and Node/npm versions with the result; a
 clean tree comparison must never be reported as an equal archive digest.
 
+## Staged approval boundary
+
+The tag workflow pins Node 24.18.0/npm 11.16.0 and uses stage-only OIDC without
+a long-lived token. `npm-stage-record.json` binds the stage ID to the artifact,
+source run, commit, tag, and toolchain. Before approval:
+
+```bash
+npm stage view <stage-id>
+npm stage download <stage-id>
+sha256sum "commitment-issues-$VERSION.tgz"
+npm stage approve <stage-id>
+```
+
+Match SHA-256 against the record and complete draft, approve with 2FA, then
+dispatch `Publish Package` with the exact tag, source run ID, and stage ID. Its
+finalizer has no npm authentication.
+
 ## GitHub release assets
 
 Beginning with v3.3.2, the npm and GitHub Release tarballs are byte-identical and
@@ -198,11 +217,11 @@ point, shebang, and reported version on every platform, and enforces executable
 and non-executable archive modes on the POSIX lanes and Ubuntu release producer.
 Windows lanes independently verify the installed bin shim, shebang, version,
 installability, and unchanged digest because Windows metadata does not carry
-authoritative POSIX mode information. The workflow then hashes, publishes, and
+authoritative POSIX mode information. The workflow then hashes, stages, and
 retains the unchanged tarball as a workflow artifact. The provenance generator
-retains its signed output separately. One final release action receives both
-files before publishing the immutable GitHub Release, so no later job needs to
-attach or replace an asset.
+retains its signed output separately. The tag run verifies both files and
+prepares the complete draft before npm approval; the finalizer validates npm and
+publishes that draft without changing assets.
 
 Download both assets from the release page and compare the GitHub tarball with
 the tarball downloaded from npm:
@@ -247,35 +266,40 @@ fixed forward with pre-merge workflow validation.
 A release crosses separate external boundaries. Classify all of them before
 retrying a failed workflow:
 
-| State                                        | Required evidence                                                                                                                                                                                                                               | Decision                                                                                                                                                                          |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before npm                                   | The run is for the expected tag and commit; the exact npm version and every GitHub Release state, including drafts, are absent.                                                                                                                 | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise use a new patch.                                                |
-| After npm, before a published GitHub Release | The npm tarball, npm provenance, `latest`, tag, source commit, workflow run, and rebuilt or retained tarball bytes match; any GitHub Release is still an unpublished draft with the exact reviewed title/body and no assets or an exact subset. | Prefer rerunning failed jobs. A full rerun additionally requires that the tagged workflow needs no edits and any draft does not already contain provenance from the original run. |
-| Complete                                     | npm and an immutable GitHub Release contain the same tarball and matching provenance for the expected tag and commit, plus the exact validated title and reviewed changelog body.                                                               | No action; verification is idempotent.                                                                                                                                            |
-| Inconsistent                                 | A service cannot be checked, source or digest differs, an unexpected asset exists, or a published release is empty or partial outside the fixed historical ledger.                                                                              | Fail closed, preserve the tag and public artifacts, record the incident, and release a new patch.                                                                                 |
+| State                                      | Required evidence                                                                                                                                                                                                       | Decision                                                                                                                                                                                 |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before stage                               | Expected tag/commit; public npm version absent; no durable stage record; no GitHub Release or draft.                                                                                                                    | Retry only a transient failure that occurred before the stage command. Otherwise use a new patch.                                                                                        |
+| Staged                                     | Exact stage ID and record bind package, version, `latest`, tarball SHA-1/SHA-256, tag, commit, workflow run/attempt, and Node/npm toolchain; npm is not public. A successful tag run also has one complete exact draft. | Resume only failed downstream jobs that retain the original record/provenance. Do not fully rerun or stage the version again. Review and approve only a successful run's complete draft. |
+| After npm, before published GitHub Release | Exact approved npm tarball/provenance and `latest`; exact successful source run and stage ID; one complete draft with reviewed notes and both exact assets.                                                             | Dispatch or rerun the GitHub-only finalizer. It must not stage or publish npm.                                                                                                           |
+| Complete                                   | npm and an immutable GitHub Release contain the same tarball and matching provenance for the expected tag/commit, exact title, and reviewed body.                                                                       | No action; verification and finalization are idempotent.                                                                                                                                 |
+| Inconsistent                               | A service cannot be checked; source/run/stage/digest/provenance/metadata differs; an unexpected asset exists; or a published release is partial outside the historical ledger.                                          | Fail closed, preserve every identity and artifact, record the incident, and release a new patch.                                                                                         |
 
-The final release job cryptographically verifies the local SLSA bundle before
-it inspects or publishes a draft. A draft's title and body must already match
-the validated tag and reviewed changelog section, and every existing draft
-asset must be byte-identical to the corresponding locally verified artifact.
-An exact empty-asset or tarball-only subset may survive an exact full rerun. If
-a draft already contains provenance, only a failed-job rerun retaining the
-original provenance artifact can match those signed bytes; a full rerun must
-stop and use a new patch. A draft with mismatched metadata or assets cannot be
-overwritten as routine recovery. Once a release is published, its tag and
-assets are immutable in this repository. A published empty or partial release
-therefore cannot be completed later. Only the already-observed v3.3.0 and
-v3.3.2 Releases may retain an empty body; the validator fixes that boundary in
-`.github/release-history.json`, so no prospective release can claim it.
+The successful tag run cryptographically verifies the local SLSA bundle,
+creates a draft with the exact reviewed title/body and both exact assets,
+revalidates it, and only then shows maintainer approval instructions. Its
+durable finalizer artifact contains the tarball, provenance, and stage record.
+The explicit finalizer downloads that artifact from the recorded successful
+`push` run and validates its run ID, attempt, workflow, tag, commit, repository,
+and stage ID before inspecting npm or publishing the draft.
 
-For a candidate retry, verify that the workflow event is a tag push, the run's
-head SHA equals the tag's peeled commit, and npm provenance names
-`RoryGlenn/commitment-issues`, `.github/workflows/publish.yml`, the exact tag,
-and that same commit. The initial classifier treats an exact-version npm
-`E404` as absence. After `npm publish` succeeds, the confirmation and final
-revalidation allow only the exact version and its exact attestation endpoint to
-return HTTP 404 temporarily. They retry after 1, 2, 4, 8, 15, and 15 seconds,
-with every npm request and body read contained by one hard 60-second deadline.
+A draft with mismatched metadata or assets cannot be overwritten as routine
+recovery. Once a release is published, its tag and assets are immutable in this
+repository, so an empty or partial published release cannot be completed later.
+Only the already-observed v3.3.0 and v3.3.2 Releases may retain an empty body;
+the validator fixes that boundary in `.github/release-history.json`, so no
+prospective release can claim it.
+
+For a candidate retry, verify that the source workflow event is a successful
+tag push, the run's head SHA equals the tag's peeled commit, its current attempt
+is not earlier than the stage-recorded attempt, and npm provenance names
+`RoryGlenn/commitment-issues`,
+`.github/workflows/publish.yml`, the exact tag, and that same commit. Before
+staging, an exact-version npm `E404` is necessary but not sufficient for
+`before-stage`: a durable stage record and every GitHub Release state must also
+be absent. After 2FA approval, the finalizer allows only the exact version and
+its exact attestation endpoint to return HTTP 404 temporarily. It retries after
+1, 2, 4, 8, 15, and 15 seconds, with every npm request and body read contained
+by one hard 60-second deadline.
 Any other status, request failure, malformed response, or identity, digest,
 `latest`, repository, workflow, tag, or commit mismatch stops immediately. A
 404 that exhausts the retry budget or deadline also fails closed and requires
@@ -293,21 +317,20 @@ the exact npm tarball and calculate SHA-256 over those bytes before comparing
 it with the rebuilt or retained workflow tarball and the SLSA subject. Do not
 compare a SHA-512 integrity string directly with the workflow's SHA-256.
 
-When every source and digest check matches, maintainers should prefer:
+Before staging, or after staging when failed downstream jobs retain the exact
+original stage record and provenance, maintainers should use:
 
 ```bash
 gh run rerun "$RUN_ID" --failed
 ```
 
-This leaves a successful npm job untouched. A full rerun may be used only when
-the tagged workflow itself needs no edit and its `tools/release-recovery.mjs`
-gate proves the rebuilt artifact is byte-identical to the existing npm version
-before treating publication as a no-op. `latest` must still equal the candidate,
-and a draft must not already contain provenance from the original run. Never
-invoke `npm publish` again for an existing exact version. If the original
-provenance bytes are required, use a failed-job rerun that retains them. If
-neither a retained artifact nor a byte-identical rebuild is available, the
-rebuild differs, or a workflow change is required, use a new patch version.
+This avoids rerunning the stage job. Never fully rerun a tag workflow after
+`npm stage publish` succeeds: staged and public packages share npm's version
+uniqueness boundary. After approval, rerun only the separate explicit finalizer
+with the exact source run and stage IDs. Never invoke `npm publish` for the
+version. If the original record/provenance is unavailable, the artifact
+differs, or a workflow change is required, preserve the consumed identities and
+use a new patch version.
 
 npm dist-tags are moving convenience pointers, not release identities. If an
 incomplete version became `latest`, an npm owner may explicitly restore

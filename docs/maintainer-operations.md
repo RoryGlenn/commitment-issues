@@ -221,32 +221,34 @@ that the archive hashes match.
 ## Partial release incidents
 
 Do not rerun a failed tag workflow until the release state is known. Record the
-exact version, tag, peeled tag commit, workflow run ID and head SHA, job
-conclusions, npm version/provenance/dist-tags, and GitHub Release draft,
-immutability, and asset state. A failed or malformed lookup is unknown state,
-not evidence that an artifact is absent.
+exact version, tag, peeled tag commit, workflow run ID/attempt and head SHA, job
+conclusions, npm public version/provenance/dist-tags, durable npm stage
+record/ID, and GitHub Release draft, immutability, and asset state. A failed or
+malformed lookup is unknown state, not evidence that an artifact or stage is
+absent.
 
 Use the state table and byte-verification procedure in the
 [release-verification guide](release-verification.md#partial-publication-and-recovery):
 
-- Before npm, the same tagged run may be retried only when the exact npm version
-  is absent, no GitHub draft or release exists, the failure is transient, and
-  neither its source nor workflow needs an edit.
-- After npm, an exact artifact may resume only when the tag, run, npm
-  provenance, source commit, rebuilt or retained tarball bytes, and npm
-  `dist-tags.latest` all name the same candidate. A moved, rolled-back, or newer
-  `latest` blocks automatic resume and requires an owner decision and new patch.
-  Prefer rerunning failed jobs so the successful npm job remains untouched.
-- Immediately after a successful publish, the release verifier tolerates only
+- Before stage, a failed-job retry is allowed only when the public npm version,
+  stage record, and every GitHub draft/release are absent, the failure is
+  transient, and neither source nor workflow needs an edit.
+- Once staged, never fully rerun the tag workflow or stage the same version
+  again. Resume only failed downstream jobs that retain the original stage
+  record and provenance. If that durable identity is unavailable, resolve the
+  npm stage explicitly and fix forward with a new patch.
+- After maintainer 2FA approval, the explicit finalizer may resume only when the
+  exact tag, successful source run/attempt, stage ID, npm provenance, source
+  commit, retained tarball bytes, complete draft, and `dist-tags.latest` all
+  name the same candidate.
+- Immediately after approval, the release verifier tolerates only
   exact-version or exact-attestation HTTP 404 propagation. Six bounded backoffs
   run inside a hard 60-second deadline; every other failure or mismatch remains
   immediately terminal.
-- The final release job cryptographically verifies its local SLSA bundle.
-  Existing draft assets must be byte-identical to those locally verified
-  artifacts. An empty or exact tarball-only draft may survive a full rerun, but
-  a draft that already contains provenance can resume only through a failed-job
-  rerun retaining the original provenance bytes. A full rerun must stop and use
-  a new patch instead.
+- The tag run cryptographically verifies its local SLSA bundle and requires one
+  complete exact draft before it shows approval instructions. The finalizer
+  downloads the tarball, provenance, and stage record from that successful
+  source run and cannot stage or publish npm.
 - An empty or partial published release cannot be repaired because published
   releases and assets are immutable. Preserve it and release a new patch.
 - A complete matching npm version and immutable GitHub Release require no
@@ -270,6 +272,9 @@ and replacement version in the incident issue.
 - Run the release collision preflight before versioning.
 - Retain the hosted candidate summary containing its digest, source, tag,
   runner OS/image, and exact Node/npm pack toolchain.
+- Confirm the npm trusted publisher remains stage-only and traditional tokens
+  remain disallowed; retain the stage ID, stage record, and successful source
+  run ID with the release evidence.
 - Classify any failed tag workflow before authorizing a retry or registry
   metadata change.
 - Follow the [release-verification guide](release-verification.md) after

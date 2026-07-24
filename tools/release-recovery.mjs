@@ -2,13 +2,14 @@
 // Copyright (c) 2026 RoryGlenn and commitment-issues contributors
 // SPDX-License-Identifier: MIT
 
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { artifactDigests } from "./lib/release-artifact.mjs";
 import { normalizeReleaseVersion } from "./release-preflight.mjs";
+import { validateStageRecord } from "./release-stage.mjs";
 import { validateReleaseMetadata } from "./validate-release-metadata.mjs";
 
 const PACKAGE_NAME = "commitment-issues";
@@ -26,7 +27,8 @@ export const NPM_PROPAGATION_RETRY_POLICY = Object.freeze({
 });
 
 export const RELEASE_STATES = Object.freeze({
-  BEFORE_NPM: "before-npm",
+  BEFORE_STAGE: "before-stage",
+  STAGED: "staged",
   AFTER_NPM: "after-npm",
   COMPLETE: "complete",
 });
@@ -35,19 +37,7 @@ function fail(message) {
   throw new Error(message);
 }
 
-function sha(bytes, algorithm, encoding = "hex") {
-  return createHash(algorithm).update(bytes).digest(encoding);
-}
-
-export function artifactDigests(bytes) {
-  const content = Buffer.from(bytes);
-  return {
-    sha1: sha(content, "sha1"),
-    sha256: sha(content, "sha256"),
-    sha512: sha(content, "sha512"),
-    integrity: `sha512-${sha(content, "sha512", "base64")}`,
-  };
-}
+export { artifactDigests };
 
 function exactArray(value, length, label) {
   if (!Array.isArray(value) || value.length !== length) {
@@ -312,7 +302,7 @@ function validateRelease(release, expected, localProvenanceBytes) {
     if (release.immutable === true) {
       fail("GitHub reported a draft release as immutable.");
     }
-    return "draft";
+    return { kind: "draft", assetCount: assets.length };
   }
 
   if (release.immutable !== true) {
@@ -325,7 +315,7 @@ function validateRelease(release, expected, localProvenanceBytes) {
       "The published immutable GitHub Release is empty or partial; a new patch version is mandatory.",
     );
   }
-  return "published";
+  return { kind: "published", assetCount: assets.length };
 }
 
 export function classifyReleaseState({
@@ -333,6 +323,9 @@ export function classifyReleaseState({
   npm = null,
   releases = [],
   localProvenanceBytes = null,
+  stageRecord = null,
+  expectedStageId = null,
+  sourceRunId = null,
 }) {
   if (!expected || !Buffer.isBuffer(expected.tarballBytes)) {
     fail("Expected release identity and exact tarball bytes are required.");
@@ -379,21 +372,42 @@ export function classifyReleaseState({
       "Multiple GitHub Releases use the same tag; refusing ambiguous recovery.",
     );
   }
-  const releaseKind = releases[0]
+  const releaseObservation = releases[0]
     ? validateRelease(releases[0], expected, localProvenanceBytes)
-    : "absent";
+    : { kind: "absent", assetCount: 0 };
+  const releaseKind = releaseObservation.kind;
+  const validatedStageRecord = stageRecord
+    ? validateStageRecord(stageRecord, expected, {
+        expectedStageId,
+        sourceRunId,
+      })
+    : null;
 
   if (!npm) {
-    if (releaseKind !== "absent") {
+    if (releaseKind === "published") {
       fail(
-        "A GitHub Release or draft exists while npm is absent; the release is out of order and a new patch version is mandatory.",
+        "A published GitHub Release exists while npm is absent; the release is inconsistent and a new patch version is mandatory.",
       );
     }
-    return RELEASE_STATES.BEFORE_NPM;
+    if (validatedStageRecord) return RELEASE_STATES.STAGED;
+    if (releaseKind !== "absent") {
+      fail(
+        "A GitHub Release draft exists before npm staging has a durable exact-candidate record.",
+      );
+    }
+    return RELEASE_STATES.BEFORE_STAGE;
   }
 
   validateNpmObservation(npm, expected);
   if (releaseKind === "published") return RELEASE_STATES.COMPLETE;
+  if (
+    validatedStageRecord &&
+    (releaseKind !== "draft" || releaseObservation.assetCount !== 2)
+  ) {
+    fail(
+      "The approved npm stage does not have one complete exact GitHub Release draft; finalization is blocked.",
+    );
+  }
   if (npm.packument?.["dist-tags"]?.latest !== expected.version) {
     fail(
       "npm latest no longer points to this incomplete version; automated resume is blocked and a new patch version is mandatory.",
@@ -711,6 +725,53 @@ async function fetchGithubReleases(expected, token, request) {
   return releases;
 }
 
+export function validateSourceWorkflowRun(run, expected, stageRecord) {
+  if (
+    !run ||
+    typeof run !== "object" ||
+    Array.isArray(run) ||
+    run.id !== Number(stageRecord.workflowRunId) ||
+    !Number.isSafeInteger(run.run_attempt) ||
+    run.run_attempt < Number(stageRecord.workflowRunAttempt) ||
+    run.event !== "push" ||
+    run.status !== "completed" ||
+    run.conclusion !== "success" ||
+    run.head_branch !== expected.tag ||
+    run.head_sha !== expected.commit ||
+    run.path !== WORKFLOW_PATH ||
+    run.repository?.full_name !== expected.repository
+  ) {
+    fail(
+      "The selected source workflow run is not the successful tag run that created this staged candidate.",
+    );
+  }
+  return run;
+}
+
+async function fetchSourceWorkflowRun(
+  expected,
+  stageRecord,
+  sourceRunId,
+  token,
+  request,
+) {
+  if (sourceRunId === null) return null;
+  const normalized = String(sourceRunId);
+  if (!/^[1-9][0-9]*$/u.test(normalized)) {
+    fail("Source workflow run ID must be a positive integer.");
+  }
+  const response = await request(
+    `${GITHUB_API}/repos/${expected.repository}/actions/runs/${normalized}`,
+    {
+      headers: githubHeaders(token),
+      redirect: "error",
+    },
+  );
+  await requireStatus(response, 200, "Source workflow run");
+  const run = await readJson(response, "Source workflow run");
+  return validateSourceWorkflowRun(run, expected, stageRecord);
+}
+
 export function expectedRelease({
   packageName = PACKAGE_NAME,
   version,
@@ -775,6 +836,12 @@ export async function inspectReleaseState(
   } = {},
 ) {
   const expected = expectedRelease(input);
+  const stageRecord = input.stageRecord
+    ? validateStageRecord(input.stageRecord, expected, {
+        expectedStageId: input.expectedStageId ?? null,
+        sourceRunId: input.sourceRunId ?? null,
+      })
+    : null;
   const propagation = retryNpmPropagation
     ? {
         deadlineAt: now() + NPM_PROPAGATION_RETRY_POLICY.deadlineMs,
@@ -786,9 +853,18 @@ export async function inspectReleaseState(
         retryIndex: 0,
       }
     : null;
-  const [npm, releases] = await Promise.all([
+  const [npm, releases, sourceRun] = await Promise.all([
     fetchNpmObservation(expected, request, propagation),
     fetchGithubReleases(expected, input.githubToken, request),
+    stageRecord
+      ? fetchSourceWorkflowRun(
+          expected,
+          stageRecord,
+          input.sourceRunId ?? null,
+          input.githubToken,
+          request,
+        )
+      : null,
   ]);
   const localProvenanceBytes = input.provenanceBytes
     ? Buffer.from(input.provenanceBytes)
@@ -798,8 +874,17 @@ export async function inspectReleaseState(
     npm,
     releases,
     localProvenanceBytes,
+    stageRecord,
+    expectedStageId: input.expectedStageId ?? null,
+    sourceRunId: input.sourceRunId ?? null,
   });
-  return { state, expected, npmPresent: npm !== null, releases };
+  return {
+    state,
+    expected,
+    npmPresent: npm !== null,
+    releases,
+    sourceRun,
+  };
 }
 
 export function releaseOutputs(state) {
@@ -808,33 +893,95 @@ export function releaseOutputs(state) {
   }
   return {
     state,
-    publish_npm: String(state === RELEASE_STATES.BEFORE_NPM),
+    stage_npm: String(state === RELEASE_STATES.BEFORE_STAGE),
+    finalize_release: String(state === RELEASE_STATES.AFTER_NPM),
     release_needed: String(state !== RELEASE_STATES.COMPLETE),
   };
 }
 
 export function requireNpmBoundary(state) {
-  if (state === RELEASE_STATES.BEFORE_NPM) {
+  if (
+    state === RELEASE_STATES.BEFORE_STAGE ||
+    state === RELEASE_STATES.STAGED
+  ) {
     fail(
-      "npm still does not contain the exact release artifact after the publication boundary.",
+      "npm still does not contain the exact staged release artifact; approval may be pending, rejected, or missing.",
+    );
+  }
+}
+
+export function requirePreparedDraftBoundary(result) {
+  const release = result?.releases?.[0];
+  if (
+    result?.state !== RELEASE_STATES.STAGED ||
+    result.releases.length !== 1 ||
+    release?.draft !== true ||
+    !Array.isArray(release.assets) ||
+    release.assets.length !== 2
+  ) {
+    fail(
+      "Maintainer approval requires one complete exact GitHub Release draft with both immutable assets.",
+    );
+  }
+}
+
+export function requireExpectedState(state, expectedStates) {
+  const allowed = Array.isArray(expectedStates)
+    ? expectedStates
+    : [expectedStates];
+  if (
+    allowed.length === 0 ||
+    allowed.some((value) => !Object.values(RELEASE_STATES).includes(value))
+  ) {
+    fail("Expected release states contain an unknown value.");
+  }
+  if (!allowed.includes(state)) {
+    fail(
+      `Release state ${state} does not match the required state${allowed.length === 1 ? "" : "s"} ${allowed.join(", ")}.`,
     );
   }
 }
 
 function parseArgs(argv) {
-  const options = { requireNpm: false };
+  const options = {
+    requireNpm: false,
+    requirePreparedDraft: false,
+    expectedStates: [],
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--require-npm") {
       options.requireNpm = true;
       continue;
     }
-    if (argument === "--tarball" || argument === "--provenance") {
+    if (argument === "--require-prepared-draft") {
+      options.requirePreparedDraft = true;
+      continue;
+    }
+    if (
+      argument === "--tarball" ||
+      argument === "--provenance" ||
+      argument === "--stage-record" ||
+      argument === "--source-run-id" ||
+      argument === "--expected-stage-id" ||
+      argument === "--expect-state"
+    ) {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) {
-        fail(`${argument} requires a file path.`);
+        fail(`${argument} requires a value.`);
       }
-      const key = argument === "--tarball" ? "tarball" : "provenance";
+      if (argument === "--expect-state") {
+        options.expectedStates.push(value);
+        index += 1;
+        continue;
+      }
+      const key = {
+        "--tarball": "tarball",
+        "--provenance": "provenance",
+        "--stage-record": "stageRecord",
+        "--source-run-id": "sourceRunId",
+        "--expected-stage-id": "expectedStageId",
+      }[argument];
       if (options[key]) fail(`${argument} may be provided only once.`);
       options[key] = value;
       index += 1;
@@ -843,6 +990,12 @@ function parseArgs(argv) {
     fail(`Unknown release recovery option '${argument}'.`);
   }
   if (!options.tarball) fail("--tarball is required.");
+  if (
+    (options.sourceRunId || options.expectedStageId) &&
+    !options.stageRecord
+  ) {
+    fail("--source-run-id and --expected-stage-id require --stage-record.");
+  }
   return options;
 }
 
@@ -856,6 +1009,15 @@ function readRegularFile(input, label) {
   }
   if (!stat.isFile()) fail(`${label} is not a regular file.`);
   return fs.readFileSync(resolved);
+}
+
+function readJsonRegularFile(input, label) {
+  try {
+    return JSON.parse(readRegularFile(input, label).toString("utf8"));
+  } catch (error) {
+    if (error instanceof SyntaxError) fail(`${label} is not valid JSON.`);
+    throw error;
+  }
 }
 
 function requireEnvironment(name) {
@@ -909,8 +1071,8 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const version = normalizeReleaseVersion(packageJson.version);
-  const tag = requireEnvironment("GITHUB_REF_NAME");
-  const commit = requireEnvironment("GITHUB_SHA");
+  const tag = process.env.RELEASE_TAG || requireEnvironment("GITHUB_REF_NAME");
+  const commit = process.env.RELEASE_COMMIT || requireEnvironment("GITHUB_SHA");
   const repository = requireEnvironment("GITHUB_REPOSITORY");
   const githubToken = requireEnvironment("GITHUB_TOKEN");
   const releaseMetadata = validateReleaseMetadata({ tag });
@@ -946,6 +1108,11 @@ async function main() {
       provenanceBytes: options.provenance
         ? readRegularFile(options.provenance, "Release provenance")
         : null,
+      stageRecord: options.stageRecord
+        ? readJsonRegularFile(options.stageRecord, "npm stage record")
+        : null,
+      sourceRunId: options.sourceRunId ?? null,
+      expectedStageId: options.expectedStageId ?? null,
     },
     {
       retryNpmPropagation: options.requireNpm,
@@ -957,14 +1124,22 @@ async function main() {
     },
   );
   if (options.requireNpm) requireNpmBoundary(result.state);
+  if (options.requirePreparedDraft) requirePreparedDraftBoundary(result);
+  if (options.expectedStates.length > 0) {
+    requireExpectedState(result.state, options.expectedStates);
+  }
 
-  const outputs = releaseOutputs(result.state);
+  const releaseId = result.releases[0]?.id;
+  const outputs = {
+    ...releaseOutputs(result.state),
+    release_id: releaseId ? String(releaseId) : "",
+  };
   if (process.env.GITHUB_OUTPUT) {
     appendGithubOutputs(process.env.GITHUB_OUTPUT, outputs);
   }
   console.log(`Release recovery state: ${result.state}.`);
   console.log(
-    `npm publish: ${outputs.publish_npm}; downstream release work: ${outputs.release_needed}.`,
+    `npm stage: ${outputs.stage_npm}; GitHub finalization: ${outputs.finalize_release}; downstream release work: ${outputs.release_needed}.`,
   );
 }
 

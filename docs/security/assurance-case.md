@@ -180,10 +180,14 @@ The project combines local validation, tests, linting, formatting, CI on multipl
   aggregate `CI Success` gate keep security-sensitive changes visible.
 - The live `main` ruleset separately blocks CodeQL tool-severity Errors and
   High/Critical security alerts after the required analysis completes.
-- Trusted publishing publishes the exact tarball packed and hashed by the
-  release job.
-- The release workflow attaches that tarball and matching signed SLSA
-  provenance before making the GitHub Release immutable.
+- Stage-only trusted publishing uploads the exact tarball packed, tested, and
+  hashed by the candidate job without making it public.
+- Maintainer 2FA approval makes that staged npm candidate public only after the
+  workflow has prepared a complete draft containing the same tarball and signed
+  SLSA provenance.
+- A separate finalizer with no npm authority revalidates npm, provenance, the
+  source run, stage ID, draft, and assets before making the GitHub Release
+  immutable.
 - Pull requests that modify the publish workflow exercise its reusable-workflow
   permission contract without publishing.
 

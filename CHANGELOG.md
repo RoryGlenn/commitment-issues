@@ -65,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced direct npm publishing with stage-only OIDC and human 2FA approval.
+  The exact candidate, source, toolchain, draft, provenance, and four recovery
+  states are verified before an npm-incapable GitHub finalizer runs.
 - Refactored the packed package-manager lifecycle from one monolithic smoke
   script into named `node:test` phases over one shared disposable fixture.
   Exact-tarball inspection, real Git hooks, workspace and worktree behavior,

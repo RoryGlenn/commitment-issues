@@ -15,8 +15,11 @@ import {
   expectedRelease,
   inspectReleaseState,
   releaseOutputs,
+  requireExpectedState,
   requireNpmBoundary,
+  requirePreparedDraftBoundary,
   validateArtifactBasenames,
+  validateSourceWorkflowRun,
 } from "../tools/release-recovery.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,6 +28,7 @@ const COMMIT = "a".repeat(40);
 const REPOSITORY = "RoryGlenn/commitment-issues";
 const TARBALL = Buffer.from("the exact packed release artifact\n");
 const RELEASE_NOTES = "### Fixed\n\n- Exact reviewed release notes.";
+const STAGE_ID = "123e4567-e89b-42d3-a456-426614174000";
 
 function expected({
   version = VERSION,
@@ -41,6 +45,29 @@ function expected({
     releaseNotes: RELEASE_NOTES,
     allowEmptyPublishedReleaseNotes,
   });
+}
+
+function stageRecord(release, overrides = {}) {
+  return {
+    schemaVersion: 1,
+    kind: "npm-staged-release",
+    stageId: STAGE_ID,
+    packageName: release.packageName,
+    version: release.version,
+    distTag: "latest",
+    tarballName: release.tarballName,
+    tarballSha1: release.tarballDigests.sha1,
+    tarballSha256: release.tarballDigests.sha256,
+    tarballIntegrity: release.tarballDigests.integrity,
+    releaseTag: release.tag,
+    sourceCommit: release.commit,
+    workflowPath: ".github/workflows/publish.yml",
+    workflowRunId: "12345",
+    workflowRunAttempt: "1",
+    nodeVersion: "24.18.0",
+    npmVersion: "11.16.0",
+    ...overrides,
+  };
 }
 
 function bundle(statement, extra = {}) {
@@ -241,10 +268,11 @@ function fakePropagationClock() {
   };
 }
 
-test("classifies the three idempotent release states", () => {
+test("classifies the four idempotent staged release states", () => {
   const release = expected();
   const npm = npmObservation(release);
   const provenance = githubProvenance(release);
+  const staged = stageRecord(release);
   const complete = githubRelease(release, {
     assets: [
       asset(release.tarballName, TARBALL),
@@ -254,10 +282,21 @@ test("classifies the three idempotent release states", () => {
 
   assert.equal(
     classifyReleaseState({ expected: release }),
-    RELEASE_STATES.BEFORE_NPM,
+    RELEASE_STATES.BEFORE_STAGE,
   );
   assert.equal(
-    classifyReleaseState({ expected: release, npm }),
+    classifyReleaseState({ expected: release, stageRecord: staged }),
+    RELEASE_STATES.STAGED,
+  );
+  assert.equal(
+    classifyReleaseState({
+      expected: release,
+      npm,
+      stageRecord: staged,
+      releases: [
+        githubRelease(release, { draft: true, assets: complete.assets }),
+      ],
+    }),
     RELEASE_STATES.AFTER_NPM,
   );
   assert.equal(
@@ -478,11 +517,11 @@ test("requires a new patch when a public release exists without npm", () => {
           }),
         ],
       }),
-    /GitHub Release or draft exists while npm is absent.*new patch version is mandatory/u,
+    /published GitHub Release exists while npm is absent.*new patch version is mandatory/u,
   );
 });
 
-test("npm absence rejects even a compatible draft as out of order", () => {
+test("npm absence requires a durable stage record before a draft may exist", () => {
   const release = expected();
   assert.throws(
     () =>
@@ -490,7 +529,15 @@ test("npm absence rejects even a compatible draft as out of order", () => {
         expected: release,
         releases: [githubRelease(release, { draft: true })],
       }),
-    /Release or draft exists while npm is absent.*out of order.*new patch version is mandatory/u,
+    /draft exists before npm staging has a durable exact-candidate record/u,
+  );
+  assert.equal(
+    classifyReleaseState({
+      expected: release,
+      stageRecord: stageRecord(release),
+      releases: [githubRelease(release, { draft: true })],
+    }),
+    RELEASE_STATES.STAGED,
   );
 });
 
@@ -651,7 +698,7 @@ test("post-publication inspection waits for exact npm version propagation", asyn
   });
 
   assert.equal(result.state, RELEASE_STATES.AFTER_NPM);
-  assert.equal(releaseOutputs(result.state).publish_npm, "false");
+  assert.equal(releaseOutputs(result.state).stage_npm, "false");
   assert.equal(api.count("metadata"), 2);
   assert.deepEqual(clock.waits, [1_000]);
   assert.deepEqual(retries, [
@@ -783,7 +830,7 @@ test("npm propagation deadline covers stalled response bodies", async () => {
   assert.deepEqual(cancelled, ["npm-deadline"]);
 });
 
-test("the pre-publication classifier keeps one-shot npm absence behavior", async () => {
+test("the pre-stage classifier keeps one-shot npm absence behavior", async () => {
   const release = expected();
   const npm = npmObservation(release);
   const api = mockedReleaseApis(release, npm, {
@@ -794,7 +841,7 @@ test("the pre-publication classifier keeps one-shot npm absence behavior", async
     request: api.request,
   });
 
-  assert.equal(result.state, RELEASE_STATES.BEFORE_NPM);
+  assert.equal(result.state, RELEASE_STATES.BEFORE_STAGE);
   assert.equal(api.count("metadata"), 1);
 });
 
@@ -1044,19 +1091,28 @@ test("remote API errors and untrusted artifact origins are never absence", async
 });
 
 test("GitHub outputs expose only fixed states and booleans", () => {
-  assert.deepEqual(releaseOutputs(RELEASE_STATES.BEFORE_NPM), {
-    state: "before-npm",
-    publish_npm: "true",
+  assert.deepEqual(releaseOutputs(RELEASE_STATES.BEFORE_STAGE), {
+    state: "before-stage",
+    stage_npm: "true",
+    finalize_release: "false",
+    release_needed: "true",
+  });
+  assert.deepEqual(releaseOutputs(RELEASE_STATES.STAGED), {
+    state: "staged",
+    stage_npm: "false",
+    finalize_release: "false",
     release_needed: "true",
   });
   assert.deepEqual(releaseOutputs(RELEASE_STATES.AFTER_NPM), {
     state: "after-npm",
-    publish_npm: "false",
+    stage_npm: "false",
+    finalize_release: "true",
     release_needed: "true",
   });
   assert.deepEqual(releaseOutputs(RELEASE_STATES.COMPLETE), {
     state: "complete",
-    publish_npm: "false",
+    stage_npm: "false",
+    finalize_release: "false",
     release_needed: "false",
   });
   assert.throws(
@@ -1064,10 +1120,93 @@ test("GitHub outputs expose only fixed states and booleans", () => {
     /Unknown release state/u,
   );
   assert.throws(
-    () => requireNpmBoundary(RELEASE_STATES.BEFORE_NPM),
+    () => requireNpmBoundary(RELEASE_STATES.BEFORE_STAGE),
     /npm still does not contain/u,
   );
+  assert.throws(
+    () => requireNpmBoundary(RELEASE_STATES.STAGED),
+    /approval may be pending, rejected, or missing/u,
+  );
   assert.doesNotThrow(() => requireNpmBoundary(RELEASE_STATES.AFTER_NPM));
+  assert.doesNotThrow(() =>
+    requireExpectedState(RELEASE_STATES.STAGED, [
+      RELEASE_STATES.STAGED,
+      RELEASE_STATES.COMPLETE,
+    ]),
+  );
+  assert.throws(
+    () =>
+      requireExpectedState(RELEASE_STATES.BEFORE_STAGE, RELEASE_STATES.STAGED),
+    /does not match the required state/u,
+  );
+});
+
+test("approval boundary requires the complete exact staged draft", () => {
+  const release = expected();
+  const provenance = githubProvenance(release);
+  const completeDraft = githubRelease(release, {
+    draft: true,
+    assets: [
+      asset(release.tarballName, TARBALL),
+      asset(release.provenanceName, provenance),
+    ],
+  });
+
+  assert.doesNotThrow(() =>
+    requirePreparedDraftBoundary({
+      state: RELEASE_STATES.STAGED,
+      releases: [completeDraft],
+    }),
+  );
+  for (const result of [
+    { state: RELEASE_STATES.BEFORE_STAGE, releases: [] },
+    {
+      state: RELEASE_STATES.STAGED,
+      releases: [githubRelease(release, { draft: true })],
+    },
+    {
+      state: RELEASE_STATES.STAGED,
+      releases: [githubRelease(release, { assets: completeDraft.assets })],
+    },
+  ]) {
+    assert.throws(
+      () => requirePreparedDraftBoundary(result),
+      /approval requires one complete exact GitHub Release draft/u,
+    );
+  }
+});
+
+test("source workflow identity binds finalization to the successful tag run", () => {
+  const release = expected();
+  const record = stageRecord(release);
+  const run = {
+    id: 12345,
+    run_attempt: 1,
+    event: "push",
+    status: "completed",
+    conclusion: "success",
+    head_branch: release.tag,
+    head_sha: release.commit,
+    path: ".github/workflows/publish.yml",
+    repository: { full_name: release.repository },
+  };
+
+  assert.equal(validateSourceWorkflowRun(run, release, record), run);
+  for (const changed of [
+    { ...run, event: "workflow_dispatch" },
+    { ...run, conclusion: "failure" },
+    { ...run, head_sha: "b".repeat(40) },
+    { ...run, id: 99999 },
+    { ...run, run_attempt: 0 },
+  ]) {
+    assert.throws(
+      () => validateSourceWorkflowRun(changed, release, record),
+      /not the successful tag run that created this staged candidate/u,
+    );
+  }
+  assert.doesNotThrow(() =>
+    validateSourceWorkflowRun({ ...run, run_attempt: 2 }, release, record),
+  );
 });
 
 test("release CLI accepts only exact artifact basenames", () => {
