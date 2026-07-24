@@ -91,10 +91,10 @@ function runCli(root, args = []) {
 test("the repository release metadata is consistent without a historical exception", () => {
   const result = validateReleaseMetadata({ root: repositoryRoot });
 
-  assert.equal(result.version, "3.4.0");
-  assert.equal(result.tag, "v3.4.0");
+  assert.equal(result.version, "3.5.0");
+  assert.equal(result.tag, "v3.5.0");
   assert.equal(result.title, result.tag);
-  assert.match(result.notes, /bounded hook-performance benchmarks/u);
+  assert.match(result.notes, /model-independent semantic context gateway/u);
   assert.equal(result.historical, null);
 });
 
