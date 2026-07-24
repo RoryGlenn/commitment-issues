@@ -9,6 +9,7 @@
 //   node tools/show-message-states.mjs            # representative states
 //   node tools/show-message-states.mjs secrets    # states matching "secrets"
 //   node tools/show-message-states.mjs --list     # list state names
+//   node tools/show-message-states.mjs --random # one randomly selected state
 //
 // Each scenario builds a fresh temp repo (test/helpers/temp-repo.mjs), sets
 // up the exact staged/config situation, runs the real script, and streams
@@ -523,6 +524,14 @@ function printResult(name, result, expectedStatus = 0) {
 }
 
 const args = process.argv.slice(2);
+const isRandom = args.includes("--random");
+
+
+if (isRandom && args.includes("--list")) {
+  console.error("--random cannot be combined with --list");
+  process.exit(1);
+}
+
 if (args.includes("--list")) {
   for (const scenario of SCENARIOS) {
     console.log(scenario.name);
@@ -531,7 +540,7 @@ if (args.includes("--list")) {
 }
 
 const filters = args.filter((arg) => !arg.startsWith("--"));
-const selected = SCENARIOS.filter(
+let  selected = SCENARIOS.filter(
   (scenario) =>
     filters.length === 0 ||
     filters.some((filter) => scenario.name.includes(filter)),
@@ -542,6 +551,11 @@ if (selected.length === 0) {
   process.exit(1);
 }
 
+if (isRandom) {
+  const randomIndex = Math.floor(Math.random() * selected.length);
+  selected = [selected[randomIndex]];
+  console.log(pc.dim(`Randomly selected: ${selected[0].name}`));
+}
 console.log(
   pc.dim(
     `Rendering ${selected.length} message state${selected.length === 1 ? "" : "s"} live (throwaway repos, real hooks)…`,
