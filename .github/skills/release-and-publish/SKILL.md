@@ -1,6 +1,6 @@
 ---
 name: release-and-publish
-description: "Cut and publish a new commitment-issues release to npm (public registry, package 'commitment-issues', vX.Y.Z tags). USE WHEN: cutting a release, bumping the version, running npm version, publishing through the trusted-publishing workflow, updating CHANGELOG for a release, or debugging a failed publish. Covers the automated OIDC flow (release PR -> immutable merged commit -> tag push -> exact npm tarball + SLSA assets), collision preflight, fix-forward recovery, the CI Success gate, and post-release verification."
+description: "Cut and publish a new commitment-issues release to npm (public registry, package 'commitment-issues', vX.Y.Z tags). USE WHEN: cutting a release, bumping the version, running npm version, publishing through the staged trusted-publishing workflow, updating CHANGELOG for a release, or debugging a failed publish. Covers the OIDC stage flow (release PR -> immutable merged commit -> tag push -> exact staged tarball + complete draft -> maintainer 2FA approval -> explicit GitHub finalizer), collision preflight, fix-forward recovery, the CI Success gate, and post-release verification."
 ---
 
 # Release & Publish
@@ -9,9 +9,20 @@ Package: **`commitment-issues`**, npm owner **`roryglenn`**, **public** registry
 
 ## Operational safety — read first
 
-Publishing and tagging are **hard to reverse**. Before running any release-mutating step (`npm version`, `git push origin vX.Y.Z`, or a manual `npm publish`), confirm intent with the user, state the exact target version, and run the preflight below.
+Publishing and tagging are **hard to reverse**. Before running any
+release-mutating step (`npm version`, `git push origin vX.Y.Z`,
+`npm stage approve`, or a manual `npm publish`), confirm intent with the user,
+state the exact target version, and run the preflight below.
 
-- **Pushing a `vX.Y.Z` tag is the publish trigger.** With trusted publishing enabled, pushing that tag starts an npm publish from CI — treat the tag push itself as "publish now."
+- **Pushing a `vX.Y.Z` tag consumes the release identity and creates the npm
+  stage.** It does not make the package public. Treat it as irreversible because
+  staged and published versions share npm's unique version index.
+- **Only maintainer 2FA approval makes the staged npm package public.** Review
+  the stage ID, exact tarball digest, staged download, signed provenance, and
+  complete GitHub draft before running `npm stage approve <stage-id>`.
+- **The explicit finalizer publishes only the already-complete GitHub draft.**
+  It has no npm OIDC permission, registry authentication, or npm stage/publish
+  command.
 - **Never move or reuse a pushed or consumed release tag.** A retry may resume
   the same immutable release only when the tagged source and rebuilt artifact
   match the state already published. Any source, workflow, provenance, or
@@ -23,22 +34,35 @@ Publishing and tagging are **hard to reverse**. Before running any release-mutat
 
 ## Trusted publishing status
 
-Automated publishing uses **npm Trusted Publishing** (OIDC), so CI publishes
-without an npm token. The publisher is registered and was validated end to end
-by v3.4.0. Its expected npm configuration is:
+Automated staging uses **npm Trusted Publishing** (OIDC), so CI does not need an
+npm token. The publisher was validated end to end by v3.4.0. Before the first
+staged release, its expected npm configuration is:
 
-- On npmjs.com → package `commitment-issues` → **Settings → Trusted Publishing** → add a GitHub Actions publisher: user `RoryGlenn`, repository `commitment-issues`, workflow `publish.yml` (leave environment blank unless one is added).
+- On npmjs.com → package `commitment-issues` → **Settings → Trusted
+  Publishing**: GitHub Actions publisher user `RoryGlenn`, repository
+  `commitment-issues`, workflow `publish.yml`, environment blank, with
+  **stage publish allowed and direct publish disallowed**.
+- Under package publishing access, require 2FA and disallow traditional tokens.
+  The workflow must not contain or receive a long-lived npm token.
 
 The workflow ([`publish.yml`](../../workflows/publish.yml)) triggers on `v*`
 tags, fetches complete `main` history, and rejects any tag whose commit is not
 reachable from the canonical `origin/main` before release-capable work begins.
-It then sets `id-token: write`, verifies the bundled npm supports trusted
-publishing, validates the package and lockfile versions, tag, unique changelog
-section, and reviewed release notes, runs the suite, packs once, and passes that
-exact tarball through lifecycle integration, hashing, artifact upload, and npm
-publication. The SLSA generator retains its signed output as a workflow
-artifact, and one final release action stages both files and publishes the
-reviewed changelog section as the immutable GitHub Release body.
+It validates Node >= 22.14.0 and npm >= 11.15.0, package and lockfile versions,
+tag, unique changelog section, and reviewed release notes; runs the suite; packs
+once; and passes that exact tarball through lifecycle integration, hashing, and
+artifact upload. The only OIDC-capable npm job runs `npm stage publish` and
+writes a deterministic record containing the stage ID, package/version/tag,
+SHA-1, SHA-256, source commit, source workflow run/attempt, and exact Node/npm
+versions. The SLSA generator retains its signed output, and the tag run prepares
+a complete GitHub Release draft with both exact assets before showing approval
+instructions.
+
+After a maintainer reviews/downloads the staged package and approves it with
+2FA, manually dispatch `Publish Package` with the exact release tag, successful
+source run ID, and stage ID. That finalizer validates npm provenance, the source
+run, stage record, draft, and assets, then publishes only the existing GitHub
+draft.
 
 For the normal release path, the single hosted pack accepted by the recovery
 and publication gates is the authoritative byte-level candidate. The candidate
@@ -84,22 +108,37 @@ byte-identical. See the separate archive and extracted-tree comparisons in
    Open a pull request, pass `CI Success`, obtain approval (or record the
    temporary single-maintainer exception), and merge it.
 5. **From the exact merged `main` commit, create and push only the immutable
-   release tag — this publishes:**
+   release tag — this stages the package and prepares the draft:**
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z"
    git push origin vX.Y.Z
    ```
    Pushing the `vX.Y.Z` tag triggers [`publish.yml`](../../workflows/publish.yml),
-   which first proves that the tagged commit belongs to `origin/main`, validates
-   the same release metadata again, then publishes to npm via OIDC trusted
-   publishing with automatic provenance and the reviewed changelog section as
-   the GitHub Release notes. No `npm login`, no token. Before pushing, confirm
-   the live `v*` tag rules still restrict release-tag creation to the release
-   authority and prevent updates or deletion. The candidate job builds one
-   hosted archive; it becomes authoritative only after the recovery and
-   publication gates accept it. Retain its run-summary digest, runner, and
+   which proves that the tagged commit belongs to `origin/main`, validates the
+   metadata, builds and tests one hosted archive, stages those exact bytes
+   through OIDC, records the stage identity, and prepares a complete GitHub
+   Release draft. No `npm login`, no token. Before pushing, confirm the live
+   `v*` tag rules still restrict creation and prevent updates or deletion.
+   Retain the successful run ID, stage ID, run-summary digest, runner, and
    Node/npm toolchain evidence.
-6. **Verify** the exact version is live, confirm the npm provenance/signature
+6. **Review and approve npm with maintainer 2FA.** Do not approve from a failed
+   tag run. Confirm the source run succeeded and the draft contains the exact
+   `.tgz` and `.intoto.jsonl`, then inspect the recorded stage:
+   ```bash
+   npm stage view <stage-id>
+   npm stage download <stage-id>
+   sha256sum "commitment-issues-<version>-<stage-id>.tgz"
+   npm stage approve <stage-id>
+   ```
+   Compare the downloaded tarball's SHA-1/SHA-256 with the durable stage record
+   before approval. npm prompts for 2FA and makes the exact staged version
+   public.
+7. **Dispatch the GitHub-only finalizer.** In the `Publish Package` workflow,
+   choose **Run workflow** and supply the exact `release_tag`, successful tag
+   `source_run_id`, and approved `stage_id`. The finalizer has no npm
+   publication authority. It proves npm now contains the expected bytes and
+   provenance, then publishes the already-complete GitHub draft.
+8. **Verify** the exact version is live, confirm the npm provenance/signature
    surfaces, confirm the GitHub Release contains both `.tgz` and
    `.intoto.jsonl`, compare the npm and GitHub tarballs, and run the independent
    SLSA verifier. Follow [`docs/release-verification.md`](../../../docs/release-verification.md),
@@ -110,8 +149,8 @@ byte-identical. See the separate archive and extracted-tree comparisons in
    ```
 
 `main` is protected (strict CI, DCO, review, linear history; squash/rebase
-merges only). Version and changelog changes go through a PR. Pushing the tag
-after that PR merges is the release operation and does not change `main`.
+merges only). Version and changelog changes go through a PR. Pushing the tag,
+approving the npm stage, and dispatching the finalizer do not change `main`.
 
 ## Partial-publication recovery
 
@@ -125,25 +164,29 @@ immediately rerun it. First record the version, run ID, tag commit, workflow job
 results, npm state, npm dist-tags, and GitHub Release state. Classify the
 failure at the external boundaries below:
 
-| Observed state                                                                                                                                                                                                                              | Recovery                                                                                                                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before npm: the exact version is absent from npm and no GitHub Release, including a draft, exists                                                                                                                                           | Retry the same run only when the failure is transient and the tagged source and workflow need no edits. Otherwise fix through a normal pull request and release a new patch.                                      |
-| After npm: npm contains the exact expected artifact and provenance, `latest` still names this version, and the GitHub Release is absent or remains an unpublished draft with the exact reviewed title/body and no assets or an exact subset | Prefer rerunning only failed jobs. A full rerun is allowed only when the tagged workflow needs no edits, rebuilt source and bytes match, and any draft does not already contain provenance from the original run. |
-| Complete: npm and the immutable GitHub Release contain the exact tarball and matching provenance, validated `vX.Y.Z` title, and reviewed changelog body                                                                                     | Do nothing. Verification is idempotent; publication is complete.                                                                                                                                                  |
-| Inconsistent: a lookup is unavailable, source or digest differs, an unexpected asset exists, or a published release is empty or partial outside the fixed historical ledger                                                                 | Fail closed. Preserve every public identifier, record the incident, and fix forward with a new patch.                                                                                                             |
+| Observed state | Required evidence                                                                                                                                                                     | Recovery                                                                                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Before stage   | The exact npm version is absent, there is no stage record, and no GitHub Release or draft exists.                                                                                     | A failed-job retry is allowed only for a transient failure before `npm stage publish`. If the workflow needs edits, fix forward with a new patch.                                                |
+| Staged         | The exact immutable stage record exists; npm is not public; the complete draft may be absent while the tag run is still running or must contain the exact two assets before approval. | Resume only the failed downstream job in the same source run. Never fully rerun the stage job or create a second stage. Review the successful source run and complete draft before 2FA approval. |
+| After npm      | npm contains the exact staged bytes and provenance, `latest` names the candidate, and one complete exact GitHub draft exists.                                                         | Run or rerun the explicit finalizer with the exact source run and stage IDs. It treats npm as read-only and publishes only the draft.                                                            |
+| Complete       | npm and the immutable GitHub Release contain the exact tarball and matching provenance, validated title, and reviewed changelog body.                                                 | Do nothing. Verification and the finalizer are idempotent.                                                                                                                                       |
+| Inconsistent   | A lookup is unavailable; source, run, stage ID, digest, provenance, tag, notes, or assets differ; or a published release is partial.                                                  | Fail closed. Preserve every identity, record the incident, and fix forward with a new patch.                                                                                                     |
 
-GitHub recommends creating a draft, attaching every asset, and only then
-publishing it. The final job cryptographically verifies its local SLSA bundle
-before inspecting or publishing the draft. The draft title and body must match
-the validated tag and reviewed changelog section, and every existing draft asset
-must be byte-identical to that locally verified artifact. An empty draft or
-exact tarball-only subset may resume through an exact full rerun. If the draft
-already contains provenance, only a failed-job rerun retaining that original
-provenance artifact may resume; a full rerun produces a new signed bundle and
-must stop in favor of a new patch. A published release is immutable in this
-repository; an empty or partial published release cannot be repaired by adding,
-deleting, or replacing assets. The only empty-body exceptions are the fixed
-v3.3.0 and v3.3.2 observations in `.github/release-history.json`.
+The complete draft is a precondition for human npm approval, not downstream
+cleanup. Its title and body must match the validated tag and reviewed changelog
+section, and both assets must be byte-identical to the retained candidate and
+signed provenance. The successful tag run uploads those three immutable
+finalizer inputs (tarball, provenance, and stage record) together. The
+finalizer downloads them only from the recorded successful `push` run and
+verifies that run's tag, commit, workflow path, attempt, repository, and
+conclusion before it inspects npm or publishes the draft.
+
+Do not fully rerun a tag workflow after `npm stage publish` succeeds: npm stages
+share the version uniqueness boundary with public releases. Prefer a failed-job
+rerun that retains the original stage record and provenance. If staging
+succeeded but the durable record cannot be recovered, stop and inspect the npm
+stage with the owner account; reject or otherwise resolve it explicitly, then
+fix forward. Never guess a stage ID or stage the same version again.
 
 ### Recovery checks and retry
 
@@ -165,9 +208,11 @@ gh release view "v$VERSION" \
   --json name,body,isDraft,isImmutable,targetCommitish,assets,url
 ```
 
-During the initial classifier, an exact-version npm `E404` means the npm
-boundary was not crossed. After publication, the `--require-npm` confirmation
-allows only exact-version and exact-attestation HTTP 404 responses to propagate:
+Before staging, an exact-version npm `E404` proves only that the version is not
+public; the absence of a durable stage record and any draft is also required
+for the `before-stage` state. After 2FA approval, the finalizer's
+`--require-npm` confirmation allows only exact-version and exact-attestation
+HTTP 404 responses to propagate:
 it retries with 1, 2, 4, 8, 15, and 15 second backoffs inside a hard 60-second
 deadline. Every successful response is still checked against the retained
 tarball, package identity, `latest`, repository, workflow, tag, and commit.
@@ -181,23 +226,20 @@ generic SLSA subject uses SHA-256. Download the exact registry tarball and hash
 its bytes before comparing it with the rebuilt or retained workflow artifact;
 do not compare the encoded integrity strings across algorithms.
 
-When every check matches, prefer rerunning only failed jobs so a successful npm
-job remains untouched:
+Before the stage boundary, or for a downstream failure that retains the
+original stage record and provenance, rerun only failed jobs:
 
 ```bash
 gh run rerun "$RUN_ID" --failed
 ```
 
-A full rerun (`gh run rerun "$RUN_ID"`) is acceptable only when the tagged
-workflow needs no change and its `tools/release-recovery.mjs` gate classifies
-the existing npm artifact as the exact rebuilt artifact from the exact tagged
-source. `latest` must still name the candidate, and a draft must not already
-contain provenance from the original attempt. The gate must set npm publication
-to a no-op; publishing an existing `package@version` again is never a recovery
-action. If the original signed provenance is required, use a failed-job rerun
-that retains it. If neither a retained artifact nor a byte-identical rebuild is
-available, the rebuild does not match, or a code/workflow change is required,
-create a new patch release instead.
+Do not use a full rerun after the stage command succeeds. The stage ID and
+signed artifacts belong to the original tag run, and rerunning the stage job
+would attempt to consume the same npm version again. After npm approval, rerun
+the separate `workflow_dispatch` finalizer with the exact original source run
+and stage IDs; it cannot stage or publish npm. If the retained inputs are
+unavailable, differ, or require a workflow change, preserve the consumed tag
+and version and create a new patch instead.
 
 ### npm dist-tags and incomplete versions
 
@@ -257,23 +299,27 @@ npm-only path as a complete signed release.
   `origin/main`. Live tag rules are the external authority boundary: keep `v*`
   creation restricted to the release manager and keep consumed tags
   non-updatable and non-deletable.
-- **Trusted publishing requires npm ≥ 11.5.1 and `id-token: write`.** `publish.yml` verifies the bundled npm version and sets the permission; it does not self-update npm during a release. If a publish job errors with an OIDC/authentication message, confirm the trusted publisher is registered on npm for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`.
+- **Staged trusted publishing requires Node ≥ 22.14.0, npm ≥ 11.15.0,
+  and `id-token: write`.** `publish.yml` pins Node 24.18.0 (npm 11.16.0),
+  verifies both floors, and grants OIDC only to the stage job. If staging fails
+  with an OIDC/authentication message, confirm the trusted publisher is
+  registered for repo `RoryGlenn/commitment-issues` + workflow `publish.yml`
+  and allows stage publish but disallows direct publish.
 - **Never recover by moving a tag or republishing an npm version.** An exact
   same-run retry may finish work that has not crossed an external boundary, or
   may resume downstream work after the recovery gate treats an exact existing
   npm artifact as a no-op. Any mismatch requires a new patch. A local or remote
   tag may be deleted only if no workflow has consumed it and no GitHub Release
   or npm version exists.
-- **Immutable release assets must be uploaded together before publication.**
+- **Immutable release assets must be uploaded together before npm approval.**
   Keep the SLSA generator's `upload-assets` input disabled, download its signed
-  provenance artifact beside the packed tarball, and let one Node 24 release
-  action upload both files before it finalizes the draft. A later job cannot
-  add or replace assets on the published release. The SLSA caller must still
-  grant `contents: write`: its reusable workflow declares a nested upload job,
-  and GitHub validates that permission contract even when the input skips the
-  job. Changes to `publish.yml` or its ancestry helper run the harmless
-  pull-request validation job so GitHub checks this external contract before
-  merge.
+  provenance artifact beside the packed tarball, and let one Node 24 action
+  create the complete draft. The GitHub-only finalizer publishes that existing
+  draft without adding or replacing assets. The SLSA caller must still grant
+  `contents: write`: its reusable workflow declares a nested upload job, and
+  GitHub validates that permission contract even when the input skips the job.
+  Changes to `publish.yml` or its release helpers run the harmless pull-request
+  validation job so GitHub checks this external contract before merge.
 - **Publishing a tarball does not run this root package's `prepublishOnly`.** The
   automated and manual flows run `npm test`, pack once, and then pass that exact
   `.tgz` to `npm run test:lifecycle:npm -- --tarball ...` before hashing or

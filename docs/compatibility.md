@@ -92,7 +92,7 @@ SHA-256 values are pinned in the
 [release audit](https://github.com/RoryGlenn/commitment-issues/blob/main/docs/audits/release-packaging-and-upgrades.md#pinned-upgrade-fixtures).
 The required pull-request boundary is npm on Ubuntu/Node 24. A read-only release
 candidate job reruns that npm migration against the exact tarball, then hands
-the artifact and its hash to the separate OIDC-enabled publish job. Weekly
+the artifact and its hash to the separate OIDC-enabled stage job. Weekly
 repository health exercises pnpm 10, Yarn Classic 1.22.22, and Bun 1.3.14.
 Every path preserves project-owned `prepare` logic and custom hooks, while
 changing exact generated artifacts only.

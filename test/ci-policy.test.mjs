@@ -142,13 +142,14 @@ test("workflows keep a least-privilege, pinned action baseline", () => {
     },
     "publish.yml": {
       candidate: { contents: "read" },
+      finalize: { actions: "read", contents: "write" },
+      "prepare-draft": { contents: "write" },
       provenance: {
         actions: "read",
         contents: "write",
         "id-token": "write",
       },
-      publish: { contents: "read", "id-token": "write" },
-      "publish-release": { contents: "write" },
+      stage: { contents: "read", "id-token": "write" },
       validate: { contents: "read" },
     },
     "scorecard.yml": {
@@ -650,7 +651,7 @@ test("package publications use GitHub's maximum non-cancelling queue", () => {
 
   assert.match(
     workflow,
-    /^\s+group: publish-\$\{\{ github\.event_name == 'push' && 'package' \|\| github\.ref \}\}\s*$/mu,
+    /^\s+group: publish-\$\{\{ github\.event_name == 'pull_request' && github\.ref \|\| 'package' \}\}\s*$/mu,
   );
   assert.match(workflow, /^\s+cancel-in-progress: false\s*$/mu);
   assert.match(workflow, /^\s+queue: max\s*$/mu);
@@ -674,16 +675,17 @@ test("publish shell scripts receive generated names through the environment", ()
   );
   assert.match(
     workflow,
-    /name: Classify release recovery state\s+id: recovery\s+env:[\s\S]*?TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"/su,
+    /name: Require the before-stage recovery state\s+env:[\s\S]*?TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: >-\s+node tools\/release-recovery\.mjs\s+--tarball "\$TARBALL"\s+--expect-state before-stage/su,
   );
   assert.match(
     workflow,
-    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/su,
+    /name: Stage exact tested tarball on npm\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: >-\s+npm stage publish "\.\/\$TARBALL"[\s\S]*?--json/su,
   );
   assert.doesNotMatch(
     workflow,
-    /(?:--tarball|sha256sum|npm publish)[^\n]*\$\{\{ steps\.pack\.outputs\.tarball \}\}/u,
+    /(?:--tarball|sha256sum|npm (?:stage publish|publish))[^\n]*\$\{\{ (?:steps\.pack|needs\.candidate)\.outputs\.tarball \}\}/u,
   );
+  assert.doesNotMatch(workflow, /(^|\s)npm publish(?:\s|$)/mu);
 });
 
 test("Dependabot covers npm and workflow dependencies on a bounded cadence", () => {

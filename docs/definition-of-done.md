@@ -63,8 +63,12 @@ when it delivers this promise reliably within its documented scope.
   claims, and owned by a linked follow-up issue.
 - README instructions, examples, message states, and promotional media describe
   behavior available in that release.
-- Trusted publishing, npm provenance, the GitHub release assets, and independent
-  verification succeed as documented in
+- The live npm trusted publisher is stage-only, traditional publishing tokens
+  are disallowed, and the successful tag run records the exact stage identity
+  and Node/npm toolchain and prepares the complete two-asset GitHub draft before
+  maintainer approval.
+- Maintainer 2FA approval, npm provenance, the GitHub-only finalizer, immutable
+  release assets, and independent verification succeed as documented in
   [Release Verification](release-verification.md).
 - No Critical or High finding remains open. Every remaining Medium finding has
   an explicit acceptance or deferral decision and a tracking issue.

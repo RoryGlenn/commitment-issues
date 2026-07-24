@@ -95,14 +95,16 @@ production-readiness workstream #130 is consolidated in the
 - **PKG-011** — the publish workflow packs once, lifecycle-tests the exact
   tarball, confirms its CLI bin/shebang/version on every platform and normalized
   0755/0644 file modes on POSIX/release producers, then hashes, uploads, and
-  publishes that unchanged artifact. The hosted pack becomes the authoritative
-  byte-level candidate only after the recovery/publication gates accept it, and
-  its run summary keeps the SHA-256, source, tag, runner OS/image, and exact
-  Node/npm toolchain together without blessing a rejected rebuild. Local packs
-  qualify tree contents and behavior without promising cross-toolchain
-  archive-byte identity. Windows lanes retain platform-relevant bin-shim,
-  installability, and digest checks. SLSA generation remains separate, and one
-  final immutable-release uploader owns the tarball and provenance.
+  stages that unchanged artifact. Before maintainer 2FA approval, the workflow
+  prepares a complete exact GitHub draft and durable stage record. The hosted
+  pack becomes the authoritative byte-level candidate only after the
+  recovery/publication gates accept it, and its run summary keeps the SHA-256,
+  source, tag, runner OS/image, and exact Node/npm toolchain together without
+  blessing a rejected rebuild. Local packs qualify tree contents and behavior
+  without promising cross-toolchain archive-byte identity. Windows lanes retain
+  platform-relevant bin-shim, installability, and digest checks. SLSA generation
+  remains separate, and an npm-incapable finalizer publishes only the already
+  complete draft.
   Unit/invariant:
   `test/release-integrity.test.mjs`; integration:
   `test/integration/lifecycle-manager.test.mjs` and
@@ -117,21 +119,21 @@ production-readiness workstream #130 is consolidated in the
   release-capable work unless their commit is an ancestor of `origin/main`.
   Repository tag rules remain the external release-authority boundary.
   Unit/fixture: `test/release-integrity.test.mjs`; tracking: #94.
-- **PKG-015** — partial-publication recovery distinguishes `before-npm`,
-  `after-npm`, and `complete` states; inconsistent or unavailable evidence and
-  source/digest mismatches fail closed. Before-npm requires no GitHub draft or
-  release, and incomplete recovery requires `latest` to remain on the candidate.
-  Post-publication confirmation polls only exact-version and exact-attestation
-  HTTP 404 propagation with deterministic backoff inside a hard 60-second
-  deadline; other statuses, malformed data, and mismatches remain terminal.
-  The final job cryptographically verifies local SLSA provenance; every existing
-  draft asset must be byte-identical, so a draft containing provenance can
-  resume only through a failed-job rerun retaining the original bundle.
-  Published partial releases cannot resume. Registry metadata changes and
-  unpublish remain outside automation. Mocked unit: `test/release-recovery.test.mjs`;
-  workflow invariant:
-  `test/release-integrity.test.mjs`; classifier: `tools/release-recovery.mjs`;
-  tracking: #183 and #234.
+- **PKG-015** — partial-publication recovery distinguishes `before-stage`,
+  `staged`, `after-npm`, and `complete`; inconsistent or unavailable evidence
+  and source/run/stage/digest mismatches fail closed. The immutable stage record
+  binds exact package bytes and tag source to one workflow run/attempt. Approval
+  requires a complete exact draft, and the explicit finalizer validates the
+  successful source run, exact approved stage ID, npm provenance, and retained
+  artifacts while holding no npm publishing authority. Post-approval checks
+  poll only exact-version and exact-attestation HTTP 404 propagation inside a
+  hard 60-second deadline. Full tag reruns after staging, published partial
+  release repair, registry metadata changes, and unpublish remain outside
+  automation. Mocked unit: `test/release-recovery.test.mjs` and
+  `test/release-stage.test.mjs`; workflow invariant:
+  `test/release-integrity.test.mjs`; classifiers:
+  `tools/release-recovery.mjs` and `tools/release-stage.mjs`; tracking: #183,
+  #234, and #236.
 - **PKG-016** — release validation requires `package.json`, both root lockfile
   version records, the exact `vX.Y.Z` tag, one dated changelog section, the
   GitHub Release title, and its non-empty reviewed body to agree. The final

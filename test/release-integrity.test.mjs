@@ -49,7 +49,7 @@ test("publish workflow verifies canonical mainline before dependency or release 
   const workflow = readText(".github/workflows/publish.yml");
   const candidateJob = workflow.slice(
     workflow.indexOf("\n  candidate:"),
-    workflow.indexOf("\n  publish:"),
+    workflow.indexOf("\n  stage:"),
   );
   const ancestryGate = candidateJob.indexOf(
     "- name: Verify release commit belongs to reviewed mainline",
@@ -147,7 +147,7 @@ test("release ancestry rule accepts reviewed mainline and rejects an off-main co
   );
 });
 
-test("publish workflow gates and publishes one immutable release", () => {
+test("publish workflow stages, reviews, and finalizes one immutable release", () => {
   const workflow = readText(".github/workflows/publish.yml");
   const pullRequestTrigger = workflow.slice(
     workflow.indexOf("  pull_request:"),
@@ -159,26 +159,21 @@ test("publish workflow gates and publishes one immutable release", () => {
   );
   const candidateJob = workflow.slice(
     workflow.indexOf("\n  candidate:"),
-    workflow.indexOf("\n  publish:"),
+    workflow.indexOf("\n  stage:"),
   );
-  const publishJob = workflow.slice(
-    workflow.indexOf("\n  publish:"),
+  const stageJob = workflow.slice(
+    workflow.indexOf("\n  stage:"),
     workflow.indexOf("\n  provenance:"),
-  );
-  const initialRecoveryStep = publishJob.slice(
-    publishJob.indexOf("- name: Classify release recovery state"),
-    publishJob.indexOf("- name: Upload tarball artifact"),
-  );
-  const confirmationStep = publishJob.slice(
-    publishJob.indexOf("- name: Confirm npm publication boundary"),
   );
   const provenanceJob = workflow.slice(
     workflow.indexOf("\n  provenance:"),
-    workflow.indexOf("\n  publish-release:"),
+    workflow.indexOf("\n  prepare-draft:"),
   );
-  const publishReleaseJob = workflow.slice(
-    workflow.indexOf("\n  publish-release:"),
+  const prepareDraftJob = workflow.slice(
+    workflow.indexOf("\n  prepare-draft:"),
+    workflow.indexOf("\n  finalize:"),
   );
+  const finalizerJob = workflow.slice(workflow.indexOf("\n  finalize:"));
   const testStep = workflow.indexOf("- run: npm test");
   const lifecycleGate = workflow.indexOf(
     "- name: Verify exact npm package lifecycle",
@@ -187,35 +182,49 @@ test("publish workflow gates and publishes one immutable release", () => {
     "- name: Verify exact npm upgrade migration",
   );
   const packStep = workflow.indexOf("- name: Pack tarball");
-  const recoveryGate = workflow.indexOf(
-    "- name: Classify release recovery state",
+  const beforeStageGate = workflow.indexOf(
+    "- name: Require the before-stage recovery state",
   );
-  const publishStep = workflow.indexOf("- name: Publish to npm");
-  const confirmRecoveryGate = workflow.indexOf(
-    "- name: Confirm npm publication boundary",
+  const stageStep = workflow.indexOf(
+    "- name: Stage exact tested tarball on npm",
   );
-  const provenanceDownload = workflow.indexOf(
-    "- name: Download provenance artifact",
+  const stageRecord = workflow.indexOf(
+    "- name: Record immutable npm stage identity",
   );
-  const provenanceVerification = workflow.indexOf(
+  const draftVerification = workflow.indexOf(
     "- name: Cryptographically verify signed provenance",
   );
-  const finalRecoveryGate = workflow.indexOf(
-    "- name: Revalidate release draft and assets",
+  const draftStep = workflow.indexOf(
+    "- name: Create complete GitHub Release draft",
   );
-  const releaseNotesGate = workflow.indexOf(
-    "- name: Generate reviewed release notes",
+  const preparedDraftGate = workflow.indexOf(
+    "- name: Require the complete exact draft",
   );
-  const releaseStep = workflow.indexOf(
-    "- name: Publish immutable release with all assets",
+  const approvalInstructions = workflow.indexOf(
+    "- name: Show maintainer approval instructions",
+  );
+  const npmApprovalGate = workflow.indexOf(
+    "- name: Require npm approval and exact prepared draft",
+  );
+  const finalReleaseStep = workflow.indexOf(
+    "- name: Publish the prepared GitHub Release draft",
+  );
+  const completionGate = workflow.indexOf(
+    "- name: Confirm immutable release completion",
   );
 
   assert.notEqual(lifecycleGate, -1);
   assert.notEqual(migrationGate, -1);
   assert.notEqual(packStep, -1);
-  assert.notEqual(recoveryGate, -1);
-  assert.notEqual(publishStep, -1);
-  assert.notEqual(confirmRecoveryGate, -1);
+  assert.notEqual(beforeStageGate, -1);
+  assert.notEqual(stageStep, -1);
+  assert.notEqual(stageRecord, -1);
+  assert.notEqual(draftStep, -1);
+  assert.notEqual(preparedDraftGate, -1);
+  assert.notEqual(approvalInstructions, -1);
+  assert.notEqual(npmApprovalGate, -1);
+  assert.notEqual(finalReleaseStep, -1);
+  assert.notEqual(completionGate, -1);
   assert.match(
     candidateJob,
     /runs-on: ubuntu-latest/,
@@ -225,9 +234,15 @@ test("publish workflow gates and publishes one immutable release", () => {
     testStep < packStep &&
       packStep < lifecycleGate &&
       lifecycleGate < migrationGate &&
-      migrationGate < recoveryGate &&
-      recoveryGate < publishStep,
-    "the release tarball must be packed once, lifecycle-tested, migration-tested, classified, and then conditionally published",
+      migrationGate < beforeStageGate &&
+      beforeStageGate < stageStep &&
+      stageStep < stageRecord &&
+      draftVerification < draftStep &&
+      draftStep < preparedDraftGate &&
+      preparedDraftGate < approvalInstructions &&
+      npmApprovalGate < finalReleaseStep &&
+      finalReleaseStep < completionGate,
+    "the exact candidate must pass every gate before staging, approval, and finalization",
   );
   assert.equal(
     npmPackInvocations(candidateJob).length,
@@ -235,9 +250,10 @@ test("publish workflow gates and publishes one immutable release", () => {
     "the candidate job must contain only one npm pack command, regardless of its flags",
   );
   assert.equal(
-    npmPackInvocations(publishJob).length,
+    npmPackInvocations(`${stageJob}\n${prepareDraftJob}\n${finalizerJob}`)
+      .length,
     0,
-    "the privileged publish job must consume rather than rebuild the candidate",
+    "every job after candidate construction must consume rather than rebuild it",
   );
   assert.equal(
     npmPackInvocations(`${candidateJob}\nrun: npm --silent pack`).length,
@@ -260,15 +276,17 @@ test("publish workflow gates and publishes one immutable release", () => {
     /name: Verify exact npm upgrade migration\s+env:\s+TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}\s+run: node tools\/run-migration-lifecycle-test\.mjs npm --tarball "\$TARBALL"/,
   );
 
-  assert.match(
-    workflow,
-    /name: Publish to npm\s+if: steps\.recovery\.outputs\.publish_npm == 'true'\s+env:\s+TARBALL: \$\{\{ needs\.candidate\.outputs\.tarball \}\}\s+run: npm publish "\.\/\$TARBALL" --access public/,
-  );
   assert.equal(
-    workflow.match(/npm publish "\.\/\$TARBALL" --access public/gu)?.length ??
-      0,
+    workflow.match(
+      /npm stage publish "\.\/\$TARBALL"[\s\S]*?--access public[\s\S]*?--tag latest[\s\S]*?--provenance[\s\S]*?--json/gu,
+    )?.length ?? 0,
     1,
-    "the workflow must contain exactly one guarded npm publish command",
+    "the workflow must stage the exact tested tarball exactly once",
+  );
+  assert.doesNotMatch(
+    workflow,
+    /(^|\s)npm publish(?:\s|$)/mu,
+    "automation must never publish directly to npm",
   );
   for (const releaseInput of [
     ".github/workflows/publish.yml",
@@ -276,8 +294,10 @@ test("publish workflow gates and publishes one immutable release", () => {
     "CHANGELOG.md",
     "package.json",
     "package-lock.json",
+    "tools/lib/release-artifact.mjs",
     "tools/release-preflight.mjs",
     "tools/release-recovery.mjs",
+    "tools/release-stage.mjs",
     "tools/validate-release-metadata.mjs",
   ]) {
     assert.match(
@@ -290,49 +310,38 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.match(validateJob, /permissions:\s+contents: read/u);
   assert.match(validateJob, /uses: actions\/checkout@[0-9a-f]{40} # v7/u);
   assert.match(validateJob, /persist-credentials: false/u);
-  assert.match(validateJob, /node-version: "24"/u);
+  assert.match(validateJob, /node-version: "24\.18\.0"/u);
   assert.match(
     validateJob,
     /name: Confirm release workflow validation\s+run: npm run release:validate/u,
   );
   assert.match(
     workflow,
-    /publish:[\s\S]*?if: github\.event_name == 'push'/,
-    "publishing must remain disabled during pull-request validation",
+    /workflow_dispatch:[\s\S]*?release_tag:[\s\S]*?source_run_id:[\s\S]*?stage_id:/u,
+    "the finalizer must require all three immutable handoff identifiers",
   );
   assert.match(
     workflow,
     /name: Record hosted candidate identity[\s\S]*?TARBALL: \$\{\{ steps\.pack\.outputs\.tarball \}\}[\s\S]*?sha256sum "\$TARBALL"/,
   );
   assert.match(
-    publishJob,
-    /outputs:[\s\S]*?release_needed: \$\{\{ steps\.confirm_recovery\.outputs\.release_needed \}\}/,
-  );
-  assert.match(
     candidateJob,
     /permissions:\s+contents: read[\s\S]*?Verify exact npm upgrade migration/,
   );
   assert.doesNotMatch(candidateJob, /id-token:\s+write/);
-  assert.doesNotMatch(publishJob, /(?:npm ci|run-migration-lifecycle-test)/);
+  assert.doesNotMatch(stageJob, /(?:npm ci|run-migration-lifecycle-test)/);
   assert.match(
-    publishJob,
+    stageJob,
     /needs: \[candidate\][\s\S]*?id-token: write[\s\S]*?Download verified release candidate[\s\S]*?Verify release candidate handoff/,
   );
   assert.match(
-    publishJob,
-    /name: Classify release recovery state\s+id: recovery[\s\S]*?run: node tools\/release-recovery\.mjs/,
-  );
-  assert.doesNotMatch(initialRecoveryStep, /--require-npm/);
-  assert.match(confirmationStep, /--require-npm/);
-  assert.match(
-    publishJob,
-    /name: Classify release recovery state[\s\S]*?run: node tools\/release-recovery\.mjs --tarball "\$TARBALL"[\s\S]*?name: Publish to npm[\s\S]*?npm publish "\.\/\$TARBALL" --access public[\s\S]*?name: Confirm npm publication boundary[\s\S]*?--require-npm/,
-    "the post-publication confirmation enables bounded npm propagation polling",
+    stageJob,
+    /name: Require the before-stage recovery state[\s\S]*?--expect-state before-stage[\s\S]*?name: Stage exact tested tarball on npm[\s\S]*?name: Record immutable npm stage identity[\s\S]*?node_version="\$\(node -p 'process\.versions\.node'\)"[\s\S]*?npm_version="\$\(npm --version\)"[\s\S]*?--run-id "\$GITHUB_RUN_ID"[\s\S]*?--node-version "\$node_version"[\s\S]*?--npm-version "\$npm_version"[\s\S]*?name: Confirm the staged recovery state[\s\S]*?--expect-state staged/u,
   );
   assert.match(
-    publishJob,
-    /name: Upload tarball artifact\s+if: steps\.recovery\.outputs\.release_needed == 'true'[\s\S]*?overwrite: true/,
-    "an exact full rerun may replace only its ephemeral Actions artifact",
+    stageJob,
+    /name: Upload staged release candidate[\s\S]*?npm-stage-record\.json[\s\S]*?retention-days: 30/u,
+    "the exact stage identity and tarball must survive the human approval boundary",
   );
   assert.match(workflow, /path:\s+\$\{\{ steps\.pack\.outputs\.tarball \}\}/);
   assert.match(workflow, /upload-assets:\s+false/);
@@ -340,66 +349,95 @@ test("publish workflow gates and publishes one immutable release", () => {
   assert.doesNotMatch(workflow, /upload-tag-name:/);
   assert.match(
     provenanceJob,
-    /if: needs\.publish\.outputs\.release_needed == 'true'[\s\S]*?contents:\s+write/,
+    /needs: \[candidate\][\s\S]*?if: github\.event_name == 'push'[\s\S]*?contents:\s+write/u,
     "GitHub requires the caller to grant the reusable SLSA workflow's declared permission even when its upload job is skipped",
   );
-  assert.match(workflow, /needs:\s+\[publish, provenance\]/);
   assert.match(
-    workflow,
-    /publish-release:[\s\S]*?if: needs\.publish\.outputs\.release_needed == 'true'/,
+    prepareDraftJob,
+    /needs: \[candidate, stage, provenance\][\s\S]*?if: github\.event_name == 'push'/u,
   );
   assert.match(
-    workflow,
+    prepareDraftJob,
     /name:\s+\$\{\{ needs\.provenance\.outputs\.provenance-name \}\}/,
   );
-  assert.match(workflow, /draft:\s+false/);
   assert.match(
-    publishReleaseJob,
-    /uses: actions\/setup-node@[0-9a-f]{40} # v7[\s\S]*?node-version: "24"/u,
-    "the final recovery and note generator must run on the pinned release runtime",
+    prepareDraftJob,
+    /name: Verify release candidate handoff\s+working-directory: release-assets[\s\S]*?sha256sum --check/u,
+    "the candidate hash must be checked from the directory where the staged artifact is downloaded",
   );
-  assert.match(workflow, /name:\s+\$\{\{ github\.ref_name \}\}/u);
-  assert.match(workflow, /body_path:\s+release-notes\.md/u);
-  assert.doesNotMatch(workflow, /generate_release_notes:/u);
-  assert.match(workflow, /overwrite_files:\s+false/);
   assert.match(
-    workflow,
-    /name: Revalidate release draft and assets\s+id: final_recovery[\s\S]*?--provenance release-assets\/\*\.intoto\.jsonl[\s\S]*?--require-npm[\s\S]*?name: Generate reviewed release notes[\s\S]*?npm run release:validate -- --tag "\$RELEASE_TAG" --notes-file release-notes\.md[\s\S]*?name: Publish immutable release with all assets\s+if: steps\.final_recovery\.outputs\.state != 'complete'/,
+    prepareDraftJob,
+    /name: Create complete GitHub Release draft[\s\S]*?draft: true[\s\S]*?overwrite_files: false[\s\S]*?release-assets\/\*\.tgz[\s\S]*?release-assets\/\*\.intoto\.jsonl/u,
+  );
+  assert.match(
+    prepareDraftJob,
+    /name: Require the complete exact draft[\s\S]*?--stage-record release-assets\/npm-stage-record\.json[\s\S]*?--expect-state staged[\s\S]*?--require-prepared-draft[\s\S]*?name: Upload immutable finalizer inputs[\s\S]*?name: Show maintainer approval instructions/u,
+    "approval instructions must not appear until the complete draft and durable finalizer inputs exist",
   );
   assert.match(
     workflow,
     /slsa-framework\/slsa-verifier\/actions\/installer@[0-9a-f]{40} # v2\.7\.1/,
   );
   assert.match(
-    workflow,
+    prepareDraftJob,
     /name: Cryptographically verify signed provenance[\s\S]*?slsa-verifier verify-artifact release-assets\/\*\.tgz[\s\S]*?--source-uri github\.com\/RoryGlenn\/commitment-issues[\s\S]*?--source-tag "\$RELEASE_TAG"/,
   );
-  assert.match(workflow, /release-assets\/\*\.tgz/);
-  assert.match(workflow, /release-assets\/\*\.intoto\.jsonl/);
   assert.equal(
     workflow.match(/softprops\/action-gh-release/g)?.length,
     1,
-    "one action must upload every asset before the release is finalized",
+    "one action must prepare every release asset before human approval",
   );
   assert.match(
     workflow,
     /softprops\/action-gh-release@[0-9a-f]+ # v3\./,
-    "the only release uploader must use the Node 24 action line",
+    "the release draft uploader must use the Node 24 action line",
   );
-  assert.ok(
-    recoveryGate < publishStep &&
-      publishStep < confirmRecoveryGate &&
-      confirmRecoveryGate < provenanceDownload &&
-      provenanceDownload < provenanceVerification &&
-      provenanceVerification < finalRecoveryGate &&
-      finalRecoveryGate < releaseNotesGate &&
-      releaseNotesGate < releaseStep &&
-      finalRecoveryGate < releaseStep,
-    "npm publication, provenance verification, state classification, and reviewed release-note generation must finish before one release action publishes the assets",
+  assert.match(
+    finalizerJob,
+    /if: github\.event_name == 'workflow_dispatch'[\s\S]*?permissions:\s+actions: read[\s\S]*?contents: write/u,
   );
+  assert.match(
+    finalizerJob,
+    /ref: refs\/tags\/\$\{\{ inputs\.release_tag \}\}[\s\S]*?name: Download prepared finalizer inputs[\s\S]*?run-id: \$\{\{ inputs\.source_run_id \}\}/u,
+  );
+  assert.match(
+    finalizerJob,
+    /name: Require npm approval and exact prepared draft[\s\S]*?EXPECTED_STAGE_ID: \$\{\{ inputs\.stage_id \}\}[\s\S]*?SOURCE_RUN_ID: \$\{\{ inputs\.source_run_id \}\}[\s\S]*?--source-run-id "\$SOURCE_RUN_ID"[\s\S]*?--expected-stage-id "\$EXPECTED_STAGE_ID"[\s\S]*?--require-npm[\s\S]*?--expect-state after-npm[\s\S]*?--expect-state complete/u,
+  );
+  assert.match(
+    finalizerJob,
+    /name: Publish the prepared GitHub Release draft[\s\S]*?if: steps\.recovery\.outputs\.finalize_release == 'true'[\s\S]*?gh api[\s\S]*?--method PATCH[\s\S]*?-F draft=false/u,
+  );
+  assert.match(
+    finalizerJob,
+    /name: Confirm immutable release completion[\s\S]*?--require-npm[\s\S]*?--expect-state complete/u,
+  );
+  assert.doesNotMatch(finalizerJob, /id-token:\s+write/u);
+  assert.doesNotMatch(finalizerJob, /registry-url:/u);
+  assert.doesNotMatch(
+    finalizerJob,
+    /(?:run:[^\n]*|\n\s+)npm (?:stage|publish)(?:\s|$)/u,
+    "the explicit finalizer must be incapable of staging or publishing npm",
+  );
+  assert.doesNotMatch(finalizerJob, /tools\/release-stage\.mjs/u);
+  assert.doesNotMatch(
+    finalizerJob,
+    /--(?:source-run-id|expected-stage-id) "\$\{\{ inputs\.(?:source_run_id|stage_id) \}\}"/u,
+    "operator-entered finalizer identifiers must reach shell steps only through environment variables",
+  );
+  assert.equal(
+    workflow.match(/node-version: "24\.18\.0"/gu)?.length,
+    5,
+    "all JavaScript release jobs must pin a Node version with npm >= 11.15.0",
+  );
+  assert.match(
+    workflow,
+    /Node >= 22\.14\.0 and npm >= 11\.15\.0 are required/u,
+  );
+  assert.doesNotMatch(workflow, /generate_release_notes:/u);
   assert.doesNotMatch(
     workflow,
-    /npm (?:unpublish|deprecate|dist-tag)|git tag -[df]|gh release delete/,
+    /npm (?:unpublish|deprecate|dist-tag)|git tag -[df]|gh release delete/u,
     "automated recovery must not mutate public identifiers or registry policy",
   );
 });
