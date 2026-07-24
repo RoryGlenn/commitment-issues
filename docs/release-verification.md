@@ -199,13 +199,14 @@ source run, commit, tag, and toolchain. Before approval:
 ```bash
 npm stage view <stage-id>
 npm stage download <stage-id>
-sha256sum "commitment-issues-$VERSION.tgz"
+sha256sum "commitment-issues-$VERSION-<stage-id>.tgz"
 npm stage approve <stage-id>
 ```
 
-Match SHA-256 against the record and complete draft, approve with 2FA, then
-dispatch `Publish Package` with the exact tag, source run ID, and stage ID. Its
-finalizer has no npm authentication.
+Replace `<stage-id>` with the exact recorded UUID in both places. Match SHA-256
+against the record and complete draft, approve with 2FA, then dispatch
+`Publish Package` with the exact tag, source run ID, and stage ID. Its finalizer
+has no npm authentication.
 
 ## GitHub release assets
 

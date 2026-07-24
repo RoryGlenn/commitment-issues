@@ -127,6 +127,7 @@ byte-identical. See the separate archive and extracted-tree comparisons in
    ```bash
    npm stage view <stage-id>
    npm stage download <stage-id>
+   sha256sum "commitment-issues-<version>-<stage-id>.tgz"
    npm stage approve <stage-id>
    ```
    Compare the downloaded tarball's SHA-1/SHA-256 with the durable stage record

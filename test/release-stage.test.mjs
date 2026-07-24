@@ -170,6 +170,11 @@ test("approval instructions identify the exact stage and require 2FA", () => {
   assert.match(summary, new RegExp(`commitment-issues@${VERSION}`, "u"));
   assert.match(summary, new RegExp(`npm stage view ${STAGE_ID}`, "u"));
   assert.match(summary, new RegExp(`npm stage download ${STAGE_ID}`, "u"));
+  assert.ok(
+    summary.includes(
+      `sha256sum "commitment-issues-${VERSION}-${STAGE_ID}.tgz"`,
+    ),
+  );
   assert.match(summary, new RegExp(`npm stage approve ${STAGE_ID}`, "u"));
   assert.match(summary, /explicit maintainer 2FA action/u);
   assert.match(summary, /Node: `24\.18\.0`/u);

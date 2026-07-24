@@ -258,6 +258,7 @@ export function approvalSummary(stageRecord) {
     "```sh",
     `npm stage view ${record.stageId}`,
     `npm stage download ${record.stageId}`,
+    `sha256sum "${record.packageName}-${record.version}-${record.stageId}.tgz"`,
     `npm stage approve ${record.stageId}`,
     "```",
     "",
