@@ -877,6 +877,31 @@ test("batched commands share one timeout across callback and child work", async 
   assert.equal(result.plannedBatchCount, 2);
 });
 
+test("batches without a deadline finish every child despite elapsed time", async (t) => {
+  let now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  const result = await spawnArgumentBatches(
+    process.execPath,
+    [
+      { args: ["-e", "process.stdout.write('first'); process.exit(2)"] },
+      { args: ["-e", "process.stdout.write('second')"] },
+    ],
+    {
+      timeoutMs: null,
+      beforeBatch: () => {
+        now += DEFAULT_TOOL_TIMEOUT_MS + 1;
+      },
+    },
+  );
+
+  assert.equal(result.outcome, "nonzero");
+  assert.equal(result.status, 2);
+  assert.equal(result.timedOut, false);
+  assert.equal(result.stdout, "firstsecond");
+  assert.equal(result.batchCount, 2);
+  assert.equal(result.plannedBatchCount, 2);
+});
+
 test("spawnAsync captures output and resolves a status", async () => {
   const result = await spawnAsync("node", [
     "-e",
@@ -946,6 +971,20 @@ test("spawnAsync enforces Node's maximum timer delay", async () => {
   assert.equal(rejected.outcome, "spawn-error");
   assert.equal(rejected.error?.code, "ERR_OUT_OF_RANGE");
   assert.match(rejected.error?.message ?? "", /2147483647/);
+});
+
+test("spawnAsync rejects invalid deadlines rather than disabling them", async () => {
+  for (const timeoutMs of [0, -1, NaN, Infinity, "1", false]) {
+    const result = await spawnAsync(
+      process.execPath,
+      ["-e", "process.exit(0)"],
+      {
+        timeoutMs,
+      },
+    );
+    assert.equal(result.outcome, "spawn-error");
+    assert.equal(result.error?.code, "ERR_OUT_OF_RANGE");
+  }
 });
 
 test("spawnAsync reports a non-zero status", async () => {
