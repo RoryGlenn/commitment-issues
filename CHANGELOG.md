@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Experimental Go staged checks (repo only).
+
 ### Fixed
 
 - Refresh YAML parsing and development dependencies on compatible versions.

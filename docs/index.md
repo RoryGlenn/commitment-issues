@@ -51,6 +51,8 @@ They are evidence, not living descriptions of later code.
 
 ## Maintainer and audit evidence
 
+- [Experimental Go staged checker](go-readonly-prototype.md) — repository-only
+  read-only Git/text slice, capability limits and validation contract
 - [Definition of Done](definition-of-done.md) — change, release, promotion, and
   feature-complete maintenance-mode gates
 - [Maintainer operations](maintainer-operations.md) — dependencies, repository
