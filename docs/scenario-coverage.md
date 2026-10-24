@@ -685,7 +685,7 @@ production-readiness workstream #130 is consolidated in the
 
 ### Performance
 
-- **PERF-001** — timeout is enforced and reported separately from signals/spawn failures. Fixture: precommit / prepush / process tests.
+- **PERF-001** — timed tools enforce deadlines and distinguish signals/spawn failures; pre-push tests finish without a deadline and remain cancellable. Fixture: precommit / prepush / process tests.
 - **PERF-002** — timeout cleanup terminates an attached grandchild on supported platforms. Fixture: `test/process.test.mjs`; CI matrix: Ubuntu, macOS, Windows.
 - **PERF-003** — bounded smoke, 250-pair full-hook, and 1,000-pair
   argument-pressure tiers cover large staged sets, pushed diffs, discovered

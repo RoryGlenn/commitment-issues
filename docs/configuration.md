@@ -402,7 +402,7 @@ Use push-time blocking when you want a hard gate before code is shared. Enable i
 
 When enabled, the same pushed-files test run blocks the push if any tests fail. If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
 
-The gate is capped by a timeout.
+Push tests wait for completion or cancellation, without a `timeoutMs` deadline.
 
 ## Commit and push guards
 
@@ -569,35 +569,35 @@ successfully from install-time `doctor --quiet`.
 
 All options are optional and use the same types in either configuration file:
 
-| Key                        | Type                            | Default                      | Description                                                                                                    |
-| -------------------------- | ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `testExempt`               | string[]                        | `[]`                         | Glob patterns for files excluded from the missing-test check.                                                  |
-| `requireTests`             | boolean                         | `true`                       | Set `false` to disable the missing-test check.                                                                 |
-| `runStagedTests`           | boolean                         | `false`                      | Run tests for staged files at commit time.                                                                     |
-| `advisePushTests`          | boolean                         | `true` after `init`          | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.           |
-| `blockPushOnTestFailure`   | boolean                         | `false`                      | Run the pushed files' tests at `git push` and block on failure.                                                |
-| `testCommand`              | string[]                        | `["node", "--test"]`         | Executable and options for staged/push tests; discovered paths are appended as argv and must be accepted.      |
-| `timeoutMs`                | number                          | `120000`                     | Max runtime before a spawned command and its attached process tree are terminated; maximum `2,147,483,647` ms. |
-| `tone`                     | `"standard"` or `"fun"`         | `"standard"`                 | Output tone for advisory pre-commit messages.                                                                  |
-| `hookOutput`               | `"problems-only"` or `"normal"` | `"problems-only"`            | Suppress final success/info hook boxes, or preserve every human-readable hook state.                           |
-| `showWelcomeOnFirstCommit` | boolean                         | `true`                       | Show the Commit Owl onboarding message once per clone; set `false` for completely silent successful hooks.     |
-| `protectedBranches`        | string[]                        | `["main", "master"]`         | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.            |
-| `blockProtectedBranches`   | boolean                         | `false`                      | Block (instead of warn about) commits and pushes to protected branches.                                        |
-| `adviseBehindUpstream`     | boolean                         | `true`                       | Warn at commit time when the branch is behind its upstream (as of the last fetch).                             |
-| `maxCommitFiles`           | number                          | `30`                         | Warn when a commit stages more than this many files. `0` disables.                                             |
-| `maxCommitLines`           | number                          | `2000`                       | Warn when a commit changes more than this many lines. `0` disables.                                            |
-| `maxFileSizeMb`            | number                          | `5`                          | Warn when a staged file exceeds this size in MB. `0` disables.                                                 |
-| `generatedPaths`           | string[]                        | build-artifact globs         | Globs flagged as generated files when staged. Replaces the default list.                                       |
-| `scanDebugArtifacts`       | boolean                         | `false`                      | Scan added staged lines for curated temporary debug artifacts; always advisory.                                |
-| `debugArtifactExempt`      | string[]                        | docs/fixture/effective globs | Repository-relative exemptions. An explicit list replaces the composed defaults.                               |
-| `scanSecrets`              | boolean                         | `true`                       | Scan added staged lines and dotenv files for likely credentials.                                               |
-| `blockOnSecrets`           | boolean                         | `false`                      | Block on a secret finding or when the staged patch cannot be safely inspected.                                 |
-| `secretExempt`             | string[]                        | `[]`                         | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                             |
-| `commitMessage`            | object                          | disabled                     | Optional project-local commitlint integration; see the nested keys above.                                      |
+| Key                        | Type                            | Default                      | Description                                                                                                |
+| -------------------------- | ------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `testExempt`               | string[]                        | `[]`                         | Glob patterns for files excluded from the missing-test check.                                              |
+| `requireTests`             | boolean                         | `true`                       | Set `false` to disable the missing-test check.                                                             |
+| `runStagedTests`           | boolean                         | `false`                      | Run tests for staged files at commit time.                                                                 |
+| `advisePushTests`          | boolean                         | `true` after `init`          | Run the pushed files' tests at `git push` but only warn. Ignored if `blockPushOnTestFailure` is set.       |
+| `blockPushOnTestFailure`   | boolean                         | `false`                      | Run the pushed files' tests at `git push` and block on failure.                                            |
+| `testCommand`              | string[]                        | `["node", "--test"]`         | Executable and options for staged/push tests; discovered paths are appended as argv and must be accepted.  |
+| `timeoutMs`                | number                          | `120000`                     | Tool deadline except pre-push tests; max `2,147,483,647` ms. Expiry terminates the attached process tree.  |
+| `tone`                     | `"standard"` or `"fun"`         | `"standard"`                 | Output tone for advisory pre-commit messages.                                                              |
+| `hookOutput`               | `"problems-only"` or `"normal"` | `"problems-only"`            | Suppress final success/info hook boxes, or preserve every human-readable hook state.                       |
+| `showWelcomeOnFirstCommit` | boolean                         | `true`                       | Show the Commit Owl onboarding message once per clone; set `false` for completely silent successful hooks. |
+| `protectedBranches`        | string[]                        | `["main", "master"]`         | Branch names or globs that trigger the protected-branch advisory on commit and push. `[]` disables.        |
+| `blockProtectedBranches`   | boolean                         | `false`                      | Block (instead of warn about) commits and pushes to protected branches.                                    |
+| `adviseBehindUpstream`     | boolean                         | `true`                       | Warn at commit time when the branch is behind its upstream (as of the last fetch).                         |
+| `maxCommitFiles`           | number                          | `30`                         | Warn when a commit stages more than this many files. `0` disables.                                         |
+| `maxCommitLines`           | number                          | `2000`                       | Warn when a commit changes more than this many lines. `0` disables.                                        |
+| `maxFileSizeMb`            | number                          | `5`                          | Warn when a staged file exceeds this size in MB. `0` disables.                                             |
+| `generatedPaths`           | string[]                        | build-artifact globs         | Globs flagged as generated files when staged. Replaces the default list.                                   |
+| `scanDebugArtifacts`       | boolean                         | `false`                      | Scan added staged lines for curated temporary debug artifacts; always advisory.                            |
+| `debugArtifactExempt`      | string[]                        | docs/fixture/effective globs | Repository-relative exemptions. An explicit list replaces the composed defaults.                           |
+| `scanSecrets`              | boolean                         | `true`                       | Scan added staged lines and dotenv files for likely credentials.                                           |
+| `blockOnSecrets`           | boolean                         | `false`                      | Block on a secret finding or when the staged patch cannot be safely inspected.                             |
+| `secretExempt`             | string[]                        | `[]`                         | Glob patterns excluded from the secrets scan (e.g. test fixtures).                                         |
+| `commitMessage`            | object                          | disabled                     | Optional project-local commitlint integration; see the nested keys above.                                  |
 
-For batching, `timeoutMs` is one overall deadline rather than a fresh allowance
-for every child. This includes the complete captured-input ESLint and Prettier
-fan-out of one `fix:staged` or `commit:fix` operation.
+Timed batches share one `timeoutMs` deadline, including all captured-input
+ESLint and Prettier work in one fix operation. Pre-push tests have no deadline;
+a hung runner requires cancellation (for example, Ctrl+C).
 
 Unrecognized configuration keys, including nested `commitMessage` keys, are ignored and named with their effective source in diagnostics from hooks, `init`, and `doctor` — so typos like `requireTest` or `commitMessage.enable` cannot silently disable, enable, or enforce a check.
 
