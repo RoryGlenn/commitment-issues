@@ -91,10 +91,19 @@ function runCli(root, args = []) {
 test("the repository release metadata is consistent without a historical exception", () => {
   const result = validateReleaseMetadata({ root: repositoryRoot });
 
-  assert.equal(result.version, "3.5.1");
-  assert.equal(result.tag, "v3.5.1");
+  assert.equal(result.version, "4.0.0");
+  assert.equal(result.tag, "v4.0.0");
   assert.equal(result.title, result.tag);
-  assert.match(result.notes, /exact copy of the\s+active Git index/u);
+  assert.equal(
+    result.notes,
+    [
+      "### Changed",
+      "",
+      "- Breaking: pre-push tests ignore `timeoutMs`; cancellation remains.",
+      "- Refresh YAML and development dependencies.",
+      "- Go prototype is repo-only; npm still needs Node.",
+    ].join("\n"),
+  );
   assert.equal(result.historical, null);
 });
 

@@ -1,10 +1,10 @@
 # Experimental Go staged checker
 
 This repository-only implementation is the first bounded read-only slice under
-[#84](https://github.com/RoryGlenn/commitment-issues/issues/84). It is not the v4
-release or a replacement for the supported v3 Node commands. The npm runtime
-and package allowlist, existing hooks, configuration, checks, and release version
-are unchanged.
+[#84](https://github.com/RoryGlenn/commitment-issues/issues/84). It is not the planned
+standalone Go release or a replacement for the supported Node commands. The
+4.0.0 npm package continues to use Node; this prototype is excluded from its
+allowlist and does not install or replace hooks.
 
 The source is in [`experimental/go-core`](../experimental/go-core). The module
 uses only the Go standard library. Go is needed to build it; the resulting
@@ -14,7 +14,7 @@ or project dependencies to inspect a Python-only repository.
 ## Build and invoke
 
 The experimental module currently selects Go 1.27 or newer. This is a prototype
-build constraint, not an approved v4 toolchain support policy. Use an installed
+build constraint, not an approved Go-core toolchain support policy. Use an installed
 trusted Go compiler and a writable cache, with automatic acquisition disabled:
 
 ```sh
@@ -73,7 +73,7 @@ Coverage gaps and snapshot failures are advisory/incomplete, never passed.
 Invalid invocation exits 2. Cancellation, SIGINT/SIGTERM and deadline expiry
 exit 130 with an incomplete result when the output stream remains writable.
 Human output escapes repository-controlled path/control bytes. JSON retains
-valid UTF-8 path identity. No `fun` tone, blocking option, or v3 configuration
+valid UTF-8 path identity. No `fun` tone, blocking option, or Node configuration
 reader is added to this independent experimental command.
 
 ## Resource and compatibility boundaries
@@ -109,7 +109,7 @@ fixtures with Node/npm absent from runtime PATH. They check staged bad/live good
 and staged good/live bad, alternate indexes, unusual filenames, unsupported
 input, advisory semantics, deadline behavior and unchanged repository bytes.
 Go statement coverage is recorded as evidence; it does not replace the existing
-v3 requirement for 100% line/branch/function coverage. Native platform support
+Node runtime requirement for 100% line/branch/function coverage. Native platform support
 requires an executed artifact on that platform; cross-compilation alone is not
 runtime evidence.
 
@@ -117,5 +117,5 @@ Next, settle the durable local trust/executable-binding contract and add a
 strictly opt-in Ruff check/format-check adapter operating on captured input.
 Version identity, bounded structured decoding, missing-tool behavior and
 no-download tests must precede enabling it. Native macOS/Windows artifacts and
-the v4 coverage policy remain separate gates. Lifecycle, configuration migration,
+the Go-core coverage policy remain separate gates. Lifecycle, configuration migration,
 fixes, test selection and publication remain later work.

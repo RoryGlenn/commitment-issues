@@ -194,7 +194,7 @@ defines the complete trust boundary.
 
 ## What projects and package managers are supported?
 
-The supported v3 product targets JavaScript and TypeScript projects running
+The supported product targets JavaScript and TypeScript projects running
 Node.js >=22.11.0. Local installs through npm, pnpm 10, Yarn Classic 1.22.22,
 Yarn Berry 4.17.0 with `nodeLinker: node-modules`, and Bun 1.3.14 are supported.
 TypeScript file discovery is built in, while parsing and lint rules remain

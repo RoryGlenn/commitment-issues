@@ -1,7 +1,7 @@
 # Documentation index
 
 This index separates documentation by audience and names the canonical source
-for each kind of product information. User guides describe the supported v3
+for each kind of product information. User guides describe the supported Node
 release. Maintainer and audit evidence remains public in the repository but is
 not installed with the npm package unless users need it offline.
 
