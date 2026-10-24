@@ -6,9 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadPrecommitConfig, MAX_TIMEOUT_MS } from "./config.mjs";
 
-// Default ceiling for any tool the hooks spawn, so a hung tool can never wedge a
-// commit indefinitely. Override with precommitChecks.timeoutMs (positive number
-// no greater than Node's maximum timer delay).
+// Default ceiling for timed tools. Pre-push tests explicitly have no deadline.
+// Override with precommitChecks.timeoutMs (positive number no greater than
+// Node's maximum timer delay).
 export const DEFAULT_TOOL_TIMEOUT_MS = 120000;
 
 /**
@@ -625,13 +625,10 @@ export function createProcessInterruptionManager({
 const interruptionManager = createProcessInterruptionManager();
 
 /**
- * Asynchronous spawn with a structured outcome. Pass `echo: true` to tee the
- * child's output live while still capturing it. `input` sends exact stdin
- * bytes and closes the stream. `timeoutMs` overrides the configured tool
- * deadline for a single call. Neither helper option is forwarded to spawn.
- *
- * On POSIX, the child leads a new process group so timeout cleanup includes its
- * descendants. On Windows, timeout cleanup uses `taskkill /t /f`.
+ * Spawn and capture a command. `echo` tees output; `input` sends exact bytes
+ * and closes stdin. `timeoutMs` overrides the deadline; null removes it.
+ * These options are not forwarded. Process-tree cancellation remains active:
+ * POSIX children lead process groups; Windows cleanup uses `taskkill /t /f`.
  * @param {string} command - Executable.
  * @param {string[]} args - Arguments.
  * @param {object} [options] - spawn options plus optional `echo`/`input`/`timeoutMs`.
@@ -646,9 +643,10 @@ export function spawnAsync(command, args, options = {}) {
   } = options;
   return new Promise((resolve) => {
     if (
-      !Number.isFinite(timeoutMs) ||
-      timeoutMs <= 0 ||
-      timeoutMs > MAX_TIMEOUT_MS
+      timeoutMs !== null &&
+      (!Number.isFinite(timeoutMs) ||
+        timeoutMs <= 0 ||
+        timeoutMs > MAX_TIMEOUT_MS)
     ) {
       const error = new RangeError(
         `timeoutMs must be a positive finite number no greater than ${MAX_TIMEOUT_MS}`,
@@ -712,10 +710,13 @@ export function spawnAsync(command, args, options = {}) {
         timedOut: true,
         cleanup: timeoutCleanup,
       });
-    const timer = setTimeout(() => {
-      timeoutCleanup = trackedTree.terminate();
-      trackedTree.done.then(finishTimeout);
-    }, timeoutMs);
+    const timer =
+      timeoutMs === null
+        ? null
+        : setTimeout(() => {
+            timeoutCleanup = trackedTree.terminate();
+            trackedTree.done.then(finishTimeout);
+          }, timeoutMs);
 
     if (child.stdout) {
       child.stdout.setEncoding("utf8");
@@ -800,10 +801,8 @@ function aggregateBatchResults(batchResults, plannedBatchCount) {
 }
 
 /**
- * Run pre-planned argument batches sequentially under one overall deadline.
- * Non-zero batches do not hide later findings; launch interruptions stop the
- * sequence. Optional callbacks support per-batch reporter setup/collection and
- * are included in the same deadline.
+ * Run batches sequentially with one deadline, including callbacks; null removes
+ * the deadline. Nonzero exits continue; interruptions stop later launches.
  * @param {string} command - Executable path/name.
  * @param {Array<{args: string[]}>} batches - Planned argument batches.
  * @param {object} [options] - spawn options plus batch callbacks.
@@ -826,9 +825,10 @@ export async function spawnArgumentBatches(command, batches, options = {}) {
     if (beforeBatch) {
       await beforeBatch(batch, index);
     }
-    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    const remainingMs =
+      timeoutMs === null ? null : timeoutMs - (Date.now() - startedAt);
     let result;
-    if (remainingMs <= 0) {
+    if (remainingMs !== null && remainingMs <= 0) {
       result = withOutcome({
         error: undefined,
         status: null,

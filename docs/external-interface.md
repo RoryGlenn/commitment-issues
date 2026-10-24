@@ -414,6 +414,8 @@ for symbolic-link entries and keeps the disposable tree on the installed
 dependency filesystem so local-tool junctions remain traversable. Unstaged and
 untracked project files are absent.
 Pre-push still discovers the current checkout from its working directory.
+Its tests wait for completion or cancellation; `timeoutMs` still applies to
+staged tests and other timed tools.
 Nested Git fixtures in either flow cannot be redirected into the hook caller by
 an inherited `GIT_DIR`, work tree, or index path.
 

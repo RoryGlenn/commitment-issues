@@ -90,8 +90,8 @@ count. If even the fixed command or one legal item cannot fit, the hook reports
 the same structured unavailable-command advisory or blocking result it uses
 for a launch failure.
 
-ESLint, Prettier, staged tests, and pre-push tests run their batches
-sequentially under one overall configured timeout. A normal non-zero exit does
+ESLint, Prettier, and staged tests share one configured deadline across their
+sequential batches. Pre-push test batches have no deadline. A normal non-zero exit does
 not skip later batches, so findings and failures from every path are retained.
 A timeout, signal, or spawn failure stops later launches; the existing
 process-tree cleanup applies to the interrupted child. A parent `SIGINT`,

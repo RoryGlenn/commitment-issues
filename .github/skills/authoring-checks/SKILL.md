@@ -41,6 +41,9 @@ Push pure logic **down into `scripts/lib/`** so it can be unit-tested directly; 
   Keep long-running commands on this boundary so attached descendants are
   reclaimed and unreclaimable inherited pipes cannot outlive a bounded cleanup
   grace before signal-appropriate exit.
+- Pre-push tests alone pass internal `timeoutMs: null` through batched execution
+  to wait for completion or cancellation. Do not expose null as configuration
+  or disable deadlines for other tools.
 - `TOOL_TIMEOUT_MS` — default 120s ceiling so a hung tool can't wedge a commit; overridden by `precommitChecks.timeoutMs` (positive number).
 - `isPackageInstalled(name, cwd)` — **fs-based** walk up `node_modules/<name>/package.json`. Must stay fs-based: a package whose `exports` map hides `package.json` makes `require.resolve('<name>/package.json')` throw (false negative). Do not "simplify" it to `require.resolve`.
 
@@ -159,7 +162,8 @@ documentation surfaces from drifting away from the source allowlist.
 
 1. Put pure logic in a `scripts/lib/*.mjs` export; keep the entry script thin.
 2. Default to **advisory** output via `warningBox`/`infoBox`; gate any blocking behavior behind an explicit `precommitChecks` flag.
-3. Use `toolInvocation`/`spawnAsync` (not raw npx) and honor `TOOL_TIMEOUT_MS`.
+3. Use `toolInvocation`/`spawnAsync` (not raw npx); preserve tool deadlines except
+   for pre-push tests, which retain process-tree cancellation.
 4. Read config only through `loadPrecommitConfig()`.
 5. Add standard-tone message strings, then the matching `fun`-tone variant.
 6. Unit-test the lib function in-process; subprocess-test the entry behavior in a temp repo.

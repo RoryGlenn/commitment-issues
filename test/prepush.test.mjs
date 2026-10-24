@@ -557,22 +557,114 @@ test("blocks the push when the test command cannot run", (t) => {
   assert.match(output, /could not run tests/);
 });
 
-test("blocks the push and reports a timeout when the test command exceeds timeoutMs", (t) => {
-  const tempDir = createTempRepo();
-  t.after(() => cleanupTempRepo(tempDir));
+for (const customRunner of [false, true]) {
+  for (const fails of [false, true]) {
+    test(`prepush waits beyond timeoutMs for ${customRunner ? "custom" : "Node"} tests that ${fails ? "fail" : "pass"}`, (t) => {
+      const tempDir = createTempRepo();
+      t.after(() => cleanupTempRepo(tempDir));
+      commitWidget(tempDir, 1);
+      writeFile(
+        path.join(tempDir, "src", "widget.test.mjs"),
+        "import test from 'node:test';\n" +
+          "import assert from 'node:assert/strict';\n" +
+          "import { setTimeout as delay } from 'node:timers/promises';\n" +
+          `test('delayed test completes', async () => { await delay(25); assert.equal(${fails}, false); });\n`,
+      );
+      if (customRunner) {
+        writeFile(
+          path.join(tempDir, "runner.mjs"),
+          "import { setTimeout as delay } from 'node:timers/promises';\n" +
+            "await delay(25);\n" +
+            "console.log('custom runner completed', ...process.argv.slice(2));\n" +
+            `process.exitCode = ${fails ? 1 : 0};\n`,
+        );
+      }
+      setConfig(tempDir, {
+        blockPushOnTestFailure: true,
+        protectedBranches: [],
+        timeoutMs: 1,
+        ...(customRunner ? { testCommand: ["node", "runner.mjs"] } : {}),
+      });
 
-  // A 1ms ceiling kills the runner before it finishes, exercising the
-  // result.signal (timed out) branch of the could-not-run reason.
-  setConfig(tempDir, { blockPushOnTestFailure: true, timeoutMs: 1 });
-  commitWidget(tempDir, 1);
+      for (const json of [false, true]) {
+        const result = run(
+          "node",
+          [
+            path.join(tempDir, "scripts", "prepush.mjs"),
+            ...(json ? ["--json"] : []),
+          ],
+          tempDir,
+          { input: pushInput(tempDir) },
+        );
+        const output = `${result.stdout}${result.stderr}`;
+        assert.equal(result.status, fails ? 1 : 0, output);
+        assert.doesNotMatch(output, /timed out|could not run tests/);
+        assert.match(
+          output,
+          customRunner
+            ? /custom runner completed src\/widget.test.mjs/
+            : /delayed test completes/,
+        );
+        if (json) {
+          const payload = JSON.parse(result.stdout);
+          const check = payload.checks.find(({ id }) => id === "push-tests");
+          assert.equal(check.status, fails ? "failed" : "passed");
+          assert.equal(check.details.outcome, fails ? "nonzero" : "success");
+        } else if (fails) {
+          assert.match(output, /Push blocked: tests failed/);
+        }
+      }
+    });
+  }
+}
 
-  const result = runPrePush(tempDir, pushInput(tempDir));
-  const output = `${result.stdout}${result.stderr}`;
+test(
+  "prepush blocks an interrupted test runner without classifying it as a timeout",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const tempDir = createTempRepo();
+    t.after(() => cleanupTempRepo(tempDir));
+    commitWidget(tempDir, 1);
+    setConfig(tempDir, {
+      blockPushOnTestFailure: true,
+      protectedBranches: [],
+      timeoutMs: 1,
+      testCommand: [
+        process.execPath,
+        "-e",
+        "process.kill(process.pid, 'SIGTERM')",
+      ],
+    });
 
-  assert.equal(result.status, 1);
-  assert.match(output, /Push blocked: could not run tests/);
-  assert.match(output, /timed out/);
-});
+    for (const json of [false, true]) {
+      const result = run(
+        process.execPath,
+        [
+          path.join(tempDir, "scripts", "prepush.mjs"),
+          ...(json ? ["--json"] : []),
+        ],
+        tempDir,
+        { input: pushInput(tempDir) },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+      assert.equal(result.status, 1, output);
+      assert.doesNotMatch(output, /timed out/);
+      if (json) {
+        const payload = JSON.parse(result.stdout);
+        const check = payload.checks.find(({ id }) => id === "push-tests");
+        assert.equal(payload.status, "blocked");
+        assert.equal(check.status, "failed");
+        assert.equal(check.details.outcome, "signal");
+        assert.equal(check.details.signal, "SIGTERM");
+        assert.equal(check.details.status, null);
+        assert.equal(check.details.error, null);
+      } else {
+        assert.match(output, /Push blocked: could not run tests/);
+        assert.match(output, /The test command stopped after SIGTERM\./);
+      }
+    }
+  },
+);
 
 test(
   "prepush cancels custom-runner descendants before exiting on SIGINT",
@@ -588,6 +680,7 @@ test(
     });
     setConfig(tempDir, {
       advisePushTests: true,
+      timeoutMs: 1,
       testCommand: fixture.command,
     });
     const execution = runAsync(

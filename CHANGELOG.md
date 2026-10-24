@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Experimental Go staged checks (repository only).
+- Experimental Go staged checks (repo only).
 
 ### Fixed
 
 - Refresh YAML parsing and development dependencies on compatible versions.
+- Let pre-push tests finish without a deadline; preserve cancellation.
 
 ## [3.5.1] - 2026-07-26
 

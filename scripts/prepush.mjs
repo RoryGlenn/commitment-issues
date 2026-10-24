@@ -664,6 +664,7 @@ if (isNodeTest) {
       parts.fileArgs,
       {
         env,
+        timeoutMs: null,
         stdio: jsonMode ? ["ignore", "pipe", "pipe"] : "inherit",
         beforeBatch: () => fs.writeFileSync(tapFile, ""),
         afterBatch: () =>
@@ -683,6 +684,7 @@ if (isNodeTest) {
     testFiles,
     {
       env,
+      timeoutMs: null,
       echo: !jsonMode,
     },
   );

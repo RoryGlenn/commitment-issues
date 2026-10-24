@@ -219,10 +219,10 @@ full deterministic lookup order.
 
 If `blockPushOnTestFailure` and `advisePushTests` are both set, blocking takes precedence.
 
-Spawned tools return structured outcomes for success, normal nonzero exit,
-external signal, timeout, and spawn failure. Missing built-in peer tools are a
-separate outcome. Timeout cleanup terminates the attached process group on
-Ubuntu/macOS and process tree on Windows; see the documented
+Tools distinguish success, nonzero exit, signal, timeout, spawn failure, and
+missing peers. Pre-push tests have no deadline. Cancellation and timed-tool
+expiry terminate the attached process group on Ubuntu/macOS and process tree
+on Windows; see the
 [timeout cleanup boundary](configuration.md#timeout-cleanup-boundary).
 
 ## Configuration defaults
