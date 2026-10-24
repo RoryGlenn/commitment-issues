@@ -1,7 +1,7 @@
 # Roadmap
 
 This document describes the current public direction for `commitment-issues`.
-It distinguishes the supported v3 product from proposed post-launch work; an
+It distinguishes the supported Node product from proposed post-launch work; an
 open issue is a design proposal, not a compatibility or delivery promise.
 
 The canonical [Definition of Done](docs/definition-of-done.md) defines the
@@ -11,7 +11,7 @@ ideas remain backlog candidates rather than retroactive blockers.
 
 ## Current product and near-term priority
 
-The supported v3 release is a local, advisory-first Git-hook toolkit for
+The 4.0.0 release remains a local, advisory-first Git-hook toolkit for
 JavaScript and TypeScript projects running Node.js >=22.11.0. It remains the
 recommended release while future architecture is evaluated.
 
@@ -74,7 +74,7 @@ discovers. It does require recording each finding, fixing all launch blockers,
 and explicitly accepting or deferring remaining risks in separately tracked
 issues before closing the workstream.
 
-### Maintain and support v3
+### Maintain and support Node releases
 
 - Keep npm, pnpm, Yarn, Bun, Node.js, framework, monorepo, migration, and CI
   guidance aligned with the tested support matrix.
@@ -95,15 +95,16 @@ Post-launch GUI-client validation remains separately tracked in
 UI lanes run, the project does not claim verified support for VS Code Source
 Control, JetBrains commit/push UI, or GitHub Desktop.
 
-### Evaluate the v4 standalone core
+### Evaluate the Go standalone core
 
-The proposed v4 workstream is tracked in
+The unfinished standalone Go workstream is tracked in
 [#84](https://github.com/RoryGlenn/commitment-issues/issues/84). Its current
 direction is one language-neutral standalone Go executable, with GitHub release
 artifacts and optional ecosystem-specific distribution wrappers. The first
-stage is to define the v3 compatibility, configuration, output, installation,
+stage is to define the Node compatibility, configuration, output, installation,
 migration, rollback, and support contracts before treating a rewrite as a GA
-commitment.
+commitment. The 4.0.0 npm package retains the Node implementation; the
+[experimental Go checker](docs/go-readonly-prototype.md) remains repository-only.
 
 v3 remains supported during that evaluation. The project should not maintain
 separate behavioral implementations for each programming language.
