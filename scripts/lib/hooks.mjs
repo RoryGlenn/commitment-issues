@@ -10,7 +10,14 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import yaml from "js-yaml";
+import {
+  CORE_SCHEMA,
+  defineScalarTag,
+  load as loadYaml,
+  NOT_RESOLVED,
+  nullCoreTag,
+  timestampTag,
+} from "js-yaml";
 import { run } from "./process.mjs";
 
 export const BIN = "commitment-issues";
@@ -738,25 +745,24 @@ const PRE_COMMIT_TYPE_TAGS = new Set([
   "yaml",
 ]);
 
-// pre-commit parses configuration through PyYAML's YAML 1.1 SafeLoader. js-yaml
-// otherwise follows YAML 1.2, where spellings such as plain `yes`, `1:20`, and
-// underscore-separated numbers remain strings. Add the complete SafeLoader
-// implicit-scalar grammar as a fallback after js-yaml's built-ins so a document
-// that pre-commit would type differently is never reported healthy. Quoted and
-// block scalars remain strings because implicit resolvers do not inspect them.
+// pre-commit uses PyYAML's YAML 1.1 SafeLoader. Add its non-string grammar after
+// the YAML 1.2 built-ins so plain `yes`, `1:20`, and numbers with underscores fail
+// string validation. Implicit resolvers leave quoted and block scalars as strings.
 const PY_YAML_IMPLICIT_NON_STRING =
-  /^(?:yes|Yes|YES|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF|~|null|Null|NULL|[-+]?0b[0-1_]+|[-+]?0[0-7_]+|[-+]?(?:0|[1-9][0-9_]*)|[-+]?0x[0-9a-fA-F_]+|[-+]?[1-9][0-9_]*(?::[0-5]?[0-9])+|[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+][0-9]+)?|\.[0-9][0-9_]*(?:[eE][-+][0-9]+)?|[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)|[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{4} -[0-9]{1,2} -[0-9]{1,2}(?:[Tt]|[ \t]+)[0-9]{1,2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]*)?(?:[ \t]*(?:Z|[-+][0-9]{1,2}(?::[0-9]{2})?))?)$/u;
-const PY_YAML_SAFE_LOADER_TYPE = new yaml.Type(
+  /^(?:yes|Yes|YES|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF|~|null|Null|NULL|[-+]?0b[0-1_]+|[-+]?0[0-7_]+|[-+]?(?:0|[1-9][0-9_]*)|[-+]?0x[0-9a-fA-F_]+|[-+]?[1-9][0-9_]*(?::[0-5]?[0-9])+|[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+][0-9]+)?|\.[0-9][0-9_]*(?:[eE][-+][0-9]+)?|[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)|[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:[Tt]|[ \t]+)[0-9]{1,2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]*)?(?:[ \t]*(?:Z|[-+][0-9]{1,2}(?::[0-9]{2})?))?)$/u;
+const PY_YAML_SAFE_LOADER_TAG = defineScalarTag(
   "tag:yaml.org,2002:pyyaml-implicit-non-string",
   {
-    kind: "scalar",
-    resolve: (value) => PY_YAML_IMPLICIT_NON_STRING.test(String(value)),
-    construct: () => null,
+    implicit: true,
+    resolve: (value) =>
+      PY_YAML_IMPLICIT_NON_STRING.test(value) ? null : NOT_RESOLVED,
+    identify: nullCoreTag.identify,
   },
 );
-const PY_YAML_SAFE_LOADER_SCHEMA = yaml.DEFAULT_SCHEMA.extend({
-  implicit: [PY_YAML_SAFE_LOADER_TYPE],
-});
+const PY_YAML_SAFE_LOADER_SCHEMA = CORE_SCHEMA.withTags(
+  timestampTag,
+  PY_YAML_SAFE_LOADER_TAG,
+);
 const PRE_COMMIT_CONFIG_FILES = Object.freeze([
   ".pre-commit-config.yaml",
   ".pre-commit-config.yml",
@@ -1376,7 +1382,7 @@ function hasAdvancedYamlSyntax(content) {
 
 function parseInspectableYamlMapping(content) {
   try {
-    const document = yaml.load(content, {
+    const document = loadYaml(content, {
       json: false,
       schema: PY_YAML_SAFE_LOADER_SCHEMA,
     });

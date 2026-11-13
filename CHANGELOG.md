@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Updated js-yaml and its lockfile for v5 while preserving hook-manager YAML
+  validation.
+
 ## [4.0.0] - 2026-10-24
 
 ### Changed

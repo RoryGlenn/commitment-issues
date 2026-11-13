@@ -4023,6 +4023,51 @@ test("pre-commit integration inspection validates complete local hook entries", 
   );
 });
 
+test("pre-commit inspection preserves plain, quoted, and block scalar types", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pre-commit-scalars-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const names = ["pre-commit", "pre-push", "commit-msg"];
+  const snippets = hookManagerSnippets("pre-commit", names);
+  const config = `repos:\n  - repo: local\n    hooks:\n${snippets.map(({ content }) => content).join("")}`;
+
+  for (const scalar of [
+    "yes",
+    "NO",
+    "On",
+    "off",
+    "true",
+    "null",
+    "0b101",
+    "0123",
+    "1_000",
+    "0xFF",
+    "1:20",
+    "1:20.5",
+    "-.inf",
+    ".NaN",
+    "2024-01-01",
+    "2024-01-01T12:30:00Z",
+    "2024-02-30T12:30:00Z",
+    "2024-01-01T25:00:00Z",
+  ]) {
+    for (const [source, expected] of [
+      [scalar, "uninspectable"],
+      [JSON.stringify(scalar), "wired"],
+      [`|-\n          ${scalar}`, "wired"],
+    ]) {
+      fs.writeFileSync(
+        path.join(dir, ".pre-commit-config.yaml"),
+        `${config}  - repo: local\n    hooks:\n      - id: scalar-name\n        name: ${source}\n        entry: echo existing\n        language: system\n`,
+      );
+      assert.equal(
+        inspectHookManager("pre-commit", names, dir).status,
+        expected,
+        source,
+      );
+    }
+  }
+});
+
 test("manager YAML inspection rejects malformed and advanced documents", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "manager-yaml-safe-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
