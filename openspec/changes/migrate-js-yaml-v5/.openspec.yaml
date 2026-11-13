@@ -1,0 +1,5 @@
+schema: spec-driven
+skip_specs: true
+created: 2026-11-13
+goal: Make PR 334 installable with js-yaml v5 while preserving hook-manager
+  inspection behavior

@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import yaml from "js-yaml";
+import { load as loadYaml } from "js-yaml";
 import {
   collectIssuePages,
   createRhrRun,
@@ -442,7 +442,7 @@ test("GitHub forms preserve parent, domain, and finding record fields", () => {
   const forms = new Map(
     ["rhr_parent.yml", "rhr_domain.yml", "rhr_finding.yml"].map((file) => [
       file,
-      yaml.load(
+      loadYaml(
         fs.readFileSync(
           path.join(root, ".github", "ISSUE_TEMPLATE", file),
           "utf8",
